@@ -1,0 +1,24 @@
+{
+  "name": "pablo-desktop",
+  "private": true,
+  "version": "0.6.0",
+  "author": "Pablo",
+  "description": "Pablo desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "electron check.js",
+    "backend": "cd .. && build\\venv\\Scripts\\python -m PyInstaller pablo.py --name pablo-backend --onedir --noconfirm --clean --paths src --collect-submodules pablo_v2 --distpath build/dist --workpath build/work --specpath build",
+    "package": "electron-forge package",
+    "make": "electron-forge make"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-squirrel": "7.11.2",
+    "@openai/codex-win32-x64": "npm:@openai/codex@0.152.0-win32-x64",
+    "electron": "^41.7.1"
+  },
+  "dependencies": {
+    "pdfjs-dist": "5.6.205"
+  }
+}

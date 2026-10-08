@@ -1,0 +1,120 @@
+{
+  "pdf": "LinearRAG.pdf",
+  "note": "M3.3 gold evidence for LinearRAG (arXiv:2510.10114v4). Pages are 1-based PDF pages. exact is matched on pdf.key (whitespace and hyphens ignored). Table regions name the row and columns; the highlight is the union of that row's text items, never the whole table.",
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "LinearRAG의 핵심 contribution은 무엇인가?",
+      "expected": "relation-free Tri-Graph(가벼운 entity 추출 + semantic linking)와 2단계 retrieval(semantic bridging으로 entity activation, PPR로 global importance aggregation).",
+      "gold": [
+        {"page": 2, "kind": "text", "exact": "LinearRAG constructs a relation-free hierarchical graph, called Tri-Graph, using only lightweight entity extraction and semantic linking"},
+        {"page": 2, "kind": "text", "exact": "we design a two-stage retrieval mechanism that combines local semantic bridging for precise entity activation with global importance aggregation"}
+      ],
+      "must": ["Tri-Graph|relation-free|관계", "two-stage|2단계|두 단계"],
+      "keywords": ["contributions", "Tri-Graph", "two-stage"]
+    },
+    {
+      "id": "Q2",
+      "question": "LinearRAG가 baseline보다 효율적이라는 실험 근거가 어디 있어?",
+      "expected": "Table 2: LinearRAG 행이 indexing 249.78 s, retrieval 0.093 s, token 0/0, accuracy 66.95. Obs. 6: 전체 pipeline에서 가장 빠르고 token 사용이 0.",
+      "gold": [
+        {"page": 9, "kind": "table", "table": "Table 2", "row": "LinearRAG (Ours)", "columns": ["Indexing", "Retrieval (Avg.)", "Prompt", "Completion", "Accuracy"], "exact": "LinearRAG (Ours) 249.78 0.093 0 0 66.95"},
+        {"page": 9, "kind": "text", "exact": "LinearRAG delivers the strongest overall efficiency"}
+      ],
+      "must": ["249\\.78|Table 2|표 2", "0\\.093|token|토큰"],
+      "keywords": ["efficiency", "Table 2", "indexing"]
+    },
+    {
+      "id": "Q3",
+      "question": "논문은 LinearRAG의 indexing 시간 개선을 어떻게 주장하며, Table 2의 실제 baseline 비교는 무엇을 보여주는가?",
+      "expected": "저자 주장: 'reduces indexing time by over 77%'(p.2, 비교 대상 없음). Table 2: LinearRAG 249.78 s vs HippoRAG2 1147.01(약 78%), GFM-RAG 1202.77(약 79%), HippoRAG 936.00(약 73%), E2GraphRAG 534.60(약 53%). 77%는 일부 baseline에만 맞는다. 두 근거를 [1][2]로 나눠 모호함을 남긴다.",
+      "gold": [
+        {"page": 2, "kind": "text", "role": "claim", "exact": "reduces indexing time by over 77%"},
+        {"page": 9, "kind": "table", "role": "table", "table": "Table 2", "row": "LinearRAG (Ours)", "columns": ["Indexing"], "exact": "LinearRAG (Ours) 249.78", "alt": ["E2GraphRAG 534.60"]}
+      ],
+      "must": ["77", "249\\.78", "E2GraphRAG|534\\.6|HippoRAG|1147|1202|936"],
+      "need_all": true,
+      "consistency": ["뒷받침(되|하)지 않|일정하지 않|일치하지 않|불일치|맞지 않|해석할 수 없|단정할 수 없|볼 수 없|불명확|명확하지 않|일부 baseline|모든 baseline[^.]{0,20}(아니|않)|inconsisten|not consistent|only (for )?some"],
+      "keywords": ["77%", "indexing time", "Table 2"]
+    },
+    {
+      "id": "Q4",
+      "question": "대규모 corpus에서 LinearRAG의 indexing 효율 근거는?",
+      "expected": "Table 6(ATLAS-Wiki 5M/10M): LinearRAG 1409.95 s / 3084.38 s, token 0. Obs. 13: RAPTOR 대비 12.8x, 15.1x speedup.",
+      "gold": [
+        {"page": 18, "kind": "table", "table": "Table 6", "row": "5M LinearRAG (Ours)", "columns": ["Indexing Time (s)", "Prompt", "Completion"], "exact": "LinearRAG (Ours) 1409.95 0 0"},
+        {"page": 18, "kind": "text", "exact": "achieving 12.8× and 15.1× speedup compared to RAPTOR on 5M and 10M datasets respectively"}
+      ],
+      "must": ["12\\.8|15\\.1|1409|3084", "RAPTOR|ATLAS|5M|10M"],
+      "keywords": ["large-scale", "ATLAS-Wiki", "speedup"]
+    },
+    {
+      "id": "Q5",
+      "question": "retrieval 단계에서 LinearRAG보다 빠른 baseline이 있는가?",
+      "expected": "있다. E2GraphRAG(0.053 s)와 RAPTOR(0.062 s)가 LinearRAG(0.093 s)보다 retrieval이 빠르다. 저자도 Obs. 6에서 인정하고, 대신 정확도가 크게 낮다고 쓴다.",
+      "gold": [
+        {"page": 9, "kind": "text", "exact": "While E2GraphRAG and RAPTOR are more time-efficient than LinearRAG at the retrieval stage"},
+        {"page": 9, "kind": "table", "table": "Table 2", "row": "E2GraphRAG", "columns": ["Retrieval (Avg.)"], "exact": "E2GraphRAG 534.60 0.053"}
+      ],
+      "must": ["E2GraphRAG", "RAPTOR"],
+      "forbid": ["LinearRAG(가|이)? (retrieval에서도 )?가장 빠르"],
+      "keywords": ["retrieval stage", "time-efficient", "E2GraphRAG"]
+    },
+    {
+      "id": "Q6",
+      "question": "LinearRAG의 정확도 개선 근거는?",
+      "expected": "Table 1 LinearRAG 행(평균 63.72 등)과 2Wiki GPT-Acc 63.70%, 2위 대비 약 3.80%p 개선(Obs. 3).",
+      "gold": [
+        {"page": 8, "kind": "text", "exact": "LinearRAG achieves 63.70% GPT-based accuracy on 2Wiki, around 3.80% absolute improvement over the second best baseline"},
+        {"page": 7, "kind": "table", "table": "Table 1", "row": "LinearRAG (Ours)", "columns": ["HotpotQA", "2Wiki", "MuSiQue", "Medical"], "exact": "LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72"}
+      ],
+      "must": ["63\\.7|3\\.8|Table 1|표 1"],
+      "keywords": ["accuracy", "Table 1", "absolute improvement"]
+    },
+    {
+      "id": "Q7",
+      "question": "GraphRAG가 vanilla RAG보다 못한 이유는?",
+      "expected": "GraphRAG는 evidence recall은 조금 높지만 context relevance가 36.86~54.61%로 vanilla RAG 62.87%보다 낮다. 불안정한 relation extraction이 noise를 들여온다.",
+      "gold": [
+        {"page": 3, "kind": "text", "exact": "exhibit significantly lower context relevance, ranging from 36.86% to 54.61%, compared to Vanilla RAG, which attains 62.87% performance"},
+        {"page": 2, "kind": "text", "exact": "reliance on unstable relation extraction introduces noise and structural inconsistencies"}
+      ],
+      "must": ["relevance|관련", "noise|노이즈|relation"],
+      "keywords": ["Vanilla RAG", "context relevance", "noise"]
+    },
+    {
+      "id": "Q8",
+      "question": "ablation에서 두 component는 각각 어떤 역할을 하는가?",
+      "expected": "Entity Activation(semantic bridging)은 multi-hop 질문의 숨은 관계를 찾고, Global Importance Aggregation(PPR)은 문서 중요도를 전역 관점에서 평가한다. 둘 다 빼면 성능이 떨어진다(Figure 4, Obs. 7).",
+      "gold": [
+        {"page": 9, "kind": "text", "exact": "In the first Stage, LinearRAG identifies contextually relevant entities through semantic similarity propagation"},
+        {"page": 9, "kind": "text", "exact": "In the second Stage, the model uses personalized PageRank algorithms on the activated subgraph to evaluate document importance from a global perspective"}
+      ],
+      "must": ["Entity Activation|entity|엔티티", "PageRank|PPR|Global Importance|전역"],
+      "keywords": ["ablation", "w/o Entity Activation", "Global Importance Aggregation"]
+    },
+    {
+      "id": "Q9",
+      "question": "LinearRAG의 memory/computation 효율 근거는 실측인가, complexity 분석인가?",
+      "expected": "실측이 아니라 complexity 분석이다. App. D: 계산 O(|P|·T), 메모리 O(|P|·T), sparse 행렬. §3.1도 sparse 형태로 memory를 linear로 줄인다고 주장만 한다. 메모리 실측 표는 없다.",
+      "gold": [
+        {"page": 16, "kind": "text", "exact": "Therefore, the overall memory complexity is O(|P| ·T+|P|) = O(|P| ·T), i.e., linear with respect to corpus size"},
+        {"page": 5, "kind": "text", "exact": "implemented in sparse form, exploiting their intrinsic sparsity to further reduce memory usage to a linear-scalability"}
+      ],
+      "must": ["complexity|복잡도|분석", "O\\("],
+      "forbid": ["(메모리|memory)[^.]{0,40}(실측|측정|measur)(?![^.]{0,15}(없|않|아니|not))"],
+      "keywords": ["memory", "complexity", "sparse"]
+    },
+    {
+      "id": "Q10",
+      "question": "LinearRAG의 retrieval quality(relevance) 결과는?",
+      "expected": "Table 4 LinearRAG relevance: fact 86.09, complex 81.58, contextual 87.89, creative 72.74. 네 범주 모두 relevance가 가장 높다. recall 1위 주장(Obs. 9)은 Table 4와 맞지 않으므로 gold로 쓰지 않는다.",
+      "gold": [
+        {"page": 17, "kind": "table", "table": "Table 4", "row": "LinearRAG (Ours)", "columns": ["Fact Retrieval Relevance", "Complex Reasoning Relevance", "Contextual Relevance", "Creative Relevance"], "exact": "LinearRAG (Ours) 88.86 86.09 87.03 81.58 89.13 87.89 89.08 72.74"}
+      ],
+      "must": ["86\\.09|81\\.58|87\\.89|72\\.74"],
+      "robustness": "Obs. 9는 'high recall'을 주장하지만 Table 4에서 GFM-RAG fact recall 90.08 > 88.86, RAPTOR complex recall 89.70 > 87.03이다. 답이 recall 1위를 단정하면 메모로 남긴다.",
+      "keywords": ["relevance", "Table 4", "retrieval quality"]
+    }
+  ]
+}

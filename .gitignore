@@ -1,0 +1,16 @@
+# build output
+desktop/node_modules/
+desktop/out/
+build/
+*.exe
+*.nupkg
+
+# local state, caches
+.pablo/
+.pytest_cache/
+__pycache__/
+*.pyc
+graphify-out/
+
+# third-party paper (not ours to redistribute)
+LinearRAG.pdf
