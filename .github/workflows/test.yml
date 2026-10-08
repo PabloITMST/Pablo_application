@@ -1,0 +1,20 @@
+name: test
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  python:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      # the test paper is not in the repo; arXiv serves the same bytes
+      - run: |
+          curl -sSL -o LinearRAG.pdf https://arxiv.org/pdf/2510.10114v4
+          echo "1df0bd67b590f331d7928c65bbdc0a086ce6c41195428a8f3670683dcd3de533  LinearRAG.pdf" | sha256sum -c
+      - run: for t in tests/*/test_*.py; do echo "== $t"; python "$t" || exit 1; done
