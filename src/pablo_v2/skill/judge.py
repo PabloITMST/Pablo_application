@@ -136,7 +136,8 @@ QUESTION (answer in its language):
 {question}
 """
 
-COMPARE_SCHEMA = _obj(cells={"type": "array", "items": _obj(column=_str, value=_str, quote=_str, page={"type": "integer"})})
+COMPARE_SCHEMA = _obj(cells={"type": "array", "items": _obj(column=_str, value=_str, metric=_str, quote=_str,
+                                                              page={"type": "integer"})})
 
 COMPARE_PROMPT = """You fill one row of a table that compares several papers: the row for the paper below. Other papers
 get the same columns in separate calls, so answer about this paper only. Pablo locates every quote in the PDF and
@@ -146,6 +147,9 @@ For each column, one cell, in the order given:
 - column: the column name exactly as given.
 - value: a short answer in Korean (at most 20 words; keep names, metrics and numbers as the paper writes them), or ""
   when this paper does not state it. Never infer, estimate or carry a value from another paper.
+- metric: when the value is a measured number (a score, a time, a size), what it measures as the paper names it,
+  e.g. "EM", "F1", "GPT-Acc", "Recall@5", "seconds"; "" when the value is not a measurement. A reader compares
+  numbers across papers only when this is the same.
 - quote: copied verbatim from one page's text (same words and numbers, in order), 5-30 words, one contiguous span that
   appears only once in the paper and supports the value. For a number from a table: ONE row, its label followed by
   the numbers, exactly as in the text. "" when value is "".

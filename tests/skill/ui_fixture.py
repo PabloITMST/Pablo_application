@@ -221,7 +221,9 @@ class PapersJudge:  # C1/C3 stubs: one answer over both papers, each paper's row
                              ("HotpotQA 58.2", "OtherRAG reaches 58.2 accuracy on HotpotQA", 2),
                              ("색인 95초", "Indexing takes 95 seconds on one GPU", 2),
                              ("효율은 색인 시간만 다룸", "We do not study efficiency beyond indexing time", 2)]}[title]
-        return {"cells": [{"column": c, "value": v, "quote": q, "page": p} for c, (v, q, p) in zip(columns, rows)]}
+        # ⑧ what each number measures: the two papers report their main result in different metrics (지표 다름)
+        metric = {"TinyRAG": {"주요 결과": "accuracy", "효율": "seconds"}, "OtherRAG": {"주요 결과": "GPT-Acc", "효율": "seconds"}}[title]
+        return {"cells": [{"column": c, "value": v, "metric": metric.get(c, ""), "quote": q, "page": p} for c, (v, q, p) in zip(columns, rows)]}
 
 
 THIRD = ["arXiv:2502.00002v1 [cs.IR] 2 Feb 2025. ThirdRAG: hypergraph retrieval for long documents.",

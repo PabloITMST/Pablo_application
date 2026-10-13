@@ -141,7 +141,7 @@ class CompareJudge:  # A: two cells anchor, one quote is not in the paper, one c
         if title == "TinyRAG":
             return {"cells": [
                 {"column": "데이터셋", "value": "HotpotQA, MuSiQue", "quote": SAME, "page": 1},
-                {"column": "주요 결과", "value": "HotpotQA 61.5", "quote": "TinyRAG reaches 61.5 accuracy on HotpotQA", "page": 2},
+                {"column": "주요 결과", "value": "HotpotQA 61.5", "metric": " accuracy ", "quote": "TinyRAG reaches 61.5 accuracy on HotpotQA", "page": 2},
                 {"column": "효율", "value": "색인 3초", "quote": "Indexing takes 3 seconds", "page": 2},  # not what it says
                 {"column": "한계", "value": "", "quote": "", "page": 0}]}
         return {"cells": [
@@ -174,6 +174,8 @@ def test_compare_table():
         assert same == [a.id, b.id]  # the sentence both papers have: anchored in each row's own paper
         v = model(s, t.id)["checks"][cells[0].id]
         assert v["matrix"] == {"id": "M1", "column": "데이터셋", "source_id": a.id} and v["paper"] == "TinyRAG"
+        # ⑧ what a number measures is kept with its cell (trimmed); a cell that is not a measurement has none
+        assert [c.matrix.get("metric") for c in cells if c.matrix["source_id"] == a.id] == [None, "accuracy"]
         assert render_brief(s, t.id) == ("", [])  # nothing for the agent
         s.propose_action(t.id, "명령 실행: python eval.py")
         assert not any(c.id in j.checks for c in cells)  # nor for the Guard
@@ -181,6 +183,15 @@ def test_compare_table():
             try:
                 s.compare(t.id, bad)
                 raise AssertionError("two papers needed")
+            except ValueError:
+                pass
+        # ⑧ the name the user knows a paper by: the model and the brief use it; its anchors stay
+        s.rename_source(b.id, "  Other  RAG ")
+        assert s.get_source(b.id).title == "Other RAG" and model(s, t.id)["checks"][cells[-1].id]["paper"] == "Other RAG"
+        for bad in ("", " ", "x" * 121):
+            try:
+                s.rename_source(b.id, bad)
+                raise AssertionError("a name is 1-120 characters")
             except ValueError:
                 pass
 

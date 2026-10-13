@@ -308,6 +308,14 @@ ipcMain.handle("pablo:remove-source", (e, task, id) => {
   saveDesk(d => { d.pdf[task] = papers.list(d, task).filter(p => p.id !== id); if ((d.primary || {})[task] === id) delete d.primary[task]; });
   return true;
 });
+// ⑧ the name the user knows a paper by: Pablo's records (cards, brief, panels) and the task lists that hold it
+ipcMain.handle("pablo:rename-source", async (e, task, id, title) => {
+  fromWindow(e); known(task);
+  if (!str(id, 20) || !/^SRC\d+$/.test(id) || !papers.list(desk(), task).some(p => p.id === id) || !str(title, 120) || !title.trim()) throw new Error("bad name");
+  const r = await ctl.py("rename-source", id, "--title", title.trim()).catch(err => { throw new Error(short(err.message)); });
+  saveDesk(d => { for (const t of Object.keys(d.pdf || {})) for (const p of papers.list(d, t)) if (p.id === id) p.title = r.source.title; });
+  return r.source.title;
+});
 // C1: the 주 논문, the paper this task reproduces: 재현 조건 뽑기 reads it (and replaces any other paper's conditions)
 ipcMain.handle("pablo:set-primary", (e, task, id) => {
   fromWindow(e); known(task);

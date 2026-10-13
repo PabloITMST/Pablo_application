@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -1116,11 +1116,32 @@ async function papersUi() {
   assert.deepStrictEqual(await tools(), { papers: [["TinyRAG v2", true], ["OtherRAG", false], ["TinyRAG notes", false]], spec: "📋 재현 조건 뽑기 (TinyRAG)", compare: true });
   assert.ok(await js(`!document.querySelector('#src [data-kind="web"] [data-make-primary]')`), "a web page is never the 주 논문");
   // the table: what each paper says, located; what Pablo could not locate is empty, and says why
-  const rows = () => js(`[...document.querySelectorAll("#log [data-matrix] tbody tr")].map(tr => [...tr.children].map(td => td.classList.contains("none") ? "-" : td.textContent.replace(/\\s*\\[\\d+\\]/g, "").trim()))`);
+  const rows = () => js(`[...document.querySelectorAll("#log [data-matrix] tbody tr")].map(tr => [...tr.children].map(td => { const x = td.cloneNode(true);
+    x.querySelectorAll(".metric, .rn").forEach(y => y.remove()); return td.classList.contains("none") ? "-" : x.textContent.replace(/\\s*\\[\\d+\\]/g, "").trim(); }))`);
   assert.deepStrictEqual(await rows(), [["TinyRAG v2", "HotpotQA, MuSiQue", "HotpotQA 61.5", "-", "-"], ["OtherRAG", "HotpotQA, MuSiQue", "HotpotQA 58.2", "색인 95초", "효율은 색인 시간만 다룸"]]);
   assert.match(await js(`document.querySelector("#log [data-matrix] .head").textContent + " | " + document.querySelector("#log [data-matrix] .muted").textContent`),
     /논문 2편 × 항목 4개 \| 칸 8개 중 6개는 논문에서 위치를 찾은 값입니다\. 나머지 2개는/);
   assert.match(await js(`document.querySelector('#log [data-matrix] tr[data-paper="${fx.a}"] td:nth-child(4)').title`), /색인 3초.*찾지 못해 비웠습니다/);
+  // ⑧ what each number measures; one column with two metrics says so
+  assert.deepStrictEqual(await js(`[[...document.querySelectorAll("#log [data-matrix] [data-metric]")].map(x => x.textContent + (x.classList.contains("differ") ? "!" : "")),
+    [...document.querySelectorAll("#log [data-matrix] thead [data-mixed]")].map(x => x.closest("th").textContent)]`),
+    [["accuracy!", "GPT-Acc!", "seconds"], ["주요 결과 ⚠ 지표 다름"]]);
+  // ⑧ the datasets both papers use -> a column of their results, side by side (the 비교표 form, these columns + it)
+  assert.strictEqual(await js(`document.querySelector("#log [data-common]").dataset.common`), "HotpotQA|MuSiQue");
+  await js(`document.querySelector("#log [data-matrix]").scrollIntoView()`); await sleep(200); await shot("compare-table.png");
+  await js(`document.querySelector('#log [data-add-column="HotpotQA"]').click()`);
+  assert.strictEqual(await until(`(i => i && i.value)($("columns"))`), "데이터셋, 주요 결과, 효율, 한계, HotpotQA 결과");
+  await js(`document.querySelector("[data-compare-form]").closest(".msg").remove()`);
+  // ⑧ ✎ on a row: the name the user knows the paper by, in the table, the source list and Pablo's records; then back
+  const named = (id, name, via) => js(`document.querySelector('${via} [data-rename="${id}"]').click();
+    (i => { i.value = ${JSON.stringify(name)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector('[data-rename-in="${id}"]'))`);
+  const head = id => `(th => th && th.textContent)(document.querySelector('#log [data-matrix] tr[data-paper="${id}"] th'))`;
+  await named(fx.a, "Tiny RAG", "#log [data-matrix]");
+  assert.match(await until(`(t => /^Tiny RAG/.test(t || "") && t)(${head(fx.a)})`), /^Tiny RAG v2✎$/);
+  assert.ok(await js(`[...document.querySelectorAll("#src .paper b")].some(b => b.textContent === "Tiny RAG") && M.papers["${fx.a}"].title === "Tiny RAG"`));
+  assert.strictEqual(deskJson().pdf.T1.find(p => p.id === fx.a).title, "Tiny RAG");
+  await named(fx.a, "TinyRAG", "#src");
+  await until(`/^TinyRAG v2/.test(${head(fx.a)} || "")`);
   const page = () => js(`[$("panel").querySelector(".url").textContent, $("panel").querySelector(".pnum").textContent]`);
   await js(`close(); document.querySelector('#log [data-matrix] tr[data-paper="${fx.b}"] td:nth-child(4) .cite').click()`);
   assert.strictEqual(await settled(), "FOUND");
@@ -1153,7 +1174,7 @@ async function papersUi() {
   await sleep(300); await shot("papers-web-quote.png");
   await js(`close()`);
   assert.ok(await js(`!/\\b(E|SRC|SC|M)\\d+\\b/.test(document.body.innerText)`), "no internal ids in the UI");
-  console.log("ok papers: table 6/8 cells located, a cell -> its paper's page, wide panel and back, an answer over both papers");
+  console.log("ok papers: table 6/8 cells located, metrics (지표 다름), both papers' datasets -> a column, ✎ renames, a cell -> its paper's page, wide panel and back, an answer over both papers");
   // the 주 논문: 재현 조건 뽑기 reads it
   await js(`document.querySelector('[data-make-primary="${fx.b}"]').click()`);
   await until(`($("specs") || {}).textContent === "📋 재현 조건 뽑기 (OtherRAG)"`);

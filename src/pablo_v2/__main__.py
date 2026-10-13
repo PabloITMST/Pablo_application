@@ -32,6 +32,7 @@ Evidence  source <url> [--title T]                Pablo fetches + snapshots the 
           add-spec T1 --source SRC1 --quote Q --page N --category C --statement S [--value V]   one condition by hand
           drop-spec SC5 --reason R | restore-spec SC5   take a condition out (kept, with why) / back
           deviate SC5 --reason R | undeviate SC5   ⑦ differ from it on purpose (the Guard stops holding to it) / back
+          rename-source SRC2 --title "HippoRAG 2"  ⑧ the name the user knows a paper by
           compare T1 --source SRC1 --source SRC2 [--columns JSON]   C3: a table, one judge call per paper, each cell
                                                   anchored or left empty -> M1 + cells
 JSON args accept inline JSON or @file.json. State lives in --dir (default .pablo/).
@@ -127,6 +128,8 @@ def _parser() -> argparse.ArgumentParser:
     s = add("drop-spec")  # ⑩ a condition taken out by the user (with why; restorable)
     s.add_argument("check_id"), s.add_argument("--reason", required=True)
     add("restore-spec").add_argument("check_id")
+    s = add("rename-source")  # ⑧ the name the user knows a paper by
+    s.add_argument("source_id"), s.add_argument("--title", required=True)
     s = add("deviate")  # ⑦ differ from a paper condition on purpose (why required): the Guard stops holding the work to it
     s.add_argument("check_id"), s.add_argument("--reason", required=True)
     add("undeviate").add_argument("check_id")  # ⑦ back to the paper's condition
@@ -391,6 +394,9 @@ def _run(a, out) -> int:
     elif a.cmd in ("drop-spec", "restore-spec"):
         sc = s.drop_spec(a.check_id, a.reason) if a.cmd == "drop-spec" else s.restore_spec(a.check_id)
         out({"check": asdict(sc)}, f"{sc.id} {sc.research_state}")
+    elif a.cmd == "rename-source":
+        src = s.rename_source(a.source_id, a.title)
+        out({"source": asdict(src)}, f"{src.id} -> {src.title}")
     elif a.cmd in ("deviate", "undeviate"):
         sc = s.deviate_spec(a.check_id, a.reason) if a.cmd == "deviate" else s.undeviate_spec(a.check_id)
         out({"check": asdict(sc)}, f"{sc.id} {'differs on purpose' if a.cmd == 'deviate' else 'back to the paper'}")

@@ -613,6 +613,8 @@ class PabloSkill:
                     continue
                 sc = self.add_check(task_id, f"{src.title} · {col}", "USEFUL")
                 sc.matrix = {"id": mid, "column": col, "source_id": src.id}
+                if metric := " ".join(str(x.get("metric") or "").split())[:40]:  # ⑧ what the number measures (EM, F1, …)
+                    sc.matrix["metric"] = metric
                 self.complete_check(sc.id, "VERIFIED", x["value"].strip() + " [1]",
                                     [{"tier": 4, "type": "pdf", "title": src.title, "url": src.locator, "supports": [a.id]}])
                 self.link_evidence(a.id, sc.id, "supports", col)
@@ -655,6 +657,16 @@ class PabloSkill:
         a.status, a.resolution = r["status"], {**r, "at": now()}
         self.save()
         return a
+
+    def rename_source(self, src_id: str, title: str) -> EvidenceSource:
+        """⑧ the name the user knows a paper by ("HippoRAG 2", not its long title): every card, the brief and the panels
+        use it from now on; its file, anchors and evidence stay as they are."""
+        src, title = self.get_source(src_id), " ".join(title.split())
+        if not title or len(title) > 120:
+            raise ValueError("이름은 1~120자로 적어 주세요.")
+        src.title = title
+        self.save()
+        return src
 
     def get_source(self, src_id: str) -> EvidenceSource:
         src = next((x for x in self.state.sources if x.id == src_id), None)

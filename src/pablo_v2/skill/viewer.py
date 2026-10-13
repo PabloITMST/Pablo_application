@@ -410,6 +410,9 @@ body.panel.code { grid-template-columns:220px minmax(0, 1fr) min(760px, 48vw); }
 .matrix th, .matrix td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; min-width:110px; }
 .matrix thead th { background:var(--bg); font-weight:600; } .matrix tbody th { min-width:90px; }
 .matrix th small { color:var(--muted); font-weight:400; } .matrix td.none { color:var(--faint); cursor:help; }
+.matrix .metric { display:block; font-size:11px; color:var(--muted); } .matrix .metric.differ, .matrix th .differ { color:var(--warn); } .matrix th .differ { white-space:nowrap; }
+.matrix .common { font-size:13px; } .rn { background:none; border:0; color:var(--faint); cursor:pointer; padding:0 2px; font-size:12px; }
+.rn-in { border:1px solid var(--line); border-radius:6px; padding:1px 6px; background:var(--bg); color:var(--fg); font:inherit; width:160px; }
 .matrix.wide { border:0; background:none; padding:0; margin:0; } .matrix.wide table { font-size:14px; }
 body.panel.wide { grid-template-columns:220px minmax(0, 1fr) min(900px, 58vw); }
 #src .paper { white-space:nowrap; } #src .rm { color:var(--faint); padding:0 3px; } #src .rm:hover { color:var(--bad); }
@@ -785,21 +788,55 @@ function aged(box) {  // (not fresh(): the desktop's add box has its own)
 const where0 = w => String(w).split(/[;,]\s/)[0].replace(/(:\d+(?:[-,]\d+)*)+$/, "");  // "config.yaml:2" -> "config.yaml"
 // C3 비교표 (chat.json "compare"): the task's papers (rows) by columns. A cell is a value with its place in that paper
 // ([n] -> the PDF on that page), or 근거 없음: Pablo did not find where the paper says it, so nothing is filled in.
+// ⑧ a paper's name as the user calls it now (✎ renames it everywhere); the table keeps its rows' ids
+const titleOf = p => ((M.papers || {})[p.id] || {}).title || p.title;
+let compareAgain = null, renameHook = null;  // desktop: the 비교표 form with these columns; ✎
+function renamer(id, title, task) {
+  if (!window.pabloHost || !pabloHost.renameSource) return null;
+  const btn = h("button", { class: "rn", "data-rename": id, title: "이름 바꾸기 (예: HippoRAG 2)", on: () => {
+    const inp = h("input", { class: "rn-in", "data-rename-in": id, value: title }), note = h("span", { class: "muted" });
+    const ok = () => inp.value.trim() && inp.value.trim() !== title ? pabloHost.renameSource(task, id, inp.value.trim()).then(() => renameHook && renameHook(task),
+      e => { note.textContent = " " + fail(e); }) : form.replaceWith(btn);
+    inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); if (e.key === "Escape") { e.stopPropagation(); form.replaceWith(btn); } });
+    const form = h("span", null, " ", inp, " ", h("button", { class: "link", "data-rename-ok": id, on: ok }, "저장"), note);
+    btn.replaceWith(form); inp.select(); } }, "✎");
+  return btn;
+}
+// ⑧ the datasets every paper of the table names (its 데이터셋 column): "2Wiki" and "2WikiMultiHopQA" are one
+function common(c, cell) {
+  const col = c.columns.find(x => /데이터셋|dataset/i.test(x));
+  if (!col || c.papers.length < 2) return [];
+  const sets = c.papers.map(p => { const k = cell(p, col);
+    return k ? k.conclusion.replace(/\s*\[\d+\]/g, "").replace(/\([^)]*\)/g, "").split(/[,，、;/]|\s+(?:및|and|와|과)\s+/).map(x => x.trim()).filter(x => x.length > 1) : []; });
+  const key = x => x.toLowerCase().replace(/[^a-z0-9가-힣]/g, ""), same = (a, b) => a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a)));
+  return sets[0].filter(x => sets.slice(1).every(s => s.some(y => same(key(x), key(y)))) && key(x));
+}
 function matrix(c, wide) {
   const box = h("div", { class: "matrix" + (wide ? " wide" : ""), "data-matrix": c.matrix || "" });
   const cells = (c.cells || []).map(id => V.checks[id]).filter(Boolean), all = c.papers.length * c.columns.length;
   const cell = (p, col) => cells.find(k => k.matrix && k.matrix.source_id === p.id && k.matrix.column === col);
+  // ⑧ what each number measures: one column with two different metrics is not a comparison, said on the column
+  const norm = m => String(m || "").toLowerCase().replace(/[^a-z0-9@]/g, "");
+  const mixed = col => new Set(c.papers.map(p => norm(((cell(p, col) || {}).matrix || {}).metric)).filter(Boolean)).size > 1;
   const why = (p, col) => { const x = (c.empty || []).find(y => y.source === p.id && y.column === col);
     return x && x.value ? `모델은 "${x.value}"라고 했지만 논문에서 그 문장을 찾지 못해 비웠습니다.` : "이 논문에서 찾지 못했습니다."; };
   if (!wide) box.append(h("p", { class: "head" }, `📊 비교표: 논문 ${c.papers.length}편 × 항목 ${c.columns.length}개`),
     h("p", { class: "muted" }, `칸 ${all}개 중 ${cells.length}개는 논문에서 위치를 찾은 값입니다.`,
       cells.length < all ? ` 나머지 ${all - cells.length}개는 근거를 찾지 못해 비웠습니다.` : ""));
   box.append(h("div", { class: "scroll" }, h("table", null,
-    h("thead", null, h("tr", null, h("th", null, "논문"), c.columns.map(col => h("th", null, col)))),
-    h("tbody", null, c.papers.map(p => h("tr", { "data-paper": p.id }, h("th", { scope: "row" }, p.title, p.version ? h("small", null, " " + p.version) : null),
-      c.columns.map(col => { const k = cell(p, col);
-        return k ? h("td", { "data-cell": k.id }, rich(k.conclusion.replace(/\s*\[\d+\]/g, "")), " ", k.evidence.map(e => cite(e)))
+    h("thead", null, h("tr", null, h("th", null, "논문"), c.columns.map(col => h("th", null, col,
+      mixed(col) ? h("small", { class: "differ", "data-mixed": "1", title: "이 열의 숫자는 논문마다 다른 지표입니다. 그대로 비교하지 마세요." }, " ⚠ 지표 다름") : null)))),
+    h("tbody", null, c.papers.map(p => h("tr", { "data-paper": p.id }, h("th", { scope: "row" }, titleOf(p), p.version ? h("small", null, " " + p.version) : null,
+        renamer(p.id, titleOf(p), c.task || V.task.id)),
+      c.columns.map(col => { const k = cell(p, col), m = k && k.matrix.metric;
+        return k ? h("td", { "data-cell": k.id }, rich(k.conclusion.replace(/\s*\[\d+\]/g, "")), " ", k.evidence.map(e => cite(e)),
+            m ? h("span", { class: "metric" + (mixed(col) ? " differ" : ""), "data-metric": m }, m) : null)
           : h("td", { class: "none", title: why(p, col) }, "근거 없음"); })))))));
+  // ⑧ the datasets all the papers name: their results side by side is the comparison a reader wants
+  const both = common(c, cell).filter(x => !c.columns.some(col => col.includes(x))).slice(0, 3);
+  if (!wide && both.length && compareAgain) box.append(h("p", { class: "muted common", "data-common": both.join("|") },
+    `${c.papers.length === 2 ? "두" : "모든"} 논문이 ${both.join(", ")}을(를) 함께 씁니다. 같은 데이터셋의 결과를 나란히 보려면: `,
+    both.map(x => [h("button", { class: "link", "data-add-column": x, on: () => compareAgain(c.task || V.task.id, [...c.columns, `${x} 결과`].slice(-8)) }, `+ "${x} 결과" 열`), " "])));
   if (!wide) box.append(h("p", null, h("button", { class: "link", "data-wide": "1", on: () => show({ mode: "matrix", c }) }, "크게 보기")));
   return box;
 }
@@ -1598,6 +1635,7 @@ if (window.pabloHost && pabloHost.chat) {
         ...(name => p.kind !== "web" && (M.papers || {})[p.id] ? [h("button", { class: "link", "data-open-paper": p.id,
           title: "PDF 열기 (문장을 골라 재현 조건으로 더할 수 있습니다)", on: () => show({ mode: "paper", src: p.id }) }, name)] : name)(
           [h("b", null, p.title), p.version ? h("small", null, " " + p.version) : null]),
+        p.kind !== "web" ? renamer(p.id, p.title, V.task.id) : null,
         several && p.kind !== "web" ? (p.primary ? h("small", { class: "muted", "data-primary": "1" }, " (주 논문)")
           : [" ", h("button", { class: "link", title: "이 논문을 재현 대상으로 (재현 조건은 주 논문에서 뽑습니다)", "data-make-primary": p.id,
               on: () => pabloHost.setPrimary(V.task.id, p.id).then(() => refresh()) }, "주 논문으로")]) : null,
@@ -1691,9 +1729,11 @@ if (window.pabloHost && pabloHost.chat) {
   }
   // C3 비교표: the columns (editable, default as skill.COLUMNS) -> one judge call per paper -> the table card
   const COLUMNS = ["데이터셋", "평가 지표", "주요 결과", "효율", "한계"];
-  function compareForm(t) {
+  compareAgain = (t, columns) => compareForm(t, columns);
+  renameHook = t => refresh(t);  // a new name: the conversation is drawn again (the tables, the cards, the source list)
+  function compareForm(t, columns) {
     if (agentSt === "Thinking") return;
-    const ps = ((M.desk || {})[t] || {}).papers || [], cols = h("input", { class: "cols", id: "columns", value: COLUMNS.join(", ") });
+    const ps = ((M.desk || {})[t] || {}).papers || [], cols = h("input", { class: "cols", id: "columns", value: (columns || COLUMNS).join(", ") });
     const box = h("div", { class: "matrix", "data-compare-form": "1" }, h("p", { class: "head" }, `📊 ${ps.map(p => p.title).join(" · ")} 비교`),
       h("p", { class: "muted" }, "비교할 항목을 쉼표로 적어 주세요(8개까지). 논문마다 따로 읽고, 논문에서 위치를 찾은 값만 칸에 넣습니다."), cols);
     const make = h("button", { class: "pill on", id: "compare-go", on: () => {

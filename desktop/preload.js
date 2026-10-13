@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   addWeb: (task, url) => ipcRenderer.invoke("pablo:add-web", task, url),  // D1: Pablo fetches the page and keeps its snapshot
   searchArxiv: text => ipcRenderer.invoke("pablo:search-arxiv", text),  // D2: the words go to the arXiv API (no key)
   removeSource: (task, id) => ipcRenderer.invoke("pablo:remove-source", task, id),  // C1: the records stay
+  renameSource: (task, id, title) => ipcRenderer.invoke("pablo:rename-source", task, id, title),  // ⑧ ✎ the name the user knows it by
   setPrimary: (task, id) => ipcRenderer.invoke("pablo:set-primary", task, id),  // C1: the 주 논문 (재현 조건)
   compare: (task, columns) => ipcRenderer.invoke("pablo:compare", task, columns),  // C3: 비교표
   condition: (task, action, o) => ipcRenderer.invoke("pablo:condition", task, action, o),  // ⑩ add (a picked sentence) | drop (why) | restore; ⑦ deviate (why) | undeviate
