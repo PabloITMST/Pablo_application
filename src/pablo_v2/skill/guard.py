@@ -41,16 +41,28 @@ def completion_errors(check, outcome: str, sources: list[dict], stop_reason: str
     return errs
 
 
+# W01: an edit that removes most of an existing file is a rewrite, not a change; small steps that each look fine add up
+# to code nobody intended (thresholds after ReproAgent's repair regression guard, scaled down for research scripts)
+REWRITE_MIN_LINES = 40
+REWRITE_MAX_REMOVED = 0.5
+
+
 def decide(*, pending_required: list[str], step: dict | None, unverified: list[str], analysis: dict,
            constraints: dict[str, str], sources: dict[str, str | None],
-           valid_support: list[str]) -> tuple[str, list[dict]]:
+           valid_support: list[str], rewrites: list[dict] = ()) -> tuple[str, list[dict]]:
     """-> (verdict, rule hits). constraints: active constraint / system policy id -> hard|soft.
     sources: the task's source checks, id -> outcome (None = waived / pending).
-    valid_support: checks the judge cited that are completed with a supporting outcome."""
+    valid_support: checks the judge cited that are completed with a supporting outcome.
+    rewrites: file edits measured by the host, [{path, lines (the file before), removed (lines the diff removes)}]."""
     hits = []
 
     def hit(rule, verdict, reason):
         hits.append({"rule": rule, "verdict": verdict, "reason": reason})
+
+    for r in rewrites:
+        if r.get("lines", 0) >= REWRITE_MIN_LINES and r.get("removed", 0) / r["lines"] > REWRITE_MAX_REMOVED:
+            hit("W01", "WARN", f"{r['path']}의 기존 {r['lines']}줄 중 {r['removed']}줄을 지우고 새로 씁니다. "
+                               "작은 수정이 쌓여 처음 의도와 멀어지기 쉬운 변경이라 확인이 필요합니다.")
 
     if pending_required:
         hit("G01", "BLOCK", f"REQUIRED research not completed: {pending_required}")

@@ -144,6 +144,17 @@ python pablo.py resolve E1 --json
 - VALID는 문구가 원문에 있다는 뜻입니다. 그 문구가 결론을 뒷받침하는지는 따로 판단해야 합니다.
 - 사용자가 근거를 직접 보려면 `view T1 --html`을 실행하고 출력된 파일 경로 뒤에 `#E1`을 붙여 전달합니다.
 
+## 8. 논문 재현 조건
+논문을 재현하는 작업이면 PDF를 캡처한 뒤 재현 조건을 뽑습니다.
+```bash
+python pablo.py source paper.pdf --json
+python pablo.py spec T1 --json
+```
+- 데이터셋, 분할, 모델, 하이퍼파라미터, 지표, 비교 대상, 보고된 결과, 평가 규칙이 원문 쪽에 고정된 VERIFIED check가 됩니다. 위치를 못 찾은 조건은 빠집니다.
+- 이 조건과 다르게 구현하려면 `act`의 `--why`에 근거(SC ID)를 적습니다. 결과를 맞추려고 바꾸는 것은 근거가 되지 않습니다. 검증된 조건과 모순되면 BLOCK(S01)입니다.
+- 논문에 없는 설정(시드 등)은 pending check로 남습니다. 정하면 무엇을 근거로 정했는지 사용자에게 알리고 `check`로 기록합니다.
+- 사용자에게 줄 요약이 필요하면 `python pablo.py brief T1 --json`이 기준과 확인된 근거(쪽 포함)를 한 번에 줍니다.
+
 ## 상태 보기
 ```bash
 python pablo.py view T1        # 사람이 보는 task 요약

@@ -14,6 +14,7 @@ Internal ids are not shown as labels; they stay on elements (title / data-id / d
 from __future__ import annotations
 
 import json
+import os
 from html import escape
 
 from . import evidence, pdf
@@ -74,7 +75,7 @@ def model(s, task_id: str) -> dict:
                              "claim": link.note or c.conclusion or c.requirement, "check": c.id,
                              "relation": link.relation}
         checks[sc_id] = {"id": c.id, "title": c.requirement, "state": c.research_state, "outcome": c.outcome,
-                         "conclusion": c.conclusion, "necessity": c.necessity, "evidence": ev,
+                         "conclusion": c.conclusion, "necessity": c.necessity, "evidence": ev, "spec": c.spec,
                          "sources": [{"tier": x.get("tier"), "title": x.get("title", "")} for x in c.sources],
                          "issues": []}
         return checks[sc_id]
@@ -105,6 +106,8 @@ def model(s, task_id: str) -> dict:
             problems.append(ju["note"])
         if not problems:
             problems = [r["reason"] for r in a.reasons if r["verdict"] != "ALLOW"]
+        else:  # a host-measured rule (W01 rewrite) explains itself; it goes first when it is what warned
+            problems = [r["reason"] for r in a.reasons if r["rule"].startswith("W") and r["verdict"] != "ALLOW"] + problems
         criteria = [{"id": x["intent_id"], "text": label(x["intent_id"])} for x in an.get("intent_conflicts", [])]
         criteria += [{"id": x["source_check_id"], "text": check(x["source_check_id"])["conclusion"] or ""}
                      for x in an.get("source_conflicts", []) if check(x["source_check_id"])]
@@ -114,7 +117,7 @@ def model(s, task_id: str) -> dict:
             runs.append({"id": x.id, "executed": x.executed, "summary": x.summary, "files": x.changed_files,
                          "tests": x.tests, "alignment": rv[-1].action_alignment if rv else None,
                          "step_status": rv[-1].plan_step_status if rv else None})
-        actions.append({"id": a.id, "step": a.plan_step, "text": a.description, "why": a.justification,
+        actions.append({"id": a.id, "at": a.created_at, "step": a.plan_step, "text": a.description, "why": a.justification,
                         "verdict": a.verdict, "rules": [r["rule"] for r in a.reasons], "problems": problems,
                         "criteria": criteria, "decision": a.host_decision, "decision_reason": a.decision_reason,
                         "runs": runs})
@@ -132,9 +135,26 @@ def model(s, task_id: str) -> dict:
     done = sum(checks[c]["state"] != "pending" for c in research)
     stage = ("Review" if any(r for a in actions for r in a["runs"]) else "Implement" if actions
              else "Plan" if plan else "Research")
+    chat = chat_log(s).get(t.id, [])
+    for c in chat:
+        if c.get("check"):
+            check(c["check"])  # an ask answered from a reused or earlier check still needs its record
     return {"task": {"id": t.id, "text": t.text}, "stage": stage, "progress": [done, len(research)],
             "intent": intent, "research": research, "checks": checks, "plan": plan, "actions": actions,
-            "anchors": anchors, "sources": sources}
+            "chat": chat, "anchors": anchors, "sources": sources}
+
+
+def chat_log(s) -> dict:
+    """The desktop's conversation per task (<state dir>/chat.json, written by desktop/main.js only): what the user said,
+    the agent's replies and which check answered a PDF question. Pablo's own records stay in skill.json."""
+    if not s.path:
+        return {}
+    try:
+        with open(os.path.join(os.path.dirname(s.path), "chat.json"), encoding="utf-8") as f:
+            log = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    return log if isinstance(log, dict) else {}
 
 
 def workspace(s, current: str | None = None) -> dict:
@@ -283,6 +303,18 @@ body.panel.pdf { grid-template-columns:220px minmax(0, 1fr) min(760px, 48vw); }
 details.tech { margin:6px 0; font-size:12px; color:var(--muted); } details.tech summary { cursor:pointer; }
 details.tech pre { white-space:pre-wrap; overflow-wrap:anywhere; background:var(--code); border-radius:6px; padding:6px 8px;
                    margin:4px 0; font:12px/1.5 ui-monospace, Consolas, monospace; }
+/* the change a WARN / BLOCK card is about: the diff, or the command without its shell wrapper */
+pre.diff, pre.cmd { font:12px/1.5 ui-monospace, Consolas, monospace; background:var(--code); border-radius:6px; padding:6px 0;
+                    margin:6px 0; max-height:260px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+pre.cmd { padding:6px 10px; }
+pre.diff span { display:block; padding:0 10px; min-height:1.5em; } pre.diff .add { background:rgba(22,163,74,.14); }
+pre.diff .del { background:rgba(220,38,38,.13); } pre.diff .hunk { color:var(--muted); } pre.diff .file { font-weight:700; }
+.composer[data-running="1"] button { background:var(--bad); }
+.spec { border-left:3px solid var(--accent); background:var(--side); border-radius:0 8px 8px 0; padding:8px 14px; margin:8px 0; }
+.spec .head { font-weight:700; margin:0 0 4px; } .spec h4 { font-size:12px; color:var(--muted); margin:10px 0 2px; }
+.spec ul { margin:0; padding-left:18px; } .spec li { margin:2px 0; } .spec ul.open li { color:var(--warn); }
+.changes { border-left:3px solid var(--line); background:var(--side); border-radius:0 8px 8px 0; padding:8px 14px; margin:8px 0; }
+.changes p { margin:2px 0; font-size:14px; overflow-wrap:anywhere; }
 .empty { max-width:560px; margin:18vh auto 0; text-align:center; color:var(--muted); }
 .empty b { display:block; font-size:22px; color:var(--fg); margin-bottom:6px; }
 /* mascot: only where a state means something (never on WARN / BLOCK / errors); black-and-white, as drawn */
@@ -355,6 +387,21 @@ function meaning(text) {
   if (/\b(Get-ChildItem|ls|dir)\b/i.test(cmd)) return "폴더 목록 보기";
   return "명령 실행";
 }
+// the command without the shell wrapper the agent runs it in ("...pwsh.exe" -NoProfile -Command "<this>")
+function shell(cmd) {
+  const m = cmd.match(/^"?[^"\n]*?(?:pwsh|powershell|cmd)(?:\.exe)?"?\s+(?:-\w+\s+)*?(?:-Command|-c|\/c)\s+([\s\S]+)$/i);
+  let x = (m ? m[1] : cmd).trim();
+  if (x.length > 1 && (x[0] === '"' || x[0] === "'") && x.at(-1) === x[0]) x = x.slice(1, -1).replaceAll(x[0] + x[0], x[0]);
+  return x;
+}
+// what the card is about, shown as is: a file change's diff (detail, or the stored text after its first line), else the command
+function preview(text, detail) {
+  const [first, ...rest] = (text || "").split("\n"), diff = detail || rest.join("\n");
+  if (/^명령 실행: /.test(first)) return h("pre", { class: "cmd" }, shell((text || "").replace(/^명령 실행: /, "")));
+  if (!diff.trim()) return null;
+  const kind = l => /^(---|\+\+\+) |^diff --git /.test(l) ? "file" : /^@@/.test(l) ? "hunk" : /^\+/.test(l) ? "add" : /^-/.test(l) ? "del" : "";
+  return h("pre", { class: "diff" }, diff.split("\n").map(l => h("span", { class: kind(l) }, l)));
+}
 const tech = (...xs) => xs.some(Boolean) ? h("details", { class: "tech" }, h("summary", null, "기술 세부정보"),
   xs.filter(Boolean).map(x => h("pre", null, x))) : null;
 // an English judge note -> a Korean line in the card; the note itself goes under 기술 세부정보
@@ -362,7 +409,7 @@ const korean = t => /[가-힣]/.test((t || "").replace(/"[^"]*"/g, ""));
 const reason = (t, block) => !t ? null : korean(t) ? h("p", null, rich(t))
   : h("p", null, block ? "작업 기준과 충돌해 막았습니다." : "현재 작업 기준과 맞는지 확인이 필요합니다.");
 const host = u => { try { const x = new URL(u); return x.host + x.pathname; } catch { return u; } };
-let V, cites = {}, hist = [], hi = -1;
+let V, cites = {}, hist = [], hi = -1, busy = null;  // busy: the task whose agent turn or PDF question is running
 const lives = {}, live = t => (t = t || V.task.id, lives[t] || (lives[t] = h("div", { id: "live" })));  // agent chat, one per task (own thread)
 
 // ---- citations: [n] -> the existing EvidenceAnchor id (data-e); numbering is per task ---------------------
@@ -410,11 +457,11 @@ const msg = (who, at, ...kids) => h("div", { class: "msg " + (who === "Pablo" ? 
 // Normal progress is one Pablo answer; only research issues, WARN/BLOCK and open decisions get their own message.
 const SURE = { PARTIALLY_VERIFIED: "일부만 확인했습니다.", NOT_FOUND: "공식 근거를 찾지 못해 추정했습니다.",
                CONFLICTING: "출처끼리 내용이 다릅니다." };
-function answer() {
+function answer(asked) {
   const out = [];
   for (const id of V.research) {
     const c = V.checks[id];
-    if (c.state === "waived" || live().querySelector(`.asked[data-check="${CSS.escape(id)}"]`)) continue;  // shown live already
+    if (c.state === "waived" || c.spec || asked.has(id) || live().querySelector(`.asked[data-check="${CSS.escape(id)}"]`)) continue;  // shown as its question's answer / in the conditions card
     const note = c.state === "pending" ? "아직 조사 중입니다." : SURE[c.outcome];
     out.push(h("p", { title: c.id, "data-id": c.id }, cited(c.conclusion || c.title, c.evidence),
                note ? h("span", { class: "muted" }, " · " + note) : null));
@@ -440,7 +487,7 @@ function action(a) {
   const d = decided(a);
   return h("div", { class: "call" + (block ? " block" : ""), title: a.id, "data-id": a.id },
     h("p", { class: "head" }, block ? "⚠ 이 작업은 현재 기준과 충돌합니다." : "⚠ 이 작업은 확인이 필요합니다."),
-    h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))),
+    h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))), preview(a.text),
     a.why ? h("p", { class: "muted" }, `제시한 이유: "${a.why}"`) : null,
     a.problems.length ? [reason(a.problems[0], block), [...new Set(ev)].map(cite)] : null,
     a.criteria.length ? h("p", { class: "muted" }, "관련 기준: ", a.criteria.map(c => c.text).join(" · ")) : null,
@@ -449,21 +496,91 @@ function action(a) {
     h("p", null, block ? h("b", null, "실행이 차단되었습니다. ") : !d ? h("b", null, "진행할지 결정이 필요합니다. ") : null,
       h("button", { class: "link", on: () => show({ mode: "trace", act: a.id }) }, "왜 그런가요?")));
 }
+// the desktop's chat log (chat.json): what the user said, the agent's replies, PDF questions and the check that answered
+const ASKFAIL = "답을 찾지 못했습니다.";
+// D4: what one agent turn changed in the work folder (a checkpoint before it, one after); 변경 보기 / 되돌리기 on the desktop
+const CHANGE = { A: "새 파일", M: "수정", D: "삭제" };
+const fail = e => String(e.message || e).replace(/^Error invoking remote method [^:]+: (Error: )?/, "");
+function changed(c, task) {
+  const list = c.files.slice(0, 8).map(f => `${f.path} (${CHANGE[f.status] || f.status})`).join(", ") + (c.files.length > 8 ? ` 외 ${c.files.length - 8}개` : "");
+  const box = h("div", { class: "changes", "data-to": c.to }, h("p", null, `📝 파일 ${c.files.length}개가 바뀌었습니다: `, list));
+  if (!window.pabloHost || !pabloHost.undo) return box;
+  const v = M.views[task], undone = v && (v.chat || []).some(x => x.role === "undo" && x.of === c.to), row = h("p", null);
+  let open = null;
+  const look = h("button", { class: "link", "data-look": "1", on: () => {
+    if (open) { open.remove(); open = null; return; }
+    pabloHost.diff(task, c.from, c.to).then(t => { open = preview("", t) || h("p", { class: "muted" }, "표시할 내용이 없습니다."); row.after(open); },
+      e => row.after(h("p", { class: "muted" }, fail(e)))); } }, "변경 보기");
+  const back = undone ? h("span", { class: "muted", "data-undone": "1" }, "되돌렸습니다.")
+    : h("button", { class: "link", "data-undo": "1", on: () => pabloHost.undo(task, c.from, c.to).then(() => {
+        back.replaceWith(h("span", { class: "muted", "data-undone": "1" }, "되돌렸습니다. 다음 요청 때 에이전트에게도 알립니다.")); refresh(); },
+        e => row.after(h("p", { class: "muted", "data-undo-error": "1" }, fail(e)))) }, "되돌리기");
+  row.append(look, " · ", back);
+  box.append(row);
+  return box;
+}
+// A2: a paper's reproduction conditions (PabloSkill.spec), by category, each with its page [n]; what the paper leaves open
+const SPEC = { dataset: "데이터셋", split: "데이터 분할", preprocessing: "전처리", model: "모델", hyperparameter: "하이퍼파라미터",
+               training: "학습", metric: "평가 지표", baseline: "비교 대상", result: "보고된 결과", protocol: "평가 규칙" };
+function conditions(ids, dropped) {
+  const cs = ids.map(id => V.checks[id]).filter(c => c && c.state !== "waived"), stated = cs.filter(c => !c.spec.missing);
+  const open = cs.filter(c => c.spec.missing);
+  const box = h("div", { class: "spec", "data-spec": "1" });
+  if (!cs.length) return box.appendChild(h("p", { class: "muted" }, "이 조건 목록은 다시 뽑은 목록으로 바뀌었습니다.")), box;
+  box.append(h("p", { class: "head" }, `📋 논문에서 재현 조건 ${stated.length}개를 찾았습니다.`));
+  for (const k of Object.keys(SPEC)) {
+    const xs = stated.filter(c => c.spec.category === k);
+    if (xs.length) box.append(h("h4", null, SPEC[k]), h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id },
+      cited(c.conclusion || c.title, c.evidence)))));
+  }
+  if (open.length) box.append(h("h4", null, "논문에 없는 설정"), h("ul", { class: "open" }, open.map(c => h("li", { title: c.id }, rich(c.title)))),
+    h("p", { class: "muted" }, "정할 때는 무엇을 근거로 정했는지 남기세요. 에이전트에게도 그렇게 알립니다."));
+  if (dropped) box.append(h("p", { class: "muted" }, `원문에서 위치를 찾지 못한 조건 ${dropped}개는 뺐습니다.`));
+  box.append(h("p", { class: "muted" }, "에이전트는 이 조건을 알고 작업하고, 바꾸려 하면 Pablo가 근거와 함께 막습니다."));
+  return box;
+}
+// criteria the user said in a chat message, now this task's intent (Guard and the agent's brief use them)
+const noted = c => msg("Pablo", null, h("p", { class: "muted", "data-intent": "1" }, "📌 작업 기준에 추가했습니다: ",
+  c.items.map(i => `${i.text} (${i.strength === "hard" ? "반드시" : "가능하면"})`).join(" · "), " ",
+  h("button", { class: "link", on: () => show({ mode: "intent" }) }, "기준 보기")));
+function said(c) {
+  if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped))];
+  if (c.role === "intent") return [noted(c)];
+  if (c.role === "changes") return [msg("Pablo", null, changed(c, V.task.id))];
+  if (c.role === "user") return [msg("You", c.at, h("p", null, c.text))];
+  if (c.role === "agent") return [msg("Pablo", null, h("p", { class: "stream", style: "white-space:pre-wrap" }, c.text || ""),
+    c.status === "interrupted" ? h("p", { class: "muted", "data-stopped": "1" }, "중지했습니다.") : null,
+    c.error ? h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + c.error)) : null)];
+  if (c.role !== "ask") return [];
+  const k = c.check && V.checks[c.check];
+  return [msg("You", c.at, h("p", null, c.text)), msg("Pablo", null, h("div", { class: "asked", "data-check": c.check || "" },
+    k ? [h("p", null, cited(k.conclusion || k.title, k.evidence)),
+         c.dropped ? h("p", { class: "muted" }, `PDF에서 찾지 못한 인용 ${c.dropped}개는 뺐습니다.`) : null]
+      : h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + (c.error || ASKFAIL)))))];
+}
+// one timeline: the task, its research, the chat log and the Guard cards, in the order they happened
 function conversation() {
   cites = {};
   const log = $("log"); log.textContent = "";
-  const said = answer();
-  log.append(msg("You", V.task.at, h("p", null, V.task.text)), said.length ? msg("Pablo", null, said) : "");
-  issues().forEach(x => log.append(msg("Pablo", null, x)));
+  if (busy !== V.task.id) delete lives[V.task.id];  // what was said is in the chat log; only a running turn stays live
+  const chat = V.chat || [], asked = new Set(chat.map(c => c.check).filter(Boolean)), research = answer(asked);
+  const at = x => new Date(x || 0).getTime(), t0 = at(V.task.at), items = [[t0, msg("You", V.task.at, h("p", null, V.task.text))]];
+  if (research.length) items.push([t0, msg("Pablo", null, research)]);
+  const inLog = new Set(chat.flatMap(c => c.role === "spec" ? [...(c.checks || []), ...(c.missing || [])] : []));
+  const loose = V.research.filter(id => V.checks[id].spec && V.checks[id].state !== "waived" && !inLog.has(id));
+  if (loose.length) items.push([t0, msg("Pablo", null, conditions(loose, 0))]);
+  issues().forEach(x => items.push([t0, msg("Pablo", null, x)]));
+  chat.forEach(c => said(c).forEach(x => items.push([at(c.at), x])));
   V.actions.forEach(a => { if (live().querySelector(`[data-act="${CSS.escape(a.id)}"]`)) return;  // its live card is below
-    const x = a.verdict === "ALLOW" ? failed(a) : action(a); if (x) log.append(msg("Pablo", null, x)); });
+    const x = a.verdict === "ALLOW" ? failed(a) : action(a); if (x) items.push([at(a.at), msg("Pablo", null, x)]); });
+  items.sort((x, y) => x[0] - y[0]).forEach(([, x]) => log.append(x));  // stable: same time keeps the order above
   if (V.intent.questions.length) log.append(msg("Pablo", null, h("div", { class: "call" },
     h("p", { class: "head" }, "⚠ 결정이 필요합니다."),
     V.intent.questions.map(q => h("p", { title: q.id, "data-id": q.id }, rich(q.text))),
     h("p", null, h("button", { class: "link", on: () => show({ mode: "intent" }) }, "작업 기준 보기")))));
   log.append(live());
   finish();
-  log.scrollTop = 0;
+  log.scrollTop = chat.length ? log.scrollHeight : 0;  // a conversation reopens at its latest message
 }
 // every plan step done -> one closing message (in the live part, so a refresh can add it too)
 function finish() {
@@ -511,7 +628,10 @@ const simple = (p, title, body, foot) => p.append(h("div", { class: "phead" }, h
 function intent(p) {
   const I = V.intent, g = (t, cls, xs) => xs.length ? [h("h3", null, t), h("ul", { class: "ck " + cls },
     xs.map(x => h("li", { title: x.id, "data-id": x.id }, x.prev ? h("span", { class: "prev" }, x.prev) : null, x.text)))] : null;
-  const body = [g("목표", "", I.goals), g("반드시 지킬 것", "must", I.must), g("선호", "", I.prefer),
+  const spec = V.research.map(id => V.checks[id]).filter(c => c.spec && !c.spec.missing && c.state !== "waived");
+  const paper = spec.length ? [h("h3", null, "논문 조건"), h("ul", { class: "ck must" }, spec.map(c => h("li", { title: c.id, "data-id": c.id },
+    h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), cited(c.conclusion || c.title, c.evidence))))] : null;
+  const body = [g("목표", "", I.goals), g("반드시 지킬 것", "must", I.must), paper, g("선호", "", I.prefer),
     g("성공 조건", "q", I.success), g("결정", "", I.decisions), g("확인 필요", "q", I.questions)];
   simple(p, "현재 작업 기준", body.some(Boolean) ? body : h("p", { class: "muted" }, "기록된 기준이 없습니다."),
     "기준에 대해 물어보거나 수정해보세요… (곧 지원)");
@@ -554,7 +674,7 @@ function trace(p, st) {
   else if (V.plan) nodes.push(li("", "현재 계획", V.plan.steps.map((s, i) => h("div", null, `${i + 1}. `, rich(s.action)))));
   if (act) {
     const g = { BLOCK: ["stop", "Guard가 실행을 막았습니다"], WARN: ["warn", "Guard가 경고했습니다"], ALLOW: ["", "Guard를 통과했습니다"] }[act.verdict] || ["", ""];
-    nodes.push(li(g[0], "제안된 작업", meaning(act.text), h("div", null, g[1]),
+    nodes.push(li(g[0], "제안된 작업", meaning(act.text), preview(act.text), h("div", null, g[1]),
       act.problems.map(x => korean(x) ? h("div", null, "· ", rich(x)) : null), tech(act.text, ...act.problems.filter(x => !korean(x)))));
     if (act.decision) nodes.push(li("", "사용자 결정", decided(act)));
     act.runs.forEach(r => nodes.push(li("", "결과", done(r), r.alignment ? h("div", null, ALIGN[r.alignment] || r.alignment) : null)));
@@ -733,12 +853,14 @@ if (window.pabloHost && pabloHost.chat) {
   });
   const acct = $("chat").insertBefore(h("div", { id: "acct" }), box);  // sign-in card, then a one-line connection status
   const LABEL = { Connecting: "연결 중…", Ready: "준비됨", Thinking: "생각 중…", Error: "오류" };
-  let out = null, agentSt = "Connecting", authSt = { state: "signed_out" };
+  let out = null, agentSt = "Connecting", authSt = { state: "signed_out" }, turning = false, stopping = false;  // turning: an agent turn (a PDF ask cannot be stopped)
   const gate = () => {
-    const on = authSt.state === "connected";
-    st.textContent = ""; if (on) st.append(agentSt === "Thinking" ? art("think") : "", LABEL[agentSt] || agentSt); box.dataset.agent = agentSt;
+    const on = authSt.state === "connected", running = on && turning && agentSt === "Thinking";
+    st.textContent = ""; if (on) st.append(agentSt === "Thinking" ? art("think") : "", stopping ? "중지하는 중…" : LABEL[agentSt] || agentSt); box.dataset.agent = agentSt;
     pick.hidden = !on || !pick.options.length; pick.disabled = agentSt === "Thinking";
-    inp.disabled = btn.disabled = !on || !V || (agentSt !== "Ready" && agentSt !== "Error");  // Error: the next send restarts app-server
+    inp.disabled = !on || !V || (agentSt !== "Ready" && agentSt !== "Error");  // Error: the next send restarts app-server
+    btn.disabled = running ? stopping : inp.disabled;  // while the agent works, the send button is 중지
+    btn.textContent = running ? "■" : "↑"; btn.title = running ? "중지" : "보내기"; box.dataset.running = running ? "1" : "";
     inp.placeholder = !on ? "ChatGPT에 연결하면 대화할 수 있습니다" : !V ? "새 작업을 만들면 대화할 수 있습니다" : "Pablo에게 물어보세요…";
   };
   const status = (s, err) => { agentSt = s; st.title = err || ""; gate(); };
@@ -767,11 +889,17 @@ if (window.pabloHost && pabloHost.chat) {
       if (ev.status === "Error" && ev.error && authSt.state === "connected") live(talk).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + ev.error)))), scroll();
     } else if (ev.type === "delta" && out) { out.textContent += ev.text; scroll(); }
     else if (ev.type === "done") {
-      refresh();
+      refresh(); turning = stopping = false; busy = null; gate();
+      if (out && ev.status === "interrupted") out.after(h("p", { class: "muted", "data-stopped": "1" }, "중지했습니다."));
       if (out) { out.title = `첫 토큰 ${ev.first ?? "-"} ms · 전체 ${ev.total} ms`; out = null; }
       if (ev.retry) setTimeout(() => { const b = link("다른 모델로 다시 시도", () => { b.remove(); stream(talk); pabloHost.retry().catch(e => { status("Error", e.message); out = null; }); });
         live(talk).append(msg("Pablo", null, h("p", null, b))); scroll(); });  // after the Error card
     } else if (ev.type === "guard") { live(ev.task).append(msg("Pablo", null, guard(ev))); scroll(); refresh(); }
+    else if (ev.type === "changes") { live(ev.task).append(msg("Pablo", null, changed(ev, ev.task))); scroll(); refresh(); }
+    else if (ev.type === "intent") {  // right under the user's message, before the reply that is already streaming
+      const s = [...live(ev.task).querySelectorAll(".stream")].at(-1), m = noted(ev);
+      s ? s.closest(".msg").before(m) : live(ev.task).append(m); refresh();
+    }
     else if (ev.type === "review") {  // PostReview of a WARN/BLOCK action, under its card (ALLOW has no card: stays silent)
       const card = Object.values(lives).map(l => l.querySelector(`[data-act="${CSS.escape(ev.act)}"]`)).find(Boolean);
       if (card) card.append(h("p", { class: "muted", "data-review": ev.alignment || "" },
@@ -785,6 +913,7 @@ if (window.pabloHost && pabloHost.chat) {
   function guard(ev) {
     const card = h("div", { class: "call" + (ev.verdict === "WARN" ? "" : " block"), "data-verdict": ev.verdict, "data-act": ev.act || "" },
       h("p", { class: "head" }, HEAD[ev.verdict]), h("p", null, "제안된 작업: ", h("b", null, meaning(ev.text))),
+      ev.verdict === "ERROR" ? null : preview(ev.text, ev.detail),
       reason(ev.reason, ev.verdict === "BLOCK"), h("p", { class: "muted crit" }), tech(ev.text, korean(ev.reason) ? null : ev.reason),
       ev.act ? h("p", null, h("button", { class: "link", on: () => show({ mode: "trace", act: ev.act }) }, "왜 그런가요?")) : null);
     if (ev.verdict !== "WARN") return card;
@@ -797,12 +926,14 @@ if (window.pabloHost && pabloHost.chat) {
   }
   let talk = null;  // the task whose turn is running; its answer stays in that task's chat
   const stream = t => { out = h("p", { class: "stream", style: "white-space:pre-wrap" }); live(t).append(msg("Pablo", null, out)); scroll(); };
-  const chat = (text, t) => { talk = t; stream(t); pabloHost.chat(text, t).catch(e => { status("Error", e.message); out = null; }); };
+  const chat = (text, t) => { talk = busy = t; turning = true; stream(t); pabloHost.chat(text, t).catch(e => { turning = false; busy = null; status("Error", e.message); out = null; }); };
+  const stop = () => { stopping = true; gate(); pabloHost.stop().then(ok => { if (!ok) { stopping = false; gate(); } }); };
   // M5.1 one input box: the task's material and folder decide where a message goes; both -> the user picks, neither -> say so
-  const send = () => {
+  const send = async () => {
     const text = inp.value.trim(); if (!text || inp.disabled) return;
     inp.value = ""; talk = V.task.id;
     live(talk).append(msg("You", new Date().toISOString(), h("p", null, text)));
+    if (!M.desk) { inp.disabled = true; await refresh(); gate(); }  // the task's folder / PDF come with the first state read
     const d = (M.desk || {})[talk] || {}, pdf = !!d.pdf || (!M.desk && M.pdf), dir = !!d.folder;
     if (pdf && !dir) return ask(text, talk);
     if (dir && !pdf) return chat(text, talk);
@@ -825,8 +956,11 @@ if (window.pabloHost && pabloHost.chat) {
     sidebar(); header(); tools(); gate(); finish();
     if (open && open.mode !== "source") show(open, false);  // Intent / Plan / 왜? stay open and show the new state
     Object.values(lives).forEach(l => l.querySelectorAll(".crit:empty").forEach(c => {  // the live card's criteria, once stored
-      const a = Object.values(M.views).flatMap(v => v.actions).find(x => x.id === c.closest("[data-act]").dataset.act);
-      if (a && a.criteria.length) c.textContent = "관련 기준: " + a.criteria.map(x => x.text).join(" · ");
+      const v = Object.values(M.views).find(v => v.actions.some(x => x.id === c.closest("[data-act]").dataset.act));
+      const a = v && v.actions.find(x => x.id === c.closest("[data-act]").dataset.act);
+      if (!a || !a.criteria.length) return;
+      c.textContent = "관련 기준: " + a.criteria.map(x => x.text).join(" · ");  // + where a source says so: [n] opens it
+      c.append(" ", ...[...new Set(a.criteria.flatMap(x => (v.checks[x.id] || {}).evidence || []))].filter(e => M.anchors[e]).map(e => cite(e)));
     }));
   }).catch(e => console.error("[pablo] state", e)));
   const bar = $("chat").insertBefore(h("div", { id: "tools" }), box);
@@ -837,16 +971,22 @@ if (window.pabloHost && pabloHost.chat) {
     if (!V) return;
     const d = (M.desk || {})[V.task.id] || {};
     bar.append(h("span", { id: "src" }, "📎 자료: ", d.pdf ? h("b", null, d.pdf) : "없음", " ", link(d.pdf ? "바꾸기" : "PDF 추가", () => attach("addSource"))),
-      h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder"))));
+      h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder"))),
+      d.pdf && pabloHost.spec ? h("span", { id: "specs" }, link(V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived")
+        ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기", () => spec(V.task.id))) : null,
+      d.folder && pabloHost.setNet ? h("span", { id: "net", "data-on": d.net ? "1" : "", title: "패키지 설치, 데이터 내려받기, git clone에 필요합니다. 켜도 명령마다 Pablo가 검토합니다." },
+        "🌐 인터넷: ", h("b", null, d.net ? "허용" : "차단"), " ",
+        link(d.net ? "차단하기" : "허용하기", () => pabloHost.setNet(V.task.id, !d.net).then(() => refresh()))) : null);
   };
   newTask = () => {
     V = null; close(); sidebar(); header(); tools(); gate();
     const ta = h("textarea", { id: "goal", rows: 5,
       placeholder: "무엇을 할지 적어주세요.\n지켜야 할 조건은 한 줄에 하나씩 적으면 작업 기준이 됩니다." });
+    const repro = h("input", { type: "checkbox", id: "repro" });
     const err = h("p", { class: "muted" }), make = h("button", { class: "pill on", id: "create", on: () => {
       const text = ta.value.trim(); if (!text) return;
       make.disabled = true; err.textContent = "작업을 만드는 중…";
-      pabloHost.newTask(text).then(id => refresh(id).then(() => {
+      pabloHost.newTask(text, { repro: repro.checked }).then(id => refresh(id).then(() => {
         const I = V.intent, n = I.must.length + I.prefer.length;
         live(id).append(msg("Pablo", null, M.tasks.length === 1 ? art("waving", "pose") : null, h("p", null, n ? `작업 기준 ${n}개를 기록했습니다. ` : "작업을 만들었습니다. ",
           link("작업 기준 보기", () => show({ mode: "intent" }))),
@@ -854,13 +994,28 @@ if (window.pabloHost && pabloHost.chat) {
       }), e => { make.disabled = false; err.textContent = clean(e); });
     } }, "작업 만들기");
     const log = $("log"); log.textContent = "";
-    log.append(msg("Pablo", null, h("p", null, "새 작업을 시작합니다."), ta, h("p", null, make), err));
+    log.append(msg("Pablo", null, h("p", null, "새 작업을 시작합니다."), ta,
+      h("p", { class: "muted" }, h("label", null, repro, " 논문 재현 작업 — 데이터 누수와 결과 맞추기를 막는 기준을 함께 넣습니다")),
+      h("p", null, make), err));
     ta.focus();
   };
   const clean = e => String(e.message || e).replace(/^Error invoking remote method [^:]+: (Error: )?/, "");
+  // A2: the paper's reproduction conditions -> a card in the conversation (+ the 기준 panel); the agent's brief has them
+  function spec(t) {
+    if (agentSt === "Thinking") return;
+    talk = busy = t;
+    const box = h("div", { class: "spec" }, h("p", { class: "muted" }, "논문에서 재현 조건을 찾는 중…"));
+    live(t).append(msg("Pablo", null, box)); scroll(); status("Thinking");
+    pabloHost.spec(t).then(r => {
+      Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources);
+      for (const c of [...r.stated, ...r.missing]) M.views[t].checks[c.id] = c;
+      box.replaceWith(conditions([...r.stated, ...r.missing].map(c => c.id), r.dropped.length));
+      busy = null; status("Ready"); scroll(); refresh();
+    }, e => { box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e)))); busy = null; status("Ready"); });
+  }
   // M3.3: with a captured PDF the question goes to Pablo (judge picks quotes, Pablo anchors them); [n] opens the page
   function ask(text, t) {
-    talk = t;
+    talk = busy = t;
     const box = h("div", { class: "asked" }, h("p", { class: "muted" }, "PDF에서 근거를 찾는 중…"));
     live(t).append(msg("Pablo", null, box)); scroll(); status("Thinking");
     pabloHost.ask(text, t).then(r => {
@@ -868,10 +1023,10 @@ if (window.pabloHost && pabloHost.chat) {
       box.textContent = ""; box.dataset.check = r.check.id;
       box.append(h("p", null, cited(r.check.conclusion, r.check.evidence)));
       if (r.dropped.length) box.append(h("p", { class: "muted" }, `PDF에서 찾지 못한 인용 ${r.dropped.length}개는 뺐습니다.`));
-      status("Ready"); scroll(); refresh();
-    }, e => { box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + e.message.replace(/^Error invoking remote method [^:]+: (Error: )?/, "")))); status("Ready"); });
+      busy = null; status("Ready"); scroll(); refresh();
+    }, e => { box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + e.message.replace(/^Error invoking remote method [^:]+: (Error: )?/, "")))); busy = null; status("Ready"); });
   }
-  btn.addEventListener("click", send);
+  btn.addEventListener("click", () => box.dataset.running ? stop() : send());
   inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) send(); });
   account(authSt); pabloHost.authStatus().then(account); pabloHost.agentStatus().then(s => status(s)); models().then(gate);
 }

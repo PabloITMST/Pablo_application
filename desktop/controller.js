@@ -46,9 +46,25 @@ function describe(m, t) {
     if (!cs.length) return null;
     const text = cs.map(c => `${KIND[c.kind.type] || "파일 변경"}: ${rel(c.path)}`).join(", ");
     const diff = cs.map(c => c.diff ? `--- ${rel(c.path)}\n${c.diff.slice(0, 1500)}` : "").filter(Boolean).join("\n");
-    return { text, detail: diff, files: cs.map(c => rel(c.path)) };
+    return { text, detail: diff, show: shown(cs, rel), files: cs.map(c => rel(c.path)), rewrites: measured(cs) };
   }
   return null;  // permissions escalation and anything else: not an action Pablo grants (sandbox stays as is)
+}
+// A4: how much of each existing file an edit removes (the file on disk is still the one before the edit) -> Guard W01
+function measured(cs) {
+  return cs.filter(c => c.kind.type === "update" && c.diff).map(c => {
+    let lines;
+    try { lines = fs.readFileSync(path.resolve(ctl.root || "", c.path), "utf8").split("\n").length; } catch { return null; }
+    const removed = c.diff.split("\n").filter(l => l.startsWith("-") && !l.startsWith("---")).length;
+    return { path: path.relative(ctl.root || "", c.path) || c.path, lines, removed };
+  }).filter(Boolean);
+}
+// the change as the user reads it on a WARN / BLOCK card: a unified diff per file, a new file's lines as +, a deleted
+// file's as -. Longer than what the Guard reads (1500 chars a file): the user decides on the whole change.
+function shown(cs, rel) {
+  const sign = (c, x) => c.kind.type === "add" ? x.split("\n").map(l => "+" + l).join("\n")
+    : c.kind.type === "delete" ? x.split("\n").map(l => "-" + l).join("\n") : x;
+  return cs.map(c => `--- ${rel(c.path)}\n` + (c.diff ? sign(c, c.diff.replace(/\n$/, "")).slice(0, 20000) : "")).join("\n");
 }
 
 ctl.request = async (m, t) => {
@@ -58,7 +74,8 @@ ctl.request = async (m, t) => {
     return "decline";
   }
   let g;
-  try { g = await py("gate", task, d.detail ? `${d.text}\n${d.detail}` : d.text); }
+  try { g = await py("gate", task, d.detail ? `${d.text}\n${d.detail}` : d.text,
+    ...(d.rewrites && d.rewrites.length ? ["--rewrites", JSON.stringify(d.rewrites)] : [])); }
   catch (e) {
     console.error("[pablo] gate", e.message);
     ui(t, { verdict: "ERROR", text: d.text, reason: "Pablo가 이 작업을 검토하지 못했습니다. 실행하지 않았습니다." });
@@ -66,10 +83,10 @@ ctl.request = async (m, t) => {
   }
   const act = g.action.id, verdict = g.action.verdict;
   let ok = verdict === "ALLOW", why = "";
-  if (verdict === "BLOCK") ui(t, { act, verdict, text: d.text, reason: g.reason });
+  if (verdict === "BLOCK") ui(t, { act, verdict, text: d.text, detail: d.show, reason: g.reason });
   if (verdict === "WARN") {  // never auto-approved: the item waits for the user
     const id = String(++n);
-    ok = await new Promise(r => { waiting.set(id, r); ui(t, { id, act, verdict, text: d.text, reason: g.reason }); });
+    ok = await new Promise(r => { waiting.set(id, r); ui(t, { id, act, verdict, text: d.text, detail: d.show, reason: g.reason }); });
     why = ok ? "사용자가 대화에서 진행을 선택했습니다." : "사용자가 대화에서 취소했습니다.";
   }
   if (verdict === "BLOCK") why = "Guard BLOCK: 실행하지 않았습니다.";

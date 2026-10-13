@@ -7,6 +7,7 @@ Judge contract (duck-typed; tests inject stubs):
         -> {"intent_conflicts": [...], "source_conflicts": [...], "plan_alignment": {...}, "justification": {...}}
     analyze_execution(context, execution) -> REVIEW_SCHEMA facts (scope, outcome, step progress, new facts ...)
     answer_from_pdf(question, pages) -> {"answer" with [n] markers, "citations": [{n, page, quote, role}]}  (M3.3)
+    extract_spec(pages) -> {"items": [{category, statement, value, quote, page}], "missing": [{category, statement}]}
 """
 from __future__ import annotations
 
@@ -98,6 +99,39 @@ PAPER (page text from the PDF, [p.N] = page N):
 
 QUESTION:
 {question}
+"""
+
+SPEC_CATEGORIES = ["dataset", "split", "preprocessing", "model", "hyperparameter", "training", "metric", "baseline",
+                   "result", "protocol"]
+SPEC_SCHEMA = _obj(
+    items={"type": "array", "items": _obj(category={"enum": SPEC_CATEGORIES}, statement=_str, value=_str, quote=_str,
+                                          page={"type": "integer"})},
+    missing={"type": "array", "items": _obj(category={"enum": SPEC_CATEGORIES}, statement=_str)})
+
+SPEC_PROMPT = """You extract what a faithful reproduction of this paper's main experiments must follow, from the paper's
+text below. Pablo locates every quote in the PDF and highlights it; an item whose quote it cannot find verbatim is dropped.
+
+items: concrete conditions the paper states.
+- category: dataset (benchmarks, versions, sizes) | split (what is used for training / validation / testing, sizes) |
+  preprocessing | model (architecture, backbone, embedding or language model names) | hyperparameter (named values:
+  learning rate, top-k, thresholds, dimensions, ...) | training (steps, epochs, hardware, seeds when stated) |
+  metric (how results are scored) | baseline (methods compared against) | result (a main reported number) |
+  protocol (evaluation rules a reproduction must not break, e.g. data used only for testing).
+- statement: one short Korean sentence stating the condition with its exact value (e.g. "검색 단계의 top-k는 5이다").
+- value: the value alone ("5", "GPT-4o-mini", "Contriever"), or "" when it is not one value.
+- quote: copied verbatim from that page's text (same words and numbers, in order), 5-30 words, one contiguous span that
+  appears only once in the paper and contains the value. For a result from a table: ONE row, its label followed by the
+  numbers, exactly as in the text (e.g. "MethodName 12.3 4.5"); never a whole table or a caption.
+- page: the [p.N] it is on.
+At most 24 items. Prefer what changes results: data and splits, the model, key hyperparameters, metrics, the main
+baselines and main results. Never invent a value. Never paraphrase inside quote.
+
+missing: settings a reproduction must decide that the paper does NOT state (e.g. random seed, learning rate schedule,
+number of runs, prompt templates, hardware), at most 6, each with a Korean statement naming what is missing. List
+only what a reader would actually have to decide; never list something the paper states.
+
+PAPER (page text from the PDF, [p.N] = page N):
+{pages}
 """
 
 TASK_PROMPT = """You are Pablo's task analyst. Decide which EXTERNAL facts / specifications this task depends on.
@@ -227,3 +261,7 @@ class LLMJudge:
     def answer_from_pdf(self, question: str, pages: list[str]) -> dict:
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
         return self.provider.complete_json(ASK_PROMPT.format(pages=text, question=question), ASK_SCHEMA)
+
+    def extract_spec(self, pages: list[str]) -> dict:
+        text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
+        return self.provider.complete_json(SPEC_PROMPT.format(pages=text), SPEC_SCHEMA)

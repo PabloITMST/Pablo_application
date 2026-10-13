@@ -23,7 +23,8 @@ USER_KINDS = ("goal", "constraint", "success_criterion", "decision")
 
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # milliseconds: a task and what is said right after it must not share a timestamp (ISO strings still sort in order)
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
 @dataclass
