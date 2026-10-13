@@ -376,25 +376,37 @@ class PabloSkill:
             raise KeyError("no captured PDF to answer from")
         return src
 
+    def _doc(self, src_id: str | None) -> EvidenceSource:
+        """D1: what a question can be asked of: a captured PDF or web page (default: the latest PDF)."""
+        src = self.get_source(src_id) if src_id else next((x for x in reversed(self.state.sources) if x.kind == "pdf"), None)
+        if not src or src.kind not in ("pdf", "web"):
+            raise KeyError("no captured PDF or web page to answer from")
+        return src
+
     def ask(self, task_id: str, question: str, src_id: str | list[str] | None = None) -> tuple[SourceCheck, list[dict]]:
         """M3.3: answer a question from a captured PDF (default: the latest one). The judge picks the quotes; Pablo
         anchors each one in the captured text, drops the ones it cannot find once, renumbers the [n] markers, and
         stores the answer as a completed check whose supports links are in citation order. -> (check, dropped)
         C1: several PDFs (a list of ids) are asked together; each quote is anchored in the paper it names, on its page.
-        Too much text for one question (ASK_PAGES a paper, ASK_CHARS in all) raises TooMuchText: ask fewer papers."""
+        Too much text for one question (ASK_PAGES a paper, ASK_CHARS in all) raises TooMuchText: ask fewer sources.
+        D1: a web page is a source too. It has no pages: the judge gives the words next to a quote (near) and Pablo
+        anchors it in the captured text (evidence.locate), the occurrence near those words when the quote repeats.
+        Pablo cannot tell how authoritative a page the user picked is (tier 5): an answer resting on web quotes alone
+        is PARTIALLY_VERIFIED (R01), one with a paper's quote can be VERIFIED."""
         ids = [src_id] if isinstance(src_id, str) or src_id is None else list(dict.fromkeys(src_id))
-        srcs = [self._pdf(i) for i in ids]
-        if len(srcs) == 1:
+        srcs = [self._doc(i) for i in ids]
+        if len(srcs) == 1 and srcs[0].kind == "pdf":
             src = srcs[0]
             r = self.judge.answer_from_pdf(question, self.snapshot_text(src).split("\f"))
             of = {}
         else:
-            papers = [{"label": chr(65 + i), "title": x.title, "pages": self.snapshot_text(x).split("\f")[:ASK_PAGES]}
+            papers = [{"label": chr(65 + i), "title": x.title, "kind": x.kind,
+                       "pages": self.snapshot_text(x).split("\f")[:ASK_PAGES] if x.kind == "pdf" else [self.snapshot_text(x)]}
                       for i, x in enumerate(srcs)]
             size = sum(len(p) for x in papers for p in x["pages"])
             if size > ASK_CHARS:
-                raise TooMuchText(f"논문 {len(srcs)}편을 한 번에 묻기에는 본문이 너무 깁니다({size:,}자, 상한 {ASK_CHARS:,}자). "
-                                  "물어볼 논문을 골라 주세요.")
+                raise TooMuchText(f"자료 {len(srcs)}개를 한 번에 묻기에는 본문이 너무 깁니다({size:,}자, 상한 {ASK_CHARS:,}자). "
+                                  "물어볼 자료를 골라 주세요.")
             r = self.judge.answer_from_sources(question, papers)
             of = {x["label"]: s for x, s in zip(papers, srcs)}
         kept, dropped, new = [], [], {}
@@ -402,11 +414,17 @@ class PabloSkill:
             src = of.get(str(c.get("paper", "")).strip().upper()[:1]) if of else srcs[0]
             try:
                 if not src:
-                    raise evidence.AnchorRejected(f"no paper {c.get('paper')!r} among {sorted(of)}")
-                try:
-                    a = self.add_anchor(src.id, c["quote"], page=c["page"])
-                except evidence.AnchorRejected:  # wrong page from the judge: unique anywhere in that paper is still exact
-                    a = self.add_anchor(src.id, c["quote"])
+                    raise evidence.AnchorRejected(f"no source {c.get('paper')!r} among {sorted(of)}")
+                if src.kind == "web":
+                    try:
+                        a = self.add_anchor(src.id, c["quote"], near=c.get("near") or "")
+                    except evidence.AnchorRejected:  # near not where the judge said: a quote unique on the page still is
+                        a = self.add_anchor(src.id, c["quote"])
+                else:
+                    try:
+                        a = self.add_anchor(src.id, c["quote"], page=c["page"])
+                    except evidence.AnchorRejected:  # wrong page from the judge: unique anywhere in that paper is still exact
+                        a = self.add_anchor(src.id, c["quote"])
             except evidence.AnchorRejected as e:
                 dropped.append({**c, "why": str(e)})
                 continue
@@ -416,11 +434,12 @@ class PabloSkill:
                         r["answer"])
         answer = re.sub(r"\s?\[(\d+)\]", lambda m: f"[{new[int(m[1])]}]" if int(m[1]) in new else "", answer)
         sc = self.add_check(task_id, question, "USEFUL")
-        self.complete_check(sc.id, "VERIFIED" if kept and not dropped else "PARTIALLY_VERIFIED", answer,
-                            [{"tier": 4, "type": "pdf", "title": s.title, "url": s.locator,
+        whole = kept and not dropped and any(x.kind == "pdf" for *_, x in kept)
+        self.complete_check(sc.id, "VERIFIED" if whole else "PARTIALLY_VERIFIED", answer,
+                            [{"tier": 4 if s.kind == "pdf" else 5, "type": s.kind, "title": s.title, "url": s.locator,
                               "supports": [a.id for a, _, x in kept if x is s]}
                              for s in [s for s in srcs if any(x is s for *_, x in kept)] or srcs],
-                            None if kept and not dropped else "budget_exhausted")
+                            None if whole else "budget_exhausted")
         for a, role, _ in kept:
             self.link_evidence(a.id, sc.id, "supports", role)
         return sc, dropped
@@ -515,11 +534,24 @@ class PabloSkill:
         return mid, cells, empty
 
     def resolve_source(self, src_id: str) -> list[EvidenceAnchor]:
-        """C2: every anchor of one source against the file at its path now (a newer arXiv version saved over it)."""
-        return [self.resolve_anchor(a.id) for a in list(self.state.anchors) if a.source_id == self.get_source(src_id).id]
+        """C2: every anchor of one source against the file at its path now (a newer arXiv version saved over it).
+        D1: a web page is fetched once for all its anchors."""
+        src, text = self.get_source(src_id), None
+        mine = [a for a in self.state.anchors if a.source_id == src.id]
+        if src.kind == "web":
+            try:
+                text = evidence.normalize(self.fetch(src.locator))[0]
+            except (OSError, http.client.HTTPException) as e:  # one failed fetch, recorded on every anchor
+                for a in mine:
+                    a.status, a.resolution = "UNRESOLVED", {"status": "UNRESOLVED", "reason": "fetch_failed", "hash_changed": None,
+                                                            "start": None, "end": None, "content_hash": None, "error": str(e), "at": now()}
+                self.save()
+                return mine
+        return [self.resolve_anchor(a.id, text) for a in mine]
 
-    def resolve_anchor(self, e_id: str) -> EvidenceAnchor:
-        """Re-fetch the live source and find the anchor in it. Never moves the anchor; records where it is now."""
+    def resolve_anchor(self, e_id: str, text: str | None = None) -> EvidenceAnchor:
+        """Re-fetch the live source and find the anchor in it. Never moves the anchor; records where it is now.
+        text: the web page's current text when the caller fetched it already (resolve_source)."""
         a = self.get_anchor(e_id)
         src = self.get_source(a.source_id)
         try:
@@ -527,7 +559,8 @@ class PabloSkill:
                 with open(src.locator, "rb") as f:
                     r = pdf.resolve(a.quote, a.selector, src.version["content_hash"], f.read())
             else:
-                text, _ = evidence.normalize(self.fetch(src.locator))
+                if text is None:
+                    text, _ = evidence.normalize(self.fetch(src.locator))
                 r = evidence.resolve(a.quote, a.selector, src.version["content_hash"], text)
         except (OSError, http.client.HTTPException) as e:
             r = {"status": "UNRESOLVED", "reason": "fetch_failed", "hash_changed": None, "start": None, "end": None,

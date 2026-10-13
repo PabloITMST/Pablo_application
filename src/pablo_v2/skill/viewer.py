@@ -254,7 +254,7 @@ body.panel #panel { display:flex; }
        color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ext { color:var(--accent); text-decoration:none; font-size:16px; }
 #pbody { flex:1; overflow:auto; padding:16px 20px 28px; }
-#pbody.live { padding:0; overflow:hidden; display:flex; } #pbody.live webview { flex:1; }
+#pbody.live { padding:0; overflow:hidden; display:flex; } #pbody.live webview { flex:1; background:#fff; }  /* a page without its own background stays readable in dark mode */
 .info { font-size:12px; color:var(--muted); padding:6px 16px; border-bottom:1px solid var(--line); background:var(--side); }
 .info.STALE, .info.UNRESOLVED, .info.broken { background:var(--warnbg); color:var(--warn); }
 .info a { color:var(--accent); }
@@ -1157,29 +1157,48 @@ if (window.pabloHost && pabloHost.chat) {
     e => { live(V.task.id).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + clean(e))))); scroll(); });
   // C1/C2: + 추가 -> a PDF file, or an arXiv id / link that main downloads (one row under the tools)
   const adder = $("chat").insertBefore(h("div", { id: "adder", hidden: true }), box);
-  const arx = h("input", { id: "arxiv", placeholder: "arXiv 번호나 링크 (예: 2510.10114)" }), note = h("span", { id: "arxiv-note" });
+  // D1/D2: the same box takes an arXiv id or link (C2), a web page's address (D1), or words to find a paper (D2)
+  const arx = h("input", { id: "arxiv", placeholder: "arXiv 번호·링크, 웹 문서 주소, 또는 찾을 말" }), note = h("span", { id: "arxiv-note" });
+  const hits = h("div", { id: "arxiv-hits", hidden: true });
+  const ARXIV = /^(arxiv:|(https?:\/\/)?(www\.|export\.)?arxiv\.org\/)|^\d{4}\.\d{4,5}(v\d+)?$|^[a-z][a-z-]*(\.[A-Z]{2})?\/\d{7}(v\d+)?$/i;
   const moved = m => { const n = Object.values(m).reduce((a, b) => a + b, 0);
     return n ? ` 이전 버전에서 찾은 근거 ${n}개: 그대로 ${m.VALID || 0} · 문맥 바뀜 ${m.STALE || 0} · 찾을 수 없음 ${m.UNRESOLVED || 0}.` : ""; };
-  const fetchArxiv = () => {
-    const v = arx.value.trim(); if (!v || get.disabled) return;
-    get.disabled = true; note.textContent = "arXiv에서 받는 중…";
-    pabloHost.addArxiv(V.task.id, v).then(r => {
-      get.disabled = false; arx.value = "";
-      note.textContent = `${r.same ? "이미 있는 파일입니다" : "추가했습니다"}: ${r.title}${r.version ? " " + r.version : ""}.` + (r.moved ? moved(r.moved) : "");
+  const hold = on => { get.disabled = find.disabled = on; };
+  const fetchArxiv = (v = arx.value.trim()) => {
+    if (!v || get.disabled) return;
+    const web = !ARXIV.test(v) && /^https?:\/\//i.test(v);
+    if (!web && !ARXIV.test(v)) return search();  // words: find the paper first
+    hold(true); hits.hidden = true; note.textContent = web ? "웹 문서를 가져오는 중…" : "arXiv에서 받는 중…";
+    (web ? pabloHost.addWeb : pabloHost.addArxiv)(V.task.id, v).then(r => {
+      hold(false); arx.value = "";
+      note.textContent = `${r.same ? "이미 있는 자료입니다" : "추가했습니다"}: ${r.title}${r.version ? " " + r.version : ""}.` + (r.moved ? moved(r.moved) : "");
       refresh();
-    }, e => { get.disabled = false; note.textContent = "⚠ " + fail(e); });
+    }, e => { hold(false); note.textContent = "⚠ " + fail(e); });
   };
-  const get = h("button", { class: "pill", id: "arxiv-get", on: fetchArxiv }, "가져오기");
+  const search = () => {
+    const v = arx.value.trim(); if (!v || find.disabled || !pabloHost.searchArxiv) return;
+    hold(true); hits.hidden = true; note.textContent = "arXiv에서 찾는 중…";
+    pabloHost.searchArxiv(v).then(rs => {
+      hold(false); note.textContent = rs.length ? "" : "arXiv에서 찾은 논문이 없습니다."; hits.textContent = ""; hits.hidden = !rs.length;
+      hits.append(h("p", { class: "muted" }, "검색어를 arXiv(export.arxiv.org)로 보냈습니다. arXiv의 요청 제한 때문에 3초에 한 번까지 찾습니다."),
+        ...rs.map(x => h("div", { class: "hit", "data-hit": x.id }, h("b", null, x.title), " ",
+          h("small", { class: "muted" }, `${x.authors} · ${x.year} · arXiv ${x.id}${x.version || ""}`), " ",
+          h("button", { class: "link", "data-import": x.id, on: () => fetchArxiv(x.id) }, "가져오기"))));
+    }, e => { hold(false); note.textContent = "⚠ " + fail(e); });
+  };
+  const get = h("button", { class: "pill", id: "arxiv-get", on: () => fetchArxiv() }, "가져오기");
+  const find = h("button", { class: "pill", id: "arxiv-find", title: "검색어가 arXiv(export.arxiv.org)로 보내집니다. 3초에 한 번까지 찾습니다.", on: search }, "🔎 arXiv에서 찾기");
   arx.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) fetchArxiv(); });
-  adder.append(link("📄 PDF 파일 고르기", () => attach("addSource")), "또는", arx, get, note);
+  adder.append(...[link("📄 PDF 파일 고르기", () => attach("addSource")), "또는", arx, get, pabloHost.searchArxiv ? find : null, note, hits].filter(Boolean));
   tools = () => {
     bar.textContent = "";
     if (!V) { adder.hidden = true; return; }
-    const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [], main = ps.find(p => p.primary), several = ps.length > 1;
+    const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [], main = ps.find(p => p.primary);
+    const pdfs = ps.filter(p => p.kind !== "web"), several = pdfs.length > 1;  // D1: a web page is asked, never reproduced or a row
     const hasSpec = V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived");
-    bar.append(...[h("span", { id: "src" }, "📎 자료: ", ps.length ? ps.map((p, i) => [i ? " · " : "", h("span", { class: "paper", "data-paper": p.id },
-        h("b", null, p.title), p.version ? h("small", null, " " + p.version) : null,
-        several ? (p.primary ? h("small", { class: "muted", "data-primary": "1" }, " (주 논문)")
+    bar.append(...[h("span", { id: "src" }, "📎 자료: ", ps.length ? ps.map((p, i) => [i ? " · " : "", h("span", { class: "paper", "data-paper": p.id, "data-kind": p.kind || "pdf" },
+        p.kind === "web" ? h("span", { title: "웹 문서" }, "🌐 ") : null, h("b", null, p.title), p.version ? h("small", null, " " + p.version) : null,
+        several && p.kind !== "web" ? (p.primary ? h("small", { class: "muted", "data-primary": "1" }, " (주 논문)")
           : [" ", h("button", { class: "link", title: "이 논문을 재현 대상으로 (재현 조건은 주 논문에서 뽑습니다)", "data-make-primary": p.id,
               on: () => pabloHost.setPrimary(V.task.id, p.id).then(() => refresh()) }, "주 논문으로")]) : null,
         h("button", { class: "rm", title: "자료에서 빼기 (찾은 근거 기록은 남습니다)", "data-remove": p.id,
@@ -1257,7 +1276,7 @@ if (window.pabloHost && pabloHost.chat) {
     }, e => {
       box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e))));
       const ps = ((M.desk || {})[t] || {}).papers || [];
-      if (/물어볼 논문을 골라/.test(fail(e)) && ps.length > 1) box.firstChild.append(h("div", { class: "ask-pick" },
+      if (/물어볼 (논문|자료)를 골라/.test(fail(e)) && ps.length > 1) box.firstChild.append(h("div", { class: "ask-pick" },
         ps.map(p => h("button", { class: "pill", "data-ask-only": p.id, on: () => ask(text, t, [p.id]) }, `${p.title}에만 묻기`))));
       busy = null; status("Ready");
     });

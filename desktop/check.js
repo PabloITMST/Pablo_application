@@ -939,10 +939,22 @@ async function uiCheck() {
 //     a paper (its records stay).
 async function papersUi() {
   const S = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-papers-"));
-  const fx = JSON.parse(execFileSync("python", [path.join(__dirname, "../tests/skill/ui_fixture.py"), "--papers", S],
-    { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } }));
-  const served = [], srv = http.createServer((q, s) => {
-    const name = decodeURIComponent(q.url.replace(/^\/pdf\//, "")); served.push(name);
+  let fx = null;  // the fixture needs the server's address (its web page lives there); the server reads fx at request time
+  const served = [], searches = [], srv = http.createServer((q, s) => {
+    const u = new URL(q.url, "http://x");
+    if (u.pathname === "/api/query") {  // D2: a fake export.arxiv.org
+      searches.push(u.searchParams.get("search_query"));
+      s.writeHead(200, { "content-type": "application/atom+xml" }); return s.end(fs.readFileSync(path.join(fx.arxiv, "api.xml")));
+    }
+    if (u.pathname.startsWith("/page/")) {  // D1: web pages (and a PDF and a missing page behind http links)
+      const name = u.pathname.slice(6);
+      if (name === "two.html") { s.writeHead(200, { "content-type": "text/html; charset=utf-8" }); return s.end("<title>Notes two</title><p>Second page of notes.</p>"); }
+      if (name === "paper.pdf") { s.writeHead(200, { "content-type": "application/pdf" }); return s.end(fs.readFileSync(path.join(fx.arxiv, "2502.00002"))); }
+      const f = path.join(fx.web, name);
+      if (!/^[\w.]+$/.test(name) || !fs.existsSync(f)) { s.writeHead(404); return s.end(); }
+      s.writeHead(200, { "content-type": "text/html; charset=utf-8" }); return s.end(fs.readFileSync(f));
+    }
+    const name = decodeURIComponent(u.pathname.replace(/^\/pdf\//, "")); served.push(name);
     if (name === "2501.00008") { s.writeHead(302, { location: `http://localhost:${srv.address().port}/pdf/2502.00002` }); return s.end(); }
     if (name === "2501.00009") { s.writeHead(200, { "content-type": "text/html" }); return s.end("<html>not a paper</html>"); }
     const f = path.join(fx.arxiv, name);
@@ -950,8 +962,11 @@ async function papersUi() {
     s.writeHead(200, { "content-type": "application/pdf" }); s.end(fs.readFileSync(f));
   });
   await new Promise(r => srv.listen(0, "127.0.0.1", r));
-  const { arxiv } = require("./main"), base0 = arxiv.base;
-  arxiv.base = `http://127.0.0.1:${srv.address().port}/pdf/`;
+  const port = srv.address().port, at = p => `http://127.0.0.1:${port}${p}`;
+  fx = JSON.parse(execFileSync("python", [path.join(__dirname, "../tests/skill/ui_fixture.py"), "--papers", S, "--web", at("/page/notes.html")],
+    { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } }));
+  const { arxiv } = require("./main"), [base0, api0] = [arxiv.base, arxiv.api];
+  arxiv.base = at("/pdf/"); arxiv.api = at("/api/query");
   const errors = [], win = open(fx.view);
   win.webContents.on("console-message", e => e.level === "error" && errors.push(e.message));
   await new Promise(r => win.webContents.once("did-finish-load", r));
@@ -962,8 +977,10 @@ async function papersUi() {
   const dir = shots || view, shot = async name => dir && fs.writeFileSync(path.join(dir, name), (await win.capturePage()).toPNG());
   const tools = () => js(`({ papers: [...document.querySelectorAll("#src .paper")].map(x => [x.querySelector("b").textContent + ((x.querySelector("b + small") || {}).textContent || ""),
     !!x.querySelector("[data-primary]")]), spec: ($("specs") || {}).textContent, compare: !!$("compares") })`);
-  await until(`document.querySelectorAll("#src .paper").length === 2`);
-  assert.deepStrictEqual(await tools(), { papers: [["TinyRAG v2", true], ["OtherRAG", false]], spec: "📋 재현 조건 뽑기 (TinyRAG)", compare: true });
+  const titles = () => js(`[...document.querySelectorAll("#src .paper")].map(x => (x.dataset.kind === "web" ? "🌐 " : "") + x.querySelector("b").textContent)`);
+  await until(`document.querySelectorAll("#src .paper").length === 3`);
+  assert.deepStrictEqual(await tools(), { papers: [["TinyRAG v2", true], ["OtherRAG", false], ["TinyRAG notes", false]], spec: "📋 재현 조건 뽑기 (TinyRAG)", compare: true });
+  assert.ok(await js(`!document.querySelector('#src [data-kind="web"] [data-make-primary]')`), "a web page is never the 주 논문");
   // the table: what each paper says, located; what Pablo could not locate is empty, and says why
   const rows = () => js(`[...document.querySelectorAll("#log [data-matrix] tbody tr")].map(tr => [...tr.children].map(td => td.classList.contains("none") ? "-" : td.textContent.replace(/\\s*\\[\\d+\\]/g, "").trim()))`);
   assert.deepStrictEqual(await rows(), [["TinyRAG v2", "HotpotQA, MuSiQue", "HotpotQA 61.5", "-", "-"], ["OtherRAG", "HotpotQA, MuSiQue", "HotpotQA 58.2", "색인 95초", "효율은 색인 시간만 다룸"]]);
@@ -988,6 +1005,13 @@ async function papersUi() {
   await js(`close(); document.querySelectorAll(".asked .cite")[1].click()`);
   assert.strictEqual(await settled(), "FOUND");
   assert.deepStrictEqual(await page(), ["📄 OtherRAG · PDF", "1 / 2"]);
+  // D1: an answer from the web page: the sentence it repeats, the occurrence next to the judge's near words, live
+  await js(`close(); document.querySelectorAll(".asked")[1].querySelector(".cite").click()`);
+  assert.strictEqual(await settled(), "FOUND");
+  const r = await js(`hist[hi].result`);
+  assert.deepStrictEqual([r.count, r.index], [2, 1], "the second of two equal sentences: " + JSON.stringify(r));
+  assert.match(await js(`$("panel").querySelector(".url").textContent`), /TinyRAG notes/);
+  await sleep(300); await shot("papers-web-quote.png");
   await js(`close()`);
   assert.ok(await js(`!/\\b(E|SRC|SC|M)\\d+\\b/.test(document.body.innerText)`), "no internal ids in the UI");
   console.log("ok papers: table 6/8 cells located, a cell -> its paper's page, wide panel and back, an answer over both papers");
@@ -998,24 +1022,41 @@ async function papersUi() {
   // arXiv: a new paper; refusals (not arXiv, no such paper, not a PDF, sent elsewhere); a newer version; the same file again
   await js(`[...$("src").querySelectorAll(".link")].find(b => b.textContent === "+ 추가").click()`);
   assert.ok(await js(`!$("adder").hidden`));
-  const fetchArxiv = async text => { await js(`$("arxiv").value = ${JSON.stringify(text)}; $("arxiv-get").click()`);
-    return until(`(n => !$("arxiv-get").disabled && n.textContent && !/받는 중/.test(n.textContent) && n.textContent)($("arxiv-note"))`); };
-  assert.strictEqual(await fetchArxiv("arXiv:2502.00002"), "추가했습니다: ThirdRAG v1.");
-  await until(`document.querySelectorAll("#src .paper").length === 3`);
+  const fetchArxiv = async text => { await js(`$("arxiv").value = ${JSON.stringify(text)}; $("arxiv").dispatchEvent(new Event("input")); $("arxiv-get").click()`);
+    return until(`(n => !$("arxiv-get").disabled && n.textContent && !/중…$/.test(n.textContent) && n.textContent)($("arxiv-note"))`); };
+  // D2: words are a search (the API gets all:w1 AND all:w2); the user picks a result and it is imported like an id
+  await js(`$("arxiv").value = "hypergraph retrieval"; $("arxiv-get").click()`);
+  await until(`document.querySelectorAll("#arxiv-hits .hit").length === 2 && !$("arxiv-get").disabled`);
+  assert.deepStrictEqual(searches, ["all:hypergraph AND all:retrieval"]);
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("#arxiv-hits .hit")].map(x => x.querySelector("b").textContent + " | " + x.querySelector("small").textContent)`),
+    ["ThirdRAG: Hypergraph Retrieval for Long Documents | Ada Lovelace, Alan Turing · 2025 · arXiv 2502.00002v1",
+     "TinyRAG: A Tiny Graph RAG | A, B, C 외 · 2025 · arXiv 2501.00001v2"]);
+  assert.match(await js(`$("arxiv-hits").textContent`), /검색어를 arXiv\(export\.arxiv\.org\)로 보냈습니다\. arXiv의 요청 제한 때문에 3초에 한 번까지/);
+  await sleep(200); await shot("papers-search.png");
+  await js(`document.querySelector('#arxiv-hits [data-import="2502.00002"]').click()`);
+  assert.strictEqual(await until(`(n => !$("arxiv-get").disabled && /^추가했습니다/.test(n.textContent) && n.textContent)($("arxiv-note"))`), "추가했습니다: ThirdRAG v1.");
+  await until(`document.querySelectorAll("#src .paper").length === 4`);
+  // D1: a web page's address; refusals: a PDF behind an http link, a page that is not there
+  assert.strictEqual(await fetchArxiv(at("/page/two.html")), "추가했습니다: Notes two.");
+  assert.strictEqual(await fetchArxiv(at("/page/paper.pdf")), "⚠ 웹 문서가 아닙니다. PDF는 파일이나 arXiv 번호로 추가하세요.");
+  assert.strictEqual(await fetchArxiv(at("/page/gone.html")), "⚠ 그 주소에 문서가 없습니다(404).");
+  assert.deepStrictEqual(await titles(), ["TinyRAG", "OtherRAG", "🌐 TinyRAG notes", "ThirdRAG", "🌐 Notes two"]);
+  console.log("ok search + web: words -> 2 results -> 가져오기; a web page added; a PDF link and a missing page refused");
   const refused = [];
-  for (const x of ["https://example.com/abs/2501.00001", "2501.00404", "2501.00009", "2501.00008"]) refused.push(await fetchArxiv(x));
+  for (const x of ["https://arxiv.org/abs/not-a-paper", "2501.00404", "2501.00009", "2501.00008"]) refused.push(await fetchArxiv(x));
   assert.deepStrictEqual(refused.map(x => x.split(".")[0]), ["⚠ arXiv 번호나 링크를 읽지 못했습니다", "⚠ arXiv에 그 번호의 논문이 없습니다",
     "⚠ 받은 파일이 PDF가 아닙니다", "⚠ arXiv 밖으로 넘겨져 받지 않았습니다"], JSON.stringify(refused));
   assert.deepStrictEqual(served.filter(x => x === "2502.00002").length, 1, "the redirect elsewhere was never followed");
   assert.match(await fetchArxiv("https://arxiv.org/abs/2501.00001"), /^추가했습니다: TinyRAG v3\. 이전 버전에서 찾은 근거 3개: 그대로 3 · 문맥 바뀜 0 · 찾을 수 없음 0\.$/);
-  assert.strictEqual(await fetchArxiv("2501.00001"), "이미 있는 파일입니다: TinyRAG v3.");
+  assert.strictEqual(await fetchArxiv("2501.00001"), "이미 있는 자료입니다: TinyRAG v3.");
   const ps = deskJson().pdf.T1;
-  assert.deepStrictEqual(ps.map(p => [p.title, p.version || null, !!p.sha256]), [["TinyRAG", "v3", true], ["OtherRAG", null, false], ["ThirdRAG", "v1", true]]);
+  assert.deepStrictEqual(ps.map(p => [p.title, p.kind || "pdf", p.version || null, !!p.sha256]), [["TinyRAG", "pdf", "v3", true], ["OtherRAG", "pdf", null, false],
+    ["TinyRAG notes", "web", null, false], ["ThirdRAG", "pdf", "v1", true], ["Notes two", "web", null, false]]);
   assert.ok(ps[0].id !== fx.a && fs.existsSync(path.join(S, "papers", "arxiv-2501.00001.pdf")), "v3 is a new source in the paper's own file");
   console.log("ok arXiv: new paper, 4 refusals (no request left the origin), v2 -> v3 with its 3 anchors resolved, same file again");
   // removing a paper: the table and the answers keep what was found in it
   await js(`document.querySelector('[data-remove="${fx.b}"]').click()`);
-  await until(`document.querySelectorAll("#src .paper").length === 2`);
+  await until(`document.querySelectorAll("#src .paper").length === 4`);
   assert.ok(!deskJson().pdf.T1.some(p => p.id === fx.b) && !(deskJson().primary || {}).T1, "removed; the 주 논문 falls back to the first");
   assert.strictEqual((await rows()).length, 2, "the table keeps OtherRAG's row");
   await js(`document.querySelector("#compares .link").click()`);
@@ -1024,7 +1065,7 @@ async function papersUi() {
   assert.match(await until(`(b => b && b.textContent)(document.querySelector("[data-compare-form] .call.block"))`), /ChatGPT에 먼저 연결하세요/);
   console.log("ok removed: OtherRAG out of the list, its table row kept; 비교표 form with the default columns");
   assert.deepStrictEqual(errors, [], "no script errors");
-  arxiv.base = base0; srv.close(); win.destroy();
+  arxiv.base = base0; arxiv.api = api0; srv.close(); win.destroy();
 }
 
 // 10) --spec [shot-dir] (A2, real ChatGPT connection, a minute or two): LinearRAG -> 📋 재현 조건 뽑기 in the app -> the

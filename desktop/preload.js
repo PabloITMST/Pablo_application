@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld("pabloHost", {
   pickFolder: task => ipcRenderer.invoke("pablo:pick-folder", task),
   addSource: task => ipcRenderer.invoke("pablo:add-source", task),
   addArxiv: (task, text) => ipcRenderer.invoke("pablo:add-arxiv", task, text),  // C2: main downloads arxiv.org/pdf/<id>
+  addWeb: (task, url) => ipcRenderer.invoke("pablo:add-web", task, url),  // D1: Pablo fetches the page and keeps its snapshot
+  searchArxiv: text => ipcRenderer.invoke("pablo:search-arxiv", text),  // D2: the words go to the arXiv API (no key)
   removeSource: (task, id) => ipcRenderer.invoke("pablo:remove-source", task, id),  // C1: the records stay
   setPrimary: (task, id) => ipcRenderer.invoke("pablo:set-primary", task, id),  // C1: the 주 논문 (재현 조건)
   compare: (task, columns) => ipcRenderer.invoke("pablo:compare", task, columns),  // C3: 비교표

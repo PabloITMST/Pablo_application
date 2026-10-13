@@ -6,9 +6,13 @@
 //   arxiv(text)           -> {id, version} for "2510.10114", "arXiv:2510.10114v4", "https://arxiv.org/abs/2510.10114v4",
 //                            ".../pdf/2510.10114v2.pdf", "hep-th/9901001"; null for anything else (another site, a name)
 //   fetchPdf(url, opts)   -> Buffer: one PDF from opts.origin only, at most opts.max bytes, within opts.ms
+//   web(text)             -> D1: the http(s) address of a web page (not arXiv: that is a paper), else null
+//   searchQuery(text)     -> D2: the arXiv API's search_query for the words a user typed ("graph rag" -> all:graph AND all:rag)
+//   atom(xml)             -> D2: [{id, version, title, authors, year, summary}] from the arXiv API's Atom feed
+// A task's sources are one list (pdf[task]); a web page's entry has kind "web". Only papers (PDFs) can be the 주 논문.
 const list = (desk, task) => { const p = ((desk || {}).pdf || {})[task]; return Array.isArray(p) ? p : p && p.id ? [p] : []; };
 function primary(desk, task) {
-  const ps = list(desk, task), id = ((desk || {}).primary || {})[task];
+  const ps = list(desk, task).filter(p => p.kind !== "web"), id = ((desk || {}).primary || {})[task];
   return ps.find(p => p.id === id) || ps[0] || null;
 }
 const migrate = desk => ({ ...desk, pdf: Object.fromEntries(Object.keys((desk || {}).pdf || {}).map(t => [t, list(desk, t)])) });
@@ -52,4 +56,26 @@ async function fetchPdf(url, { origin, max = 50 << 20, ms = 60000 } = {}) {
   return data;
 }
 
-module.exports = { list, primary, migrate, arxiv, fetchPdf };
+function web(text) {
+  const s = String(text || "").trim();
+  if (!/^https?:\/\/[^\s/?#]+[^\s]*$/i.test(s) || s.length > 2000 || arxiv(s)) return null;
+  try { return new URL(s).href; } catch { return null; }
+}
+
+// D2: words -> all:w1 AND all:w2 (letters, digits, "-" and "." kept; at most 8 words); "" when nothing is left
+const searchQuery = text => String(text || "").normalize("NFKC").split(/\s+/).map(w => w.replace(/[^\p{L}\p{N}.-]/gu, ""))
+  .filter(Boolean).slice(0, 8).map(w => "all:" + w).join(" AND ");
+const unxml = s => String(s || "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+  .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+function atom(xml) {
+  return [...String(xml || "").matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map(([, e]) => {
+    const tag = t => unxml((e.match(new RegExp(`<${t}(?:\\s[^>]*)?>([\\s\\S]*?)</${t}>`)) || [])[1]);
+    const a = arxiv(tag("id"));  // http://arxiv.org/abs/2502.14802v2
+    if (!a) return null;
+    const names = [...e.matchAll(/<author>\s*<name>([\s\S]*?)<\/name>/g)].map(m => unxml(m[1]));
+    return { id: a.id, version: a.version, title: tag("title"), year: tag("published").slice(0, 4),
+      authors: names.slice(0, 3).join(", ") + (names.length > 3 ? " 외" : ""), summary: tag("summary").slice(0, 240) };
+  }).filter(Boolean);
+}
+
+module.exports = { list, primary, migrate, arxiv, fetchPdf, web, searchQuery, atom };

@@ -147,8 +147,28 @@ def build(d: str) -> str:
     return path
 
 
+WEB_NOTES = ("<html><head><title>TinyRAG notes</title></head><body><h1>TinyRAG notes</h1>"
+             "<p>The default run uses a top-k of 5 in the retrieval step.</p><p>Indexing is fast on one GPU.</p>"
+             "<p>The cached run uses a top-k of 5 in the retrieval step as well.</p></body></html>")
+# D2: what a fake export.arxiv.org answers to any search (Atom, as the arXiv API writes it)
+ARXIV_FEED = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>arXiv Query</title>
+<entry><id>http://arxiv.org/abs/2502.00002v1</id><published>2025-02-02T00:00:00Z</published>
+<title>ThirdRAG: Hypergraph Retrieval
+  for Long Documents</title><summary>  We present ThirdRAG &amp; a hypergraph index. </summary>
+<author><name>Ada Lovelace</name></author><author><name>Alan Turing</name></author></entry>
+<entry><id>http://arxiv.org/abs/2501.00001v2</id><published>2025-01-01T00:00:00Z</published>
+<title>TinyRAG: A Tiny Graph RAG</title><summary>A tiny graph retrieval method.</summary>
+<author><name>A</name></author><author><name>B</name></author><author><name>C</name></author><author><name>D</name></author></entry>
+</feed>"""
+
+
 class PapersJudge:  # C1/C3 stubs: one answer over both papers, each paper's row of the table
     def answer_from_sources(self, question, papers):
+        if any(x.get("kind") == "web" for x in papers):  # D1: the page repeats a sentence; near says which one
+            return {"answer": "노트에 따르면 캐시 실행도 top-k 5입니다 [1].", "citations": [
+                {"n": 1, "paper": "B", "page": 0, "quote": "uses a top-k of 5 in the retrieval step", "near": "The cached run",
+                 "role": "text"}]}
         return {"answer": "TinyRAG는 HotpotQA에서 61.5입니다 [1]. 두 논문 모두 HotpotQA와 MuSiQue로 평가합니다 [2].", "citations": [
             {"n": 1, "paper": "A", "page": 2, "quote": "TinyRAG reaches 61.5 accuracy on HotpotQA", "role": "table"},
             {"n": 2, "paper": "B", "page": 1, "quote": "We evaluate on HotpotQA and MuSiQue with 1,000 questions each", "role": "text"}]}
@@ -168,12 +188,16 @@ THIRD = ["arXiv:2502.00002v1 [cs.IR] 2 Feb 2025. ThirdRAG: hypergraph retrieval 
          "ThirdRAG reaches 63.0 accuracy on HotpotQA."]
 
 
-def build_papers(d: str) -> dict:
+def build_papers(d: str, web: str | None = None) -> dict:
     """C1-C3 offline: task T1 with two papers (TinyRAG from "arXiv", its file where the desktop keeps arXiv papers, and
     OtherRAG from a file), an answer over both, a comparison table. <d>/arxiv/ holds what a fake arxiv.org serves:
-    TinyRAG v2 (the same bytes) and v3 (one sentence changed), and a third paper."""
-    os.makedirs(os.path.join(d, "papers"), exist_ok=True)
-    os.makedirs(os.path.join(d, "arxiv"), exist_ok=True)
+    TinyRAG v2 (the same bytes) and v3 (one sentence changed), a third paper, and the search API's answer (api.xml).
+    D1 web (the address a local server will serve <d>/web/notes.html at): that page is a third source of T1, with an
+    answer citing the sentence it repeats, by the words next to it."""
+    for sub in ("papers", "arxiv", "web"):
+        os.makedirs(os.path.join(d, sub), exist_ok=True)
+    open(os.path.join(d, "web", "notes.html"), "w", encoding="utf-8").write(WEB_NOTES)
+    open(os.path.join(d, "arxiv", "api.xml"), "w", encoding="utf-8").write(ARXIV_FEED)
     e = IntentEngine.load(os.path.join(d, "intent.json"))
     s = PabloSkill.load(os.path.join(d, "skill.json"), e, PapersJudge())
     t = s.start_task("TinyRAG 재현", [])
@@ -185,8 +209,6 @@ def build_papers(d: str) -> dict:
     a, b = s.capture_pdf(pa, arxiv="2501.00001"), s.capture_pdf(pb)
     sc, _ = s.ask(t.id, "두 논문은 무엇으로 평가해?", [a.id, b.id])
     mid, cells, empty = s.compare(t.id, [a.id, b.id], ["데이터셋", "주요 결과", "효율", "한계"])
-    e.save()
-    s.save()
     papers = [{"id": a.id, "title": a.title, "arxiv": "2501.00001", "version": "v2", "sha256": a.version["content_hash"]},
               {"id": b.id, "title": b.title}]
     chat = {t.id: [{"role": "ask", "text": "두 논문은 무엇으로 평가해?", "at": at(10), "check": sc.id},
@@ -195,6 +217,15 @@ def build_papers(d: str) -> dict:
                     "cells": [c.id for c in cells],
                     "empty": [{"source": x["source_id"], "column": x["column"], **({"value": x["value"]} if x.get("value") else {})}
                               for x in empty]}]}
+    w = None
+    if web:
+        s.fetch = lambda url: WEB_NOTES
+        w = s.capture_source(web)
+        sw, _ = s.ask(t.id, "노트에서 캐시 실행의 top-k는?", [a.id, w.id])
+        papers.append({"id": w.id, "title": w.title, "kind": "web", "url": web})
+        chat[t.id].append({"role": "ask", "text": "노트에서 캐시 실행의 top-k는?", "at": at(30), "check": sw.id})
+    e.save()
+    s.save()
     with open(os.path.join(d, "chat.json"), "w", encoding="utf-8") as f:
         json.dump(chat, f, ensure_ascii=False)
     with open(os.path.join(d, "desktop.json"), "w", encoding="utf-8") as f:
@@ -206,11 +237,12 @@ def build_papers(d: str) -> dict:
     path = os.path.join(d, "view-T1.html")
     with open(path, "w", encoding="utf-8") as f:
         f.write(render_html(s, t.id))
-    return {"view": os.path.abspath(path), "arxiv": os.path.abspath(os.path.join(d, "arxiv")), "a": a.id, "b": b.id}
+    return {"view": os.path.abspath(path), "arxiv": os.path.abspath(os.path.join(d, "arxiv")), "a": a.id, "b": b.id,
+            "web": os.path.abspath(os.path.join(d, "web")), "w": w and w.id}
 
 
 if __name__ == "__main__":
     if sys.argv[1:2] == ["--papers"]:
-        print(json.dumps(build_papers(sys.argv[2])))
+        print(json.dumps(build_papers(sys.argv[2], sys.argv[4] if sys.argv[3:4] == ["--web"] else None)))
     else:
         print(json.dumps({"view": os.path.abspath(build(sys.argv[1])), "repro": os.path.abspath(os.path.join(sys.argv[1], "repro"))}))

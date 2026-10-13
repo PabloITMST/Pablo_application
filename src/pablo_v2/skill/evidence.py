@@ -129,11 +129,22 @@ def content_hash(text: str) -> str:
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+FETCH_MAX = 5 << 20  # D1: a web page the user adds as a source; larger is not a page
+
+
 def fetch(url: str) -> str:
-    """Raw HTML. Raises OSError (URLError, timeouts) on failure."""
+    """Raw HTML (http/https only, text only, at most FETCH_MAX bytes). Raises OSError (URLError, timeouts, refused)."""
+    if not re.match(r"https?://", url, re.I):
+        raise OSError(f"only http(s) pages: {url!r}")
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (pablo-evidence)"})
     with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read().decode(r.headers.get_content_charset() or "utf-8", "replace")
+        kind = r.headers.get_content_type()
+        if kind not in ("text/html", "application/xhtml+xml", "text/plain"):
+            raise OSError(f"not a web page ({kind}); a PDF is added as a file or by its arXiv id")
+        data = r.read(FETCH_MAX + 1)
+        if len(data) > FETCH_MAX:
+            raise OSError(f"page larger than {FETCH_MAX >> 20} MB")
+        return data.decode(r.headers.get_content_charset() or "utf-8", "replace")
 
 
 def _all(text: str, s: str) -> list[int]:

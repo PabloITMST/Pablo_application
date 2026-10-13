@@ -72,9 +72,67 @@ def test_ask_several_papers():
             s.ask(t.id, "x", [a.id, b.id])
             raise AssertionError("TooMuchText expected")
         except TooMuchText as e:
-            assert "물어볼 논문을 골라" in str(e)
+            assert "물어볼 자료를 골라" in str(e)
         finally:
             skill_mod.ASK_CHARS = old
+
+
+WEB = ("<html><head><title>TinyRAG notes</title></head><body><h1>Notes</h1>"
+       "<p>The default run uses a top-k of 5 in the retrieval step.</p><p>Indexing is fast.</p>"
+       "<p>The cached run uses a top-k of 5 in the retrieval step as well.</p></body></html>")
+REPEAT = "uses a top-k of 5 in the retrieval step"  # twice on the page
+
+
+class WebJudge:  # a paper's quote, the web page's repeated quote told apart by near, the same quote without near
+    def __init__(self, only_web=False):
+        self.seen, self.only_web = None, only_web
+
+    def answer_from_sources(self, question, papers):
+        self.seen = papers
+        web = [{"n": 1, "paper": "B", "page": 0, "quote": REPEAT, "near": "The cached run", "role": "text"},
+               {"n": 2, "paper": "B", "page": 0, "quote": REPEAT, "near": "", "role": "text"}]
+        if self.only_web:  # the page alone: it is source A
+            return {"answer": "캐시 실행도 top-k 5입니다 [1].", "citations": [{**web[0], "paper": "A"}]}
+        return {"answer": "TinyRAG는 61.5입니다 [1]. 캐시 실행도 top-k 5입니다 [2]. 기본 실행도 같습니다 [3].", "citations": [
+            {"n": 1, "paper": "A", "page": 2, "quote": "TinyRAG reaches 61.5 accuracy on HotpotQA", "near": "", "role": "table"},
+            {**web[0], "n": 2}, {**web[1], "n": 3}]}
+
+
+def test_ask_web_page():
+    """D1: a web page is a source of an answer next to a paper. It has no pages; a quote it repeats is anchored at the
+    occurrence next to the judge's near words, and without them it is dropped (never the first one by luck). An answer
+    on web quotes alone is at most PARTIALLY_VERIFIED: Pablo cannot tell how authoritative a page the user picked is."""
+    with tempfile.TemporaryDirectory() as d:
+        j = WebJudge()
+        s, t, a, _ = two(d, j)
+        fetched = []
+        s.fetch = lambda url: fetched.append(url) or WEB
+        w = s.capture_source("https://example.org/tinyrag-notes")
+        assert (w.kind, w.title) == ("web", "TinyRAG notes")
+        sc, dropped = s.ask(t.id, "top-k는?", [a.id, w.id])
+        assert [(x["kind"], len(x["pages"])) for x in j.seen] == [("pdf", 2), ("web", 1)]
+        text = s.snapshot_text(w)
+        cached = text.index(REPEAT, text.index("The cached run"))
+        assert [(x.source_id, x.selector.get("page"), x.selector["start"]) for _, x in s.evidence_for(sc.id)] == \
+            [(a.id, 2, s.evidence_for(sc.id)[0][1].selector["start"]), (w.id, None, cached)]
+        assert len(dropped) == 1 and "2 times" in dropped[0]["why"]  # the repeated quote without near
+        assert [(x["tier"], x["type"]) for x in sc.sources] == [(4, "pdf"), (5, "web")]
+        s.judge = WebJudge(only_web=True)
+        web_only, none = s.ask(t.id, "캐시 실행의 top-k는?", [w.id])
+        assert not none and len(s.evidence_for(web_only.id)) == 1  # kept, and still not VERIFIED on a page alone
+        assert web_only.outcome == "PARTIALLY_VERIFIED" and web_only.sources[0]["tier"] == 5
+        # the page changed elsewhere: both anchors still there, found with one fetch of the page
+        n = len(fetched)
+        s.fetch = lambda url: fetched.append(url) or WEB.replace("The default run", "The base run")
+        got = [(x.status, (x.resolution or {}).get("reason")) for x in s.resolve_source(w.id)]
+        assert len(fetched) == n + 1 and got == [("VALID", "relocated")] * 2, got
+
+        def down(url):
+            fetched.append(url)
+            raise OSError("offline")
+        s.fetch = down  # unreachable: one try, recorded on every anchor
+        got = [(x.status, x.resolution["reason"]) for x in s.resolve_source(w.id)]
+        assert len(fetched) == n + 2 and got == [("UNRESOLVED", "fetch_failed")] * 2, got
 
 
 class CompareJudge:  # A: two cells anchor, one quote is not in the paper, one column it does not state

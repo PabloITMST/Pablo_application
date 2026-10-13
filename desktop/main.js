@@ -148,7 +148,8 @@ ipcMain.handle("pablo:state", async e => {
   const m = await ctl.py("state"), d = desk();
   m.desk = Object.fromEntries(m.tasks.map(t => { const w = d.workspace[t.id] || envWorkspace, p = papers.primary(d, t.id);
     return [t.id, { folder: w ? path.basename(w) : null, net: !!(d.net || {})[t.id],
-      papers: papers.list(d, t.id).map(x => ({ id: x.id, title: x.title, version: x.version || null, primary: x.id === p.id })),
+      papers: papers.list(d, t.id).map(x => ({ id: x.id, title: x.title, version: x.version || null, kind: x.kind === "web" ? "web" : "pdf",
+        primary: !!p && x.id === p.id })),
       route: (d.route || {})[t.id] === "ask" ? "ask" : "agent" }]; }));  // names only, no paths
   m.last = d.last;
   return m;
@@ -204,7 +205,7 @@ ipcMain.handle("pablo:add-source", async (e, task) => {
 // <= 50 MB, <= 60 s, then the usual capture. One file per paper (state/papers/arxiv-<id>.pdf): a newer version saved over
 // it is a new source, and the old one's anchors are resolved against it (VALID / STALE / UNRESOLVED) so the user hears
 // whether the evidence moved. The version and the bytes' sha256 stay with the paper.
-const arxiv = { base: "https://arxiv.org/pdf/", max: 50 << 20, ms: 60000 };  // check.js points base at a local server
+const arxiv = { base: "https://arxiv.org/pdf/", api: "https://export.arxiv.org/api/query", max: 50 << 20, ms: 60000 };  // check.js points both at a local server
 ipcMain.handle("pablo:add-arxiv", async (e, task, text) => {
   fromWindow(e); known(task); if (!str(text, 300)) throw new Error("bad arXiv id");
   const a = papers.arxiv(text);
@@ -227,6 +228,42 @@ ipcMain.handle("pablo:add-arxiv", async (e, task, text) => {
   return { title: x.title, version, same: !!before && before.id === x.id, moved };
 });
 // C1: a paper leaves the task's list; what was located in it (answers, conditions, table cells) stays in the records
+// D1 a web page as a source: Pablo fetches it itself (Python, evidence.fetch: http(s), a text page, <= 5 MB) and keeps the
+// snapshot; questions over the task's sources read it, quotes are anchored with the words next to them. The same address
+// again with other text is a new source; its earlier anchors are resolved against the page as it is now.
+const webSay = m => /not a web page/.test(m) ? "웹 문서가 아닙니다. PDF는 파일이나 arXiv 번호로 추가하세요."
+  : /larger than/.test(m) ? "5 MB가 넘는 문서는 받지 않습니다." : /HTTP Error 404/.test(m) ? "그 주소에 문서가 없습니다(404)."
+  : /HTTP Error (\d+)/.test(m) ? `웹 문서를 가져오지 못했습니다(HTTP ${m.match(/HTTP Error (\d+)/)[1]}).` : "웹 문서를 가져오지 못했습니다. 주소와 인터넷 연결을 확인하세요.";
+ipcMain.handle("pablo:add-web", async (e, task, text) => {
+  fromWindow(e); known(task);
+  const url = papers.web(text);
+  if (!url) throw new Error("웹 문서 주소(http:// 또는 https://)를 읽지 못했습니다.");
+  const before = papers.list(desk(), task).find(p => p.kind === "web" && p.url === url);
+  const x = (await ctl.py("source", url).catch(err => { console.error("[pablo] web", err.message); throw new Error(webSay(err.message)); })).source;
+  let moved = null;
+  if (before && before.id !== x.id) {
+    const r = await ctl.py("resolve", "--source", before.id);
+    moved = r.anchors.reduce((m, y) => ({ ...m, [y.status]: (m[y.status] || 0) + 1 }), {});
+  }
+  join(task, { id: x.id, title: x.title, kind: "web", url }, before && before.id);
+  return { title: x.title, same: !!before && before.id === x.id, moved };
+});
+// D2 논문 검색: the words the user typed go to the arXiv API (no key); the user picks a result and it is imported as
+// above. arXiv asks for at most one request every 3 seconds: searches wait their turn here.
+let searched = 0;
+ipcMain.handle("pablo:search-arxiv", async (e, text) => {
+  fromWindow(e); if (!str(text, 300)) throw new Error("bad query");
+  const q = papers.searchQuery(text);
+  if (!q) throw new Error("검색어를 읽지 못했습니다.");
+  const wait = searched + 3000 - Date.now();
+  searched = Date.now() + Math.max(0, wait);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  const r = await fetch(`${arxiv.api}?search_query=${encodeURIComponent(q)}&start=0&max_results=8&sortBy=relevance`,
+    { signal: AbortSignal.timeout(30000), redirect: "error" }).catch(err => {
+    throw new Error(err.name === "TimeoutError" ? "arXiv 검색이 30초 안에 답하지 않았습니다." : "arXiv 검색에 연결하지 못했습니다. 인터넷 연결을 확인하세요."); });
+  if (!r.ok) throw new Error(`arXiv 검색에 실패했습니다(HTTP ${r.status}).`);
+  return papers.atom((await r.text()).slice(0, 4 << 20));
+});
 ipcMain.handle("pablo:remove-source", (e, task, id) => {
   fromWindow(e); known(task); if (!str(id, 20)) throw new Error("bad source");
   saveDesk(d => { d.pdf[task] = papers.list(d, task).filter(p => p.id !== id); if ((d.primary || {})[task] === id) delete d.primary[task]; });
@@ -235,7 +272,7 @@ ipcMain.handle("pablo:remove-source", (e, task, id) => {
 // C1: the 주 논문, the paper this task reproduces: 재현 조건 뽑기 reads it (and replaces any other paper's conditions)
 ipcMain.handle("pablo:set-primary", (e, task, id) => {
   fromWindow(e); known(task);
-  if (!papers.list(desk(), task).some(p => p.id === id)) throw new Error("이 작업의 자료가 아닙니다.");
+  if (!papers.list(desk(), task).some(p => p.id === id && p.kind !== "web")) throw new Error("이 작업의 논문이 아닙니다.");
   saveDesk(d => { d.primary = { ...(d.primary || {}), [task]: id }; });
   return id;
 });
@@ -281,7 +318,7 @@ ipcMain.handle("pablo:compare", async (e, task, columns) => {
   fromWindow(e); known(task);
   if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
   if (!Array.isArray(columns) || !columns.length || columns.length > 8 || !columns.every(c => str(c, 40) && c.trim())) throw new Error("bad columns");
-  const ps = papers.list(desk(), task);
+  const ps = papers.list(desk(), task).filter(p => p.kind !== "web");  // a table of papers; web pages are not rows
   if (ps.length < 2) throw new Error("비교하려면 논문이 두 편 이상 있어야 합니다.");
   const at = new Date().toISOString();
   const r = await ctl.py("compare", task, ...ps.flatMap(p => ["--source", p.id]), "--columns", JSON.stringify(columns))

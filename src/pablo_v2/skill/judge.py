@@ -104,28 +104,32 @@ QUESTION:
 """
 
 ASK_SOURCES_SCHEMA = _obj(answer=_str, citations={"type": "array", "items": _obj(
-    n={"type": "integer"}, paper=_str, page={"type": "integer"}, quote=_str, role={"enum": ["claim", "table", "text"]})})
+    n={"type": "integer"}, paper=_str, page={"type": "integer"}, quote=_str, near=_str,
+    role={"enum": ["claim", "table", "text"]})})
 
-ASK_SOURCES_PROMPT = """You answer a question about several papers, using only their text below. Each paper has a label
-(A, B, ...); [A p.N] is page N of paper A. Pablo will locate every quote you give in that paper's PDF and highlight it;
-a quote it cannot find verbatim on that paper is dropped.
+ASK_SOURCES_PROMPT = """You answer a question about several sources (papers, and web pages the user added), using only
+their text below. Each source has a label (A, B, ...). A paper's text is split by page: [A p.N] is page N of paper A. A web
+page has no pages: [B] is its whole text. Pablo will locate every quote you give in that source and highlight it; a quote
+it cannot find verbatim in that source is dropped.
 
 Rules:
-- Write the whole answer in the language of the QUESTION (a Korean question gets a Korean answer), although the papers
-  are in another language; names, metrics and numbers stay as the papers write them. 2-6 short sentences. Name the
-  paper each statement is about by the title given after "Paper A:", "Paper B:".
-  Use only what the papers say. Never invent numbers, metrics or claims, and never carry a number from one paper to
-  another. If the papers do not answer the question, say so and give no citations.
+- Write the whole answer in the language of the QUESTION (a Korean question gets a Korean answer), although the sources
+  are in another language; names, metrics and numbers stay as the sources write them. 2-6 short sentences. Name the
+  source each statement is about by the title given after "Paper A:", "Web page B:".
+  Use only what the sources say. Never invent numbers, metrics or claims, and never carry a number from one source to
+  another. If the sources do not answer the question, say so and give no citations.
 - Put citation markers [1], [2], ... right after the sentence they support. At most 6 citations, numbered
-  n = 1, 2, ... in order of first use. paper: the label of the paper the quote is from.
-- quote: copied verbatim from that page's text (same words and numbers, in order), 5-30 words, one contiguous span
-  that appears only once in that paper. page: the N of its [label p.N].
+  n = 1, 2, ... in order of first use. paper: the label of the source the quote is from.
+- quote: copied verbatim from that source's text (same words and numbers, in order), 5-30 words, one contiguous span
+  that appears only once in that source. page: the N of its [label p.N] for a paper, 0 for a web page.
+- near: for a web page, 3-8 words copied verbatim from the text right before or after the quote (they tell two equal
+  quotes apart); "" for a paper.
 - A table: quote ONE row only, its row label followed by the numbers you rely on, exactly as in the text. role = table.
   Claims in prose: role = claim. Other prose: role = text.
-- When papers report the same thing differently (other datasets, metrics, settings or numbers), say so instead of
+- When sources report the same thing differently (other datasets, metrics, settings or numbers), say so instead of
   merging them. A number one paper reports about another method is that paper's measurement; say whose it is.
 
-PAPERS (page text from each PDF):
+SOURCES (page text from each PDF, the text of each web page):
 {papers}
 
 QUESTION (answer in its language):
@@ -327,8 +331,10 @@ class LLMJudge:
         return self.provider.complete_json(ASK_PROMPT.format(pages=text, question=question), ASK_SCHEMA)
 
     def answer_from_sources(self, question: str, papers: list[dict]) -> dict:
-        text = "\n\n".join(f"=== Paper {x['label']}: {x['title']} ===\n" + "\n\n".join(
-            f"[{x['label']} p.{n}] {p}" for n, p in enumerate(x["pages"], 1)) for x in papers)
+        text = "\n\n".join(
+            f"=== Web page {x['label']}: {x['title']} ===\n[{x['label']}] " + " ".join(x["pages"]) if x.get("kind") == "web"
+            else f"=== Paper {x['label']}: {x['title']} ===\n" + "\n\n".join(
+                f"[{x['label']} p.{n}] {p}" for n, p in enumerate(x["pages"], 1)) for x in papers)
         return self.provider.complete_json(ASK_SOURCES_PROMPT.format(papers=text, question=question), ASK_SOURCES_SCHEMA)
 
     def extract_spec(self, pages: list[str]) -> dict:
