@@ -2,7 +2,7 @@
 
   state <dir>                       a Pablo state with LinearRAG.pdf and the frozen conditions (linearrag_conditions.json),
                                     each anchored on its page -> {view, task, keys: {condition key: check id}}
-  variants <dir> [--n 8] [--seed 7] [--clean 1]
+  variants <dir> [--n 8] [--seed 7] [--clean 1] [--set base|hard]
                                     copies of repro_base/ (a folder that follows every condition) with 1-3 planted drifts
                                     each, plus clean copies -> <dir>/<name>/ and <dir>/truth.json
   score <results.json> <truth.json> <keys.json> [--out <prefix>] [--saved-checks]
@@ -99,6 +99,43 @@ CATALOG = [
     dict(id="result_contain_low", key="result_contain", region="log.contain", file="logs/2wikimultihopqa.log",
          expect="differs", mark="contain_acc=64.35", edits=[("contain_acc=70.20", "contain_acc=64.35")]),
 ]
+# held out (2026-10-13): drift types the audit prompt was never revised on. The obvious place stays right (the config,
+# a plain line) and the change hides elsewhere: an off-by-one, an override, a literal in a path, a swapped argument.
+HARD = [
+    dict(id="topk_offbyone", key="topk", region="retrieve.return", file="retrieve.py", expect="differs", mark="[:k + 1]",
+         affects=["m_rank"], edits=[("reverse=True)[:k]\n", "reverse=True)[:k + 1]\n")]),
+    dict(id="topk_cli", key="topk", region="run.cli", file="run.py", expect="differs", mark="default=10", affects=["m_rank"],
+         edits=[("import json\n", "import argparse\nimport json\n"),
+                ('cfg = yaml.safe_load(open("config.yaml"))\n',
+                 'cfg = yaml.safe_load(open("config.yaml"))\nap = argparse.ArgumentParser()\n'
+                 'ap.add_argument("--top-k", type=int, default=10)\n'
+                 'cfg["retrieval"]["top_k"] = ap.parse_args().top_k  # the command line wins over the file\n')]),
+    dict(id="split_hardcoded", key="questions", region="run.data", file="run.py", expect="differs", mark="/test.json",
+         edits=[("open(f\"data/{name}/{cfg['eval']['split']}.json\"))", 'open(f"data/{name}/test.json"))')]),
+    dict(id="questions_offbyone", key="questions", region="run.data", file="run.py", expect="differs",
+         mark='"questions_per_dataset"] - 1]', edits=[('[: cfg["eval"]["questions_per_dataset"]]\n',
+                                                       '[: cfg["eval"]["questions_per_dataset"] - 1]\n')]),
+    dict(id="log_questions", key="questions", region="log.questions", file="logs/2wikimultihopqa.log", expect="differs",
+         mark="questions=500", affects=["result_gpt", "result_contain"], edits=[("questions=1000", "questions=500")]),
+    dict(id="damping_inverted", key="damping", region="retrieve.alpha", file="retrieve.py", expect="differs",
+         mark="alpha=1 - cfg", affects=["m_seed_ppr"],
+         edits=[('alpha=cfg["pagerank"]["damping"]', 'alpha=1 - cfg["pagerank"]["damping"]')]),
+    dict(id="contain_swapped", key="contain_acc", region="eval.contain", file="evaluate.py", expect="differs",
+         mark="contain_acc(g, p)", edits=[("contain_acc(p, g) for p, g", "contain_acc(g, p) for p, g")]),
+    dict(id="medical_case", key="medical_gpt_only", region="eval.medical", file="evaluate.py", expect="differs",
+         mark='!= "Medical"', edits=[('if dataset != "medical":', 'if dataset != "Medical":')]),
+    dict(id="judge_model", key="llm", region="eval.judge", file="evaluate.py", expect="differs", mark='client, "gpt-4o")',
+         affects=["gpt_acc"], edits=[('gpt_acc(p, g, client, cfg["llm"])', 'gpt_acc(p, g, client, "gpt-4o")')]),
+    dict(id="embedding_env", key="embedding", region="run.encoder", file="run.py", expect="differs", mark="all-MiniLM-L6-v2",
+         edits=[("import sys\n", "import os\nimport sys\n"),
+                ('SentenceTransformer(cfg["embedding_model"])',
+                 'SentenceTransformer(os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2"))')]),
+    dict(id="seed_unused", key="seed", region="run.seed", file="run.py", expect="missing", mark=None,
+         edits=[('random.seed(cfg["seed"])\n', "")]),  # seed: 42 stays in the config; nothing applies it
+    dict(id="lambda_comment", key="lambda", region="cfg.lam", file="config.yaml", expect="differs", mark="lam: 0.5",
+         edits=[("  lam: 0.05\n", "  lam: 0.5  # the paper's λ\n")]),
+]
+SETS = {"base": CATALOG, "hard": HARD}
 OPEN_EXPECT = {"seed": "chosen", "prompt": "chosen"}  # the base fixes seed: 42 and a prompt; the paper names neither
 # what a report about the drift says (regex, any case): in the comparison, a report that lands on the drift's line but
 # talks about something else there (e.g. "no retrieval-quality metrics" at evaluate.py:15-18) has not found it
@@ -109,6 +146,14 @@ SAYS = {
     "segment_window": r"\b50\b|고정.{0,4}(창|단어|길이)|window", "ner_regex": r"정규|regex|re\.findall|대문자|capitali",
     "graph_no_sentences": r"sentence|문장", "ppr_degree": r"degree|차수", "contain_missing": r"contain",
     "medical_both": r"medical|의학", "result_gpt_low": r"58\.1", "result_contain_low": r"64\.35",
+    # HARD
+    "topk_offbyone": r"k ?\+ ?1|\b6\b|하나 더|one more|off.?by.?one|여섯", "topk_cli": r"\b10\b|argparse|명령행|command.?line|CLI|--top-k",
+    "split_hardcoded": r"\btest\b", "questions_offbyone": r"\b999\b|- ?1\b|하나 (적|빠|모자)|off.?by.?one",
+    "log_questions": r"\b500\b", "damping_inverted": r"1 ?- ?(cfg|damping|d\b|0\.85)|0\.15|반대|뒤집|invert|complement|보수",
+    "contain_swapped": r"순서|뒤바|바뀌|swap|revers|반대로|인자|argument|자리", "medical_case": r"대소문자|대문자|소문자|case|\"Medical\"",
+    "judge_model": r"gpt-4o(?!-mini)", "embedding_env": r"MiniLM|환경 ?변수|environ|EMBEDDING_MODEL",
+    "seed_unused": r"(random\.seed|난수|랜덤 ?시드|random seed|seed: ?42|시드 ?42|시드 값).{0,60}(않|없|안 ?(쓰|씀|됨)|빠|unused|never)|seed (is )?(never )?(unused|not used|not applied)",  # the random seed, not "seed entities"
+    "lambda_comment": r"\b0\.5\b",
 }
 
 
@@ -145,10 +190,10 @@ def marked(line: str, mark: str) -> bool:
     return mark in line
 
 
-def assign(n: int, seed: int) -> list[list[dict]]:
+def assign(n: int, seed: int, catalog: list[dict] | None = None) -> list[list[dict]]:
     """Deal the catalog into n variants of 1-3 drifts; never two drifts on one condition or one code region."""
     rng = random.Random(seed)
-    pool = CATALOG[:]
+    pool = (catalog or CATALOG)[:]
     rng.shuffle(pool)
     ok = lambda d, x: (x["key"] != d["key"] and x["region"] != d["region"]  # noqa: E731
                        and d["key"] not in x.get("affects", []) and x["key"] not in d.get("affects", []))
@@ -160,12 +205,13 @@ def assign(n: int, seed: int) -> list[list[dict]]:
     return [v for v in out if v]
 
 
-def variants(out_dir: str, n: int = 8, seed: int = 7, clean: int = 1) -> dict:
+def variants(out_dir: str, n: int = 8, seed: int = 7, clean: int = 1, set: str = "base") -> dict:
+    """set: which catalog the drifts come from (SETS: base, the one the audit prompt was revised on; hard, held out)."""
     os.makedirs(out_dir, exist_ok=True)
     base = {c["key"]: c.get("base", "followed") for c in conditions()["conditions"]}  # a method step the base only sketches
     keys = list(base)
-    truth = {"seed": seed, "n": n, "clean": clean, "variants": []}
-    plans = [[] for _ in range(clean)] + assign(n, seed)
+    truth = {"seed": seed, "n": n, "clean": clean, "set": set, "variants": []}
+    plans = [[] for _ in range(clean)] + assign(n, seed, SETS[set])
     for i, drifts in enumerate(plans):
         name = f"v{i:02d}" + ("-clean" if not drifts else "")
         folder = os.path.join(out_dir, name)
@@ -173,11 +219,15 @@ def variants(out_dir: str, n: int = 8, seed: int = 7, clean: int = 1) -> dict:
         shutil.copytree(BASE, folder)
         planted = [{"id": d["id"], "key": d["key"], "file": d["file"], "line": plant(folder, d), "expect": d["expect"]}
                    for d in drifts]
+        for p, d in zip(planted, drifts):  # a later drift may add or remove lines above an earlier one in the same file
+            if d["mark"]:
+                lines = open(os.path.join(folder, d["file"]), encoding="utf-8").read().splitlines()
+                p["line"] = next(n for n, x in enumerate(lines, 1) if marked(x, d["mark"]))
         moot = {k for d in drifts for k in d.get("affects", [])}
         sets = {k: st for d in drifts for k, st in d.get("sets", {}).items()}
         expect = {k: next((p["expect"] for p in planted if p["key"] == k), sets.get(k, "ambiguous" if k in moot else base[k]))
                   for k in keys}
-        expect.update(OPEN_EXPECT)
+        expect.update({k: next((p["expect"] for p in planted if p["key"] == k), e) for k, e in OPEN_EXPECT.items()})
         truth["variants"].append({"name": name, "dir": os.path.abspath(folder), "planted": planted, "expect": expect})
     json.dump(truth, open(os.path.join(out_dir, "truth.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     return truth
@@ -353,7 +403,7 @@ def recheck(results: list[dict], truth: dict, keys: dict, n: int | None = None, 
     by_check = {v: k for k, v in keys.items()}
     out = json.loads(json.dumps(results))
     with tempfile.TemporaryDirectory() as d:
-        vs = variants(d, n=n, seed=truth["seed"], clean=clean)["variants"]
+        vs = variants(d, n=n, seed=truth["seed"], clean=clean, set=truth.get("set", "base"))["variants"]
         same = lambda t: [[(p["id"], p["line"]) for p in v["planted"]] for v in t]  # noqa: E731
         assert same(vs) == same(truth["variants"]), "the variants do not regenerate from this truth's seed"
         calls, items = [], []
@@ -583,7 +633,7 @@ def main(argv: list[str]) -> None:
     if cmd == "state":
         print(json.dumps(state(argv[1]), ensure_ascii=False))
     elif cmd == "variants":
-        t = variants(argv[1], int(opt("--n", 8)), int(opt("--seed", 7)), int(opt("--clean", 1)))
+        t = variants(argv[1], int(opt("--n", 8)), int(opt("--seed", 7)), int(opt("--clean", 1)), opt("--set", "base"))
         print(json.dumps({"truth": os.path.join(os.path.abspath(argv[1]), "truth.json"),
                           "variants": [{"name": v["name"], "dir": v["dir"]} for v in t["variants"]]}, ensure_ascii=False))
     elif cmd == "score":

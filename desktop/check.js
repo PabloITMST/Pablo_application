@@ -1189,12 +1189,15 @@ async function auditCheck() {
 //     drifts in copies of a LinearRAG reproduction that follows the paper (n variants + 1 clean); each copy gets
 //     🔎 재현 점검 as a user would, on its own thread (a new work folder is a new thread); the answers are scored against
 //     the truth -> docs/eval/audit-bench-<date>.md / .json (+ the raw results).
+// --set=hard: the held-out drift types (audit_bench.py HARD) instead of the ones the audit prompt was revised on
+const benchSet = () => (process.argv.find(a => /^--set=\w+$/.test(a)) || "--set=base").slice(6);
+const benchTag = () => (process.argv.find(a => /^--tag=[\w-]+$/.test(a)) || "").slice(6);
 async function auditBench() {
-  const [n = 8, seed = 7] = process.argv.slice(2).filter(a => /^\d+$/.test(a)).map(Number);
+  const [n = 8, seed = 7] = process.argv.slice(2).filter(a => /^\d+$/.test(a)).map(Number), set = benchSet(), tag = benchTag();
   const S = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-bench-")), BENCH = path.join(__dirname, "../tests/eval/audit_bench.py");
   const bench = (...a) => execFileSync("python", [BENCH, ...a], { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } });
   await boot(); assert.strictEqual(auth().state, "connected", "sign in once with `npm start` first");
-  const st = JSON.parse(bench("state", S)), vs = JSON.parse(bench("variants", path.join(S, "variants"), "--n", String(n), "--seed", String(seed), "--clean", "1"));
+  const st = JSON.parse(bench("state", S)), vs = JSON.parse(bench("variants", path.join(S, "variants"), "--n", String(n), "--seed", String(seed), "--clean", "1", "--set", set));
   const desk = w => fs.writeFileSync(path.join(S, "desktop.json"), JSON.stringify({ pdf: { [st.task]: { id: st.source, title: "LinearRAG" } }, workspace: { [st.task]: w } }));
   desk(vs.variants[0].dir);
   const win = open(st.view);
@@ -1202,7 +1205,7 @@ async function auditBench() {
   const js = code => win.webContents.executeJavaScript(code);
   const until = async (code, ms = 60000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
   const audits = () => { try { return (JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"))[st.task] || []).filter(c => c.role === "audit"); } catch { return []; } };
-  console.log(`bench: ${vs.variants.length} variants (seed ${seed}), model ${agent.model}, state ${S}`);
+  console.log(`bench: ${vs.variants.length} variants (seed ${seed}, drifts ${set}), model ${agent.model}, state ${S}`);
   const runs = [], threads = new Set();
   for (const v of vs.variants) {
     desk(v.dir); await js(`refresh()`);
@@ -1222,11 +1225,10 @@ async function auditBench() {
   }
   await agent.stop(); win.destroy();
   // --tag=<name>: a second run on the same day keeps the first (audit-bench-<date>-<name>.*); truth and keys go with it
-  const tag = (process.argv.find(a => /^--tag=[\w-]+$/.test(a)) || "").slice(6);
   const date = new Date().toISOString().slice(0, 10), dir = path.join(__dirname, "../docs/eval"), prefix = path.join(dir, `audit-bench-${date}${tag ? "-" + tag : ""}`);
   fs.mkdirSync(dir, { recursive: true });
   const avg = Math.round(runs.reduce((a, r) => a + r.ms, 0) / runs.length);
-  fs.writeFileSync(prefix + "-results.json", JSON.stringify({ meta: { date, model: agent.model, n, seed, avg_ms: avg, ...(tag ? { tag } : {}) }, runs }, null, 1));
+  fs.writeFileSync(prefix + "-results.json", JSON.stringify({ meta: { date, model: agent.model, n, seed, set, avg_ms: avg, ...(tag ? { tag } : {}) }, runs }, null, 1));
   fs.copyFileSync(vs.truth, prefix + "-truth.json"); fs.copyFileSync(path.join(S, "keys.json"), prefix + "-keys.json");
   console.log(bench("score", prefix + "-results.json", prefix + "-truth.json", prefix + "-keys.json", "--out", prefix));
   const cur = JSON.parse(fs.readFileSync(agent.stateFile, "utf8"));  // leave the user's thread.json as it was
@@ -1238,17 +1240,18 @@ async function auditBench() {
 //     model, read-only, a JSON answer, but no Pablo structure: the paper's text and "find where this repo departs from it".
 //     Compared with the Pablo run of the same seed (docs/eval/audit-bench-<date>-results.json) -> docs/eval/compare-<date>.*
 async function plainBench() {
-  const [n = 8, seed = 7] = process.argv.slice(2).filter(a => /^\d+$/.test(a)).map(Number);
+  const [n = 8, seed = 7] = process.argv.slice(2).filter(a => /^\d+$/.test(a)).map(Number), set = benchSet(), tag = benchTag();
   const S = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-plain-")), BENCH = path.join(__dirname, "../tests/eval/audit_bench.py");
   const bench = (...a) => execFileSync("python", [BENCH, ...a], { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" }, maxBuffer: 1 << 26 });
   await boot(); assert.strictEqual(auth().state, "connected", "sign in once with `npm start` first");
-  const vs = JSON.parse(bench("variants", path.join(S, "variants"), "--n", String(n), "--seed", String(seed), "--clean", "1"));
+  const vs = JSON.parse(bench("variants", path.join(S, "variants"), "--n", String(n), "--seed", String(seed), "--clean", "1", "--set", set));
   const { prompt, schema } = JSON.parse(bench("baseline-prompt"));
-  // the Pablo run this is compared with: same seed, same variant count, and the same model
-  const dir = path.join(__dirname, "../docs/eval"), pabloFile = fs.readdirSync(dir).filter(f => /^audit-bench-[\d-]+-results\.json$/.test(f)).sort().at(-1);
-  assert.ok(pabloFile, "run --audit-bench first: the plain run is compared with a Pablo run");
+  // the Pablo run this is compared with (the same --tag): same seed, variant count, drift set, and the same model
+  const runOf = tag ? new RegExp(String.raw`^audit-bench-[\d-]+-${tag}-results\.json$`) : /^audit-bench-[\d-]+-results\.json$/;
+  const dir = path.join(__dirname, "../docs/eval"), pabloFile = fs.readdirSync(dir).filter(f => runOf.test(f)).sort().at(-1);
+  assert.ok(pabloFile, "run --audit-bench first (with the same --tag): the plain run is compared with a Pablo run");
   const pm = JSON.parse(fs.readFileSync(path.join(dir, pabloFile), "utf8")).meta;
-  assert.ok(pm.seed === seed && pm.n === n, `${pabloFile} is seed ${pm.seed}, n ${pm.n}`);
+  assert.ok(pm.seed === seed && pm.n === n && (pm.set || "base") === set, `${pabloFile} is seed ${pm.seed}, n ${pm.n}, drifts ${pm.set || "base"}`);
   const mine = (() => { try { return JSON.parse(fs.readFileSync(agent.stateFile, "utf8")).model; } catch { return undefined; } })();
   agent.model = pm.model;
   let last = null; const onItem = it => it.type === "agentMessage" && (last = it.text);
@@ -1271,10 +1274,10 @@ async function plainBench() {
     console.log(`  ${v.name}: ${items.length} reports in ${ms} ms${error ? " ⚠ " + error : ""}`);
   }
   agent.off("item", onItem); await agent.stop();
-  const date = new Date().toISOString().slice(0, 10), plainFile = path.join(dir, `audit-bench-${date}-plain-results.json`);
+  const date = new Date().toISOString().slice(0, 10), plainFile = path.join(dir, `audit-bench-${date}${tag ? "-" + tag : ""}-plain-results.json`);
   const avg = Math.round(runs.reduce((a, r) => a + r.ms, 0) / runs.length);
-  fs.writeFileSync(plainFile, JSON.stringify({ meta: { date, model: pm.model, n, seed, avg_ms: avg }, runs }, null, 1));
-  console.log(bench("compare", path.join(dir, pabloFile), plainFile, vs.truth, "--out", path.join(dir, `compare-${date}`)));
+  fs.writeFileSync(plainFile, JSON.stringify({ meta: { date, model: pm.model, n, seed, set, avg_ms: avg, ...(tag ? { tag } : {}) }, runs }, null, 1));
+  console.log(bench("compare", path.join(dir, pabloFile), plainFile, vs.truth, "--out", path.join(dir, `compare-${date}${tag ? "-" + tag : ""}`)));
   const cur = JSON.parse(fs.readFileSync(agent.stateFile, "utf8"));  // leave the user's thread.json as it was
   for (const key of Object.keys(cur.threads)) if (key.startsWith(S + "#")) delete cur.threads[key];
   if (mine) cur.model = mine;

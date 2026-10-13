@@ -15,9 +15,9 @@ import audit_bench as B  # noqa: E402
 
 def test_drifts_apply_to_the_base():
     """Every drift edits text that occurs once in the base, and leaves its mark on a line the truth can point at."""
-    keys = {c["key"] for c in B.conditions()["conditions"]}
+    keys = {c["key"] for c in B.conditions()["conditions"]} | set(B.OPEN_EXPECT)
     with tempfile.TemporaryDirectory() as d:
-        for drift in B.CATALOG:
+        for drift in B.CATALOG + B.HARD:
             folder = os.path.join(d, drift["id"])
             shutil.copytree(B.BASE, folder)
             line = B.plant(folder, drift)
@@ -38,7 +38,7 @@ def test_crlf_checkout():
                 p = os.path.join(root, f)
                 t = open(p, encoding="utf-8", newline="").read().replace("\r\n", "\n").replace("\n", "\r\n")
                 open(p, "w", encoding="utf-8", newline="").write(t)
-        for drift in B.CATALOG:
+        for drift in B.CATALOG + B.HARD:
             lf, crlf = os.path.join(d, "lf-" + drift["id"]), os.path.join(d, "crlf-" + drift["id"])
             shutil.copytree(B.BASE, lf)
             shutil.copytree(base, crlf)
@@ -70,6 +70,35 @@ def test_variants():
         topk = next(v for v in t["variants"] if any(p["id"] == "topk_config" for p in v["planted"]))
         assert topk["expect"]["m_rank"] == "ambiguous" and clean["expect"]["prompt"] == "chosen"
         again = B.variants(os.path.join(d, "again"), n=8, seed=7, clean=1)  # same seed, same benchmark
+        assert [[p["id"] for p in v["planted"]] for v in again["variants"]] == [[p["id"] for p in v["planted"]] for v in t["variants"]]
+
+
+def test_hard():
+    """The held-out set: each drift once, the truth's line is its mark's line after every drift of the variant is in
+    (one may add lines above another), the seed left unapplied is expected missing, not chosen; a report that quotes
+    the drifted line and names the change is found by the same scoring."""
+    with tempfile.TemporaryDirectory() as d:
+        t = B.variants(d, n=6, seed=7, clean=1, set="hard")
+        assert t["set"] == "hard" and len(t["variants"]) == 7 and not t["variants"][0]["planted"]
+        assert sorted(p["id"] for v in t["variants"] for p in v["planted"]) == sorted(x["id"] for x in B.HARD)
+        for v in t["variants"]:
+            for p in v["planted"]:
+                mark = next(x["mark"] for x in B.HARD if x["id"] == p["id"])
+                if mark:
+                    assert B.marked(open(os.path.join(v["dir"], p["file"]), encoding="utf-8").read().splitlines()[p["line"] - 1], mark)
+        seed = next(v for v in t["variants"] if any(p["id"] == "seed_unused" for p in v["planted"]))
+        assert seed["expect"]["seed"] == "missing" and t["variants"][0]["expect"]["seed"] == "chosen"
+
+        def said(v, p):
+            line = open(os.path.join(v["dir"], p["file"]), encoding="utf-8").read().splitlines()[p["line"] - 1] if p["line"] else ""
+            return line + " / " + p["id"].replace("_", " ")
+
+        at = lambda p: f"{p['file']}:{p['line']}" if p["line"] else p["file"]  # noqa: E731
+        one = [{"variant": v["name"], "ms": 1, "items": [{"what": "differs", "code": said(v, p), "where": at(p)} for p in v["planted"]]}
+               for v in t["variants"]]
+        c = B.compare({"one": one}, t)["one"]
+        assert (c["found"], c["missed"]) == (12, []), c["missed"]
+        again = B.variants(os.path.join(d, "again"), n=6, seed=7, clean=1, set="hard")
         assert [[p["id"] for p in v["planted"]] for v in again["variants"]] == [[p["id"] for p in v["planted"]] for v in t["variants"]]
 
 
@@ -137,7 +166,7 @@ def test_locs():
 
 def test_compare():
     """The comparison group's scoring: the drift's place and what changed there, the same rule for both systems."""
-    assert set(B.SAYS) == {x["id"] for x in B.CATALOG}
+    assert set(B.SAYS) == {x["id"] for x in B.CATALOG + B.HARD}
     with tempfile.TemporaryDirectory() as d:
         truth = B.variants(d, n=8, seed=7, clean=1)
         at = lambda p: f"{p['file']}:{p['line']}" if p["line"] else p["file"]  # noqa: E731
