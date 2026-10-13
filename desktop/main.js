@@ -339,7 +339,7 @@ function audited(r) {
   try {
     const j = JSON.parse((r.last || r.text).trim().replace(/^```(?:json)?\s*|\s*```$/g, "")), asked = new Set(r.audit);
     const items = (j.items || []).filter(x => x && asked.has(x.id)).map(x => ({ id: x.id, status: String(x.status),
-      where: String(x.where || ""), found: String(x.found || "").slice(0, 300), note: String(x.note || "").slice(0, 300) }));
+      where: String(x.where || ""), found: String(x.found || "").slice(0, where.FOUND), note: String(x.note || "").slice(0, 300) }));
     // A2: the model says where and what is there; Pablo opens that file and looks (the line, the text, the paper's value)
     for (const x of items) Object.assign(x, where.verify(r.work, x, (r.values || {})[x.id]));
     const n = items.reduce((m, x) => ({ ...m, [x.check]: (m[x.check] || 0) + 1 }), {});

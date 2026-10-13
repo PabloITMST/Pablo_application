@@ -70,12 +70,29 @@ function read(work, rel, around) {
 
 // ---- A2: the audit answer, checked by Pablo ----
 const norm = s => String(s || "").normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
-// found as the model wrote it -> the pieces that must be there in order ("a / b", "a; b", "a ... b", several lines)
-const pieces = found => String(found || "").replace(/^`+|`+$/g, "").split(/\n|\s\/\s|;\s+|\.\.\.|…/).map(norm).filter(Boolean);
+// found as the model wrote it -> the pieces that must be there in order ("a / b", "a; b", "a ... b", several lines).
+// A piece ends on a token boundary ("llm: gpt-4o" is not in "llm: gpt-4o-mini", "top_k: 1" not in "top_k: 10"), except
+// where the text was cut: before "..." / "…", or at the end of a found that reached FOUND chars (main.js cuts it there).
+const FOUND = 300, TOKEN = /[a-z0-9_-]/;
+function pieces(found) {
+  const s = String(found || ""), parts = s.replace(/^`+|`+$/g, "").split(/(\n|\s\/\s|;\s+|\.\.\.|…)/), out = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    const text = norm(parts[i]), next = parts[i + 1];
+    if (text) out.push({ text, cut: next === "..." || next === "…" || (next === undefined && s.length >= FOUND) });
+  }
+  return out;
+}
+const goesOn = (t, j) => TOKEN.test(t[j] || "") || (t[j] === "." && TOKEN.test(t[j + 1] || ""));  // "gpt-4o|-mini", "0|.01"
 function within(text, ps) {
   const t = norm(text);
   let at = 0;
-  for (const p of ps) { const i = t.indexOf(p, at); if (i < 0) return false; at = i + p.length; }
+  for (const p of ps) {
+    const strict = !p.cut && TOKEN.test(p.text.at(-1));
+    let i = t.indexOf(p.text, at);
+    while (i >= 0 && strict && goesOn(t, i + p.text.length)) i = t.indexOf(p.text, i + 1);  // a later whole one still counts
+    if (i < 0) return false;
+    at = i + p.text.length;
+  }
   return true;
 }
 const NUM = /(?<![A-Za-z0-9_.])\d+(?:,\d{3})*(?:\.\d+)?(?:e[-+]?\d+)?(?![A-Za-z0-9_])/gi;
@@ -130,4 +147,4 @@ function verify(work, item, value) {
   return out;
 }
 
-module.exports = { where, read, locate, verify, hasValue, checkable, ReadError, LIMIT, MAX_LINES };
+module.exports = { where, read, locate, verify, hasValue, checkable, ReadError, LIMIT, MAX_LINES, FOUND };

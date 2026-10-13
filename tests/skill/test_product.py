@@ -249,6 +249,8 @@ def test_read_and_verify():
         open(os.path.join(w, "model.bin"), "wb").write(b"\x00\x01weights")
         open(os.path.join(w, "big.log"), "w").write("x" * (1 << 20) + "\n")
         open(os.path.join(w, "long.py"), "w").write("".join(f"line {i}\n" for i in range(1, 6001)))
+        wide = "x = f(" + ", ".join(f"weight_{i}" for i in range(80)) + ")"  # one line longer than main's 300-char cut
+        open(os.path.join(w, "wide.py"), "w").write(wide + "\n")
         link = os.path.join(w, "link")
         link_out(link, out)
         try:
@@ -268,17 +270,22 @@ def test_read_and_verify():
                 V("followed", "config.yaml:3,12", "llm: gpt-4o-mini; seed: 42"),                       # several lines
                 V("followed", "config.yaml:3; run.py:3", "llm: gpt-4o-mini; print('top_k'"),           # several files
                 V("followed", "run.py:2", "cfg = yaml.safe_load(open('config.yaml'))", "Personalized PageRank"),  # a concept
+                V("followed", "config.yaml:3", "llm: gpt-4o..."),                                      # cut by the model
+                V("followed", "wide.py:1", wide[:300]), V("followed", "wide.py:1", wide[:10] + "…"),   # cut by main / model
                 V("chosen", "config.yaml:2", "seed: 42"),                                              # moved
                 V("chosen", "config.yaml", "seed: 42"),                                                # no line: where it is
                 V("followed", "logs/2wiki.log:3", "gpt_acc=63.70", "63.70%"),                          # not_found
                 V("followed", "config.yaml:40", ""),
+                V("differs", "config.yaml:3", "llm: gpt-4o"), V("followed", "config.yaml:5", "top_k: 1"),  # only the
+                V("followed", "config.yaml:7", "damping: 0"), V("followed", "wide.py:1", wide[:10]),   # start of a token
                 V("followed", "missing.py:1", "x"), V("followed", "../outside/secret.txt:1", "token"),  # no_file
                 V("followed", "link/secret.txt:1", "token"), V("followed", "missing.py:6,15", "x"),
                 V("followed", "config.yaml:5", "top_k: 10", "5"),                                      # value_mismatch
                 V("differs", "config.yaml:9", "damping: 0.85", "0.85"),
                 V("missing", "", ""), V("followed", "model.bin:1", "weights"), V("followed", "config.yaml:5", "")])  # unchecked
-            assert got == [{"check": "verified"}] * 7 + [{"check": "moved", "line_found": 12}, {"check": "verified", "line_found": 12}] + \
-                [{"check": "not_found"}] * 2 + [{"check": "no_file"}] * 4 + [{"check": "value_mismatch"}] * 2 + [{"check": "unchecked"}] * 3, got
+            assert wide[9:11] == "gh" and len(wide) > 300  # wide[:10] stops inside "weight_0"
+            assert got == [{"check": "verified"}] * 10 + [{"check": "moved", "line_found": 12}, {"check": "verified", "line_found": 12}] + \
+                [{"check": "not_found"}] * 6 + [{"check": "no_file"}] * 4 + [{"check": "value_mismatch"}] * 2 + [{"check": "unchecked"}] * 3, got
         finally:
             try:
                 os.unlink(link)
