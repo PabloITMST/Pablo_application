@@ -37,6 +37,8 @@ def build(d: str) -> str:
     s = PabloSkill.load(os.path.join(d, "skill.json"), e, Judge())
     t = s.start_task("인사말 파일 정리", [])
     t.created_at = at(0)
+    hedged = e.process_message("PyTorch가 좀 편할 것 같긴 한데")[0]  # B4: held back (pending) until the user decides
+    assert hedged.status == "pending"
     s.create_plan(t.id, [{"action": "hello.txt에 인사말을 더한다", "basis": []}])
     warn = s.propose_action(t.id, EDIT, "P1.1")
     s.decide_action(warn.id, "proceed", "사용자가 대화에서 진행을 선택했습니다.")
@@ -60,7 +62,8 @@ def build(d: str) -> str:
     chat = {t.id: [
         {"role": "user", "text": "hello.txt에 인사말을 넣어줘. 다른 파일은 건드리지 마.", "at": at(10)},
         {"role": "intent", "at": at(10), "items": [{"id": "C3", "kind": "constraint", "strength": "hard",
-                                                   "text": "다른 파일은 건드리지 마"}]},
+                                                   "text": "다른 파일은 건드리지 마"}],
+         "pending": [{"id": hedged.id, "text": "PyTorch가 좀 편할 것 같긴 한데"}]},
         {"role": "agent", "text": "hello.txt에 줄을 더하겠습니다.", "at": at(11), "status": "completed"},
         {"role": "user", "text": "keep.txt도 정리해줘", "at": at(30)},
         {"role": "agent", "text": "keep.txt를 지우려", "at": at(31), "status": "interrupted"},

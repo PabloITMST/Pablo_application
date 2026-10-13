@@ -90,8 +90,10 @@ ipcMain.handle("pablo:chat", async (e, text, task) => {
   // criteria said in the message ("..., X는 건드리지 마") become this task's intent before the agent starts: Guard and
   // the brief below already use them. The request itself is the plan step, never a goal.
   const said = await ctl.py("say", text, "--request", "--task", task).catch(err => { console.error("[pablo] say", err.message); return null; });
-  if (said && said.added.length) {
-    const entry = { role: "intent", at: new Date(at + 1).toISOString(), items: said.added };
+  // hedged ones the policy held back ("~것 같긴 한데") wait for the user's click: [기준으로 추가] / [무시]
+  const held = said ? said.candidates.filter(k => k.status === "pending").map(k => ({ id: k.id, text: k.features.statement || k.text })) : [];
+  if (said && (said.added.length || held.length)) {
+    const entry = { role: "intent", at: new Date(at + 1).toISOString(), items: said.added, ...(held.length ? { pending: held } : {}) };
     logChat(task, entry);
     broadcast("pablo:agent", { type: "intent", task, ...entry });
   }
@@ -186,6 +188,13 @@ ipcMain.handle("pablo:ask", (e, text, task) => {
     logChat(task, { role: "ask", text, at, error: short(err.message) });
     throw new Error(short(err.message));  // no raw API text in the UI
   });
+});
+// B4 a held-back criterion: promote it to the task's intent, or drop it (the candidate stays, with its status)
+ipcMain.handle("pablo:intent", async (e, task, id, action) => {
+  fromWindow(e); known(task);
+  if (!str(id, 20) || !/^K\d+$/.test(id) || !["promote", "reject"].includes(action)) throw new Error("bad candidate");
+  const r = await ctl.py(action, id);
+  return action === "promote" ? r.item.statement : null;
 });
 // A2 the paper's reproduction conditions -> anchored checks; the conversation gets a card (chat.json "spec")
 ipcMain.handle("pablo:spec", async (e, task) => {

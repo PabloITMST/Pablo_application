@@ -573,9 +573,20 @@ function audited(c) {
   return box;
 }
 // criteria the user said in a chat message, now this task's intent (Guard and the agent's brief use them)
-const noted = c => msg("Pablo", null, h("p", { class: "muted", "data-intent": "1" }, "📌 작업 기준에 추가했습니다: ",
+const noted = c => msg("Pablo", null, (c.items || []).length ? h("p", { class: "muted", "data-intent": "1" }, "📌 작업 기준에 추가했습니다: ",
   c.items.map(i => `${i.text} (${i.strength === "hard" ? "반드시" : "가능하면"})`).join(" · "), " ",
-  h("button", { class: "link", on: () => show({ mode: "intent" }) }, "기준 보기")));
+  h("button", { class: "link", on: () => show({ mode: "intent" }) }, "기준 보기")) : null,
+  (c.pending || []).map(k => held({ ...k, live: c.live }, c.task || (V && V.task.id))));
+// B4: a criterion said in hedged words is held back until the user decides; decided ones show what was decided
+function held(k, task) {
+  const open = k.live || (V && V.intent.questions.some(q => q.id === k.id)), row = h("p", { class: "muted", "data-held": k.id }, "❔ 기준으로 둘까요? ", h("b", null, k.text), " ");
+  if (!open || !window.pabloHost || !pabloHost.intent) return row.append(open ? "" : "(처리함)"), row;
+  const act = (a, done) => () => pabloHost.intent(task, k.id, a).then(() => { row.lastChild.replaceWith(h("span", null, done)); refresh(); },
+    e => row.append(h("span", null, " " + fail(e))));
+  row.append(h("span", null, h("button", { class: "link", "data-promote": k.id, on: act("promote", "기준에 추가했습니다.") }, "기준으로 추가"), " · ",
+    h("button", { class: "link", "data-reject": k.id, on: act("reject", "무시했습니다.") }, "무시")));
+  return row;
+}
 function said(c) {
   if (c.role === "audit") return [msg("Pablo", null, audited(c))];
   if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped))];
@@ -610,7 +621,7 @@ function conversation() {
   items.sort((x, y) => x[0] - y[0]).forEach(([, x]) => log.append(x));  // stable: same time keeps the order above
   if (V.intent.questions.length) log.append(msg("Pablo", null, h("div", { class: "call" },
     h("p", { class: "head" }, "⚠ 결정이 필요합니다."),
-    V.intent.questions.map(q => h("p", { title: q.id, "data-id": q.id }, rich(q.text))),
+    V.intent.questions.map(q => /^K\d+$/.test(q.id) ? held(q, V.task.id) : h("p", { title: q.id, "data-id": q.id }, rich(q.text))),
     h("p", null, h("button", { class: "link", on: () => show({ mode: "intent" }) }, "작업 기준 보기")))));
   log.append(live());
   finish();
@@ -935,7 +946,7 @@ if (window.pabloHost && pabloHost.chat) {
     }
     else if (ev.type === "changes") { live(ev.task).append(msg("Pablo", null, changed(ev, ev.task))); scroll(); refresh(); }
     else if (ev.type === "intent") {  // right under the user's message, before the reply that is already streaming
-      const s = [...live(ev.task).querySelectorAll(".stream")].at(-1), m = noted(ev);
+      const s = [...live(ev.task).querySelectorAll(".stream")].at(-1), m = noted({ ...ev, live: true });
       s ? s.closest(".msg").before(m) : live(ev.task).append(m); refresh();
     }
     else if (ev.type === "review") {  // PostReview of a WARN/BLOCK action, under its card (ALLOW has no card: stays silent)

@@ -269,7 +269,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addSource", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "decide", "diff", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "pickFolder", "retry", "setModel", "setNet", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addSource", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "pickFolder", "retry", "setModel", "setNet", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -781,13 +781,15 @@ async function uiCheck() {
   await new Promise(r => win.webContents.once("did-finish-load", r));
   const js = c => win.webContents.executeJavaScript(c);
   await sleep(800);
+  assert.deepStrictEqual(errors, [], "no script errors on load");
   const order = await js(`[...document.querySelectorAll("#log .msg")].map(m => { const c = m.querySelector(".call[data-id]"),
     s = m.querySelector(".stream"), a = m.querySelector(".asked");
     return c ? "CARD " + c.dataset.id : s ? "AGENT " + s.textContent : a ? "ASK " + a.textContent.trim() : m.querySelector("[data-spec]") ? "SPEC" : m.querySelector("[data-audit]") ? "AUDIT"
+      : m.querySelector(".call .head") ? "ASKS " + m.querySelector(".call .head").textContent
       : m.querySelector("[data-intent]") ? "INTENT " + m.querySelector("[data-intent]").textContent.replace(/ 기준 보기$/, "") : "YOU " + m.querySelector("p").textContent; })`);
   assert.deepStrictEqual(order, ["YOU 인사말 파일 정리", "YOU hello.txt에 인사말을 넣어줘. 다른 파일은 건드리지 마.",
     "INTENT 📌 작업 기준에 추가했습니다: 다른 파일은 건드리지 마 (반드시)", "AGENT hello.txt에 줄을 더하겠습니다.", "CARD ACT1",
-    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT"]);
+    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "ASKS ⚠ 결정이 필요합니다."]);
   const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, rows: [...b.querySelectorAll(":scope > ul > li")].map(x => x.className + " " + x.querySelector("b").textContent),
     folded: b.querySelector("details summary").textContent, at: b.querySelector(".st-differs .at").textContent }))(document.querySelector("[data-audit]"))`);
   assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 1 · 코드가 정함 1 · 따름 2", rows: ["st-differs ✗ 다름", "st-chosen • 코드가 정함"],
@@ -802,6 +804,14 @@ async function uiCheck() {
   await js(`close()`);
   assert.ok(await js(`!!document.querySelector(".stream + [data-stopped]")`), "a stopped reply says so");
   console.log("ok timeline:", order.length, "messages in the order they happened, the PDF answer under its question");
+  // B4: a hedged criterion is held back; [기준으로 추가] makes it this task's criterion, everywhere it was shown
+  assert.strictEqual(await js(`document.querySelectorAll("[data-promote]").length`), 2, "under the message and in the 결정 card");
+  await js(`document.querySelector("[data-promote]").click()`);
+  const until0 = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
+  await until0(`V.intent.prefer.some(x => /PyTorch/.test(x.text)) && !V.intent.questions.some(q => /^K/.test(q.id))`);
+  await js(`select("T1")`);
+  assert.ok(await js(`!document.querySelector("[data-promote]") && /처리함/.test(document.querySelector("[data-held]").textContent)`), "decided: no buttons left");
+  console.log("ok held back: 'PyTorch가 좀 편할 것 같긴 한데' -> 기준으로 추가 -> a 가능하면 criterion of this task");
   const diff = await js(`[...document.querySelectorAll('[data-id="ACT1"] pre.diff span')].map(x => x.className + ":" + x.textContent)`);
   assert.deepStrictEqual(diff, ["file:--- hello.txt", "hunk:@@ -1 +1,2 @@", ": hello", "add:+안녕하세요"]);
   assert.strictEqual(await js(`document.querySelector('[data-id="ACT2"] pre.cmd').textContent`), "Remove-Item keep.txt");

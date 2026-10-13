@@ -155,6 +155,22 @@ def test_audit_prompt():
         assert AUDIT_SCHEMA["properties"]["items"]["items"]["properties"]["status"]["enum"] ==             ["followed", "differs", "missing", "unclear", "chosen"]
 
 
+def test_page_script_parses():
+    """The page's script is one big string in viewer.py: a typo there blanks the whole app. node --check catches it here."""
+    import shutil
+    if not shutil.which("node"):
+        print("skip test_page_script_parses: no node")
+        return
+    with tempfile.TemporaryDirectory() as d:
+        ui_fixture.build(d)
+        page = open(os.path.join(d, "view-T1.html"), encoding="utf-8").read()
+        js = page.split("<script>", 1)[1].rsplit("</script>", 1)[0]
+        f = os.path.join(d, "page.js")
+        open(f, "w", encoding="utf-8").write(js)
+        r = subprocess.run(["node", "--check", f], capture_output=True, encoding="utf-8")
+        assert r.returncode == 0, r.stderr[-800:]
+
+
 def cli(d, *args):
     r = subprocess.run([sys.executable, "-m", "pablo_v2", *args, "--json", "--dir", d], capture_output=True, encoding="utf-8",
                        env={**os.environ, "PYTHONPATH": SRC, "PYTHONIOENCODING": "utf-8"})
@@ -176,6 +192,12 @@ def test_chat_criteria():
         assert s.intent.get_active_goals() == []
         code, _ = cli(d, "say", "x", "--request", "--task", "T9")
         assert code == 1  # unknown task
+        _, r3 = cli(d, "say", "PyTorch가 좀 편할 것 같긴 한데", "--request", "--task", "T1")  # hedged: held back
+        k = r3["candidates"][0]
+        assert k["status"] == "pending" and r3["added"] == []
+        _, p = cli(d, "promote", k["id"])  # the desktop's [기준으로 추가]
+        s = load(d)
+        assert p["item"]["id"] in ids("T1") and p["item"]["id"] not in ids("T2")
 
 
 def test_current_step_after_done():
