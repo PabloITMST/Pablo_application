@@ -66,6 +66,11 @@ def build(d: str) -> str:
         {"role": "agent", "text": "keep.txt를 지우려", "at": at(31), "status": "interrupted"},
         {"role": "ask", "text": "효율 근거가 어디 있어?", "at": at(50), "check": sc.id},
         {"role": "spec", "at": at(55), "checks": specs, "missing": [gap.id], "dropped": 1},
+        {"role": "audit", "at": at(58), "status": "completed", "summary": "top-k가 논문과 다릅니다.", "items": [
+            {"id": "C1", "status": "followed", "where": "", "found": "", "note": "keep.txt는 그대로다"},
+            {"id": specs[0], "status": "differs", "where": "config.yaml:5", "found": "top_k: 10", "note": "논문은 5"},
+            {"id": specs[1], "status": "followed", "where": "logs/2wiki.log:1", "found": "acc=63.70", "note": ""},
+            {"id": gap.id, "status": "chosen", "where": "config.yaml:12", "found": "seed: 42", "note": ""}]},
     ]}
     with open(os.path.join(d, "chat.json"), "w", encoding="utf-8") as f:
         json.dump(chat, f, ensure_ascii=False)

@@ -15,7 +15,7 @@ sys.path.insert(0, HERE)
 from pablo_v2.__main__ import current_step  # noqa: E402
 from pablo_v2.intent.engine import IntentEngine  # noqa: E402
 from pablo_v2.skill.models import ActionProposal, ExecutionRecord, PostReview  # noqa: E402
-from pablo_v2.skill.skill import PabloSkill, render_brief  # noqa: E402
+from pablo_v2.skill.skill import AUDIT_SCHEMA, PabloSkill, render_audit, render_brief  # noqa: E402
 from pablo_v2.skill.viewer import model, workspace  # noqa: E402
 import ui_fixture  # noqa: E402
 
@@ -31,7 +31,7 @@ def test_chat_log():
     with tempfile.TemporaryDirectory() as d:
         ui_fixture.build(d)
         v = model(load(d), "T1")
-        assert [c["role"] for c in v["chat"]] == ["user", "intent", "agent", "user", "agent", "ask", "spec"]
+        assert [c["role"] for c in v["chat"]] == ["user", "intent", "agent", "user", "agent", "ask", "spec", "audit"]
         assert v["chat"][4]["status"] == "interrupted" and v["chat"][5]["check"] in v["checks"]
         assert [a["at"] for a in v["actions"]] == [ui_fixture.at(20), ui_fixture.at(40)]
         with open(os.path.join(d, "chat.json"), "w", encoding="utf-8") as f:
@@ -138,6 +138,21 @@ def test_rewrite_and_cache():
     s.intent.process_message("train.py는 절대 지우지 마.")  # the criteria changed: the judge is asked again
     s.propose_action(t.id, "명령 실행: Get-Content train.py", "P1.1")
     assert CountingJudge.calls == n + 2
+
+
+def test_audit_prompt():
+    """재현 점검 asks about every stated condition (with its page), every open setting and every task criterion, by id;
+    the answer's shape is a strict schema (status from a fixed set)."""
+    with tempfile.TemporaryDirectory() as d:
+        ui_fixture.build(d)
+        s = load(d)
+        prompt, items = render_audit(s, "T1")
+        kinds = {x["kind"] for x in items}
+        assert kinds == {"condition", "open", "criterion"}, items
+        assert [x["label"] for x in items if x["kind"] == "condition"] == ["하이퍼파라미터", "보고된 결과"]
+        assert all(f"{x['id']} | " in prompt for x in items) and "읽기만 하세요" in prompt
+        assert {x["id"] for x in items if x["kind"] == "criterion"} == {"C1", "C2"}
+        assert AUDIT_SCHEMA["properties"]["items"]["items"]["properties"]["status"]["enum"] ==             ["followed", "differs", "missing", "unclear", "chosen"]
 
 
 def cli(d, *args):

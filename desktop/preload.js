@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   state: () => ipcRenderer.invoke("pablo:state"),
   newTask: (text, opts) => ipcRenderer.invoke("pablo:new-task", text, opts),  // opts.repro: A3 research-integrity criteria
   spec: task => ipcRenderer.invoke("pablo:spec", task),  // A2: the task's paper -> reproduction conditions
+  audit: task => ipcRenderer.invoke("pablo:audit", task),  // A5/A6: 재현 점검 of the work folder (read-only turn)
   pickFolder: task => ipcRenderer.invoke("pablo:pick-folder", task),
   addSource: task => ipcRenderer.invoke("pablo:add-source", task),
   setNet: (task, on) => ipcRenderer.invoke("pablo:set-net", task, on),  // D1: 인터넷 for this task's commands

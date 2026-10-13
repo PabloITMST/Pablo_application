@@ -697,6 +697,53 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
     return "\n".join(out), basis
 
 
+AUDIT_STATUS = ["followed", "differs", "missing", "unclear", "chosen"]
+AUDIT_SCHEMA = {
+    "type": "object", "additionalProperties": False, "required": ["items", "summary"],
+    "properties": {
+        "summary": {"type": "string"},
+        "items": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["id", "status", "where", "found", "note"],
+            "properties": {"id": {"type": "string"}, "status": {"enum": AUDIT_STATUS}, "where": {"type": "string"},
+                           "found": {"type": "string"}, "note": {"type": "string"}}}}}}
+
+
+def render_audit(s: PabloSkill, task_id: str) -> tuple[str, list[dict]]:
+    """The 재현 점검 the desktop agent runs read-only over the work folder: every stated paper condition, every setting
+    the paper leaves open and every criterion of the task, each to be judged against the code, configs and run logs
+    (a reported result against the value a log shows). -> (prompt, items [{id, kind, label, text}])."""
+    items = []
+    for c in s.checks(task_id):
+        if not c.spec or c.research_state == "waived":
+            continue
+        label = SPEC_LABEL.get(c.spec["category"], c.spec["category"])
+        if c.spec.get("missing"):
+            items.append({"id": c.id, "kind": "open", "label": "논문에 없는 설정", "text": c.requirement.strip()})
+            continue
+        pages = [a.selector.get("page") for _, a in s.evidence_for(c.id)]
+        where = f" (논문 p.{pages[0]})" if pages and pages[0] else ""
+        items.append({"id": c.id, "kind": "condition", "label": label,
+                      "text": re.sub(r"\s*\[\d+\]", "", c.conclusion or c.requirement).strip() + where})
+    for i in s.get_applicable_intent(task_id)["constraints"]:
+        items.append({"id": i.id, "kind": "criterion", "label": "작업 기준" + (" (반드시)" if i.strength == "hard" else ""),
+                      "text": i.statement})
+    prompt = "\n".join([
+        "[Pablo 재현 점검] 작업 폴더의 코드, 설정 파일, 실행 로그를 읽고 아래 항목마다 지금 상태를 판정하세요. "
+        "파일을 고치거나 프로그램을 실행하지 말고 읽기만 하세요. 항목마다 하나씩, id를 그대로 써서 답하세요.",
+        "status:",
+        "- followed: 코드나 설정이 이 조건(기준)을 그대로 따른다. 보고된 결과라면 실행 로그의 값이 논문 값과 같다.",
+        "- differs: 다르게 되어 있다(기준이라면 어긴다). 보고된 결과라면 로그의 값이 논문 값과 다르다.",
+        "- missing: 아직 구현되거나 실행되지 않았다.",
+        "- unclear: 읽은 것만으로는 판단할 수 없다.",
+        "- chosen: 논문에 없는 설정에만 쓴다. 코드가 정해 둔 값이 있다.",
+        "where: 근거가 된 파일과 줄(예: configs/base.yaml:12). 없으면 빈 문자열.",
+        "found: 그 자리에 실제로 있는 값이나 코드 한 줄(짧게, 바꾸지 말고 그대로).",
+        "note: 판단 이유 한 문장. summary: 전체를 두세 문장으로.",
+        "항목 (id | 분류 | 내용):",
+        *[f"{x['id']} | {x['label']} | {x['text']}" for x in items]])
+    return prompt, items
+
+
 def render_evidence(s: PabloSkill, e_id: str) -> str:
     a = s.get_anchor(e_id)
     src = s.get_source(a.source_id)

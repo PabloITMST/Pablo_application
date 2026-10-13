@@ -165,8 +165,9 @@ function start() {
 }
 
 // brief: {text, hash} from `pablo brief` (or null): sent before the message once per thread and version.
-// note: a one-off line from Pablo for this turn (e.g. the user undid a change)
-async function send(text, task, brief, note) {
+// note: a one-off line from Pablo for this turn (e.g. the user undid a change).
+// opts.readOnly: this turn reads only (재현 점검): read-only sandbox, no approvals; opts.outputSchema: its answer's JSON shape
+async function send(text, task, brief, note, opts = {}) {
   if (turn) throw new Error("busy");
   await start();
   const t = turn = { t0: Date.now(), first: null, item: null, task, items: {}, acted: false, brief,
@@ -177,9 +178,13 @@ async function send(text, task, brief, note) {
     const tell = brief && brief.text && brief.hash !== given();
     if (tell) t.input = [{ type: "text", text: brief.text, text_elements: [] }, ...t.input];
     if (note) t.input = [{ type: "text", text: note, text_elements: [] }, ...t.input];
-    // a work folder: the sandbox per turn, so the 인터넷 switch takes effect on the next message (commands still go through Guard)
-    const sandboxPolicy = agent.workspace ? { type: "workspaceWrite", networkAccess: !!agent.network } : undefined;
-    t.id = (await call("turn/start", { threadId, input: t.input, model: agent.model, ...(sandboxPolicy ? { sandboxPolicy } : {}) })).turn.id;
+    // a work folder: sandbox and approvals on every turn. app-server keeps a turn's overrides for the turns after it, so
+    // a read-only 점검 turn must never leave "no approvals" behind for a writing turn (writes always reach the Guard).
+    // 인터넷 takes effect on the next message.
+    const policy = !agent.workspace ? {} : opts.readOnly ? { sandboxPolicy: { type: "readOnly" }, approvalPolicy: "never" }
+      : { sandboxPolicy: { type: "workspaceWrite", networkAccess: !!agent.network }, approvalPolicy: "untrusted" };
+    t.id = (await call("turn/start", { threadId, input: t.input, model: agent.model, ...policy,
+      ...(opts.outputSchema ? { outputSchema: opts.outputSchema } : {}) })).turn.id;
     if (tell) told(brief.hash);
     if (t.stop && turn === t) interrupt();  // 중지 pressed before app-server named the turn
   } catch (e) { finish("failed", e.message); }

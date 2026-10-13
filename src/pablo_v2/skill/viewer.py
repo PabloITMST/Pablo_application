@@ -313,6 +313,11 @@ pre.diff .del { background:rgba(220,38,38,.13); } pre.diff .hunk { color:var(--m
 .spec { border-left:3px solid var(--accent); background:var(--side); border-radius:0 8px 8px 0; padding:8px 14px; margin:8px 0; }
 .spec .head { font-weight:700; margin:0 0 4px; } .spec h4 { font-size:12px; color:var(--muted); margin:10px 0 2px; }
 .spec ul { margin:0; padding-left:18px; } .spec li { margin:2px 0; } .spec ul.open li { color:var(--warn); }
+.audit { border-left:3px solid var(--accent); background:var(--side); border-radius:0 8px 8px 0; padding:8px 14px; margin:8px 0; }
+.audit .head { font-weight:700; margin:0 0 4px; } .audit ul { list-style:none; margin:4px 0; padding:0; }
+.audit li { padding:5px 0; border-top:1px solid var(--line); font-size:14px; } .audit .at { font-size:13px; overflow-wrap:anywhere; }
+.audit .st-differs b { color:var(--bad); } .audit .st-followed b { color:var(--ok); } .audit .st-missing b, .audit .st-unclear b { color:var(--warn); }
+.audit details summary { cursor:pointer; font-size:13px; color:var(--muted); margin-top:6px; }
 .changes { border-left:3px solid var(--line); background:var(--side); border-radius:0 8px 8px 0; padding:8px 14px; margin:8px 0; }
 .changes p { margin:2px 0; font-size:14px; overflow-wrap:anywhere; }
 .empty { max-width:560px; margin:18vh auto 0; text-align:center; color:var(--muted); }
@@ -522,6 +527,7 @@ function changed(c, task) {
 // A2: a paper's reproduction conditions (PabloSkill.spec), by category, each with its page [n]; what the paper leaves open
 const SPEC = { dataset: "데이터셋", split: "데이터 분할", preprocessing: "전처리", model: "모델", hyperparameter: "하이퍼파라미터",
                training: "학습", metric: "평가 지표", baseline: "비교 대상", result: "보고된 결과", protocol: "평가 규칙" };
+const fact = c => [rich((c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")), " ", c.evidence.map(e => cite(e))];  // [n] numbered in this chat
 function conditions(ids, dropped) {
   const cs = ids.map(id => V.checks[id]).filter(c => c && c.state !== "waived"), stated = cs.filter(c => !c.spec.missing);
   const open = cs.filter(c => c.spec.missing);
@@ -531,7 +537,7 @@ function conditions(ids, dropped) {
   for (const k of Object.keys(SPEC)) {
     const xs = stated.filter(c => c.spec.category === k);
     if (xs.length) box.append(h("h4", null, SPEC[k]), h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id },
-      cited(c.conclusion || c.title, c.evidence)))));
+      fact(c)))));
   }
   if (open.length) box.append(h("h4", null, "논문에 없는 설정"), h("ul", { class: "open" }, open.map(c => h("li", { title: c.id }, rich(c.title)))),
     h("p", { class: "muted" }, "정할 때는 무엇을 근거로 정했는지 남기세요. 에이전트에게도 그렇게 알립니다."));
@@ -539,11 +545,39 @@ function conditions(ids, dropped) {
   box.append(h("p", { class: "muted" }, "에이전트는 이 조건을 알고 작업하고, 바꾸려 하면 Pablo가 근거와 함께 막습니다."));
   return box;
 }
+// A5/A6 재현 점검: each paper condition / open setting / task criterion against the work folder (code line or log value)
+const AUDIT = { differs: ["✗", "다름"], missing: ["○", "아직 없음"], unclear: ["?", "판단 못 함"], chosen: ["•", "코드가 정함"], followed: ["✓", "따름"] };
+function audited(c) {
+  const box = h("div", { class: "audit", "data-audit": "1" });
+  if (c.error || c.status === "interrupted" || c.unreadable || !(c.items || []).length) {
+    box.append(h("p", { class: "head" }, "🔎 재현 점검을 마치지 못했습니다."), h("p", { class: "muted" },
+      c.status === "interrupted" ? "중지했습니다." : c.error || (c.unreadable ? "에이전트의 답을 읽지 못했습니다." : "판정된 항목이 없습니다.")));
+    return box;
+  }
+  const n = k => c.items.filter(x => x.status === k).length;
+  box.append(h("p", { class: "head" }, "🔎 재현 점검: ", Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`).join(" · ")));
+  if (c.summary) box.append(h("p", null, rich(c.summary)));
+  const what = x => { const k = V.checks[x.id];
+    if (k) return [h("span", { class: "muted" }, (k.spec && k.spec.missing ? "논문에 없는 설정" : SPEC[(k.spec || {}).category] || "근거") + " · "), fact(k)];
+    const i = [...V.intent.must, ...V.intent.prefer].find(y => y.id === x.id);
+    return [h("span", { class: "muted" }, "작업 기준 · "), i ? i.text : x.id]; };
+  const row = x => h("li", { class: "st-" + x.status, title: x.id, "data-id": x.id }, h("b", null, (AUDIT[x.status] || ["", x.status]).join(" ")), " ", what(x),
+    x.where || x.found ? h("div", { class: "at" }, x.where ? h("code", null, x.where) : null, x.found ? [" ", h("span", null, x.found)] : null) : null,
+    x.note ? h("div", { class: "muted" }, x.note) : null);
+  const order = Object.keys(AUDIT), xs = [...c.items].sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status));
+  // what needs attention stays open (다름, 아직 없음, 코드가 정함); 판단 못 함 and 따름 fold away
+  const fold = { unclear: "판단 못 한 항목", followed: "따르는 항목" };
+  box.append(h("ul", null, xs.filter(x => !fold[x.status]).map(row)));
+  for (const [k, label] of Object.entries(fold)) { const ys = xs.filter(x => x.status === k);
+    if (ys.length) box.append(h("details", null, h("summary", null, `${label} ${ys.length}개`), h("ul", null, ys.map(row)))); }
+  return box;
+}
 // criteria the user said in a chat message, now this task's intent (Guard and the agent's brief use them)
 const noted = c => msg("Pablo", null, h("p", { class: "muted", "data-intent": "1" }, "📌 작업 기준에 추가했습니다: ",
   c.items.map(i => `${i.text} (${i.strength === "hard" ? "반드시" : "가능하면"})`).join(" · "), " ",
   h("button", { class: "link", on: () => show({ mode: "intent" }) }, "기준 보기")));
 function said(c) {
+  if (c.role === "audit") return [msg("Pablo", null, audited(c))];
   if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped))];
   if (c.role === "intent") return [noted(c)];
   if (c.role === "changes") return [msg("Pablo", null, changed(c, V.task.id))];
@@ -630,7 +664,7 @@ function intent(p) {
     xs.map(x => h("li", { title: x.id, "data-id": x.id }, x.prev ? h("span", { class: "prev" }, x.prev) : null, x.text)))] : null;
   const spec = V.research.map(id => V.checks[id]).filter(c => c.spec && !c.spec.missing && c.state !== "waived");
   const paper = spec.length ? [h("h3", null, "논문 조건"), h("ul", { class: "ck must" }, spec.map(c => h("li", { title: c.id, "data-id": c.id },
-    h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), cited(c.conclusion || c.title, c.evidence))))] : null;
+    h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), fact(c))))] : null;
   const body = [g("목표", "", I.goals), g("반드시 지킬 것", "must", I.must), paper, g("선호", "", I.prefer),
     g("성공 조건", "q", I.success), g("결정", "", I.decisions), g("확인 필요", "q", I.questions)];
   simple(p, "현재 작업 기준", body.some(Boolean) ? body : h("p", { class: "muted" }, "기록된 기준이 없습니다."),
@@ -895,6 +929,10 @@ if (window.pabloHost && pabloHost.chat) {
       if (ev.retry) setTimeout(() => { const b = link("다른 모델로 다시 시도", () => { b.remove(); stream(talk); pabloHost.retry().catch(e => { status("Error", e.message); out = null; }); });
         live(talk).append(msg("Pablo", null, h("p", null, b))); scroll(); });  // after the Error card
     } else if (ev.type === "guard") { live(ev.task).append(msg("Pablo", null, guard(ev))); scroll(); refresh(); }
+    else if (ev.type === "audit") {
+      const p = live(ev.task).querySelector("[data-auditing]"), card = audited(ev);
+      p ? p.replaceWith(card) : live(ev.task).append(msg("Pablo", null, card)); scroll(); refresh();
+    }
     else if (ev.type === "changes") { live(ev.task).append(msg("Pablo", null, changed(ev, ev.task))); scroll(); refresh(); }
     else if (ev.type === "intent") {  // right under the user's message, before the reply that is already streaming
       const s = [...live(ev.task).querySelectorAll(".stream")].at(-1), m = noted(ev);
@@ -970,13 +1008,15 @@ if (window.pabloHost && pabloHost.chat) {
     bar.textContent = "";
     if (!V) return;
     const d = (M.desk || {})[V.task.id] || {};
-    bar.append(h("span", { id: "src" }, "📎 자료: ", d.pdf ? h("b", null, d.pdf) : "없음", " ", link(d.pdf ? "바꾸기" : "PDF 추가", () => attach("addSource"))),
+    bar.append(...[h("span", { id: "src" }, "📎 자료: ", d.pdf ? h("b", null, d.pdf) : "없음", " ", link(d.pdf ? "바꾸기" : "PDF 추가", () => attach("addSource"))),
       h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder"))),
       d.pdf && pabloHost.spec ? h("span", { id: "specs" }, link(V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived")
         ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기", () => spec(V.task.id))) : null,
+      d.folder && pabloHost.audit && (V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived") || V.intent.must.length || V.intent.prefer.length)
+        ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null,
       d.folder && pabloHost.setNet ? h("span", { id: "net", "data-on": d.net ? "1" : "", title: "패키지 설치, 데이터 내려받기, git clone에 필요합니다. 켜도 명령마다 Pablo가 검토합니다." },
         "🌐 인터넷: ", h("b", null, d.net ? "허용" : "차단"), " ",
-        link(d.net ? "차단하기" : "허용하기", () => pabloHost.setNet(V.task.id, !d.net).then(() => refresh()))) : null);
+        link(d.net ? "차단하기" : "허용하기", () => pabloHost.setNet(V.task.id, !d.net).then(() => refresh()))) : null].filter(Boolean));  // append(null) prints "null"
   };
   newTask = () => {
     V = null; close(); sidebar(); header(); tools(); gate();
@@ -1000,6 +1040,15 @@ if (window.pabloHost && pabloHost.chat) {
     ta.focus();
   };
   const clean = e => String(e.message || e).replace(/^Error invoking remote method [^:]+: (Error: )?/, "");
+  // A5/A6: 재현 점검 -> one read-only agent turn; its JSON answer comes back as an "audit" event (a table in the conversation)
+  function audit(t) {
+    if (agentSt === "Thinking") return;
+    talk = busy = t; turning = true;
+    live(t).append(msg("Pablo", null, h("div", { class: "audit", "data-auditing": "1" },
+      h("p", { class: "muted" }, "작업 폴더를 논문 조건·작업 기준과 대조하는 중… (파일을 읽기만 합니다)")))); scroll(); gate();
+    pabloHost.audit(t).catch(e => { turning = false; busy = null; status("Error", fail(e));
+      const p = live(t).querySelector("[data-auditing]"); if (p) p.replaceWith(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e)))); });
+  }
   // A2: the paper's reproduction conditions -> a card in the conversation (+ the 기준 panel); the agent's brief has them
   function spec(t) {
     if (agentSt === "Thinking") return;

@@ -15,6 +15,7 @@ Skill     task "<task>" [--checks JSON]          start task; no --checks -> Code
           review EX1                              -> PostReview (observations + proposals, changes nothing)
           view T1 [--html]                        --html: snapshot evidence viewer file
           brief T1                                what the desktop agent is told: criteria + located facts (+ basis ids)
+          audit T1                                the 재현 점검 turn for the desktop agent: prompt + output schema + items
 Evidence  source <url> [--title T]                Pablo fetches + snapshots the page -> SRC1 (version = content hash)
           source <file.pdf> [--title T]           M3.3: copies the PDF + its page text -> SRC1 (version = bytes hash)
           anchor SRC1 "<exact quote>" [--near "<text next to it>"] [--page N]   -> E1 (refused if missing or ambiguous)
@@ -46,8 +47,8 @@ from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
 from pablo_v2.skill.viewer import model, render_html, workspace
 from pablo_v2.skill.evidence import AnchorRejected
-from pablo_v2.skill.skill import (DecisionRejected, PabloSkill, ResearchIncomplete, ResearchRejected, render_brief,
-                                  render_evidence, render_task)
+from pablo_v2.skill.skill import (AUDIT_SCHEMA, DecisionRejected, PabloSkill, ResearchIncomplete, ResearchRejected,
+                                  render_audit, render_brief, render_evidence, render_task)
 
 # M1.1 acceptance conversation: (role, text)
 ACCEPTANCE = [
@@ -107,6 +108,7 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--html", action="store_true", help="write <dir>/view-T1.html (export/debug snapshot of every task)")
     add("state")  # the desktop's live workspace model (read-only)
     add("brief").add_argument("task_id")
+    add("audit").add_argument("task_id")
 
     s = add("task")
     s.add_argument("text")
@@ -334,6 +336,9 @@ def _run(a, out) -> int:
         raise SystemExit("view: task id required (or --html)")
     elif a.cmd == "state":
         out(workspace(s), f"{len(s.state.tasks)} tasks")
+    elif a.cmd == "audit":
+        prompt, items = render_audit(s, a.task_id)
+        out({"prompt": prompt, "schema": AUDIT_SCHEMA, "items": items}, prompt)
     elif a.cmd == "brief":
         text, basis = render_brief(s, a.task_id)
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16] if text else ""

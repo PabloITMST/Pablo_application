@@ -80,11 +80,13 @@ Packaging (M6, Windows x64, 서명 없음): build venv를 한 번 만든다. `py
 - 작업 범위: `--task`로 말한 작업을 기준에 직접 남긴다(Candidate features `task`). 예전 작업으로 돌아가 말해도 그 작업에만 적용된다. 작업 이름 없이 말한 기준(CLI `say`)은 작업 목록 순서로 구간을 정하고, 기록 시각은 밀리초까지 남긴다(같은 초에 만든 두 작업이 구간을 나눠 갖던 문제).
 - 논문 재현 조건(A2, `spec T1 [--source SRC1]`, 앱 도구 막대 "📋 재현 조건 뽑기"): judge가 논문에서 데이터셋, 분할, 전처리, 모델, 하이퍼파라미터, 학습, 지표, 비교 대상, 보고된 결과, 평가 규칙을 원문 발췌와 쪽으로 뽑는다. Pablo가 그 쪽에서 위치를 찾은 것만 VERIFIED check(tier 4, `spec` 필드)로 남기고 못 찾은 것은 뺀다(ReproAgent는 바꿔 쓴 근거도 허용한다 — 여기서는 거절). 논문에 없는 설정(시드 등)은 pending check로 남는다. 다시 뽑으면 이전 목록을 대체한다. 이 조건들은 brief로 에이전트에 가고("근거 없이 바꾸지 말 것"), Guard는 검증된 결론과 모순되는 행동을 S01로 막는다. 대화에는 분류별 조건 카드([n] → PDF 쪽 하이라이트)가, 기준 패널에는 "논문 조건"이 보인다.
 - 재현 작업(A3): 새 작업에서 "논문 재현 작업"을 고르면 세 기준이 그 작업의 hard 기준으로 함께 들어간다 — 평가(test) 데이터는 학습·튜닝·모델 선택에 쓰지 않는다, 논문에 적힌 설정값은 근거 없이 바꾸지 않는다, 결과 수치는 실행 결과에서만 가져온다.
+- 재현 점검(A5/A6, `audit T1`, 앱 도구 막대 "🔎 재현 점검"): 작업 폴더가 있는 작업에서, 에이전트가 코드·설정·실행 로그를 읽고 논문 조건(쪽 포함), 논문에 없는 설정, 작업 기준을 하나씩 판정한다(따름/다름/아직 없음/판단 못 함/코드가 정함, 파일:줄과 그 자리의 값). 보고된 결과는 로그의 값과 대조한다. 답은 `outputSchema`로 받은 JSON이고 대화에는 표로 남는다(다름이 맨 위, 따르는 항목은 접힘, 조건마다 [n] → 논문 쪽). 이 턴은 `readOnly` 샌드박스 + `approvalPolicy: never`라 아무것도 바꿀 수 없어서 읽기마다 Guard를 거치지 않는다. app-server는 턴의 sandbox/approval 덮어쓰기를 이후 턴에도 유지하므로, 일반 턴은 매번 `workspaceWrite` + `untrusted`를 다시 보낸다(쓰기는 항상 Guard). 실측 시나리오: `npm --prefix desktop run check -- <shot-dir> --audit`.
 - 대규모 재작성(A4, Guard W01, LLM 없음): 40줄 이상인 기존 파일의 절반 넘는 줄을 지우는 편집은 WARN. controller가 편집 전 파일과 diff로 잰다(ReproAgent repair regression guard에서 가져온 생각, 기준은 연구 스크립트에 맞게 낮춤).
 - Judge 재사용(D5): 행동·계획 단계·적용 기준·근거가 모두 같으면 이전 judge 분석을 그대로 쓰고 판정은 규칙이 다시 낸다(`ActionProposal.analysis_key`/`analysis_from`). 반복 읽기에서 모델 호출이 빠진다. Guard를 건너뛰지 않는다.
 - 계획 단계: 요청의 단계가 완료된 뒤에도 같은 요청의 후속 행동(추가 수정, 테스트 실행)은 그 단계를 따른다(`current_step`). 예전에는 "no plan step" WARN이 행동마다 붙었다.
 - Guard check(`--guard`)는 C–H를 brief 없이(`PABLO_BRIEF=0`, Guard가 안전망인 경우) 돌리고, 마지막에 brief를 켠 새 작업에서 에이전트가 hard 기준을 스스로 지키는지 본다(실측: "기준상 삭제하지 않겠습니다", Guard에 행동이 가지 않음).
 - 처음 상태를 읽기 전에 보낸 메시지가 "먼저 자료나 작업 폴더를 정해 주세요"로 빠지던 경합을 고쳤다.
+- 실제 계정 check: `--spec`(LinearRAG에서 조건 추출 — 실측 25개 고정, 0개 탈락, 논문에 없는 설정 4개, 43초), `--audit`(위 재현 점검), `--shot <view.html> [selector]`(저장된 화면 캡처, offline).
 - Check: `npm --prefix desktop run check -- --ui`(offline: 대화 순서, diff/명령 카드, 중지 표시, 체크포인트 diff·되돌리기·거절·CRLF 보존). `--agent`에 중지 시나리오를 더했다. Python: `python tests/skill/test_product.py`.
 
 ## Backlog (infra)

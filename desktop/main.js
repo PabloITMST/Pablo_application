@@ -198,6 +198,21 @@ ipcMain.handle("pablo:spec", async (e, task) => {
   logChat(task, { role: "spec", at, checks: r.stated.map(c => c.id), missing: r.missing.map(c => c.id), dropped: r.dropped.length });
   return r;
 });
+// A5/A6 재현 점검: the agent reads the work folder (read-only sandbox, nothing can change, so no Guard per read) and
+// judges every paper condition, open setting and task criterion against the code, configs and run logs -> a table
+ipcMain.handle("pablo:audit", async (e, task) => {
+  fromWindow(e); known(task);
+  if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
+  if (agent.busy()) throw new Error("이전 요청이 아직 진행 중입니다.");
+  const work = desk().workspace[task] || envWorkspace;
+  if (!work) throw new Error("먼저 작업 폴더를 선택하세요.");
+  const a = await ctl.py("audit", task);
+  if (!a.items.length) throw new Error("대조할 논문 조건이나 작업 기준이 없습니다. 먼저 재현 조건을 뽑거나 기준을 적어 주세요.");
+  agent.workspace = ctl.root = work; agent.network = false;
+  reply = { task, at: new Date().toISOString(), text: "", audit: a.items.map(x => x.id) };
+  saveDesk(x => { x.last = task; });
+  return agent.send(a.prompt, ctl.dir + "#" + task, null, null, { readOnly: true, outputSchema: a.schema });
+});
 // M4.2 the user's answers: WARN [진행]/[취소], and "다른 모델로 다시 시도" after a capacity failure
 ipcMain.handle("pablo:decide", (e, id, proceed) => { fromWindow(e); if (!str(id, 20)) throw new Error("bad id"); ctl.decide(id, proceed === true); });
 ipcMain.handle("pablo:retry", e => {
@@ -251,9 +266,25 @@ agent.on("event", ev => {
   if (ev.type === "delta") reply.text += ev.text;
   if (ev.type !== "done") return;
   const r = reply; reply = null;
-  try { logChat(r.task, { role: "agent", text: r.text, at: r.at, status: ev.status, ...(ev.error ? { error: short(ev.error) } : {}) }); }
-  catch (err) { console.error("[pablo] chat log", err.message); }
+  try {
+    if (r.audit) {  // 재현 점검: the answer is JSON (outputSchema); only the asked ids are kept
+      const entry = { role: "audit", at: r.at, status: ev.status, ...audited(r) };
+      if (ev.error) entry.error = short(ev.error);
+      logChat(r.task, entry);
+      broadcast("pablo:agent", { type: "audit", task: r.task, ...entry });
+    } else logChat(r.task, { role: "agent", text: r.text, at: r.at, status: ev.status, ...(ev.error ? { error: short(ev.error) } : {}) });
+  } catch (err) { console.error("[pablo] chat log", err.message); }
 });
+// the turn's last agent message is the answer (outputSchema shapes only that one; earlier ones are progress notes)
+agent.on("item", it => { if (reply && it.type === "agentMessage") reply.last = it.text; });
+function audited(r) {
+  try {
+    const j = JSON.parse((r.last || r.text).trim().replace(/^```(?:json)?\s*|\s*```$/g, "")), asked = new Set(r.audit);
+    const items = (j.items || []).filter(x => x && asked.has(x.id)).map(x => ({ id: x.id, status: String(x.status),
+      where: String(x.where || ""), found: String(x.found || "").slice(0, 300), note: String(x.note || "").slice(0, 300) }));
+    return { items, summary: String(j.summary || "").slice(0, 1000) };
+  } catch { return r.text.trim() ? { items: [], summary: "", unreadable: true } : { items: [], summary: "" }; }
+}
 agent.on("event", ev => broadcast("pablo:agent", ev.type === "status" && ev.error ? { ...ev, error: short(ev.error) } : ev));
 agent.onRequest = ctl.request;
 agent.on("item", ctl.item);
