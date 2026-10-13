@@ -283,6 +283,105 @@ def score(results: list[dict], truth: dict, keys: dict) -> dict:
             "false_alarms": alarms, "rows": rows, "verify": verify}
 
 
+# ---- comparison group: the same model, asked plainly (no condition list, no anchors, no status scheme) -------------
+BASELINE_SCHEMA = {
+    "type": "object", "additionalProperties": False, "required": ["items", "summary"],
+    "properties": {
+        "summary": {"type": "string"},
+        "items": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["what", "where", "paper", "code"],
+            "properties": {"what": {"type": "string"}, "where": {"type": "string"}, "paper": {"type": "string"},
+                           "code": {"type": "string"}}}}}}
+
+
+def baseline_prompt() -> str:
+    """What a researcher would do with a general coding agent: paste the paper, ask where the repo departs from it."""
+    sys.path.insert(0, os.path.join(ROOT, "src"))
+    from pablo_v2.skill import pdf
+    pages = pdf.pages(open(os.path.join(ROOT, conditions()["pdf"]), "rb").read())
+    paper = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
+    return ("이 작업 폴더는 아래 논문의 실험을 재현하려는 코드입니다. 코드, 설정 파일, 실행 로그를 읽고 논문에 적힌 실험 조건과 "
+            "다르게 구현되었거나 빠진 곳을 모두 찾아 주세요. 파일을 고치거나 프로그램을 실행하지 말고 읽기만 하세요. "
+            "항목마다 what(무엇이 다른가), where(파일:줄), paper(논문이 말하는 것), code(코드가 하는 것)를 적고, "
+            "다른 곳이 없으면 빈 목록을 주세요.\n\n[논문 본문]\n" + paper)
+
+
+_LOC = re.compile(r"([\w./\\-]+\.(?:py|ya?ml|log|json|txt|md))(?:\s*(?::|#L|\s|line\s*)\s*(\d+)(?:\s*[-–]\s*L?(\d+))?)?", re.I)
+
+
+def locs(raw: str) -> list[tuple[str, int | None, int | None]]:
+    """Every file[:line[-line]] in a free-form location ("config.yaml:5 (top_k)", "a.py:6,15", "a.py line 3")."""
+    raw = (raw or "").replace("\\", "/")
+    ms, out = list(_LOC.finditer(raw)), []
+    for m, nxt in zip(ms, ms[1:] + [None]):
+        a = int(m.group(2)) if m.group(2) else None
+        out.append((m.group(1), a, int(m.group(3)) if m.group(3) else a))
+        more = re.match(r"(?:\s*,\s*\d+(?:\s*[-–]\s*\d+)?)+", raw[m.end():nxt.start() if nxt else len(raw)]) if a else None
+        for x, y in re.findall(r"(\d+)(?:\s*[-–]\s*(\d+))?", more.group(0) if more else ""):  # "a.py:6,15": same file
+            out.append((m.group(1), int(x), int(y or x)))
+    return out
+
+
+def hits(loc: tuple, planted: dict) -> bool:
+    """One location against one planted drift: its file, and its line +-2 (a drift that deletes code: the file).
+    A span over 10 lines names a region, not the drift's line."""
+    path, a, b = loc
+    if not path.lower().endswith(planted["file"].lower().split("/")[-1]):
+        return False
+    return planted["line"] is None or (a is not None and (b or a) - a <= 10 and a - 2 <= planted["line"] <= (b or a) + 2)
+
+
+def compare(systems: dict, truth: dict) -> dict:
+    """systems: {name: runs}; a run's reports = its items that claim a departure (Pablo: differs/missing; plain: all).
+    A planted drift is found when a location in a report points at its file and line; each location finds at most one
+    drift (a report may list several places). A report that points at no planted drift is extra reading for the user
+    (one more word on a found drift is not); it may be a true gap outside the benchmark's conditions (e.g. baselines
+    not run), so they are kept for reading."""
+    out = {}
+    for name, runs in systems.items():
+        found = planted_n = clean_extra = reports = 0
+        ms, extras = [], []
+        for v in truth["variants"]:
+            r = next((x for x in runs if x["variant"] == v["name"]), None) or {}
+            rep = [i for i in r.get("items", []) if i.get("status", "differs") in DETECTED]
+            reports += len(rep)
+            ms.append(r.get("ms") or 0)
+            places = [(j, loc) for j, i in enumerate(rep) for loc in locs(i.get("where", ""))]
+            used = set()
+            for p in sorted(v["planted"], key=lambda p: p["line"] is None):  # a line before a whole file
+                planted_n += 1
+                k = next((k for k, (j, loc) in enumerate(places) if k not in used and hits(loc, p)), None)
+                if k is not None:
+                    used.add(k); found += 1
+            near = {j for j, loc in places if any(hits(loc, p) for p in v["planted"])}  # a second word on a found drift
+            for j, i in enumerate(rep):
+                if j not in near:
+                    extras.append({"variant": v["name"], "where": i.get("where", ""),
+                                   "what": i.get("what") or i.get("note") or i.get("found") or ""})
+            if not v["planted"]:
+                clean_extra += len(rep)
+        out[name] = {"recall": round(100 * found / planted_n, 1) if planted_n else None, "found": found,
+                     "planted": planted_n, "reports": reports, "extra": len(extras),
+                     "extra_per_variant": round(len(extras) / len(truth["variants"]), 1), "clean_extra": clean_extra,
+                     "avg_ms": round(sum(ms) / len(ms)) if ms else None, "extras": extras}
+    return out
+
+
+def markdown_compare(c: dict, meta: dict) -> str:
+    rows = ["# 비교군: Pablo 재현 점검 vs 같은 모델에 그냥 묻기 — " + meta.get("date", ""), "",
+            f"- 같은 변형 {meta.get('variants')}개(씨앗 {meta.get('seed')}), 같은 모델 {meta.get('model')}, 둘 다 읽기 전용 + JSON 답",
+            "- Pablo: 고정 조건 17개 + 원문 쪽을 받고 조건마다 판정. 그냥 묻기: 논문 본문 전체를 받고 \"논문과 다른 곳을 모두 찾아줘\"",
+            "- 찾음 = 심은 어긋남을 그 파일:줄(±2)로 짚음. 군더더기 = 심은 어긋남과 이어지지 않는 보고(벤치마크 밖의 실제 차이일 수 있음)", "",
+            "| 시스템 | 찾음 | 보고 수 | 군더더기 | 변형당 군더더기 | 깨끗한 변형의 보고 | 1회 시간 |", "|---|---|---|---|---|---|---|"]
+    for name, s in c.items():
+        rows.append(f"| {name} | {s['found']}/{s['planted']} ({s['recall']}%) | {s['reports']} | {s['extra']} | "
+                    f"{s['extra_per_variant']} | {s['clean_extra']} | {s['avg_ms']} ms |")
+    for name, s in c.items():  # for reading: a true gap outside the benchmark, or noise
+        rows += ["", f"## 군더더기: {name} ({s['extra']}건)", ""]
+        rows += [f"- {e['variant']} `{e['where']}`: {' '.join(e['what'].split())[:160]}" for e in s["extras"]] or ["- 없음"]
+    return "\n".join(rows) + "\n"
+
+
 def markdown(s: dict, meta: dict) -> str:
     m = s["summary"]
     out = [f"# 재현 점검 벤치마크 — {meta.get('date', '')}", "",
@@ -334,6 +433,19 @@ def main(argv: list[str]) -> None:
         if prefix:
             open(prefix + ".md", "w", encoding="utf-8").write(md)
             json.dump({"meta": results.get("meta", {}), **s}, open(prefix + ".json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        sys.stdout.reconfigure(encoding="utf-8")
+        print(md)
+    elif cmd == "baseline-prompt":
+        print(json.dumps({"prompt": baseline_prompt(), "schema": BASELINE_SCHEMA}, ensure_ascii=False))
+    elif cmd == "compare":  # compare <pablo results> <plain results> <truth> [--out prefix]
+        pablo, plain = (json.load(open(p, encoding="utf-8")) for p in argv[1:3])
+        truth = json.load(open(argv[3], encoding="utf-8"))
+        c = compare({"Pablo 재현 점검": pablo["runs"], "그냥 묻기": plain["runs"]}, truth)
+        md = markdown_compare(c, {**plain.get("meta", {}), "seed": truth.get("seed"), "variants": len(truth["variants"])})
+        prefix = opt("--out", None)
+        if prefix:
+            open(prefix + ".md", "w", encoding="utf-8").write(md)
+            json.dump(c, open(prefix + ".json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         sys.stdout.reconfigure(encoding="utf-8")
         print(md)
     else:

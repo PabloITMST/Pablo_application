@@ -1083,6 +1083,53 @@ async function auditBench() {
   fs.writeFileSync(agent.stateFile, JSON.stringify(cur));
 }
 
+// 13) --audit-bench [n] [seed] --plain (real ChatGPT connection): the comparison group on the same variants: the same
+//     model, read-only, a JSON answer, but no Pablo structure: the paper's text and "find where this repo departs from it".
+//     Compared with the Pablo run of the same seed (docs/eval/audit-bench-<date>-results.json) -> docs/eval/compare-<date>.*
+async function plainBench() {
+  const [n = 8, seed = 7] = process.argv.slice(2).filter(a => /^\d+$/.test(a)).map(Number);
+  const S = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-plain-")), BENCH = path.join(__dirname, "../tests/eval/audit_bench.py");
+  const bench = (...a) => execFileSync("python", [BENCH, ...a], { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" }, maxBuffer: 1 << 26 });
+  await boot(); assert.strictEqual(auth().state, "connected", "sign in once with `npm start` first");
+  const vs = JSON.parse(bench("variants", path.join(S, "variants"), "--n", String(n), "--seed", String(seed), "--clean", "1"));
+  const { prompt, schema } = JSON.parse(bench("baseline-prompt"));
+  // the Pablo run this is compared with: same seed, same variant count, and the same model
+  const dir = path.join(__dirname, "../docs/eval"), pabloFile = fs.readdirSync(dir).filter(f => /^audit-bench-[\d-]+-results\.json$/.test(f)).sort().at(-1);
+  assert.ok(pabloFile, "run --audit-bench first: the plain run is compared with a Pablo run");
+  const pm = JSON.parse(fs.readFileSync(path.join(dir, pabloFile), "utf8")).meta;
+  assert.ok(pm.seed === seed && pm.n === n, `${pabloFile} is seed ${pm.seed}, n ${pm.n}`);
+  const mine = (() => { try { return JSON.parse(fs.readFileSync(agent.stateFile, "utf8")).model; } catch { return undefined; } })();
+  agent.model = pm.model;
+  let last = null; const onItem = it => it.type === "agentMessage" && (last = it.text);
+  agent.on("item", onItem);
+  console.log(`plain: ${vs.variants.length} variants (seed ${seed}), model ${pm.model}, prompt ${prompt.length} chars, vs ${pabloFile}`);
+  const runs = [], threads = new Set();
+  for (const v of vs.variants) {
+    agent.workspace = v.dir; agent.network = false; last = null;
+    const done = new Promise(r => { const f = e => e.type === "done" && (agent.off("event", f), r(e)); agent.on("event", f); });
+    const t0 = Date.now();
+    await agent.send(prompt, S + "#" + v.name, null, null, { readOnly: true, outputSchema: schema });
+    const ev = await done, ms = Date.now() - t0;
+    assert.strictEqual(agent.model, pm.model, "the account does not offer " + pm.model);
+    const th = JSON.parse(fs.readFileSync(agent.stateFile, "utf8")).threads[S + "#" + v.name];  // a new thread in its own folder
+    assert.ok(th && th.cwd === v.dir && !threads.has(th.threadId), `${v.name}: read ${th && th.cwd}, thread ${th && th.threadId}`);
+    threads.add(th.threadId);
+    let items = [], error = ev.error;
+    try { items = JSON.parse((last || "").trim().replace(/^```(?:json)?\s*|\s*```$/g, "")).items || []; } catch { error = error || "unreadable answer"; }
+    runs.push({ variant: v.name, ms, status: ev.status, error, items });
+    console.log(`  ${v.name}: ${items.length} reports in ${ms} ms${error ? " ⚠ " + error : ""}`);
+  }
+  agent.off("item", onItem); await agent.stop();
+  const date = new Date().toISOString().slice(0, 10), plainFile = path.join(dir, `audit-bench-${date}-plain-results.json`);
+  const avg = Math.round(runs.reduce((a, r) => a + r.ms, 0) / runs.length);
+  fs.writeFileSync(plainFile, JSON.stringify({ meta: { date, model: pm.model, n, seed, avg_ms: avg }, runs }, null, 1));
+  console.log(bench("compare", path.join(dir, pabloFile), plainFile, vs.truth, "--out", path.join(dir, `compare-${date}`)));
+  const cur = JSON.parse(fs.readFileSync(agent.stateFile, "utf8"));  // leave the user's thread.json as it was
+  for (const key of Object.keys(cur.threads)) if (key.startsWith(S + "#")) delete cur.threads[key];
+  if (mine) cur.model = mine;
+  fs.writeFileSync(agent.stateFile, JSON.stringify(cur));
+}
+
 // --shot <view.html> [selector] (offline): a picture of a saved view, scrolled to the first element matching selector
 async function shotCheck() {
   const sel = process.argv.slice(2).find(a => !a.startsWith("-") && a !== view && !a.endsWith("check.js"));
@@ -1120,6 +1167,7 @@ app.whenReady().then(async () => {
     else if (process.argv.includes("--ui")) await uiCheck();
     else if (process.argv.includes("--spec")) await specCheck();
     else if (process.argv.includes("--shot")) await shotCheck();
+    else if (process.argv.includes("--audit-bench") && process.argv.includes("--plain")) await plainBench();
     else if (process.argv.includes("--audit-bench")) await auditBench();
     else if (process.argv.includes("--audit")) await auditCheck();
     else { await unit(base); if (view) await e2e(base); }

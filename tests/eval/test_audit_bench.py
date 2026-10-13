@@ -109,6 +109,36 @@ def test_score():
         assert "| 오탐률 | 100.0%" in md and "## 어긋남별" in md
 
 
+def test_locs():
+    assert B.locs("config.yaml:5 (top_k)") == [("config.yaml", 5, 5)]
+    assert B.locs("preprocess.py:6,15, graph.py:3") == [("preprocess.py", 6, 6), ("preprocess.py", 15, 15), ("graph.py", 3, 3)]
+    assert B.locs("retrieve.py line 16; graph.py#L10-12") == [("retrieve.py", 16, 16), ("graph.py", 10, 12)]
+    assert B.locs("logs\\2wikimultihopqa.log:1") == [("logs/2wikimultihopqa.log", 1, 1)]
+    assert B.locs("evaluate.py (함수가 없음)") == [("evaluate.py", None, None)] and B.locs("") == []
+
+
+def test_compare():
+    """The comparison group's scoring: by location, the same rule for both systems."""
+    with tempfile.TemporaryDirectory() as d:
+        truth = B.variants(d, n=8, seed=7, clean=1)
+        at = lambda p: f"{p['file']}:{p['line']}" if p["line"] else p["file"]  # noqa: E731
+        one = [{"variant": v["name"], "ms": 1, "items": [{"what": p["id"], "where": at(p)} for p in v["planted"]]}
+               for v in truth["variants"]]
+        bundled = [{"variant": v["name"], "ms": 1, "items": [{"what": "all", "where": "; ".join(at(p) for p in v["planted"])}]
+                    if v["planted"] else []} for v in truth["variants"]]
+        wide = [{"variant": v["name"], "ms": 1, "items": [{"what": "x", "where": f"{p['file']}:1-80"} for p in v["planted"]]}
+                for v in truth["variants"]]
+        noisy = [{"variant": v["name"], "ms": 1, "items": [{"what": "baselines not run", "where": "run.py:1"}]}
+                 for v in truth["variants"]]
+        c = B.compare({"one": one, "bundled": bundled, "wide": wide, "noisy": noisy}, truth)
+        assert (c["one"]["found"], c["one"]["extra"], c["one"]["clean_extra"]) == (18, 0, 0)
+        assert (c["bundled"]["found"], c["bundled"]["extra"]) == (18, 0)  # one report may name several places
+        assert c["wide"]["found"] == sum(1 for v in truth["variants"] for p in v["planted"] if p["line"] is None)
+        assert c["noisy"]["clean_extra"] == 1 and c["noisy"]["extras"][0]["what"] == "baselines not run"
+        md = B.markdown_compare(c, {"date": "test", "model": "x", "seed": 7, "variants": 9})
+        assert "| one | 18/18 (100.0%)" in md and "## 군더더기: noisy" in md
+
+
 def test_state():
     if not os.path.exists(os.path.join(B.ROOT, "LinearRAG.pdf")):
         print("skip test_state: LinearRAG.pdf not here")
