@@ -81,14 +81,18 @@ Phase마다 따로 커밋하고, Phase가 끝날 때마다 아래 "완료 기준
 
 ### Phase A 완료 기준
 
-- [ ] `tests/skill/test_product.py` 또는 새 node 테스트
-  - `where()` 형식 8가지를 받는다.
+- [x] `tests/skill/test_product.py` 또는 새 node 테스트
+  - `where()` 형식 8가지를 받는다. → 18가지(줄 목록 `a.py:6,15`, 여러 파일 `a.py:3; b.py:7` 포함)와 "위치 없음" 4가지.
   - 확인 규칙 6가지 상태가 나온다(verified / moved / not_found / no_file / value_mismatch / unchecked).
-  - 폴더 밖 경로와 심볼릭 링크를 거절한다.
-- [ ] `check.js --ui`: 점검표의 `config.yaml:5`를 누르면 패널이 그 줄을 강조한다.
+  - 폴더 밖 경로와 심볼릭 링크를 거절한다. → `..`, 절대 경로, junction, 바이너리, 1 MB 초과.
+- [x] `check.js --ui`: 점검표의 `config.yaml:5`를 누르면 패널이 그 줄을 강조한다.
   - 일부러 틀린 `where`를 가진 픽스처 항목에는 "⚠ 찾지 못함"이 붙는다.
   - "VS Code에서 열기"를 누르면 `shell.openExternal`이 `vscode://file/...:5`를 받는다(e2e처럼 가로채서 기록).
-- [ ] 실제 계정 `--audit`: 결과 항목의 `check` 분포를 출력하고, top-k 항목이 `verified`인지 확인한다.
+- [x] 실제 계정 `--audit`: 결과 항목의 `check` 분포를 출력하고, top-k 항목이 `verified`인지 확인한다.
+  - 2026-10-13 실측: 29항목 중 위치를 댄 7곳 모두 verified, 나머지 22개는 위치 없음(unchecked). top-k는 verified였고, 패널에서 5줄로 열렸다.
+- 벤치(Phase B) 결과로 규칙을 고쳤다. 원자료 162항목을 새 규칙으로 다시 돌린 결과, 거짓 경고 38건(개념어 값 29, 줄 목록 9)이 0이 되었고, 심은 어긋남 19건은 그대로 verified였다.
+  - 값 확인은 숫자와 숫자가 든 식별자에만 한다.
+  - 폴더별 thread 버그가 있던 첫 실행에서는 not_found 16건이 남는다. 에이전트가 옛 폴더를 읽고 답한 것이므로 맞는 경고다.
 
 ---
 

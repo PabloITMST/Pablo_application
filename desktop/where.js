@@ -1,6 +1,7 @@
 // A1/A2 (0.8): a file:line in the task's work folder, read safely, and the 재현 점검 answer checked against it.
 // Pure Node (fs + path): main.js uses it for pablo:read-file / pablo:open-file and after an audit; tests run it with node.
-//   where(raw)                  "config.yaml:5" | "a.py:10-11" | "logs\x.log:1" | "/abs/a.py:5" | "a.py#L5" | "a.py" -> {path, from, to}
+//   where(raw)                  "config.yaml:5" | "a.py:10-11" | "a.py:6,15" | "logs\x.log:1" | "/abs/a.py:5" | "a.py#L5" | "a.py"
+//                               -> {path, from, to, ranges: [[from, to], ...], also: [the other places of "a.py:3; b.py:7"]}
 //   read(work, rel, around?)    -> {path, first, lines, total, truncated}: only inside work (after symlinks), text, <= 1 MB
 //   verify(work, item, value?)  -> {check, line_found?}: the model says where and what; Pablo looks (guard.py's rule)
 //   hasValue(text, value)       the paper's value in a text: numbers by value ("1,000" = 1000), words case-insensitive
@@ -9,29 +10,34 @@ const path = require("path");
 
 const LIMIT = 1 << 20, MAX_LINES = 5000, SNIFF = 8192;
 const NONE = /^(?:-+|n\/?a|none|null|없음|해당\s*없음)$/i;
-const RANGE = "(\\d+)(?:\\s*[-–~]\\s*L?(\\d+))?";
+const ONE = "L?\\d+(?:\\s*[-–~]\\s*L?\\d+)?", LIST = `(${ONE}(?:\\s*,\\s*${ONE})*)`;  // 5 | 10-11 | 6,15 | 5-6, 18
 const FORMS = [  // [pattern on the end of the text, what is left is the path]
-  new RegExp(`#L${RANGE}$`),                                                    // a.py#L5, a.py#L5-L7
-  new RegExp(`[\\s,(]+(?:lines?|l\\.)\\s*${RANGE}\\s*\\)?$`, "i"),              // a.py line 5, a.py (lines 10-11)
-  new RegExp(`\\s*${RANGE}\\s*(?:행|번째\\s*줄|줄)\\)?$`),                       // a.py 5행, a.py 10-11줄
-  new RegExp(`:L?${RANGE}(?::\\d+)?$`),                                          // a.py:5, a.py:10-11, a.py:5:3 (column)
+  new RegExp(`#${LIST}$`),                                                      // a.py#L5, a.py#L5-L7
+  new RegExp(`[\\s,(]+(?:lines?|l\\.)\\s*${LIST}\\s*\\)?$`, "i"),               // a.py line 5, a.py (lines 10-11)
+  new RegExp(`\\s*${LIST}\\s*(?:행|번째\\s*줄|줄)\\)?$`),                        // a.py 5행, a.py 10-11줄
+  new RegExp(`:${LIST}(?::\\d+)?$`),                                             // a.py:5, :10-11, :6,15, :5:3 (column)
 ];
 
-function where(raw) {
-  let s = String(raw || "").trim().split(/\s*[;,]\s+(?=\S*(?:[\w-]\.[A-Za-z]|[\\/]))/)[0];  // "a.py:3, b.py:7" -> the first
-  s = s.replace(/^`+|`+$/g, "").trim().replace(/\s+\((?!\s*(?:lines?|l\.)\s*\d)[^()]*\)$/i, "");  // "a.py:5 (top_k)": a note
-  let from = null, to = null;
+function place(chunk) {
+  let s = chunk.trim().replace(/^`+|`+$/g, "").trim().replace(/\s+\((?!\s*(?:lines?|l\.)\s*\d)[^()]*\)$/i, "");  // "a.py:5 (top_k)": a note
+  let ranges = [];
   for (const re of FORMS) {
     const m = s.match(re);
     if (!m) continue;
-    from = Math.max(1, +m[1]); to = Math.max(from, m[2] ? +m[2] : from);
+    ranges = m[1].split(/\s*,\s*/).map(r => { const [a, b] = r.replace(/L/gi, "").split(/\s*[-–~]\s*/).map(Number), f = Math.max(1, a);
+      return [f, Math.max(f, b || f)]; });
     s = s.slice(0, m.index);
     break;
   }
   s = s.replace(/^[`'"(]+|[`'"),:]+$/g, "").trim().replace(/\\/g, "/").replace(/^(\.\/)+/, "");
   // a sentence is not a path ("코드 전체"); a file name with spaces still is ("run notes.txt", "my data/x.py")
   if (!s || s.length > 500 || NONE.test(s) || /[\n<>|*?]/.test(s.replace(/^[A-Za-z]:/, "")) || (/\s/.test(s) && !/\/|\.[A-Za-z0-9]{1,8}$/.test(s))) return null;
-  return { path: s, from, to };
+  return { path: s, from: ranges.length ? ranges[0][0] : null, to: ranges.length ? ranges[0][1] : null, ranges };
+}
+// several places ("config.yaml:3; run.py:16,25", "a.py:3, b.py:7"): the first is the place, the rest are also there
+function where(raw) {
+  const ps = String(raw || "").trim().split(/\s*;\s*|\s*,\s+(?=\S*(?:[\w-]\.[A-Za-z]|[\\/]))/).map(place).filter(Boolean);
+  return ps.length ? { ...ps[0], also: ps.slice(1) } : null;
 }
 
 class ReadError extends Error { constructor(code, message) { super(message); this.code = code; } }
@@ -64,8 +70,8 @@ function read(work, rel, around) {
 
 // ---- A2: the audit answer, checked by Pablo ----
 const norm = s => String(s || "").normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
-// found as the model wrote it -> the pieces that must be there in order ("a / b", "a ... b", several lines)
-const pieces = found => String(found || "").replace(/^`+|`+$/g, "").split(/\n|\s\/\s|\.\.\.|…/).map(norm).filter(Boolean);
+// found as the model wrote it -> the pieces that must be there in order ("a / b", "a; b", "a ... b", several lines)
+const pieces = found => String(found || "").replace(/^`+|`+$/g, "").split(/\n|\s\/\s|;\s+|\.\.\.|…/).map(norm).filter(Boolean);
 function within(text, ps) {
   const t = norm(text);
   let at = 0;
@@ -75,10 +81,12 @@ function within(text, ps) {
 const NUM = /(?<![A-Za-z0-9_.])\d+(?:,\d{3})*(?:\.\d+)?(?:e[-+]?\d+)?(?![A-Za-z0-9_])/gi;
 const number = v => { const m = String(v).trim().match(/^[~≈]?\s*(\d+(?:,\d{3})*(?:\.\d+)?(?:e[-+]?\d+)?)\s*%?$/i); return m ? +m[1].replace(/,/g, "") : null; };
 const same = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a));
-// one value ("5", "0.85", "1,000", "63.70%", "GPT-4o-mini", "Personalized PageRank"), not a list or a description
+// a value code has to spell out: a number ("5", "0.85", "1,000", "63.70%") or one identifier with a digit in it
+// ("GPT-4o-mini", "all-mpnet-base-v2"). A concept ("punctuation", "Personalized PageRank", "GPT-ACC") is implemented,
+// not written: re.split(...), nx.pagerank(...) follow it without its name (0.8 bench: 29 false warnings).
 function checkable(value) {
   const v = String(value || "").trim();
-  return !!v && (number(v) !== null || (!/[,;]/.test(v) && v.length <= 60 && v.split(/\s+/).length <= 3));
+  return !!v && (number(v) !== null || (v.length <= 60 && /^\S+$/.test(v) && /\d/.test(v) && /[A-Za-z]/.test(v)));
 }
 function hasValue(text, value) {
   const nums = [...String(text || "").matchAll(NUM)].map(m => +m[0].replace(/,/g, "")), flat = norm(text).replace(/ /g, "");
@@ -91,15 +99,24 @@ function hasValue(text, value) {
 function verify(work, item, value) {
   const w = where(item && item.where);
   if (!w || !work) return { check: "unchecked" };
-  let lines;
-  try { lines = load(work, w.path).lines; }
-  catch (e) { return { check: e.code === "large" || e.code === "binary" ? "unchecked" : "no_file" }; }
-  const ps = pieces(item.found);
-  if (!ps.length) return { check: w.from && w.from > lines.length ? "not_found" : "unchecked" };
+  const files = [];  // the places Pablo could open, in the order given
+  let skipped = false;
+  for (const p of [w, ...w.also]) {
+    try { files.push({ p, lines: load(work, p.path).lines }); }
+    catch (e) { skipped = skipped || e.code === "large" || e.code === "binary"; }
+  }
+  if (!files.length) return { check: skipped ? "unchecked" : "no_file" };
+  const ps = pieces(item.found), main = files[0].p === w ? files[0].lines : null;
+  if (!ps.length) return { check: main && w.from && w.from > main.length ? "not_found" : "unchecked" };
+  // every range of every place (+-2 lines), in order: "a.py:10,13,16" with found "x; y; z" is one text
+  const near = files.flatMap(({ p, lines }) => { const keep = new Set();
+    for (const [a, b] of p.ranges) for (let i = Math.max(0, a - 3); i < Math.min(lines.length, b + 2); i++) keep.add(i);
+    return [...keep].sort((x, y) => x - y).map(i => lines[i]); });
   let out = null;
-  if (w.from && w.from <= lines.length && within(lines.slice(Math.max(0, w.from - 3), w.to + 2).join("\n"), ps)) out = { check: "verified" };
+  if (near.length && within(near.join("\n"), ps)) out = { check: "verified" };
   else {  // the lines where it starts (the window from i has it, the one from i + 1 to the same end does not): the nearest
-    const span = String(item.found).split("\n").length + 2, at = [];
+    if (!main) return { check: "not_found" };  // only the first place's file can say "it is on line n" (the panel opens it)
+    const lines = main, span = String(item.found).split("\n").length + 2, at = [];
     for (let i = 0; i < lines.length; i++)
       if (within(lines.slice(i, i + span).join("\n"), ps) && !within(lines.slice(i + 1, i + span).join("\n"), ps)) at.push(i + 1);
     if (!at.length) return { check: "not_found" };

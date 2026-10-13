@@ -303,7 +303,7 @@ const located = (task, raw) => {
 ipcMain.handle("pablo:read-file", (e, task, raw, around) => {
   fromWindow(e); known(task);
   const { w, work } = located(task, raw);
-  return { ...where.read(work, w.path, Number.isInteger(around) && around > 0 ? around : w.from), from: w.from, to: w.to };
+  return { ...where.read(work, w.path, Number.isInteger(around) && around > 0 ? around : w.from), ranges: w.ranges };
 });
 // "VS Code에서 열기" (vscode://file/<abs>:<line>; no VS Code -> the file's own app, else its folder) | "폴더에서 보기"
 ipcMain.handle("pablo:open-file", async (e, task, raw, line, how) => {

@@ -194,6 +194,9 @@ WHERE = [  # what models write for a place in the work folder -> (path, from, to
     ("./config.yaml:5, run.py:3", ("config.yaml", 5, 5)),                   # several: the first
     ("config.yaml:5 (top_k)", ("config.yaml", 5, 5)),
     ("run notes.txt", ("run notes.txt", None, None)),
+    ("preprocess.py:6,15", ("preprocess.py", 6, 6)),                        # several lines (0.8 bench): the first range
+    ("evaluate.py:5-6, 18", ("evaluate.py", 5, 6)),
+    ("config.yaml:3; run.py:16,25; evaluate.py:11", ("config.yaml", 3, 3)),  # several files: the first
     ("", None), ("없음", None), ("(none)", None), ("코드 전체", None),       # no place
 ]
 VALUES = [  # (text, the paper's value, is it there) — numbers by value, never inside a word
@@ -203,7 +206,8 @@ VALUES = [  # (text, the paper's value, is it there) — numbers by value, never
     ("llm: gpt-4o-mini", "GPT-4o-mini", True), ("uses Personalized  PageRank", "personalized pagerank", True),
     ("lr = 0.0001", "1e-4", True), ("LinearRAG (Ours) 249.78 0.093", "249.78", True), ("split: test", "validation", False),
 ]
-CHECKABLE = [("5", True), ("1,000", True), ("63.70%", True), ("GPT-4o-mini", True), ("Personalized PageRank", True),
+CHECKABLE = [("5", True), ("1,000", True), ("63.70%", True), ("GPT-4o-mini", True), ("all-mpnet-base-v2", True),
+             ("Personalized PageRank", False), ("punctuation", False), ("GPT-ACC", False), ("SpaCy", False),  # concepts
              ("HotpotQA; MuSiQue", False), ("entity, sentence, and passage", False),
              ("NVIDIA GeForce RTX 4090 D (24GB VRAM)", False), ("", False)]
 
@@ -214,6 +218,11 @@ def test_where_and_value_rule():
         return
     got = node([["where", raw] for raw, _ in WHERE])
     assert [None if g is None else (g["path"], g["from"], g["to"]) for g in got] == [w for _, w in WHERE], got
+    many = {raw: g for (raw, _), g in zip(WHERE, got) if g and (len(g["ranges"]) > 1 or g["also"])}
+    assert {raw: (g["ranges"], [(x["path"], x["ranges"]) for x in g["also"]]) for raw, g in many.items()} == {
+        "./config.yaml:5, run.py:3": ([[5, 5]], [("run.py", [[3, 3]])]),
+        "preprocess.py:6,15": ([[6, 6], [15, 15]], []), "evaluate.py:5-6, 18": ([[5, 6], [18, 18]], []),
+        "config.yaml:3; run.py:16,25; evaluate.py:11": ([[3, 3]], [("run.py", [[16, 16], [25, 25]]), ("evaluate.py", [[11, 11]])])}
     js = node([["hasValue", t, v] for t, v, _ in VALUES] + [["checkable", v] for v, _ in CHECKABLE])
     assert js == [x for *_, x in VALUES] + [x for _, x in CHECKABLE], js
     assert [has_value(t, v) for t, v, _ in VALUES] == [x for *_, x in VALUES]
@@ -256,17 +265,20 @@ def test_read_and_verify():
                 V("followed", "config.yaml:10-11", "split: validation / questions_per_dataset: 1000", "1,000"),
                 V("differs", "logs\\2wiki.log:1", "gpt_acc=61.20", "63.70%"),
                 V("differs", "logs/2wiki.log:1", "dataset=2wikimultihopqa", "2"),                      # not "2" of 2wiki
+                V("followed", "config.yaml:3,12", "llm: gpt-4o-mini; seed: 42"),                       # several lines
+                V("followed", "config.yaml:3; run.py:3", "llm: gpt-4o-mini; print('top_k'"),           # several files
+                V("followed", "run.py:2", "cfg = yaml.safe_load(open('config.yaml'))", "Personalized PageRank"),  # a concept
                 V("chosen", "config.yaml:2", "seed: 42"),                                              # moved
                 V("chosen", "config.yaml", "seed: 42"),                                                # no line: where it is
                 V("followed", "logs/2wiki.log:3", "gpt_acc=63.70", "63.70%"),                          # not_found
                 V("followed", "config.yaml:40", ""),
                 V("followed", "missing.py:1", "x"), V("followed", "../outside/secret.txt:1", "token"),  # no_file
-                V("followed", "link/secret.txt:1", "token"),
+                V("followed", "link/secret.txt:1", "token"), V("followed", "missing.py:6,15", "x"),
                 V("followed", "config.yaml:5", "top_k: 10", "5"),                                      # value_mismatch
                 V("differs", "config.yaml:9", "damping: 0.85", "0.85"),
                 V("missing", "", ""), V("followed", "model.bin:1", "weights"), V("followed", "config.yaml:5", "")])  # unchecked
-            assert got == [{"check": "verified"}] * 4 + [{"check": "moved", "line_found": 12}, {"check": "verified", "line_found": 12}] + \
-                [{"check": "not_found"}] * 2 + [{"check": "no_file"}] * 3 + [{"check": "value_mismatch"}] * 2 + [{"check": "unchecked"}] * 3, got
+            assert got == [{"check": "verified"}] * 7 + [{"check": "moved", "line_found": 12}, {"check": "verified", "line_found": 12}] + \
+                [{"check": "not_found"}] * 2 + [{"check": "no_file"}] * 4 + [{"check": "value_mismatch"}] * 2 + [{"check": "unchecked"}] * 3, got
         finally:
             try:
                 os.unlink(link)

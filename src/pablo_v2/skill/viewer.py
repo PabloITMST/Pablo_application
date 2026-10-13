@@ -789,14 +789,14 @@ function codeView(p, st) {
     info, h("div", { id: "pbody", class: "code" }));
   pabloHost.readFile(st.task, st.where, st.line || null).then(f => {
     if (hist[hi] !== st) return;
-    const from = st.line || f.from, to = st.line ? st.line : f.to || from, box = $("pbody");
-    name.textContent = f.path + (from ? `:${from}${to > from ? "-" + to : ""}` : "");
+    const rs = st.line ? [[st.line, st.line]] : f.ranges || [], box = $("pbody");  // "a.py:6,15" marks both
+    name.textContent = f.path + (rs.length ? ":" + rs.map(([a, b]) => b > a ? `${a}-${b}` : a).join(",") : "");
     const src = box.appendChild(h("div", { class: "src" }, f.lines.map((l, i) => { const n = f.first + i;
-      return h("div", { class: "ln" + (from && n >= from && n <= to ? " on" : ""), "data-n": n }, h("span", { class: "n" }, n), h("span", { class: "t" }, l)); })));
+      return h("div", { class: "ln" + (rs.some(([a, b]) => n >= a && n <= b) ? " on" : ""), "data-n": n }, h("span", { class: "n" }, n), h("span", { class: "t" }, l)); })));
     const on = src.querySelector(".ln.on");
-    info.textContent = [`작업 폴더 · 읽기 전용 · ${f.total}줄`, from && !on ? `이 파일에는 ${from}줄이 없습니다` : null, st.note,
+    info.textContent = [`작업 폴더 · 읽기 전용 · ${f.total}줄`, rs.length && !on ? `이 파일에는 ${rs[0][0]}줄이 없습니다` : null, st.note,
       f.truncated ? `긴 파일이라 ${f.first}–${f.first + f.lines.length - 1}줄만 보여 줍니다` : null].filter(Boolean).join(" · ");
-    if (from && !on) info.className = "info broken";
+    if (rs.length && !on) info.className = "info broken";
     if (on) box.scrollTop += on.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 3;
     p.dataset.live = on ? "FOUND" : "OPEN";
   }, e => { if (hist[hi] !== st) return; p.dataset.live = "ERROR"; info.className = "info broken"; info.textContent = "⚠ " + fail(e); });

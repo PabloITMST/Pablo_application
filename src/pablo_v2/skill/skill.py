@@ -58,9 +58,11 @@ def _norm(s: str) -> str:
 
 
 def checkable(value: str) -> bool:
-    """One value ("5", "1,000", "GPT-4o-mini", "Personalized PageRank"), not a list or a description."""
+    """A value text has to spell out: a number ("5", "1,000", "63.70%") or one identifier with a digit ("GPT-4o-mini").
+    A concept ("punctuation", "Personalized PageRank") is implemented, not written (0.8 bench: 29 false warnings)."""
     v = str(value or "").strip()
-    return bool(v) and (_number(v) is not None or (not re.search(r"[,;]", v) and len(v) <= 60 and len(v.split()) <= 3))
+    return bool(v) and (_number(v) is not None or (len(v) <= 60 and re.fullmatch(r"\S+", v) is not None
+                                                     and re.search(r"\d", v) is not None and re.search(r"[A-Za-z]", v) is not None))
 
 
 def has_value(text: str, value: str) -> bool:
