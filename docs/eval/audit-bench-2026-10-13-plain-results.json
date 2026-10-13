@@ -1,0 +1,932 @@
+{
+ "meta": {
+  "date": "2026-10-13",
+  "model": "gpt-5.6-luna",
+  "n": 8,
+  "seed": 7,
+  "avg_ms": 69874
+ },
+ "runs": [
+  {
+   "variant": "v00-clean",
+   "ms": 93692,
+   "status": "completed",
+   "items": [
+    {
+     "what": "검색된 passage의 실제 본문을 생성 모델에 전달하지 않고 passage ID만 전달합니다.",
+     "where": "graph.py:7-19, run.py:20-25",
+     "paper": "Tri-Graph는 원문 passage를 지식 전달자로 보존하며, top-k passage의 본문을 생성에 사용합니다.",
+     "code": "graph.py는 passage 텍스트를 노드 속성에 저장하지 않습니다. 따라서 run.py의 ctx는 실제 본문이 아니라 ID 문자열입니다."
+    },
+    {
+     "what": "Stage 1의 의미 기반 entity activation이 구현되지 않았습니다.",
+     "where": "retrieve.py:5-12",
+     "paper": "질문 entity와 corpus entity의 embedding 유사도 매칭, query-sentence relevance 계산, Mᵀ(σ⊙Ma) 기반 semantic propagation, MAX 갱신을 수행합니다.",
+     "code": "entity 그래프에서 단순히 entity 간 고정 hop 탐색만 수행합니다. sentence 유사도, query 유사도, activation score 계산이 없습니다."
+    },
+    {
+     "what": "질문에서 entity를 SpaCy로 추출하고 유사한 corpus entity에 매칭하는 과정이 빠졌습니다.",
+     "where": "run.py:23, retrieve.py:5-8",
+     "paper": "질문 q에서 SpaCy NER를 수행한 뒤 각 질문 entity를 corpus entity 중 가장 유사한 entity에 매칭합니다.",
+     "code": "외부 데이터의 ex['entities']를 그대로 query_entities로 사용하며, query 자체의 NER나 embedding 기반 entity alignment를 수행하지 않습니다."
+    },
+    {
+     "what": "동적 pruning의 의미가 다릅니다.",
+     "where": "config.yaml:11-12, retrieve.py:5-12",
+     "paper": "δ는 activation relevance score 임계값이며, score가 δ보다 낮은 entity를 제거하고 새 entity가 없으면 조기 종료합니다.",
+     "code": "delta를 relevance threshold가 아니라 고정 탐색 hop 수로 사용합니다. score 계산, threshold 비교, 조기 종료가 없습니다."
+    },
+    {
+     "what": "Stage 2 passage 초기화의 hybrid scoring이 구현되지 않았습니다.",
+     "where": "retrieve.py:18-22",
+     "paper": "passage 초기 score는 λ·sim(q,v), activated entity relevance, entity occurrence count, entity hierarchical level, passage weight를 결합합니다.",
+     "code": "activated entity passage에는 1.0, 나머지 passage에는 λ를 personalization 값으로 주고, query-passage similarity·entity 빈도·계층 level·Wp를 계산하지 않습니다."
+    },
+    {
+     "what": "논문의 두 sparse adjacency matrix 대신 일반 NetworkX 무방향 그래프를 사용합니다.",
+     "where": "graph.py:7-18",
+     "paper": "sentence-entity mention matrix M과 passage-entity contain matrix C를 별도의 sparse 구조로 구성하고, 각 단계에서 해당 bipartite graph를 사용합니다.",
+     "code": "단일 nx.Graph에 모든 노드와 edge를 저장합니다. sparse M/C가 없으며 passage-sentence edge도 추가합니다."
+    },
+    {
+     "what": "graph에 논문에 정의되지 않은 passage-sentence edge가 추가됩니다.",
+     "where": "graph.py:13-14",
+     "paper": "Tri-Graph의 명시된 edge는 entity-sentence와 entity-passage입니다.",
+     "code": "각 sentence를 passage에 직접 연결하는 g.add_edge(pid, sid)를 추가합니다."
+    },
+    {
+     "what": "논문에서 요구하는 sentence·passage embedding 계산이 빠졌습니다.",
+     "where": "run.py:8, run.py:16, retrieve.py 전체",
+     "paper": "all-mpnet-base-v2를 사용해 query-sentence relevance와 query-passage similarity를 계산하며, 부록은 관련 embedding 구조를 전제로 합니다.",
+     "code": "SentenceTransformer encoder를 로드하지만 실제 encode 호출이 없습니다. 해당 encoder는 사용되지 않습니다."
+    },
+    {
+     "what": "생성 프롬프트가 논문의 RAG 설정을 충분히 재현하지 않습니다.",
+     "where": "run.py:24-25",
+     "paper": "검색된 원문 context를 사용해 LLM이 질문에 답하고, 논문은 RAG 방법들에 동일한 LLM과 retrieval 설정을 적용합니다.",
+     "code": "실제 원문 대신 ID를 context로 전달하며, 답변 형식·CoT 등 재현에 필요한 별도 prompt 설정도 없습니다."
+    },
+    {
+     "what": "논문의 네 데이터셋 전체 실험이 실행·기록되지 않았습니다.",
+     "where": "run.py:18-30, logs/2wikimultihopqa.log:1",
+     "paper": "HotpotQA, 2WikiMultiHopQA, MuSiQue, Medical 각각 validation set에서 1,000개 질문을 평가합니다.",
+     "code": "설정에는 네 데이터셋이 있으나 로그에는 2Wiki 결과만 존재합니다. 현재 폴더에는 run.py가 요구하는 data/ 디렉터리도 없습니다."
+    },
+    {
+     "what": "baseline 비교 실험이 구현되지 않았습니다.",
+     "where": "config.yaml:4, run.py:18-30",
+     "paper": "Zero-shot LLM, Vanilla RAG Top-1/3/5, KGP, G-Retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2와 비교합니다.",
+     "code": "LinearRAG만 실행하며 baseline 구현·실행·비교 결과가 없습니다."
+    },
+    {
+     "what": "ablation 및 추가 실험이 빠졌습니다.",
+     "where": "전체 파일, 특히 run.py:18-30",
+     "paper": "Entity Activation 제거, Global Importance Aggregation 제거, retrieval quality, hyperparameter sensitivity, backbone analysis, large-scale efficiency, case study를 평가합니다.",
+     "code": "해당 변형·평가 루틴·결과 생성 코드가 없습니다."
+    },
+    {
+     "what": "효율성 측정과 token consumption 기록이 빠졌습니다.",
+     "where": "run.py:18-31, logs/2wikimultihopqa.log:1",
+     "paper": "indexing/retrieval 시간, prompt token, completion token, accuracy를 Table 2와 대규모 실험에서 보고합니다.",
+     "code": "시간·토큰 수를 측정하지 않으며 로그에는 accuracy만 기록합니다. 로그 파일도 기존 2Wiki 한 건뿐입니다."
+    },
+    {
+     "what": "논문의 hardware 조건이 코드나 로그에서 검증·기록되지 않습니다.",
+     "where": "전체 파일, logs/2wikimultihopqa.log:1",
+     "paper": "NVIDIA GeForce RTX 4090 D 24GB와 Intel Xeon Gold 6426Y 환경에서 실험합니다.",
+     "code": "하드웨어 정보, GPU 사용 여부, 메모리 사용량이 설정이나 로그에 없습니다."
+    }
+   ]
+  },
+  {
+   "variant": "v01",
+   "ms": 64232,
+   "status": "completed",
+   "items": [
+    {
+     "what": "문장 분할 방식이 다름",
+     "where": "preprocess.py:9-11",
+     "paper": "각 passage를 마침표·느낌표 등 문장 부호 기준으로 분할한다.",
+     "code": "모든 passage를 고정 50단어 단위로 자른다."
+    },
+    {
+     "what": "Tri-Graph에 불필요한 passage-sentence 간선이 추가됨",
+     "where": "graph.py:14",
+     "paper": "entity-sentence와 entity-passage 두 종류의 간선만 사용한다.",
+     "code": "각 sentence와 해당 passage 사이에도 간선을 추가한다."
+    },
+    {
+     "what": "Sentence와 passage의 원문이 그래프 노드에 저장되지 않음",
+     "where": "graph.py:10-13, run.py:24",
+     "paper": "원본 passage를 지식 운반자로 보존하고 passage 내용을 검색·생성에 사용한다.",
+     "code": "노드에는 id와 kind만 저장하며, 검색 시 passage 원문 대신 passage ID를 context로 전달한다."
+    },
+    {
+     "what": "질의 entity 초기화가 논문 방식과 다르고 entity 유사도 매칭이 없음",
+     "where": "run.py:23, retrieve.py:5-8",
+     "paper": "SpaCy로 query에서 entity를 추출한 뒤, 각 query entity를 전체 graph entity 중 가장 유사한 entity에 매칭하고 유사도 점수를 초기 활성화값으로 사용한다.",
+     "code": "데이터 예제의 ex[\"entities\"]를 그대로 seed로 사용하며, query NER·embedding 기반 entity 매칭·활성화 점수를 계산하지 않는다."
+    },
+    {
+     "what": "Stage 1의 query-sentence relevance와 semantic propagation이 누락됨",
+     "where": "retrieve.py:5-12",
+     "paper": "query-sentence 유사도를 계산하고, M 행렬을 이용해 sentence relevance를 entity로 반복 전파하여 중간 entity를 활성화한다.",
+     "code": "entity graph에서 단순 이웃 탐색만 수행한다. 게다가 entity의 이웃 중 kind가 entity인 노드만 남기므로, entity-sentence/entity-passage 구조에서는 실제 전파가 일어나지 않는다."
+    },
+    {
+     "what": "dynamic pruning이 논문과 다름",
+     "where": "retrieve.py:5-12, config.yaml:11-12",
+     "paper": "각 반복에서 새 entity의 relevance score가 δ보다 클 때만 유지하며, 조건을 만족하는 새 entity가 없으면 조기 종료한다.",
+     "code": "delta=4를 relevance threshold가 아니라 고정 hop 수로 사용하며, 유사도 점수 기반 pruning이나 조기 종료가 없다."
+    },
+    {
+     "what": "Stage 2의 Personalized PageRank와 hybrid initialization이 누락됨",
+     "where": "retrieve.py:15-23",
+     "paper": "entity 활성화 점수를 entity 초기값으로 사용하고, passage에는 λ·sim(query, passage)와 entity occurrence·hierarchical level 기반 항을 결합한 초기값을 부여한 뒤 damping factor d=0.85의 PPR을 수행한다.",
+     "code": "pagerank.damping 설정을 사용하지 않는다. PPR 대신 sub.degree(n)×personalization을 점수로 사용하며, passage similarity·entity occurrence·hierarchical level 기반 초기화도 없다."
+    },
+    {
+     "what": "논문에서 요구한 embedding 계산이 구현되지 않음",
+     "where": "run.py:8, run.py:16; retrieve.py 전체",
+     "paper": "all-mpnet-base-v2로 query, sentence, passage/entity 유사도를 계산한다.",
+     "code": "SentenceTransformer encoder를 로드하지만 실제 encode나 similarity 계산에 사용하지 않는다."
+    },
+    {
+     "what": "검색 결과 context가 논문 실험의 원문 passage가 아님",
+     "where": "run.py:24",
+     "paper": "PPR로 선택한 top-k passage의 원문을 LLM에 제공한다.",
+     "code": "graph node에 text가 없으므로 graph.nodes[p].get(\"text\", p)가 passage ID만 반환한다."
+    },
+    {
+     "what": "평가 지표 구현이 논문과 불완전함",
+     "where": "evaluate.py:11-12",
+     "paper": "HotpotQA·2Wiki·MuSiQue는 Contain-Match Accuracy와 GPT-Accuracy를 평가하고, Medical은 GPT-Accuracy를 평가한다.",
+     "code": "GPT-Accuracy만 계산하며 contain_acc, retrieval Context Relevance, Evidence Recall을 계산하지 않는다."
+    },
+    {
+     "what": "로그의 contain_acc가 현재 평가 코드에서 생성되지 않음",
+     "where": "evaluate.py:12; logs/2wikimultihopqa.log:1",
+     "paper": "2Wiki 결과에는 Contain-Acc. 70.20과 GPT-Acc. 63.70이 모두 있어야 한다.",
+     "code": "evaluate.py는 gpt_acc만 반환하지만 로그에는 contain_acc=70.20도 기록되어 있다. 따라서 해당 로그는 현재 코드 실행 결과와 일치하지 않는다."
+    },
+    {
+     "what": "네 개 데이터셋 전체 실험 로그가 없음",
+     "where": "config.yaml:4; run.py:18-30; logs/2wikimultihopqa.log:1",
+     "paper": "HotpotQA, 2Wiki, MuSiQue, Medical 각각 validation에서 1,000문항을 평가한다.",
+     "code": "설정에는 네 데이터셋이 있으나 제공된 로그는 2wikimultihopqa 하나뿐이며, 나머지 세 데이터셋 결과 로그가 없다."
+    },
+    {
+     "what": "논문 실험의 생성 프롬프트 조건이 재현되지 않음",
+     "where": "run.py:25",
+     "paper": "RAG baseline을 포함한 실험에서는 동일 LLM을 사용하고, vanilla RAG에는 chain-of-thought reasoning prompt를 사용한다.",
+     "code": "검색 context와 질문만 단순 결합한 단일 user prompt를 사용하며, 논문에 기술된 reasoning prompt나 방법별 prompt 조건이 구현되어 있지 않다."
+    }
+   ]
+  },
+  {
+   "variant": "v02",
+   "ms": 54216,
+   "status": "completed",
+   "items": [
+    {
+     "what": "문장 임베딩 모델이 다름",
+     "where": "config.yaml:2; run.py:16",
+     "paper": "기본 모델은 all-mpnet-base-v2이며, 모든 방법에서 동일한 임베딩 모델을 사용한다.",
+     "code": "all-MiniLM-L6-v2를 설정하고 SentenceTransformer를 생성하지만, 실제 검색에는 사용하지 않는다."
+    },
+    {
+     "what": "동적 pruning 임계값이 다름",
+     "where": "config.yaml:12; retrieve.py:5-12",
+     "paper": "동적 pruning threshold δ=4를 사용하며, 각 엔티티의 semantic relevance score가 δ보다 낮으면 제거한다.",
+     "code": "delta=2를 사용하고, 의미 점수 threshold가 아니라 단순히 2-hop 확장 횟수로 사용한다."
+    },
+    {
+     "what": "PageRank damping factor가 다름",
+     "where": "config.yaml:13-14; retrieve.py:22",
+     "paper": "Personalized PageRank의 damping factor는 일반적으로 0.85이며 논문 실험 조건도 이를 따른다.",
+     "code": "damping=0.5를 사용한다."
+    },
+    {
+     "what": "Tri-Graph에 논문에 없는 passage-sentence 간선을 추가함",
+     "where": "graph.py:11-18",
+     "paper": "Tri-Graph는 entity-sentence와 entity-passage 두 종류의 간선만 사용하며, passage-sentence 간선은 없다.",
+     "code": "각 passage와 sentence 사이에 `g.add_edge(pid, sid)`를 추가한다."
+    },
+    {
+     "what": "Stage 1이 semantic bridging을 구현하지 않음",
+     "where": "retrieve.py:5-12",
+     "paper": "query-sentence relevance를 계산하고, sentence-entity 행렬을 이용해 유사도 점수를 가중 전파하며 MAX 연산으로 엔티티 활성화를 갱신한다.",
+     "code": "query entity에서 그래프를 hop 단위로 탐색할 뿐, 문장 유사도·가중치·semantic propagation을 계산하지 않는다."
+    },
+    {
+     "what": "질의 엔티티의 nearest-entity 매칭이 빠짐",
+     "where": "run.py:23; retrieve.py:5-8",
+     "paper": "SpaCy로 질의 엔티티를 추출한 뒤 각 엔티티를 전체 그래프에서 가장 유사한 엔티티에 매칭하고 similarity score를 초기 활성화 값으로 사용한다.",
+     "code": "데이터에 들어 있는 `ex['entities']`를 그대로 `activate`에 전달하며, 유사 엔티티 매칭이나 초기 similarity score 계산이 없다."
+    },
+    {
+     "what": "Stage 1의 탐색 그래프와 결과가 논문 구조와 다름",
+     "where": "retrieve.py:8-10; graph.py:14-18",
+     "paper": "Stage 1은 passage 노드를 고정한 entity-sentence bipartite graph에서만 수행한다.",
+     "code": "전체 그래프에서 이웃을 탐색한다. 다만 현재 코드는 entity의 이웃 중 kind가 entity인 노드만 남기므로, entity-sentence 그래프에 직접 연결된 entity가 없어 첫 확장 후 사실상 전파가 중단된다."
+    },
+    {
+     "what": "Passage 초기화 점수가 논문 수식과 다름",
+     "where": "retrieve.py:21",
+     "paper": "passage 초기 점수는 λ·sim(query, passage)와 활성 엔티티의 occurrence count, hierarchical level, passage weight를 결합한 값이다.",
+     "code": "모든 passage에 동일한 `lam` 값만 부여하고 query-passage similarity, 엔티티 출현 횟수, 계층 레벨, passage weight를 계산하지 않는다."
+    },
+    {
+     "what": "Entity 초기화 점수가 다름",
+     "where": "retrieve.py:21",
+     "paper": "각 entity의 초기 PageRank 점수는 Stage 1에서 계산한 연속적인 activation score `a_q(i)`이다.",
+     "code": "seed entity에는 모두 1.0, 나머지 entity에는 0.0을 부여한다."
+    },
+    {
+     "what": "Passage 텍스트가 그래프 노드에 저장되지 않음",
+     "where": "graph.py:9-18; run.py:24",
+     "paper": "원문 passage를 knowledge carrier로 보존하고, 검색된 원문 passage를 LLM context로 전달한다.",
+     "code": "passage 노드에 `text` 속성을 저장하지 않는다. 따라서 `run.py`는 실제 원문 대신 passage ID를 context로 전달한다."
+    },
+    {
+     "what": "검색에 실제 임베딩 기반 유사도 계산이 빠짐",
+     "where": "run.py:16; retrieve.py:15-23",
+     "paper": "sentence/query/passage semantic similarity를 임베딩 모델로 계산하고, 이를 entity activation 및 passage 초기화에 사용한다.",
+     "code": "임베딩 모델 객체를 생성하지만 사용하지 않으며, 검색은 문자열 엔티티와 그래프 구조만 이용한다."
+    },
+    {
+     "what": "논문에 명시된 실험 범위가 대부분 누락됨",
+     "where": "run.py:18-31; 전체 프로젝트",
+     "paper": "기본 생성 정확도 외에 baseline 비교, ablation, retrieval quality, hyperparameter sensitivity, embedding backbone 비교, 대규모 효율성, case study를 수행한다.",
+     "code": "네 데이터셋에 대해 단일 LinearRAG 실행과 GPT/contain accuracy 기록만 수행하며, baseline·ablation·retrieval metric·효율성·대규모 실험·case study 코드는 없다."
+    },
+    {
+     "what": "실행 로그가 2Wiki 결과만 포함함",
+     "where": "logs/2wikimultihopqa.log:1",
+     "paper": "HotpotQA, 2Wiki, MuSiQue, Medical 네 데이터셋의 결과를 보고한다.",
+     "code": "2Wiki validation 1,000개 결과만 기록되어 있으며 나머지 세 데이터셋의 로그가 없다."
+    }
+   ]
+  },
+  {
+   "variant": "v03",
+   "ms": 70791,
+   "status": "completed",
+   "items": [
+    {
+     "what": "평가 분할이 다릅니다.",
+     "where": "config.yaml:6; logs/2wikimultihopqa.log:1",
+     "paper": "각 데이터셋의 validation set에서 1,000개 질문을 선택합니다.",
+     "code": "설정은 test split으로 되어 있지만 로그는 validation split으로 기록되어 있어 설정과 실행 로그가 불일치합니다."
+    },
+    {
+     "what": "질문 수 자체는 1,000개로 설정되어 있으나, validation set을 보장하지 않습니다.",
+     "where": "run.py:19",
+     "paper": "각 validation set에서 1,000개 질문을 사용합니다.",
+     "code": "config의 split 파일을 단순히 앞에서부터 1,000개 읽습니다. validation 고정이나 논문과 동일한 샘플 선택 절차는 없습니다."
+    },
+    {
+     "what": "질문 엔티티를 SpaCy로 추출하지 않습니다.",
+     "where": "run.py:23; retrieve.py:5-12",
+     "paper": "온라인 검색 시 SpaCy로 질문에서 엔티티를 추출하고, 각 질문 엔티티를 지식 그래프의 가장 유사한 엔티티에 매칭해 초기 활성화합니다.",
+     "code": "데이터셋에 이미 들어 있는 ex['entities']를 그대로 사용하며, 그래프 엔티티와의 유사도 매칭을 수행하지 않습니다."
+    },
+    {
+     "what": "임베딩 모델이 실제 검색에 사용되지 않습니다.",
+     "where": "run.py:16; config.yaml:2",
+     "paper": "문장·패시지 유사도 계산에 all-mpnet-base-v2 임베딩을 사용합니다.",
+     "code": "SentenceTransformer를 로드하지만 encode나 유사도 계산을 전혀 하지 않습니다."
+    },
+    {
+     "what": "1단계 활성화가 semantic bridging이 아니라 단순 그래프 홉 확장입니다.",
+     "where": "retrieve.py:5-12",
+     "paper": "질문-문장 유사도 σ와 엔티티-문장 행렬 M을 이용해 활성화 점수를 반복 전파하고, MAX 기반으로 엔티티별 relevance score를 갱신합니다.",
+     "code": "엔티티에서 그래프 이웃 엔티티로 delta회 확장할 뿐이며, 문장 유사도·활성화 점수·행렬 전파를 사용하지 않습니다."
+    },
+    {
+     "what": "dynamic pruning의 delta 의미가 다릅니다.",
+     "where": "retrieve.py:5-12; config.yaml:11-12",
+     "paper": "δ는 새 엔티티의 relevance score 임계값이며, 임계값을 넘지 못하는 엔티티를 제거하고 새 엔티티가 없으면 조기 종료합니다. 실험값은 δ=4입니다.",
+     "code": "delta=4를 의미 점수 임계값이 아니라 고정된 그래프 홉 수 4로 사용하며, 점수 기반 pruning이나 조기 종료가 없습니다."
+    },
+    {
+     "what": "패시지 초기화 점수가 논문의 식 (7)과 다릅니다.",
+     "where": "retrieve.py:15-23",
+     "paper": "패시지 초기 점수는 λ·sim(q,v)와 활성 엔티티의 relevance score, 엔티티 출현 횟수 N_ei, 계층 레벨 L_ei, 패시지 가중치 W_p를 결합합니다.",
+     "code": "모든 패시지에 동일한 personalization 값 lam=0.05를 부여합니다. 질문-패시지 유사도, 엔티티 출현 횟수, 계층 레벨, W_p를 계산하지 않습니다."
+    },
+    {
+     "what": "PPR seed와 초기화가 논문과 다릅니다.",
+     "where": "retrieve.py:21-22",
+     "paper": "엔티티는 1단계의 연속적인 activation score a_q로 초기화하고, 패시지는 식 (7)의 query/entity 기반 초기 점수로 hybrid initialization합니다.",
+     "code": "활성화된 엔티티는 모두 1.0, 나머지 엔티티는 0.0, 모든 패시지는 동일하게 lam으로 설정합니다. 활성화 점수의 크기를 보존하지 않습니다."
+    },
+    {
+     "what": "Tri-Graph에 패시지-문장 간 추가 간선을 넣습니다.",
+     "where": "graph.py:13-18",
+     "paper": "그래프의 핵심 간선은 문장-엔티티 mention과 패시지-엔티티 contain 관계이며, 두 인접 행렬 M과 C로 표현됩니다.",
+     "code": "각 패시지와 해당 문장 사이에 pid-sid 간선을 추가합니다. 이는 논문에 정의된 두 인접 행렬에 없는 추가 관계입니다."
+    },
+    {
+     "what": "그래프의 패시지 텍스트가 저장되지 않습니다.",
+     "where": "graph.py:9-10; run.py:24",
+     "paper": "원문 패시지를 지식 운반자로 유지해 검색된 원문 컨텍스트를 LLM에 제공합니다.",
+     "code": "패시지 노드에 text 속성을 저장하지 않습니다. 따라서 run.py는 graph.nodes[p].get('text', p)를 통해 패시지 본문 대신 패시지 ID를 컨텍스트로 전달합니다."
+    },
+    {
+     "what": "검색 결과의 생성 프롬프트가 논문의 RAG 생성 조건을 재현하지 않습니다.",
+     "where": "run.py:24-25",
+     "paper": "검색된 원문 패시지와 질문을 사용해 동일한 GPT-4o-mini로 답변을 생성하며, 논문은 chain-of-thought reasoning prompts를 사용하는 Vanilla RAG 조건도 명시합니다.",
+     "code": "검색 결과가 실제 본문이 아닌 ID로 전달되고, 별도의 답변 지시·reasoning prompt·데이터셋별 프롬프트가 없습니다."
+    },
+    {
+     "what": "논문에서 요구한 baseline 비교가 없습니다.",
+     "where": "전체 작업 폴더; run.py:18-31",
+     "paper": "Zero-shot LLM, Vanilla RAG Top-1/3/5, KGP, G-Retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2와 비교합니다.",
+     "code": "LinearRAG 단일 검색·생성 경로만 구현되어 있으며 baseline 구현, 실행, 결과 비교가 없습니다."
+    },
+    {
+     "what": "ablation 실험이 없습니다.",
+     "where": "전체 작업 폴더; config.yaml",
+     "paper": "w/o Entity Activation과 w/o Global Importance Aggregation을 네 데이터셋에서 평가합니다.",
+     "code": "두 모듈을 제거하는 실행 경로나 설정이 없습니다."
+    },
+    {
+     "what": "검색 품질 평가가 없습니다.",
+     "where": "evaluate.py:15-18; 전체 작업 폴더",
+     "paper": "Medical 데이터셋에서 Fact Retrieval, Complex Reasoning, Contextual Summarization, Creative Generation별 Context Relevance와 Evidence Recall을 평가합니다.",
+     "code": "Contain-Acc와 GPT-Acc만 계산하며 Context Relevance, Evidence Recall 및 네 작업별 평가는 구현되어 있지 않습니다."
+    },
+    {
+     "what": "하이퍼파라미터 민감도 실험이 없습니다.",
+     "where": "config.yaml:10-14; 전체 작업 폴더",
+     "paper": "δ와 λ의 여러 값을 2WikiMultiHopQA에서 비교합니다.",
+     "code": "delta=4, lam=0.05, damping=0.85의 단일 설정만 존재하며 sweep이나 결과 기록이 없습니다."
+    },
+    {
+     "what": "임베딩 backbone 비교 실험이 없습니다.",
+     "where": "config.yaml:2; 전체 작업 폴더",
+     "paper": "all-mpnet-base-v2, all-MiniLM-L6-v2, bge-large-en-v1.5, e5-large-v2를 비교합니다.",
+     "code": "all-mpnet-base-v2 하나만 설정되어 있고, 실제로는 검색 계산에도 사용되지 않습니다."
+    },
+    {
+     "what": "대규모 효율성 실험이 없습니다.",
+     "where": "전체 작업 폴더; logs/2wikimultihopqa.log:1",
+     "paper": "ATLAS-Wiki 5M/10M token subset에서 indexing time과 token consumption을 비교합니다.",
+     "code": "2Wiki 결과 로그 하나만 있으며 indexing/retrieval 시간, prompt/completion token 수, 5M/10M 규모 실험을 기록하지 않습니다."
+    },
+    {
+     "what": "논문이 보고한 하드웨어 조건을 재현하는 설정이나 기록이 없습니다.",
+     "where": "전체 작업 폴더",
+     "paper": "NVIDIA GeForce RTX 4090 D 24GB VRAM 및 Intel Xeon Gold 6426Y에서 실행합니다.",
+     "code": "하드웨어 확인·기록·검증 코드와 실행 로그가 없습니다."
+    },
+    {
+     "what": "인덱싱 및 검색 시간과 토큰 사용량을 측정하지 않습니다.",
+     "where": "run.py:18-31; logs/2wikimultihopqa.log:1",
+     "paper": "효율성 표에서 indexing/retrieval 시간과 prompt/completion token consumption을 보고합니다.",
+     "code": "실행 시간과 API token usage를 측정하거나 로그에 남기지 않고, 데이터셋별 정확도만 기록합니다."
+    },
+    {
+     "what": "실행 로그가 현재 설정과 일치하지 않습니다.",
+     "where": "config.yaml:6; logs/2wikimultihopqa.log:1",
+     "paper": "validation split을 사용합니다.",
+     "code": "로그에는 validation이라고 기록되어 있지만 config.yaml은 test입니다. 또한 로그에 embedding model, top-k, delta, lambda, damping, 모델 버전 등 재현에 필요한 설정이 없습니다."
+    }
+   ]
+  },
+  {
+   "variant": "v04",
+   "ms": 73997,
+   "status": "completed",
+   "items": [
+    {
+     "what": "평가 질문 수가 1,000개가 아니라 500개로 설정되어 있습니다.",
+     "where": "config.yaml:7",
+     "paper": "각 데이터셋 validation split에서 1,000개 질문을 사용합니다(p.7).",
+     "code": "questions_per_dataset가 500으로 설정되어 있습니다."
+    },
+    {
+     "what": "실행 로그의 질문 수가 설정 파일과 불일치합니다.",
+     "where": "logs/2wikimultihopqa.log:1",
+     "paper": "재현 실행은 설정과 논문 조건 모두 1,000개 질문이어야 합니다.",
+     "code": "로그에는 questions=1000으로 기록되어 있지만 config.yaml은 500으로 설정되어 있습니다."
+    },
+    {
+     "what": "Tri-Graph에 논문에 없는 passage-sentence 직접 간선이 추가됩니다.",
+     "where": "graph.py:14",
+     "paper": "Entity-sentence와 entity-passage 간선만 사용하며, passage-sentence 간선은 정의하지 않습니다(p.4–5).",
+     "code": "각 passage와 해당 sentence 사이에 직접 간선을 추가합니다."
+    },
+    {
+     "what": "passage 노드에 원문 텍스트가 저장되지 않습니다.",
+     "where": "graph.py:10",
+     "paper": "원래 passage를 지식 전달자로 보존하고 검색 결과로 원문 passage를 제공해야 합니다(p.5).",
+     "code": "passage 노드에는 kind만 저장하고 text 속성을 저장하지 않습니다."
+    },
+    {
+     "what": "검색 시 원문 passage 대신 passage ID가 LLM에 전달됩니다.",
+     "where": "run.py:24",
+     "paper": "Top-k 원문 passage를 검색해 generation context로 사용해야 합니다.",
+     "code": "graph.nodes[p].get(\"text\", p)를 사용하므로 text가 없는 현재 그래프에서는 ID만 context로 전달됩니다."
+    },
+    {
+     "what": "Stage 1의 semantic bridging이 구현되지 않았습니다.",
+     "where": "retrieve.py:5-12",
+     "paper": "쿼리-문장 유사도와 문장-entity 연결을 이용해 activation score를 가중 전파하고, MAX aggregation으로 intermediate entity를 활성화합니다(Eq. 3–5, p.5–6).",
+     "code": "단순히 entity 그래프에서 일정 hop 수만큼 이웃 entity를 확장합니다."
+    },
+    {
+     "what": "쿼리 entity를 전체 entity 중 가장 유사한 entity에 매칭하는 과정이 없습니다.",
+     "where": "retrieve.py:5-12",
+     "paper": "SpaCy로 쿼리 entity를 추출한 뒤 각 entity를 corpus entity 중 가장 유사한 entity에 매칭하고 similarity score로 초기화합니다(Eq. 3).",
+     "code": "query_entities를 이미 그래프의 entity ID인 것으로 간주해 그대로 seed로 사용합니다."
+    },
+    {
+     "what": "sentence embedding과 query-sentence 유사도 계산이 전혀 사용되지 않습니다.",
+     "where": "run.py:16, retrieve.py:5-23",
+     "paper": "all-mpnet-base-v2 등 sentence embedding으로 query-sentence 및 query-passage 유사도를 계산합니다(p.5–8, Appendix E.3).",
+     "code": "SentenceTransformer encoder를 생성하지만 encode 호출이나 유사도 계산을 하지 않습니다."
+    },
+    {
+     "what": "dynamic pruning의 의미와 구현이 다릅니다.",
+     "where": "retrieve.py:5-12",
+     "paper": "각 propagation 단계에서 activation relevance score가 threshold δ=4를 넘는 entity만 다음 단계로 유지하며, 새 entity가 없으면 조기 종료합니다(p.6, Appendix E.2).",
+     "code": "delta=4를 relevance threshold가 아니라 4회의 graph hop 수로 사용하고, score threshold나 조기 종료가 없습니다."
+    },
+    {
+     "what": "Stage 2의 hybrid passage initialization이 구현되지 않았습니다.",
+     "where": "retrieve.py:21-22",
+     "paper": "passage 초기 점수는 λ·sim(q,v)와 activated entity의 occurrence count·hierarchical level 기반 점수를 결합해야 합니다(Eq. 7, p.6).",
+     "code": "모든 passage에 동일한 personalization 값 lam만 부여하며 query-passage similarity, entity occurrence, entity level을 계산하지 않습니다."
+    },
+    {
+     "what": "PPR 입력 그래프와 personalization이 논문의 정의와 다릅니다.",
+     "where": "graph.py:7-18, retrieve.py:20-22",
+     "paper": "Stage 2는 entity-passage bipartite graph에서 Eq. 7의 entity/passage 초기화로 PPR을 수행합니다(p.6).",
+     "code": "NetworkX 무방향 그래프를 사용하고, passage-sentence 간선은 제외하더라도 activated entity에는 모두 1.0, 모든 passage에는 lam을 넣는 단순 personalization을 사용합니다."
+    },
+    {
+     "what": "쿼리 entity가 그래프에 존재하지 않을 때 예외 처리가 없습니다.",
+     "where": "retrieve.py:9",
+     "paper": "쿼리 entity를 corpus entity에 similarity matching한 뒤 그래프에 존재하는 matched entity를 seed로 사용해야 합니다(Eq. 3).",
+     "code": "graph.neighbors(n)을 직접 호출하므로 corpus에 없는 query entity가 들어오면 검색이 실패할 수 있습니다."
+    },
+    {
+     "what": "논문의 전체 baseline 비교 실험이 구현되어 있지 않습니다.",
+     "where": "run.py:18-30",
+     "paper": "Zero-shot LLM, Vanilla RAG Top-1/3/5, KGP, G-Retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 비교합니다(p.7–8).",
+     "code": "LinearRAG 하나만 실행하며 baseline 구현·실행·결과 기록이 없습니다."
+    },
+    {
+     "what": "retrieval quality 평가가 누락되었습니다.",
+     "where": "evaluate.py:15-19, run.py:27",
+     "paper": "Medical 데이터셋의 네 task에 대해 Context Relevance와 Evidence Recall을 평가합니다(Appendix E.1, p.16–17).",
+     "code": "Contain-Acc와 GPT-Acc만 계산하고 Context Relevance 및 Evidence Recall을 계산하지 않습니다."
+    },
+    {
+     "what": "ablation, hyperparameter, backbone, large-scale efficiency, case study 실험이 누락되었습니다.",
+     "where": "전체 프로젝트 파일 및 run.py:18-30",
+     "paper": "Entity Activation 제거, Global Importance Aggregation 제거, δ/λ 분석, embedding backbone 비교, ATLAS-Wiki 5M/10M 효율성, case study를 보고합니다(Appendix E.2–E.5).",
+     "code": "해당 실험을 선택·실행·기록하는 코드나 설정이 없습니다."
+    },
+    {
+     "what": "실행 로그가 2Wiki 하나뿐이고 논문 결과와도 일치하지 않습니다.",
+     "where": "logs/2wikimultihopqa.log:1",
+     "paper": "네 데이터셋 결과를 보고하며 2Wiki LinearRAG는 Contain-Acc 70.20%, GPT-Acc 63.70%입니다(Table 1).",
+     "code": "2Wiki 로그만 존재하고 GPT-Acc=58.10%, Contain-Acc=70.20%로 기록되어 GPT-Acc가 논문보다 5.60%p 낮습니다."
+    }
+   ]
+  },
+  {
+   "variant": "v05",
+   "ms": 74240,
+   "status": "completed",
+   "items": [
+    {
+     "what": "Medical 데이터셋이 실험 대상에서 빠져 있습니다.",
+     "where": "config.yaml:4",
+     "paper": "p.7, p.15: HotpotQA, 2Wiki, MuSiQue, Medical의 4개 데이터셋에서 각각 1,000개 질문을 평가합니다.",
+     "code": "HotpotQA, 2Wiki, MuSiQue만 설정되어 있으며 Medical은 실행되지 않습니다."
+    },
+    {
+     "what": "Stage 1의 semantic bridging이 구현되지 않았습니다.",
+     "where": "retrieve.py:5-12",
+     "paper": "p.5-6 Eq. (3)-(5): 질문 엔티티를 SpaCy로 추출하고, 임베딩 유사도로 그래프 엔티티를 초기화한 뒤 query-sentence relevance를 이용해 가중 semantic propagation을 수행합니다.",
+     "code": "질문 엔티티에서 그래프상의 이웃 엔티티로 단순 hop 확장만 수행하며, 유사도·문장 relevance·가중치·MAX aggregation을 사용하지 않습니다."
+    },
+    {
+     "what": "동적 pruning의 δ를 잘못 사용합니다.",
+     "where": "config.yaml:11-12; retrieve.py:5-12",
+     "paper": "p.6: δ는 새 엔티티의 relevance score 임계값이며, 임계값을 넘는 엔티티가 없으면 자동 종료합니다. δ=4는 실험 설정값입니다.",
+     "code": "δ=4를 score threshold가 아니라 정확히 4회의 hop 수로 사용하고, relevance score 기반 pruning이나 조기 종료가 없습니다."
+    },
+    {
+     "what": "질문 엔티티를 논문 방식으로 추출하거나 nearest graph entity에 매칭하지 않습니다.",
+     "where": "run.py:23; retrieve.py:5",
+     "paper": "p.5 Eq. (3): SpaCy로 query에서 엔티티를 추출한 뒤 각 query entity를 전체 graph entity 중 가장 유사한 entity에 매칭합니다.",
+     "code": "데이터 예제의 ex['entities']를 그대로 사용하며, 임베딩 매칭을 하지 않습니다. 그래프에 없는 엔티티가 전달되면 graph.neighbors에서 실패할 수 있습니다."
+    },
+    {
+     "what": "all-mpnet-base-v2 임베딩 모델이 실제로 사용되지 않습니다.",
+     "where": "run.py:16; retrieve.py:15-23",
+     "paper": "p.8 및 p.18: 모든 방법에서 all-mpnet-base-v2를 사용하고, 질문·문장·패시지 유사도 계산에 활용합니다.",
+     "code": "SentenceTransformer를 로드하지만 encode하거나 similarity를 계산하지 않습니다."
+    },
+    {
+     "what": "Tri-Graph에 논문에 없는 passage-sentence 직접 edge가 추가됩니다.",
+     "where": "graph.py:14",
+     "paper": "p.4-5: entity-sentence와 entity-passage 두 종류의 edge만 사용하며, 두 adjacency matrix M과 C로 표현합니다.",
+     "code": "각 passage와 그 passage의 모든 sentence 사이에 pid-sid edge를 추가합니다."
+    },
+    {
+     "what": "그래프가 sparse adjacency matrix가 아니라 NetworkX 무방향 그래프로 구현됩니다.",
+     "where": "graph.py:7-19",
+     "paper": "p.5, Appendix D: C와 M을 sparse matrix로 저장하고 SpMM을 사용해 선형 확장성과 메모리 효율을 확보합니다.",
+     "code": "NetworkX Graph와 객체 기반 edge/node 구조를 사용하며 sparse matrix나 SpMM을 구현하지 않습니다."
+    },
+    {
+     "what": "Stage 2의 hybrid passage initialization이 구현되지 않았습니다.",
+     "where": "retrieve.py:21-22",
+     "paper": "p.6 Eq. (7): passage 초기 점수는 λ·sim(q,v)와 활성 entity의 score, entity occurrence count, hierarchical level, passage weight를 결합합니다.",
+     "code": "활성 entity에는 1.0, 모든 passage에는 동일한 lam 값만 부여합니다. query-passage similarity, occurrence count, entity level, passage weight를 계산하지 않습니다."
+    },
+    {
+     "what": "Personalized PageRank의 graph와 personalization이 논문과 다릅니다.",
+     "where": "graph.py:7; retrieve.py:20-22",
+     "paper": "p.6: passage-entity bipartite graph에서 entity activation 및 passage hybrid score를 초기값으로 사용해 PPR을 수행합니다.",
+     "code": "전체 그래프를 무방향으로 만든 뒤 entity/passage induced subgraph에서 PPR을 수행합니다. 논문의 단계별 초기화와 directed linking 구조를 재현하지 않습니다."
+    },
+    {
+     "what": "top-k 설정값을 무시하고 10개 passage를 반환합니다.",
+     "where": "config.yaml:9; retrieve.py:16,23",
+     "paper": "p.8: 모든 방법에서 k=5로 설정합니다.",
+     "code": "config의 top_k=5를 읽지 않고 k=10을 하드코딩합니다."
+    },
+    {
+     "what": "검색된 passage의 원문이 generation context에 전달되지 않습니다.",
+     "where": "run.py:20,24",
+     "paper": "p.5 및 p.10: 원래 passage를 knowledge carrier로 보존하고 검색된 원문 passage를 LLM에 제공합니다.",
+     "code": "graph에 passage text를 node attribute로 저장하지 않습니다. 따라서 graph.nodes[p].get('text', p)는 passage 본문 대신 passage ID만 context로 반환합니다."
+    },
+    {
+     "what": "generation prompt가 논문의 RAG 평가 조건을 충분히 재현하지 않습니다.",
+     "where": "run.py:25",
+     "paper": "p.7-8: 동일한 GPT-4o-mini로 검색 context를 이용해 답변을 생성하며, baseline RAG에는 chain-of-thought reasoning prompt를 사용합니다.",
+     "code": "단순히 context와 Q를 연결한 단일 user prompt만 사용하고, 답변 형식·reasoning 지침·방법별 prompt가 없습니다."
+    },
+    {
+     "what": "논문의 네 데이터셋 전체 결과를 생성하거나 기록하지 않습니다.",
+     "where": "logs/2wikimultihopqa.log:1; run.py:18-30",
+     "paper": "Table 1, p.7: 네 데이터셋에 대한 Contain-Acc와 GPT-Acc 결과를 보고합니다.",
+     "code": "로그에는 2Wiki의 한 줄만 존재하며 HotpotQA, MuSiQue, Medical 결과가 없습니다."
+    },
+    {
+     "what": "논문의 baseline 비교 실험이 빠져 있습니다.",
+     "where": "전체 파일; 특히 run.py:18-30",
+     "paper": "p.7-9: zero-shot LLM, Vanilla RAG Top-1/3/5, KGP, G-Retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2와 비교합니다.",
+     "code": "LinearRAG만 실행하며 baseline 구현·호출·결과 집계가 없습니다."
+    },
+    {
+     "what": "논문의 retrieval quality 평가가 빠져 있습니다.",
+     "where": "전체 파일",
+     "paper": "p.8 및 Appendix E.1: Medical 데이터셋의 Fact Retrieval, Complex Reasoning, Contextual Summarization, Creative Generation에 대해 Context Relevance와 Evidence Recall을 평가합니다.",
+     "code": "contain_acc와 gpt_acc만 계산하며 retrieval relevance/recall 측정이 없습니다."
+    },
+    {
+     "what": "논문의 ablation study가 빠져 있습니다.",
+     "where": "전체 파일",
+     "paper": "p.9 및 Appendix E: Entity Activation 제거와 Global Importance Aggregation 제거를 각각 평가합니다.",
+     "code": "두 구성요소를 제거한 변형 실행이나 비교 결과가 없습니다."
+    },
+    {
+     "what": "논문의 hyperparameter sensitivity 실험이 빠져 있습니다.",
+     "where": "전체 파일",
+     "paper": "Appendix E.2: 2Wiki에서 δ와 λ 변화에 따른 성능을 비교하고 δ=4, λ=0.05를 선택합니다.",
+     "code": "단일 δ와 λ만 사용하며 sweep이나 결과 기록이 없습니다."
+    },
+    {
+     "what": "논문의 backbone/embedding 비교 실험이 빠져 있습니다.",
+     "where": "전체 파일",
+     "paper": "Appendix E.3: all-mpnet-base-v2, all-MiniLM-L6-v2, bge-large-en-v1.5, e5-large-v2를 비교합니다.",
+     "code": "embedding 비교 실행이 없고, 현재 설정의 encoder도 retrieval 계산에 사용되지 않습니다."
+    },
+    {
+     "what": "논문의 efficiency 및 large-scale scalability 실험이 빠져 있습니다.",
+     "where": "전체 파일",
+     "paper": "p.8-9, Appendix C/D/E.4: indexing/retrieval 시간, prompt/completion token, 5M·10M ATLAS-Wiki 실험과 RTX 4090 D 환경을 보고합니다.",
+     "code": "시간·토큰·메모리 측정이 없고 ATLAS-Wiki 실험도 없습니다."
+    },
+    {
+     "what": "기록된 로그의 2Wiki 수치가 현재 코드의 실제 조건과 일치하지 않습니다.",
+     "where": "logs/2wikimultihopqa.log:1; retrieve.py:16,21-24; run.py:24-25",
+     "paper": "Table 1: 2Wiki LinearRAG는 k=5, semantic bridging, hybrid PPR, 원문 passage context 조건에서 Contain-Acc 70.20, GPT-Acc 63.70을 보고합니다.",
+     "code": "k=10이며 semantic bridging과 hybrid initialization이 없고, LLM에는 passage ID만 전달됩니다. 따라서 로그의 70.20/63.70 수치를 이 코드 조건의 재현 결과로 볼 근거가 없습니다."
+    }
+   ]
+  },
+  {
+   "variant": "v06",
+   "ms": 64765,
+   "status": "completed",
+   "items": [
+    {
+     "what": "검색 passage 수가 다릅니다.",
+     "where": "config.yaml:9",
+     "paper": "모든 방법에서 top-k=5를 사용합니다.",
+     "code": "top_k=10으로 설정되어 상위 10개 passage를 검색합니다."
+    },
+    {
+     "what": "λ 값이 다릅니다.",
+     "where": "config.yaml:10",
+     "paper": "실험에서 최적 설정으로 λ=0.05를 사용합니다.",
+     "code": "lam=0.5로 설정되어 있습니다."
+    },
+    {
+     "what": "질의 엔티티 추출 방식이 다릅니다.",
+     "where": "run.py:23",
+     "paper": "질의 q에 SpaCy NER를 적용해 질의 엔티티를 추출한 뒤, 각 엔티티를 그래프의 가장 유사한 엔티티에 매칭합니다.",
+     "code": "ex['entities']를 그대로 retrieve에 전달하며, 질의에서 SpaCy NER를 수행하거나 유사 엔티티 매칭을 하지 않습니다."
+    },
+    {
+     "what": "Stage 1의 엔티티 활성화가 semantic bridging으로 구현되지 않았습니다.",
+     "where": "retrieve.py:5-12",
+     "paper": "질의-문장 유사도와 문장-엔티티 행렬을 이용해 activation score를 가중 전파하고, MAX 연산으로 기존 점수를 보존합니다.",
+     "code": "그래프에서 엔티티 간 연결을 단순히 delta hop만큼 순회하며 모든 활성 엔티티를 동일한 이진 값으로 취급합니다. 의미 유사도, 문장 유사도, activation score 전파가 없습니다."
+    },
+    {
+     "what": "동적 pruning 조건이 다릅니다.",
+     "where": "retrieve.py:5-12",
+     "paper": "각 반복에서 엔티티 relevance score가 δ를 초과하는 경우에만 다음 반복에 유지하고, 조건을 만족하는 새 엔티티가 없으면 조기 종료합니다.",
+     "code": "delta를 relevance threshold가 아니라 고정 hop 수로 사용하며, 점수 thresholding이나 조기 종료가 없습니다."
+    },
+    {
+     "what": "δ의 코드 의미가 논문과 다릅니다.",
+     "where": "config.yaml:12, retrieve.py:18",
+     "paper": "δ=4는 semantic propagation의 relevance score threshold입니다.",
+     "code": "δ=4를 4회 그래프 순회 횟수로 사용합니다."
+    },
+    {
+     "what": "sentence/entity embedding 계산이 빠졌습니다.",
+     "where": "run.py:16, retrieve.py:15-23",
+     "paper": "all-mpnet-base-v2로 질의·문장·passage 유사도를 계산하고 semantic bridging 및 passage 초기화에 사용합니다.",
+     "code": "SentenceTransformer encoder를 생성하지만 실제 검색 과정에서는 사용하지 않습니다."
+    },
+    {
+     "what": "Passage 노드의 텍스트가 그래프에 저장되지 않습니다.",
+     "where": "graph.py:10",
+     "paper": "원문 passage를 지식 운반자로 보존하고 검색된 원문 passage를 LLM에 제공합니다.",
+     "code": "passage 노드에 kind만 저장하고 text를 저장하지 않습니다."
+    },
+    {
+     "what": "LLM에 원문 passage 대신 passage ID가 전달됩니다.",
+     "where": "run.py:24",
+     "paper": "검색된 top-k passage의 원문 내용을 generation context로 사용합니다.",
+     "code": "graph.nodes[p]에 text가 없으므로 기본값인 passage ID만 context에 포함됩니다."
+    },
+    {
+     "what": "그래프의 간선 구조가 논문과 다릅니다.",
+     "where": "graph.py:14",
+     "paper": "Tri-Graph의 핵심 간선은 entity-sentence와 entity-passage이며, 이를 mention/contain sparse adjacency matrix로 구성합니다.",
+     "code": "각 passage와 sentence 사이에도 직접 간선(pid, sid)을 추가합니다. 또한 sparse adjacency matrix가 아니라 NetworkX 일반 그래프를 사용합니다."
+    },
+    {
+     "what": "PPR passage 초기화가 구현되지 않았습니다.",
+     "where": "retrieve.py:21-22",
+     "paper": "passage 초기 점수는 λ·sim(q,v)와 활성 엔티티의 occurrence count, hierarchical level, passage weight를 결합한 식으로 계산합니다.",
+     "code": "모든 passage에 동일한 personalization 값 lam을 부여하며, query-passage similarity, 엔티티 출현 횟수, 계층 level, passage weight를 계산하지 않습니다."
+    },
+    {
+     "what": "엔티티 초기화 점수가 다릅니다.",
+     "where": "retrieve.py:21",
+     "paper": "각 entity의 초기 점수는 semantic matching 및 propagation으로 얻은 relevance score입니다.",
+     "code": "seed 엔티티는 모두 1.0, 나머지 엔티티는 0.0으로 설정됩니다."
+    },
+    {
+     "what": "PPR의 초기화·정규화가 논문의 식과 일치하지 않습니다.",
+     "where": "retrieve.py:21-22",
+     "paper": "논문의 식 (6)-(7)에 따라 entity와 passage별 초기 importance를 사용해 personalized PageRank를 계산합니다.",
+     "code": "NetworkX pagerank의 personalization dictionary를 사용하며, 논문의 entity/passage별 초기 점수 식을 구현하지 않았습니다."
+    },
+    {
+     "what": "검색된 context에 질의와 generation 지시가 충분히 반영되지 않습니다.",
+     "where": "run.py:25",
+     "paper": "RAG generation은 검색 context와 질문을 사용하며, baseline 실험에서는 chain-of-thought reasoning prompt를 사용합니다.",
+     "code": "단순히 context와 Q를 한 문자열로 결합해 user message로 전달하고, 명시적인 답변 형식·reasoning prompt가 없습니다."
+    },
+    {
+     "what": "실험 데이터가 작업 폴더에 없습니다.",
+     "where": "run.py:19-20",
+     "paper": "HotpotQA, 2WikiMultiHopQA, MuSiQue, Medical의 validation split과 corpus를 사용합니다.",
+     "code": "data/{name}/validation.json 및 data/{name}/corpus.json을 참조하지만 현재 작업 폴더에는 data 디렉터리와 해당 파일이 없습니다."
+    },
+    {
+     "what": "실행 로그가 논문의 전체 실험을 포함하지 않습니다.",
+     "where": "logs/2wikimultihopqa.log:1",
+     "paper": "네 데이터셋 모두에 대해 결과를 보고하며, 효율성·ablation·retrieval quality 실험도 제시합니다.",
+     "code": "2wikimultihopqa의 validation 1000개 결과만 기록되어 있고, HotpotQA·MuSiQue·Medical 결과와 추가 실험 로그가 없습니다."
+    },
+    {
+     "what": "효율성 측정 및 토큰 사용량 로그가 빠졌습니다.",
+     "where": "run.py:28-30, logs/2wikimultihopqa.log:1",
+     "paper": "indexing/retrieval 시간과 prompt/completion token 수를 비교하고 LinearRAG의 0 token 사용을 보고합니다.",
+     "code": "정확도만 로그에 기록하며 indexing 시간, retrieval 시간, prompt token, completion token을 측정하거나 기록하지 않습니다."
+    },
+    {
+     "what": "재현 설정의 핵심 임베딩 모델이 실제로 적용되지 않습니다.",
+     "where": "config.yaml:2, run.py:8, run.py:16",
+     "paper": "모든 알고리즘에서 all-mpnet-base-v2를 사용합니다.",
+     "code": "모델 객체만 생성하고 retrieval 코드에 전달하지 않으므로 실험 결과에는 임베딩 모델이 반영되지 않습니다."
+    },
+    {
+     "what": "로그 결과만으로는 실제 논문 실험 조건을 검증할 수 없습니다.",
+     "where": "logs/2wikimultihopqa.log:1",
+     "paper": "논문 결과는 top-k=5, λ 및 semantic bridging/PPR 구현을 사용한 결과입니다.",
+     "code": "로그에는 해당 결과를 만든 top-k, λ, 임베딩 사용 여부, 모델 프롬프트, 실행 시간 등의 조건이 기록되지 않아 현재 코드와 동일한 조건으로 생성되었는지 확인할 수 없습니다."
+    }
+   ]
+  },
+  {
+   "variant": "v07",
+   "ms": 59249,
+   "status": "completed",
+   "items": [
+    {
+     "what": "질의 엔티티를 의미 유사도로 검색하지 않고 데이터에 이미 들어 있는 `ex[\"entities\"]`를 그대로 사용합니다.",
+     "where": "run.py:23; retrieve.py:15-18",
+     "paper": "질의에 SpaCy NER를 적용한 뒤, 각 질의 엔티티를 전체 그래프에서 가장 유사한 엔티티와 매칭하고 그 유사도 점수를 초기 활성화 점수로 사용합니다.",
+     "code": "질의 원문에 NER나 임베딩 유사도 계산을 적용하지 않고, 데이터의 `entities` 필드를 정확히 일치하는 그래프 노드로 직접 전달합니다."
+    },
+    {
+     "what": "의미 기반 엔티티 활성화가 구현되어 있지 않습니다.",
+     "where": "retrieve.py:5-12",
+     "paper": "문장-엔티티 유사도와 질의-문장 유사도를 이용해 `Mᵀ(σq ⊙ (Maq))` 방식으로 활성화 점수를 반복 전파하여 다중 홉 중간 엔티티를 찾습니다.",
+     "code": "그래프 이웃을 단순히 순회하며 엔티티 노드만 남깁니다. 임베딩, 문장 유사도, 활성화 점수, MAX 집계가 없습니다."
+    },
+    {
+     "what": "활성화 탐색은 사실상 첫 단계에서 중단됩니다.",
+     "where": "retrieve.py:7-12; graph.py:14-18",
+     "paper": "엔티티→문장→엔티티 경로를 통해 문장 기반으로 반복적인 의미 전파를 수행합니다.",
+     "code": "엔티티의 이웃에는 문장과 passage가 포함되지만, `kind == \"entity\"`인 이웃만 frontier에 넣습니다. 따라서 엔티티에서 문장을 거쳐 다른 엔티티로 이동할 수 없습니다."
+    },
+    {
+     "what": "`delta`를 논문의 동적 pruning 임계값으로 사용하지 않습니다.",
+     "where": "retrieve.py:5-12; config.yaml:11-12",
+     "paper": "각 반복에서 새 엔티티의 의미 관련성 점수가 δ를 초과할 때만 유지하며, 더 이상 δ를 넘는 엔티티가 없으면 조기 종료합니다. 실험에서는 δ=4를 사용합니다.",
+     "code": "`delta=4`를 단순한 고정 홉 수로 해석하여 무조건 네 번 그래프를 순회합니다. 점수 임계값, 동적 pruning, 조기 종료가 없습니다."
+    },
+    {
+     "what": "논문에서 사용한 임베딩 모델이 로드되지만 검색에 전혀 사용되지 않습니다.",
+     "where": "run.py:8,16; retrieve.py 전체",
+     "paper": "`all-mpnet-base-v2`를 사용해 엔티티 매칭, 질의-문장 관련도, 질의-패시지 유사도를 계산합니다.",
+     "code": "SentenceTransformer 객체를 생성하지만 `encode` 또는 유사도 계산을 호출하지 않습니다."
+    },
+    {
+     "what": "패시지 초기화 점수의 하이브리드 공식이 구현되지 않았습니다.",
+     "where": "retrieve.py:17-22",
+     "paper": "패시지 초기 점수는 `λ·sim(q,v)`와 활성 엔티티의 점유 빈도·계층 레벨을 반영한 로그 집계값을 결합하고, `Wp`를 곱합니다(식 7).",
+     "code": "모든 passage에 동일한 `lam=0.05`를 부여하고, 질의-패시지 유사도, 엔티티 빈도, 계층 레벨, `Wp`를 계산하지 않습니다."
+    },
+    {
+     "what": "PPR 엔티티 초기화가 유사도 점수가 아닌 이진값입니다.",
+     "where": "retrieve.py:18,21-22",
+     "paper": "1단계에서 얻은 엔티티별 활성화 점수 `a_q(i)`를 PPR 초기화값으로 사용합니다.",
+     "code": "활성화된 엔티티에는 모두 `1.0`, 나머지에는 `0.0`을 할당합니다. 엔티티별 관련성 차이가 사라집니다."
+    },
+    {
+     "what": "그래프 구조와 PPR 대상이 논문과 다릅니다.",
+     "where": "graph.py:8-18; retrieve.py:20-22",
+     "paper": "Tri-Graph는 sentence-entity와 passage-entity의 두 관계를 사용하며, 1단계는 entity-sentence 부분 그래프, 2단계는 entity-passage 부분 그래프에서 수행합니다.",
+     "code": "NetworkX 무방향 그래프에 passage-sentence 엣지도 추가합니다. 이후 PPR에서는 entity와 passage 노드만 남기므로 sentence 관련 구조는 제거되고, 명시적인 두 인접행렬이나 단계별 고정 노드 처리가 없습니다."
+    },
+    {
+     "what": "NER 구현이 SpaCy NER가 아니라 대문자 기반 정규식입니다.",
+     "where": "preprocess.py:10-11",
+     "paper": "SpaCy와 같은 경량 NER 모델로 엔티티를 추출합니다.",
+     "code": "`[A-Z][a-z]+` 패턴만 사용하여 영어식 대문자 구문을 엔티티로 간주합니다. 일반명사, 다국어명, 약어, 숫자·기호가 포함된 엔티티 등을 제대로 처리하지 못합니다."
+    },
+    {
+     "what": "실행 로그의 결과가 논문 표와 일치하지 않습니다.",
+     "where": "logs/2wikimultihopqa.log:1",
+     "paper": "2Wiki에서 LinearRAG는 Contain-Acc. 70.20%, GPT-Acc. 63.70%를 보고합니다.",
+     "code": "로그에는 GPT-Acc. 63.70%와 Contain-Acc. 64.35%가 기록되어 있어 Contain-Acc.가 논문보다 5.85%p 낮습니다."
+    },
+    {
+     "what": "네 데이터셋 전체에 대한 실행 로그가 제공되지 않았습니다.",
+     "where": "logs/2wikimultihopqa.log:1; run.py:18-30",
+     "paper": "HotpotQA, 2Wiki, MuSiQue, Medical 각각의 validation set에서 1,000문항을 평가합니다.",
+     "code": "설정에는 네 데이터셋이 있으나 로그에는 2Wiki 결과만 있습니다. 다른 세 데이터셋의 실행 결과와 재현 여부를 확인할 수 없습니다."
+    }
+   ]
+  },
+  {
+   "variant": "v08",
+   "ms": 73687,
+   "status": "completed",
+   "items": [
+    {
+     "what": "Tri-Graph의 sentence 노드와 sentence–entity mention edge가 구현되지 않았습니다.",
+     "where": "graph.py:7-14, preprocess.py:9-11",
+     "paper": "passage, sentence, entity의 3계층 그래프를 만들고 sentence–entity 및 passage–entity 두 종류의 edge를 구성합니다.",
+     "code": "passage와 entity만 노드로 만들며, split_sentences()는 정의되어 있지만 호출되지 않습니다."
+    },
+    {
+     "what": "NER를 문장 단위가 아닌 passage 전체에 한 번만 적용합니다.",
+     "where": "graph.py:11, preprocess.py:14-15",
+     "paper": "각 passage를 문장으로 분할한 뒤 각 sentence에 SpaCy NER를 적용해 sentence–entity 관계를 만듭니다.",
+     "code": "전체 passage text에 entities(text)를 적용하고 passage–entity edge만 추가합니다."
+    },
+    {
+     "what": "Sentence/entity embedding과 semantic similarity 계산이 실제로 사용되지 않습니다.",
+     "where": "run.py:16, retrieve.py:5-23",
+     "paper": "all-mpnet-base-v2로 query·sentence·passage 유사도를 계산합니다.",
+     "code": "SentenceTransformer encoder를 로드하지만 사용하지 않으며, 검색은 그래프 이웃과 PageRank만 사용합니다."
+    },
+    {
+     "what": "Stage 1의 query entity 초기화가 논문과 다릅니다.",
+     "where": "run.py:23, retrieve.py:5-12",
+     "paper": "질문에 SpaCy NER를 적용하고, 각 query entity를 전체 entity 집합에서 가장 유사한 entity에 매칭해 similarity score로 초기화합니다.",
+     "code": "ex['entities']를 외부에서 바로 받아 사용하며, 질문 NER·embedding 기반 entity matching·초기 similarity score 계산이 없습니다."
+    },
+    {
+     "what": "Semantic bridging 기반 entity activation이 구현되지 않았습니다.",
+     "where": "retrieve.py:5-12",
+     "paper": "sentence relevance vector를 계산하고 Mᵀ(σ⊙(Ma)) 기반의 weighted semantic propagation을 수행해 중간 entity를 활성화합니다.",
+     "code": "query entity에서 그래프 entity 이웃으로 단순히 고정 hop 확장만 수행합니다."
+    },
+    {
+     "what": "Dynamic pruning이 threshold 방식으로 구현되지 않았습니다.",
+     "where": "retrieve.py:5-12, config.yaml:11-12",
+     "paper": "각 propagation 단계에서 entity activation score가 δ보다 큰 entity만 다음 단계에 남기고, 새 entity가 없으면 조기 종료합니다. δ=4는 score threshold입니다.",
+     "code": "delta=4를 4회 hop 수로 해석합니다. relevance score, threshold 비교, 조기 종료가 없습니다."
+    },
+    {
+     "what": "Stage 2 PPR의 hybrid passage initialization이 누락되었습니다.",
+     "where": "retrieve.py:19-23",
+     "paper": "entity는 stage 1 activation score로 초기화하고, passage는 λ·sim(q,v)와 activated entity의 occurrence count·hierarchical level·passage weight를 결합해 초기화합니다.",
+     "code": "entity seed는 1.0, 모든 passage seed는 lam=0.05로 고정합니다. query–passage similarity, entity occurrence count, entity level, passage weight를 계산하지 않습니다."
+    },
+    {
+     "what": "Passage retrieval에 사용되는 그래프와 초기화가 논문의 entity activation 결과를 보존하지 않습니다.",
+     "where": "retrieve.py:20-22",
+     "paper": "활성화된 entity를 seed로 사용하고 passage 초기 점수와 함께 passage–entity bipartite graph에서 Personalized PageRank를 수행합니다.",
+     "code": "passage와 entity만 포함한 그래프를 만들지만, entity의 실제 activation score 대신 모든 seed entity에 동일한 1.0을 부여합니다."
+    },
+    {
+     "what": "생성 및 평가 LLM이 논문 조건과 다릅니다.",
+     "where": "config.yaml:3, run.py:25, evaluate.py:16",
+     "paper": "모든 RAG 접근법의 generation과 evaluation에 GPT-4o-mini를 사용합니다.",
+     "code": "config에서 gpt-4o를 사용하도록 설정되어 있습니다."
+    },
+    {
+     "what": "생성 프롬프트가 논문 실험 조건을 충분히 반영하지 않습니다.",
+     "where": "run.py:24-25",
+     "paper": "RAG 방식은 검색 context와 함께 reasoning을 유도하는 프롬프트를 사용하며, baseline 설명에서는 chain-of-thought reasoning prompt를 명시합니다.",
+     "code": "검색 passage와 Q만 단순 연결해 user prompt로 전달하며 reasoning 지시가 없습니다."
+    },
+    {
+     "what": "논문의 baseline 비교 실험이 구현되어 있지 않습니다.",
+     "where": "run.py:18-31",
+     "paper": "zero-shot LLM, Vanilla RAG Top-1/3/5, KGP, G-Retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2와 비교합니다.",
+     "code": "LinearRAG 하나만 실행하며 다른 baseline의 indexing, retrieval, generation, 평가가 없습니다."
+    },
+    {
+     "what": "효율성 측정 조건과 결과 기록이 빠져 있습니다.",
+     "where": "run.py:18-31, logs/2wikimultihopqa.log:1",
+     "paper": "indexing/retrieval 시간, prompt token, completion token, 평균 accuracy를 2Wiki에서 비교하고 LinearRAG의 token 사용량을 0으로 보고합니다.",
+     "code": "시간과 token 사용량을 측정하거나 기록하지 않고 accuracy만 기록합니다."
+    },
+    {
+     "what": "논문의 ablation 실험이 빠져 있습니다.",
+     "where": "run.py:18-31, config.yaml:1-15",
+     "paper": "w/o Entity Activation과 w/o Global Importance Aggregation을 네 dataset에서 평가합니다.",
+     "code": "두 모듈을 제거한 variant 실행 경로가 없습니다."
+    },
+    {
+     "what": "추가 retrieval-quality 실험이 빠져 있습니다.",
+     "where": "run.py:18-31, logs/2wikimultihopqa.log:1",
+     "paper": "Medical dataset의 Fact Retrieval, Complex Reasoning, Contextual Summarization, Creative Generation에서 Context Relevance와 Evidence Recall을 평가합니다.",
+     "code": "GPT accuracy와 contain accuracy만 계산하며 relevance·evidence recall 또는 네 task별 평가는 없습니다."
+    },
+    {
+     "what": "hyperparameter sensitivity 및 embedding backbone 비교가 빠져 있습니다.",
+     "where": "config.yaml:2,10,12, run.py:16-31",
+     "paper": "δ와 λ sensitivity, all-mpnet-base-v2/all-MiniLM-L6-v2/bge-large-en-v1.5/e5-large-v2 비교를 수행합니다.",
+     "code": "embedding model과 δ·λ를 단일 값으로만 설정하고 비교 실험을 실행하지 않습니다."
+    },
+    {
+     "what": "대규모 ATLAS-Wiki 효율성 실험이 빠져 있습니다.",
+     "where": "run.py:18-31, logs/2wikimultihopqa.log:1",
+     "paper": "ATLAS-Wiki 5M·10M token subset의 indexing 시간과 token 사용량을 측정합니다.",
+     "code": "4개 QA dataset만 순회하며 ATLAS-Wiki와 대규모 확장성 측정 코드가 없습니다."
+    },
+    {
+     "what": "실행 로그가 논문에서 요구한 전체 실험을 포함하지 않습니다.",
+     "where": "logs/2wikimultihopqa.log:1",
+     "paper": "HotpotQA, 2Wiki, MuSiQue, Medical의 결과와 추가 실험 결과를 보고합니다.",
+     "code": "2Wiki validation 1,000문항 결과 한 줄만 있으며 나머지 dataset, efficiency, ablation, retrieval-quality 결과가 없습니다."
+    }
+   ]
+  }
+ ]
+}

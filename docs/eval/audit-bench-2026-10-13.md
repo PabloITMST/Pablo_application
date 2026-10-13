@@ -39,8 +39,10 @@
 
 ## Pablo 확인 (점검 답의 파일:줄을 Pablo가 직접 읽은 결과)
 
+- 규칙: desktop/where.js로 다시 계산 (변형을 씨앗에서 다시 만들어)
 - 짚은 어긋남: verified 18
-- 따르는 조건: verified 94, value_mismatch 28, no_file 9 (verified 외에는 Pablo 쪽의 거짓 경고)
+- 따르는 조건: verified 131 (verified 외에는 Pablo 쪽의 거짓 경고)
+- 대조 (각 답을 다음 변형의 폴더에서 확인): 짚은 어긋남 not_found 15, verified 2, moved 1. verified 외에는 옛 폴더·지어낸 위치를 잡은 것
 
 ## 오탐 (따르는데 다름·없음으로 짚은 조건)
 

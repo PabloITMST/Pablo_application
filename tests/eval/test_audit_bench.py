@@ -118,25 +118,58 @@ def test_locs():
 
 
 def test_compare():
-    """The comparison group's scoring: by location, the same rule for both systems."""
+    """The comparison group's scoring: the drift's place and what changed there, the same rule for both systems."""
+    assert set(B.SAYS) == {x["id"] for x in B.CATALOG}
     with tempfile.TemporaryDirectory() as d:
         truth = B.variants(d, n=8, seed=7, clean=1)
         at = lambda p: f"{p['file']}:{p['line']}" if p["line"] else p["file"]  # noqa: E731
-        one = [{"variant": v["name"], "ms": 1, "items": [{"what": p["id"], "where": at(p)} for p in v["planted"]]}
-               for v in truth["variants"]]
-        bundled = [{"variant": v["name"], "ms": 1, "items": [{"what": "all", "where": "; ".join(at(p) for p in v["planted"])}]
-                    if v["planted"] else []} for v in truth["variants"]]
-        wide = [{"variant": v["name"], "ms": 1, "items": [{"what": "x", "where": f"{p['file']}:1-80"} for p in v["planted"]]}
-                for v in truth["variants"]]
-        noisy = [{"variant": v["name"], "ms": 1, "items": [{"what": "baselines not run", "where": "run.py:1"}]}
-                 for v in truth["variants"]]
-        c = B.compare({"one": one, "bundled": bundled, "wide": wide, "noisy": noisy}, truth)
-        assert (c["one"]["found"], c["one"]["extra"], c["one"]["clean_extra"]) == (18, 0, 0)
+
+        def said(v, p):  # a report quoting the drifted line and naming the change (a removal shows only in words)
+            line = open(os.path.join(v["dir"], p["file"]), encoding="utf-8").read().splitlines()[p["line"] - 1] if p["line"] else ""
+            return line + " / " + p["id"].replace("_", " ")
+
+        sys_ = lambda f: [{"variant": v["name"], "ms": 1, "items": f(v)} for v in truth["variants"]]  # noqa: E731
+        c = B.compare({
+            "one": sys_(lambda v: [{"what": "differs", "code": said(v, p), "where": at(p)} for p in v["planted"]]),
+            "bundled": sys_(lambda v: [{"what": "all", "code": " / ".join(said(v, p) for p in v["planted"]),
+                                        "where": "; ".join(at(p) for p in v["planted"])}] if v["planted"] else []),
+            "wide": sys_(lambda v: [{"what": said(v, p), "where": f"{p['file']}:1-80"} for p in v["planted"]]),
+            "offtopic": sys_(lambda v: [{"what": "no retrieval-quality metrics", "where": at(p)} for p in v["planted"]]),
+            "noisy": sys_(lambda v: [{"what": "baselines not run", "where": "run.py:1"}]),
+        }, truth)
+        assert (c["one"]["found"], c["one"]["extra"], c["one"]["clean_extra"], c["one"]["missed"]) == (18, 0, 0, [])
         assert (c["bundled"]["found"], c["bundled"]["extra"]) == (18, 0)  # one report may name several places
         assert c["wide"]["found"] == sum(1 for v in truth["variants"] for p in v["planted"] if p["line"] is None)
+        o = c["offtopic"]  # on the drift's line, about something else there: not found, and outside the benchmark
+        assert (o["found"], o["found_loc"], o["extra"], len(o["missed"])) == (0, 18, 18, 18)
         assert c["noisy"]["clean_extra"] == 1 and c["noisy"]["extras"][0]["what"] == "baselines not run"
         md = B.markdown_compare(c, {"date": "test", "model": "x", "seed": 7, "variants": 9})
-        assert "| one | 18/18 (100.0%)" in md and "## 군더더기: noisy" in md
+        assert "| one | 18/18 (100.0%) | 18/18 |" in md and "## noisy: 심은 것 밖의 보고 9건" in md
+    # Korean particles follow values: "delta=2를", "500개", "lam=0.5로" still say the value
+    p = lambda i: {"id": i}  # noqa: E731
+    assert B.about({"code": "delta=2를 사용"}, p("delta")) and B.about({"what": "질문 500개"}, p("questions_500"))
+    assert B.about({"code": "lam=0.5로 설정"}, p("lambda")) and not B.about({"code": "1000개"}, p("topk_config"))
+
+
+def test_recheck():
+    """Pablo's check recomputed by desktop/where.js: a drift claim quoting its line holds in its own folder, and mostly
+    not in another variant's folder (the control)."""
+    with tempfile.TemporaryDirectory() as d:
+        truth = B.variants(d, n=8, seed=7, clean=1)
+        keys = {k: f"SC{i}" for i, k in enumerate(list(truth["variants"][0]["expect"]), 1)}
+        runs = [{"variant": v["name"], "ms": 1, "items": [
+            {"id": keys[p["key"]], "status": p["expect"], "where": f"{p['file']}:{p['line']}", "note": "",
+             "found": open(os.path.join(v["dir"], p["file"]), encoding="utf-8").read().splitlines()[p["line"] - 1].strip()}
+            for p in v["planted"] if p["line"]]} for v in truth["variants"]]
+        own = B.recheck(runs, truth, keys)
+        if own is None:
+            print("skip test_recheck: no node or desktop/where.js")
+            return
+        n = sum(len(r["items"]) for r in runs)
+        assert B.tally(own, truth, keys)["drift"] == {"verified": n}
+        other = B.tally(B.recheck(runs, truth, keys, shift=1), truth, keys)["drift"]
+        assert sum(other.values()) == n and other.get("verified", 0) < n / 2, other
+        assert "check" not in runs[1]["items"][0]  # the saved answers stay as they were
 
 
 def test_state():

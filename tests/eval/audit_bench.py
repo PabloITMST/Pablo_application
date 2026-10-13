@@ -5,8 +5,13 @@
   variants <dir> [--n 8] [--seed 7] [--clean 1]
                                     copies of repro_base/ (a folder that follows every condition) with 1-3 planted drifts
                                     each, plus clean copies -> <dir>/<name>/ and <dir>/truth.json
-  score <results.json> <truth.json> <keys.json> [--out <prefix>]
-                                    the audit results (check.js --audit-bench) against the truth -> markdown + json
+  score <results.json> <truth.json> <keys.json> [--out <prefix>] [--saved-checks]
+                                    the audit results (check.js --audit-bench) against the truth -> markdown + json;
+                                    Pablo's check of each answer is recomputed with desktop/where.js (needs node) on
+                                    regenerated variants, plus a control in the wrong folders (--saved-checks: as saved)
+  baseline-prompt                   the comparison group's prompt and answer schema (paper text + "find the departures")
+  compare <pablo results> <plain results> <truth.json> [--out <prefix>]
+                                    the two on the same variants, scored by location -> markdown + json
 
 Truth per variant and condition: the planted drift's expected status (differs | missing); "followed" for a condition the
 base folder follows and no drift touched; "ambiguous" (not scored) when a drift makes another condition moot (e.g. no
@@ -20,12 +25,15 @@ import os
 import random
 import re
 import shutil
+import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 BASE = os.path.join(HERE, "repro_base")
 CONDITIONS = os.path.join(HERE, "linearrag_conditions.json")
+WHERE_JS = os.path.join(ROOT, "desktop", "where.js")
 DETECTED = ("differs", "missing")
 
 # one planted drift: edits (old -> new, each old exactly once in the file); mark = text on the drifted line (None: removed)
@@ -91,6 +99,16 @@ CATALOG = [
          expect="differs", mark="contain_acc=64.35", edits=[("contain_acc=70.20", "contain_acc=64.35")]),
 ]
 OPEN_EXPECT = {"seed": "chosen"}  # the base folder fixes seed: 42; the paper names none
+# what a report about the drift says (regex, any case): in the comparison, a report that lands on the drift's line but
+# talks about something else there (e.g. "no retrieval-quality metrics" at evaluate.py:15-18) has not found it
+SAYS = {
+    "topk_config": r"\b10\b", "topk_hardcoded": r"\b10\b|하드코딩|hard.?cod", "embedding": r"MiniLM",
+    "llm": r"gpt-4o(?!-mini)", "damping": r"\b0\.5\b", "delta": r"(delta|δ)\W{0,3}2\b", "lambda": r"\b0\.5\b",
+    "datasets_drop": r"medical|의학|musique\]", "questions_500": r"\b500\b", "split_test": r"\btest\b",
+    "segment_window": r"\b50\b|고정.{0,4}(창|단어|길이)|window", "ner_regex": r"정규|regex|re\.findall|대문자|capitali",
+    "graph_no_sentences": r"sentence|문장", "ppr_degree": r"degree|차수", "contain_missing": r"contain",
+    "medical_both": r"medical|의학", "result_gpt_low": r"58\.1", "result_contain_low": r"64\.35",
+}
 
 
 def conditions() -> dict:
@@ -144,7 +162,7 @@ def assign(n: int, seed: int) -> list[list[dict]]:
 def variants(out_dir: str, n: int = 8, seed: int = 7, clean: int = 1) -> dict:
     os.makedirs(out_dir, exist_ok=True)
     keys = [c["key"] for c in conditions()["conditions"]]
-    truth = {"seed": seed, "variants": []}
+    truth = {"seed": seed, "n": n, "clean": clean, "variants": []}
     plans = [[] for _ in range(clean)] + assign(n, seed)
     for i, drifts in enumerate(plans):
         name = f"v{i:02d}" + ("-clean" if not drifts else "")
@@ -259,18 +277,6 @@ def score(results: list[dict], truth: dict, keys: dict) -> dict:
             else:
                 fol["other"] += 1
         rows.append(row)
-    # Pablo's own check of each answer (0.8 Phase A, desktop/where.js verify): on the drifts found, and on followed items
-    verify = {"drift": {}, "followed": {}}
-    for v in truth["variants"]:
-        r = next((x for x in results if x["variant"] == v["name"]), None) or {}
-        got = {by_check.get(i["id"]): i for i in r.get("items", []) if by_check.get(i["id"])}
-        for k, exp in v["expect"].items():
-            it = got.get(k)
-            if not it or "check" not in it:
-                continue
-            side = "drift" if exp in DETECTED and it.get("status") in DETECTED else "followed" if exp == "followed" == it.get("status") else None
-            if side:
-                verify[side][it["check"]] = verify[side].get(it["check"], 0) + 1
     pct = lambda a, b: round(100 * a / b, 1) if b else None  # noqa: E731
     summary = {
         "recall": pct(inj["detected"], inj["n"]), "exact_status": pct(inj["exact"], inj["n"]),
@@ -280,7 +286,60 @@ def score(results: list[dict], truth: dict, keys: dict) -> dict:
         "planted": inj["n"], "followed_items": fol["n"], "variants": len(truth["variants"]),
     }
     return {"summary": summary, "planted": inj, "followed": fol, "open": opn, "per_drift": per_drift,
-            "false_alarms": alarms, "rows": rows, "verify": verify}
+            "false_alarms": alarms, "rows": rows, "verify": tally(results, truth, keys)}
+
+
+def tally(results: list[dict], truth: dict, keys: dict) -> dict:
+    """Pablo's own check of each answer (0.8 Phase A, desktop/where.js verify): on the drifts found, on followed items."""
+    by_check = {v: k for k, v in keys.items()}
+    out = {"drift": {}, "followed": {}}
+    for v in truth["variants"]:
+        r = next((x for x in results if x["variant"] == v["name"]), None) or {}
+        got = {by_check.get(i["id"]): i for i in r.get("items", []) if by_check.get(i["id"])}
+        for k, exp in v["expect"].items():
+            it = got.get(k)
+            if not it or "check" not in it:
+                continue
+            side = "drift" if exp in DETECTED and it.get("status") in DETECTED else "followed" if exp == "followed" == it.get("status") else None
+            if side:
+                out[side][it["check"]] = out[side].get(it["check"], 0) + 1
+    return out
+
+
+_VERIFY = """const w = require(process.argv[1]);
+const calls = JSON.parse(require("fs").readFileSync(0, "utf8"));
+console.log(JSON.stringify(calls.map(([work, item, value]) => w.verify(work, item, value))));"""
+
+
+def recheck(results: list[dict], truth: dict, keys: dict, n: int | None = None, shift: int = 0) -> list[dict] | None:
+    """The answers with Pablo's check recomputed by desktop/where.js as it is now, on the variants regenerated from the
+    seed (the saved check followed the rule of the day the answers came). shift: each answer checked in another
+    variant's folder, a control for what the check makes of a claim about a folder it was not made in.
+    None without node or where.js."""
+    if not shutil.which("node") or not os.path.exists(WHERE_JS):
+        return None
+    clean = truth.get("clean", sum(v["name"].endswith("-clean") for v in truth["variants"]))
+    n = truth.get("n", n)
+    value = {c["key"]: c["value"] for c in conditions()["conditions"]}
+    by_check = {v: k for k, v in keys.items()}
+    out = json.loads(json.dumps(results))
+    with tempfile.TemporaryDirectory() as d:
+        vs = variants(d, n=n, seed=truth["seed"], clean=clean)["variants"]
+        same = lambda t: [[(p["id"], p["line"]) for p in v["planted"]] for v in t]  # noqa: E731
+        assert same(vs) == same(truth["variants"]), "the variants do not regenerate from this truth's seed"
+        calls, items = [], []
+        for i, v in enumerate(vs):
+            r = next((x for x in out if x["variant"] == v["name"]), None)
+            for it in (r or {}).get("items", []):
+                calls.append([vs[(i + shift) % len(vs)]["dir"], it, value.get(by_check.get(it["id"]))])
+                items.append(it)
+        p = subprocess.run(["node", "-e", _VERIFY, WHERE_JS], input=json.dumps(calls), capture_output=True, encoding="utf-8")
+        if p.returncode:
+            raise RuntimeError(p.stderr[-800:])
+    for it, c in zip(items, json.loads(p.stdout)):
+        it.pop("line_found", None)
+        it.update(c)
+    return out
 
 
 # ---- comparison group: the same model, asked plainly (no condition list, no anchors, no status scheme) -------------
@@ -331,29 +390,40 @@ def hits(loc: tuple, planted: dict) -> bool:
     return planted["line"] is None or (a is not None and (b or a) - a <= 10 and a - 2 <= planted["line"] <= (b or a) + 2)
 
 
+def about(report: dict, planted: dict) -> bool:
+    # what it says the code does (not "paper": the paper's side may name the same thing for another reason)
+    text = " ".join(str(report.get(f, "")) for f in ("what", "code", "found", "note"))
+    return bool(re.search(SAYS[planted["id"]], text, re.I | re.A))  # ASCII \b: "delta=2를" ends a word at 2
+
+
 def compare(systems: dict, truth: dict) -> dict:
     """systems: {name: runs}; a run's reports = its items that claim a departure (Pablo: differs/missing; plain: all).
-    A planted drift is found when a location in a report points at its file and line; each location finds at most one
-    drift (a report may list several places). A report that points at no planted drift is extra reading for the user
-    (one more word on a found drift is not); it may be a true gap outside the benchmark's conditions (e.g. baselines
-    not run), so they are kept for reading."""
+    A planted drift is found when a location in a report points at its file and line and the report says what changed
+    there (SAYS); each location finds at most one drift (a report may list several places). found_loc: by location
+    alone. A report about no planted drift is outside the benchmark: often a true gap the conditions do not cover
+    (e.g. baselines not run), so they are kept for reading (one more word on a found drift is not one of them)."""
     out = {}
     for name, runs in systems.items():
-        found = planted_n = clean_extra = reports = 0
-        ms, extras = [], []
+        found = found_loc = planted_n = clean_extra = reports = 0
+        ms, extras, missed = [], [], []
         for v in truth["variants"]:
             r = next((x for x in runs if x["variant"] == v["name"]), None) or {}
             rep = [i for i in r.get("items", []) if i.get("status", "differs") in DETECTED]
             reports += len(rep)
             ms.append(r.get("ms") or 0)
             places = [(j, loc) for j, i in enumerate(rep) for loc in locs(i.get("where", ""))]
-            used = set()
-            for p in sorted(v["planted"], key=lambda p: p["line"] is None):  # a line before a whole file
-                planted_n += 1
-                k = next((k for k, (j, loc) in enumerate(places) if k not in used and hits(loc, p)), None)
-                if k is not None:
-                    used.add(k); found += 1
-            near = {j for j, loc in places if any(hits(loc, p) for p in v["planted"])}  # a second word on a found drift
+            for strict in (True, False):
+                used = set()
+                for p in sorted(v["planted"], key=lambda p: p["line"] is None):  # a line before a whole file
+                    k = next((k for k, (j, loc) in enumerate(places)
+                              if k not in used and hits(loc, p) and (not strict or about(rep[j], p))), None)
+                    if k is not None:
+                        used.add(k)
+                    elif strict:
+                        missed.append(f"{v['name']} {p['id']}")
+                found += strict * len(used); found_loc += (not strict) * len(used)
+            planted_n += len(v["planted"])
+            near = {j for j, loc in places if any(hits(loc, p) and about(rep[j], p) for p in v["planted"])}
             for j, i in enumerate(rep):
                 if j not in near:
                     extras.append({"variant": v["name"], "where": i.get("where", ""),
@@ -361,9 +431,9 @@ def compare(systems: dict, truth: dict) -> dict:
             if not v["planted"]:
                 clean_extra += len(rep)
         out[name] = {"recall": round(100 * found / planted_n, 1) if planted_n else None, "found": found,
-                     "planted": planted_n, "reports": reports, "extra": len(extras),
-                     "extra_per_variant": round(len(extras) / len(truth["variants"]), 1), "clean_extra": clean_extra,
-                     "avg_ms": round(sum(ms) / len(ms)) if ms else None, "extras": extras}
+                     "found_loc": found_loc, "planted": planted_n, "missed": missed, "reports": reports,
+                     "extra": len(extras), "extra_per_variant": round(len(extras) / len(truth["variants"]), 1),
+                     "clean_extra": clean_extra, "avg_ms": round(sum(ms) / len(ms)) if ms else None, "extras": extras}
     return out
 
 
@@ -371,13 +441,17 @@ def markdown_compare(c: dict, meta: dict) -> str:
     rows = ["# 비교군: Pablo 재현 점검 vs 같은 모델에 그냥 묻기 — " + meta.get("date", ""), "",
             f"- 같은 변형 {meta.get('variants')}개(씨앗 {meta.get('seed')}), 같은 모델 {meta.get('model')}, 둘 다 읽기 전용 + JSON 답",
             "- Pablo: 고정 조건 17개 + 원문 쪽을 받고 조건마다 판정. 그냥 묻기: 논문 본문 전체를 받고 \"논문과 다른 곳을 모두 찾아줘\"",
-            "- 찾음 = 심은 어긋남을 그 파일:줄(±2)로 짚음. 군더더기 = 심은 어긋남과 이어지지 않는 보고(벤치마크 밖의 실제 차이일 수 있음)", "",
-            "| 시스템 | 찾음 | 보고 수 | 군더더기 | 변형당 군더더기 | 깨끗한 변형의 보고 | 1회 시간 |", "|---|---|---|---|---|---|---|"]
+            "- 찾음 = 심은 어긋남의 파일:줄(±2)을 짚고 무엇이 바뀌었는지 말함(`SAYS`). 위치만 = 줄만 맞음",
+            "- 심은 것 밖의 보고 = 어느 심은 어긋남에 대한 것도 아닌 보고. 틀린 말이라는 뜻이 아니다: 조건 목록 밖의 실제 차이일 수 있다", "",
+            "| 시스템 | 찾음 | 위치만 | 보고 수 | 심은 것 밖의 보고 | 변형당 | 깨끗한 변형의 보고 | 1회 시간 |",
+            "|---|---|---|---|---|---|---|---|"]
     for name, s in c.items():
-        rows.append(f"| {name} | {s['found']}/{s['planted']} ({s['recall']}%) | {s['reports']} | {s['extra']} | "
-                    f"{s['extra_per_variant']} | {s['clean_extra']} | {s['avg_ms']} ms |")
+        rows.append(f"| {name} | {s['found']}/{s['planted']} ({s['recall']}%) | {s['found_loc']}/{s['planted']} | "
+                    f"{s['reports']} | {s['extra']} | {s['extra_per_variant']} | {s['clean_extra']} | {s['avg_ms']} ms |")
+    for name, s in c.items():
+        rows += ["", f"## {name}: 놓친 어긋남 {len(s['missed'])}건", ""] + ([f"- {m}" for m in s["missed"]] or ["- 없음"])
     for name, s in c.items():  # for reading: a true gap outside the benchmark, or noise
-        rows += ["", f"## 군더더기: {name} ({s['extra']}건)", ""]
+        rows += ["", f"## {name}: 심은 것 밖의 보고 {s['extra']}건", ""]
         rows += [f"- {e['variant']} `{e['where']}`: {' '.join(e['what'].split())[:160]}" for e in s["extras"]] or ["- 없음"]
     return "\n".join(rows) + "\n"
 
@@ -403,8 +477,12 @@ def markdown(s: dict, meta: dict) -> str:
     if s["verify"]["drift"] or s["verify"]["followed"]:
         fmt = lambda d: ", ".join(f"{k} {n}" for k, n in sorted(d.items(), key=lambda x: -x[1])) or "-"  # noqa: E731
         out += ["", "## Pablo 확인 (점검 답의 파일:줄을 Pablo가 직접 읽은 결과)", "",
+                f"- 규칙: {s['verify'].get('rule', '답을 받을 때 저장한 값')}",
                 f"- 짚은 어긋남: {fmt(s['verify']['drift'])}",
                 f"- 따르는 조건: {fmt(s['verify']['followed'])} (verified 외에는 Pablo 쪽의 거짓 경고)"]
+        if s["verify"].get("control"):
+            out.append(f"- 대조 (각 답을 다음 변형의 폴더에서 확인): 짚은 어긋남 {fmt(s['verify']['control'])}. "
+                       "verified 외에는 옛 폴더·지어낸 위치를 잡은 것")
     out += ["", "## 오탐 (따르는데 다름·없음으로 짚은 조건)", ""]
     out += [f"- {k}: {n}회" for k, n in sorted(s["false_alarms"].items(), key=lambda x: -x[1])] or ["- 없음"]
     out += ["", "## 변형별", "", "| 변형 | 심은 것 | 찾음 | 놓침 | 오탐 |", "|---|---|---|---|---|"]
@@ -427,7 +505,12 @@ def main(argv: list[str]) -> None:
         results = json.load(open(argv[1], encoding="utf-8"))
         truth = json.load(open(argv[2], encoding="utf-8"))
         keys = json.load(open(argv[3], encoding="utf-8"))
-        s = score(results["runs"], truth, keys)
+        n = results.get("meta", {}).get("n")
+        runs = None if "--saved-checks" in argv else recheck(results["runs"], truth, keys, n)
+        s = score(runs or results["runs"], truth, keys)
+        if runs:
+            s["verify"]["rule"] = "desktop/where.js로 다시 계산 (변형을 씨앗에서 다시 만들어)"
+            s["verify"]["control"] = tally(recheck(results["runs"], truth, keys, n, shift=1), truth, keys)["drift"]
         md = markdown(s, {**results.get("meta", {}), "seed": truth.get("seed")})
         prefix = opt("--out", None)
         if prefix:
