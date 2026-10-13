@@ -1224,6 +1224,85 @@ async function plainBench() {
   fs.writeFileSync(agent.stateFile, JSON.stringify(cur));
 }
 
+// 14) --compare [shot-dir] [--arxiv=<id>] (Phase C, real ChatGPT connection + arxiv.org, a few minutes): LinearRAG (the
+//     local file) and a paper it compares against, imported from arXiv in the app (default 2502.14802, HippoRAG 2) ->
+//     one question over both -> 📊 비교표 with the default columns. Prints the cell anchor rate (cells whose quote Pablo
+//     located / cells the model filled) and opens every located cell on its page.
+//     --again=<state dir of an earlier run>: the same two papers, only the question again (no download, one model call).
+async function compareCheck() {
+  const id = (process.argv.find(a => a.startsWith("--arxiv=")) || "--arxiv=2502.14802").split("=")[1];
+  const again = (process.argv.find(a => a.startsWith("--again=")) || "").slice(8);
+  const S = again || fs.mkdtempSync(path.join(os.tmpdir(), "pablo-compare-")), dir = shots || view;
+  await boot(); assert.strictEqual(auth().state, "connected", "sign in once with `npm start` first");
+  if (!again) {
+    pyEval("fixture", S);  // T1 + LinearRAG as SRC1
+    fs.writeFileSync(path.join(S, "desktop.json"), JSON.stringify({ pdf: { T1: [{ id: "SRC1", title: "LinearRAG" }] } }));
+  }
+  ctl.dir = S; await ctl.py("view", "T1", "--html");  // the page as the viewer writes it now
+  const win = open(path.join(S, "view-T1.html"));
+  await new Promise(r => win.webContents.once("did-finish-load", r));
+  const js = code => win.webContents.executeJavaScript(code);
+  const until = async (code, ms = 60000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
+  const settled = () => until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`, 30000);
+  const shot = async name => { if (dir) { await sleep(400); fs.writeFileSync(path.join(dir, name), (await win.capturePage()).toPNG()); } };
+  await until(`!document.querySelector("#chat .composer input").disabled && document.querySelectorAll("#src .paper").length === ${again ? 2 : 1}`, 90000);
+  let t0 = Date.now();
+  if (!again) {  // C2: the arXiv paper, downloaded by main
+    await js(`[...$("src").querySelectorAll(".link")].find(b => b.textContent === "+ 추가").click(); $("arxiv").value = ${JSON.stringify(id)}; $("arxiv-get").click()`);
+    const note = await until(`(n => !$("arxiv-get").disabled && n.textContent && !/받는 중/.test(n.textContent) && n.textContent)($("arxiv-note"))`, 180000);
+    const p2 = JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")).pdf.T1[1];
+    console.log(`arXiv ${id}: ${note} (${Date.now() - t0} ms) sha256 ${p2 && p2.sha256}`);
+    assert.ok(p2 && /^추가했습니다/.test(note), note);
+  }
+  // C1: one question over both papers
+  t0 = Date.now();
+  await js(`(i => { i.value = "두 논문은 각각 어떤 데이터셋으로 평가했고, 2WikiMultiHopQA에서 GPT-Acc는 얼마인가?"; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+  await until(`(b => b && !b.querySelector(".muted:only-child") && b.textContent)([...document.querySelectorAll(".asked")].at(-1))`, 600000);
+  const ask = await js(`[...document.querySelectorAll(".asked")].at(-1).innerText`);
+  console.log(`ask over both (${Date.now() - t0} ms): ${ask.replace(/\s+/g, " ")}`);
+  const asked = [];
+  for (let i = 0, k = await js(`[...document.querySelectorAll(".asked")].at(-1).querySelectorAll(".cite").length`); i < k; i++) {
+    await js(`close(); [...document.querySelectorAll(".asked")].at(-1).querySelectorAll(".cite")[${i}].click()`);
+    asked.push([await settled(), await js(`$("panel").querySelector(".url").textContent + " " + (($("panel").querySelector(".pnum") || {}).textContent || "")`)]);
+  }
+  console.log("   [n] ->", JSON.stringify(asked));
+  await js(`close()`);
+  assert.ok(/[가-힣]/.test(ask) && !/[぀-ヿ]/.test(ask), "the answer is in the question's language (Korean)");
+  assert.ok(asked.length && asked.every(([live]) => live === "FOUND"), "every [n] opens highlighted in its own paper");
+  if (again) { console.log("ok compare --again: state", S); return win.destroy(); }
+  // C3: the table
+  await until(`!!document.querySelector("#compares .link") && $("chat").querySelector(".composer").dataset.agent === "Ready"`);
+  t0 = Date.now();
+  await js(`document.querySelector("#compares .link").click()`);
+  await until(`!!$("compare-go")`); await js(`$("compare-go").click()`);
+  await until(`!!document.querySelector("#live [data-matrix]:not([data-compare-form])") || (b => b && b.textContent)(document.querySelector("[data-compare-form] .call.block"))`, 900000);
+  const err = await js(`(b => b && b.textContent)(document.querySelector("[data-compare-form] .call.block"))`);
+  assert.ok(!err, "compare failed: " + err);
+  const ms = Date.now() - t0, e = JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8")).T1.filter(x => x.role === "compare").at(-1);
+  const st = JSON.parse(fs.readFileSync(path.join(S, "skill.json"), "utf8"));
+  const filled = e.cells.length + e.empty.filter(x => x.value).length, total = e.papers.length * e.columns.length;
+  console.log(`compare: ${e.papers.map(p => p.title + (p.version ? " " + p.version : "")).join(" × ")} × ${e.columns.length} columns in ${ms} ms`);
+  console.log(`   cells located ${e.cells.length}/${filled} the model filled (cell anchor rate ${(100 * e.cells.length / Math.max(1, filled)).toFixed(0)}%), ` +
+    `${total - filled}/${total} the model said the paper does not state`);
+  const opened = [];
+  for (const p of e.papers) for (const col of e.columns) {
+    const c = st.checks.find(k => e.cells.includes(k.id) && k.matrix.source_id === p.id && k.matrix.column === col);
+    const miss = e.empty.find(x => x.source === p.id && x.column === col);
+    if (!c) { console.log(`   ${p.title} | ${col} | (empty) ${miss && miss.value ? "not located: " + miss.value : "not stated"}`); continue; }
+    const l = st.links.find(x => x.target_id === c.id), a = st.anchors.find(x => x.id === l.evidence_id);
+    await js(`close(); document.querySelector('#live [data-cell="${c.id}"] .cite').click()`);
+    const live = await settled(); opened.push(live);
+    console.log(`   ${p.title} | ${col} | ${c.conclusion.replace(/\s*\[\d+\]/, "")} | p.${a.selector.page} ${live} | "${a.quote.exact.slice(0, 70)}"`);
+    if (opened.length === 1) await shot("compare-cell.png");
+  }
+  await js(`close(); document.querySelector("#live [data-matrix] [data-wide]").click()`); await shot("compare-wide.png"); await js(`close()`);
+  assert.ok(e.cells.length >= e.papers.length, "at least one located cell a paper");
+  assert.ok(opened.every(x => x === "FOUND"), "every located cell opens highlighted on its page: " + opened.join(","));
+  assert.ok(await js(`!/\\b(E|SRC|SC|M)\\d+\\b/.test(document.body.innerText)`), "no internal ids in the UI");
+  console.log("ok compare: state", S);
+  win.destroy();
+}
+
 // --shot <view.html> [selector] (offline): a picture of a saved view, scrolled to the first element matching selector
 async function shotCheck() {
   const sel = process.argv.slice(2).find(a => !a.startsWith("-") && a !== view && !a.endsWith("check.js"));
@@ -1240,7 +1319,7 @@ async function shotCheck() {
 }
 
 // --agent uses `npm start`'s folder, not "Electron"; before ready, since safeStorage's key lives in userData/Local State
-if (["--agent", "--guard", "--ask", "--demo", "--app", "--spec", "--audit", "--audit-bench"].some(f => process.argv.includes(f))) app.setPath("userData", path.join(app.getPath("appData"), require("./package.json").name));
+if (["--agent", "--guard", "--ask", "--demo", "--app", "--spec", "--audit", "--audit-bench", "--compare"].some(f => process.argv.includes(f))) app.setPath("userData", path.join(app.getPath("appData"), require("./package.json").name));
 // a check window covered by other windows for minutes stops painting (Windows occlusion): pdf.js render() never resolves
 // and capturePage returns an old frame. A user looks at the window, so this is for the unattended checks only.
 app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
@@ -1264,6 +1343,7 @@ app.whenReady().then(async () => {
     else if (process.argv.includes("--audit-bench") && process.argv.includes("--plain")) await plainBench();
     else if (process.argv.includes("--audit-bench")) await auditBench();
     else if (process.argv.includes("--audit")) await auditCheck();
+    else if (process.argv.includes("--compare")) await compareCheck();
     else { await unit(base); if (view) await e2e(base); }
     console.log("ALL OK");
   }

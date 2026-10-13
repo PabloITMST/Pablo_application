@@ -111,7 +111,9 @@ ASK_SOURCES_PROMPT = """You answer a question about several papers, using only t
 a quote it cannot find verbatim on that paper is dropped.
 
 Rules:
-- Answer in the question's language, in 2-6 short sentences. Name the paper each statement is about (by its title).
+- Write the whole answer in the language of the QUESTION (a Korean question gets a Korean answer), although the papers
+  are in another language; names, metrics and numbers stay as the papers write them. 2-6 short sentences. Name the
+  paper each statement is about by the title given after "Paper A:", "Paper B:".
   Use only what the papers say. Never invent numbers, metrics or claims, and never carry a number from one paper to
   another. If the papers do not answer the question, say so and give no citations.
 - Put citation markers [1], [2], ... right after the sentence they support. At most 6 citations, numbered
@@ -126,7 +128,7 @@ Rules:
 PAPERS (page text from each PDF):
 {papers}
 
-QUESTION:
+QUESTION (answer in its language):
 {question}
 """
 
