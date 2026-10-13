@@ -137,7 +137,7 @@ const quit = async () => { await main.run(`require("electron").app.quit(); 1`, {
   // B
   await newTask("LinearRAG 논문 효율성 확인", "b0-new-task.png");
   assert.ok(!/keep\.txt|hello\.txt/.test(await pill("기준")), "A's criteria stay out of B"); await js(`close()`);
-  await pick(PDF); await js(`$("src").querySelector("button").click()`);
+  await pick(PDF); await js(`[...$("adder").querySelectorAll(".link")].find(b => /PDF 파일/.test(b.textContent)).click()`);  // + 추가 -> PDF 파일 고르기
   await until(`!/없음/.test($("src").textContent)`, 120000);
   await until(`!document.querySelector("#chat .composer input").disabled`, 60000);
   const q = "LinearRAG가 baseline보다 효율적이라는 실험 근거가 어디 있어?", k0 = await js(`document.querySelectorAll(".asked").length`), t1 = Date.now();

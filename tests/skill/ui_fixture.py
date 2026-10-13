@@ -157,6 +157,9 @@ ARXIV_FEED = """<?xml version="1.0" encoding="UTF-8"?>
 <title>ThirdRAG: Hypergraph Retrieval
   for Long Documents</title><summary>  We present ThirdRAG &amp; a hypergraph index. </summary>
 <author><name>Ada Lovelace</name></author><author><name>Alan Turing</name></author></entry>
+<entry><id>http://arxiv.org/abs/2502.00003v1</id><published>2025-02-03T00:00:00Z</published>
+<title>GoneRAG: A Paper the Server Does Not Have</title><summary>Listed by the search, missing on arxiv.org/pdf.</summary>
+<author><name>Grace Hopper</name></author></entry>
 <entry><id>http://arxiv.org/abs/2501.00001v2</id><published>2025-01-01T00:00:00Z</published>
 <title>TinyRAG: A Tiny Graph RAG</title><summary>A tiny graph retrieval method.</summary>
 <author><name>A</name></author><author><name>B</name></author><author><name>C</name></author><author><name>D</name></author></entry>
@@ -194,9 +197,13 @@ def build_papers(d: str, web: str | None = None) -> dict:
     TinyRAG v2 (the same bytes) and v3 (one sentence changed), a third paper, and the search API's answer (api.xml).
     D1 web (the address a local server will serve <d>/web/notes.html at): that page is a third source of T1, with an
     answer citing the sentence it repeats, by the words next to it."""
-    for sub in ("papers", "arxiv", "web"):
+    for sub in ("papers", "arxiv", "web", "drop"):
         os.makedirs(os.path.join(d, sub), exist_ok=True)
     open(os.path.join(d, "web", "notes.html"), "w", encoding="utf-8").write(WEB_NOTES)
+    # ② several files at once: a paper, a damaged PDF, and a file that is not a PDF
+    open(os.path.join(d, "drop", "FourthRAG.pdf"), "wb").write(tiny_pdf(["FourthRAG: graph retrieval with four stages."], "FourthRAG"))
+    open(os.path.join(d, "drop", "broken.pdf"), "wb").write(b"%PDF-1.4\nthis is not really a PDF\n")
+    open(os.path.join(d, "drop", "notes.txt"), "w", encoding="utf-8").write("not a paper\n")
     open(os.path.join(d, "arxiv", "api.xml"), "w", encoding="utf-8").write(ARXIV_FEED)
     e = IntentEngine.load(os.path.join(d, "intent.json"))
     s = PabloSkill.load(os.path.join(d, "skill.json"), e, PapersJudge())
@@ -238,7 +245,7 @@ def build_papers(d: str, web: str | None = None) -> dict:
     with open(path, "w", encoding="utf-8") as f:
         f.write(render_html(s, t.id))
     return {"view": os.path.abspath(path), "arxiv": os.path.abspath(os.path.join(d, "arxiv")), "a": a.id, "b": b.id,
-            "web": os.path.abspath(os.path.join(d, "web")), "w": w and w.id}
+            "web": os.path.abspath(os.path.join(d, "web")), "w": w and w.id, "drop": os.path.abspath(os.path.join(d, "drop"))}
 
 
 if __name__ == "__main__":

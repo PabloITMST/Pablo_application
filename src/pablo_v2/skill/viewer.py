@@ -350,7 +350,14 @@ body.panel.wide { grid-template-columns:220px minmax(0, 1fr) min(900px, 58vw); }
 #src .paper { white-space:nowrap; } #src .rm { color:var(--faint); padding:0 3px; } #src .rm:hover { color:var(--bad); }
 #adder { max-width:760px; width:calc(100% - 40px); margin:0 auto 6px; font-size:13px; color:var(--muted); display:flex; gap:8px;
          flex-wrap:wrap; align-items:center; }
-#adder[hidden] { display:none; } #adder input { min-width:240px; border:1px solid var(--line); border-radius:8px; padding:3px 8px;
+#adder[hidden], #arxiv-lines[hidden], #arxiv-hits[hidden], #src .plist[hidden] { display:none; }
+#arxiv-lines, #arxiv-hits { flex-basis:100%; } #arxiv-lines { margin:0; padding-left:18px; } #arxiv-lines .bad { color:var(--warn); }
+#arxiv-hits .hit { padding:3px 0; } #arxiv-hits .have { color:var(--ok); }
+#arxiv-hits .sum { margin-left:22px; font-size:12px; color:var(--faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#src.many { flex-basis:100%; } #src.many .plist { display:flex; flex-direction:column; gap:2px; margin:4px 0 2px 18px; }
+body.dropping #log { outline:3px dashed var(--accent); outline-offset:-8px; }
+body.dropping #log::before { content:"PDF를 놓으면 이 작업의 자료로 추가합니다"; display:block; text-align:center; padding:10px;
+  color:var(--accent); font-weight:700; } #adder input { min-width:240px; border:1px solid var(--line); border-radius:8px; padding:3px 8px;
          background:none; } .ask-pick { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
 .cols { width:100%; border:1px solid var(--line); border-radius:8px; padding:6px 10px; background:none; margin:6px 0; }
 .changes p { margin:2px 0; font-size:14px; overflow-wrap:anywhere; }
@@ -452,10 +459,16 @@ let V, cites = {}, hist = [], hi = -1, busy = null;  // busy: the task whose age
 const lives = {}, live = t => (t = t || V.task.id, lives[t] || (lives[t] = h("div", { id: "live" })));  // agent chat, one per task (own thread)
 
 // ---- citations: [n] -> the existing EvidenceAnchor id (data-e); numbering is per task ---------------------
+const onWeb = e => (M.sources[(M.anchors[e] || {}).source] || {}).kind !== "pdf";  // D1: a web page's quote, not a paper's
 function cite(e, n) {  // n: the answer's own number (M3.3 ask); else one number per evidence in this chat
   if (!(e in cites)) cites[e] = Object.keys(cites).length + 1;
-  return h("button", { class: "cite", "data-e": e, title: "근거 보기", on: () => show({ mode: "source", e }) }, `[${n || cites[e]}]`);
+  const web = onWeb(e);
+  return h("button", { class: "cite" + (web ? " web" : ""), "data-e": e, title: web ? "근거 보기 (웹 문서)" : "근거 보기",
+    on: () => show({ mode: "source", e }) }, `[${web ? "🌐" : ""}${n || cites[e]}]`);
 }
+// D1: an answer whose every quote is from a web page says so: Pablo did not find it in a paper (it stays PARTIALLY_VERIFIED)
+const webOnly = k => k.evidence.length > 0 && k.evidence.every(onWeb)
+  ? h("p", { class: "muted", "data-web-only": "1" }, "🌐 웹 문서에만 근거한 답입니다. 논문에서 확인되지 않았습니다.") : null;
 // ponytail: a citation goes after the sentence that contains its quote, else after the text; no claim-level matching
 function cited(text, eids) {
   const ns = [...text.matchAll(/\[(\d+)\]/g)].map(m => +m[1]);  // M3.3 ask: the answer already says where [n] goes
@@ -697,8 +710,8 @@ function said(c) {
   if (c.role !== "ask") return [];
   const k = c.check && V.checks[c.check];
   return [msg("You", c.at, h("p", null, c.text)), msg("Pablo", null, h("div", { class: "asked", "data-check": c.check || "" },
-    k ? [h("p", null, cited(k.conclusion || k.title, k.evidence)),
-         c.dropped ? h("p", { class: "muted" }, `PDF에서 찾지 못한 인용 ${c.dropped}개는 뺐습니다.`) : null]
+    k ? [h("p", null, cited(k.conclusion || k.title, k.evidence)), webOnly(k),
+         c.dropped ? h("p", { class: "muted" }, `자료에서 찾지 못한 인용 ${c.dropped}개는 뺐습니다.`) : null]
       : h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + (c.error || ASKFAIL)))))];
 }
 // one timeline: the task, its research, the chat log and the Guard cards, in the order they happened
@@ -1131,7 +1144,7 @@ if (window.pabloHost && pabloHost.chat) {
     if (pdf && !dir) return ask(text, talk);
     if (dir && !pdf) return chat(text, talk);
     if (pdf && dir) return (d.route === "ask" ? ask : chat)(text, talk);  // both: the task's 보낼 곳 (agent by default)
-    const t = talk, row = h("p", null, link("📎 PDF 추가", () => attach("addSource")), " · ", link("📁 작업 폴더 선택", () => attach("pickFolder")));
+    const t = talk, row = h("p", null, link("📎 PDF 추가", () => pickPdfs()), " · ", link("📁 작업 폴더 선택", () => attach("pickFolder")));
     live(t).append(msg("Pablo", null, h("div", { class: "call", "data-route": "none" }, h("p", { class: "head" }, "먼저 자료나 작업 폴더를 정해 주세요."), row))); scroll();
   };
   // ---- M5.1 live state: after every Guard / review / answer the panels read the same records again (no view rebuild) ----
@@ -1153,21 +1166,47 @@ if (window.pabloHost && pabloHost.chat) {
     }));
   }).catch(e => console.error("[pablo] state", e)));
   const bar = $("chat").insertBefore(h("div", { id: "tools" }), box);
+  let srcOpen = false;  // ② the source list, when it is folded into "자료 N개"
   const attach = kind => pabloHost[kind](V.task.id).then(name => name && refresh(),
     e => { live(V.task.id).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + clean(e))))); scroll(); });
   // C1/C2: + 추가 -> a PDF file, or an arXiv id / link that main downloads (one row under the tools)
   const adder = $("chat").insertBefore(h("div", { id: "adder", hidden: true }), box);
   // D1/D2: the same box takes an arXiv id or link (C2), a web page's address (D1), or words to find a paper (D2)
-  const arx = h("input", { id: "arxiv", placeholder: "arXiv 번호·링크, 웹 문서 주소, 또는 찾을 말" }), note = h("span", { id: "arxiv-note" });
-  const hits = h("div", { id: "arxiv-hits", hidden: true });
+  const arx = h("input", { id: "arxiv", placeholder: "arXiv 번호·링크, 웹 문서 주소(여러 개 가능), 또는 찾을 말" }), note = h("span", { id: "arxiv-note" });
+  const hits = h("div", { id: "arxiv-hits", hidden: true }), lines = h("ul", { id: "arxiv-lines", hidden: true });
   const ARXIV = /^(arxiv:|(https?:\/\/)?(www\.|export\.)?arxiv\.org\/)|^\d{4}\.\d{4,5}(v\d+)?$|^[a-z][a-z-]*(\.[A-Z]{2})?\/\d{7}(v\d+)?$/i;
   const moved = m => { const n = Object.values(m).reduce((a, b) => a + b, 0);
     return n ? ` 이전 버전에서 찾은 근거 ${n}개: 그대로 ${m.VALID || 0} · 문맥 바뀜 ${m.STALE || 0} · 찾을 수 없음 ${m.UNRESOLVED || 0}.` : ""; };
   const hold = on => { get.disabled = find.disabled = on; };
+  // ② several at once: one line per item (✓ added / ⚠ why not) under the box, and a count in the note
+  const report = (rows, what) => {
+    lines.textContent = ""; lines.hidden = !rows.length;
+    rows.forEach(([ok, text]) => lines.append(h("li", { class: ok ? "ok" : "bad" }, text)));
+    const n = rows.filter(([ok]) => ok).length;
+    note.textContent = `${what} ${rows.length}개 중 ${n}개를 추가했습니다.`;
+  };
+  const shownPdfs = r => { if (!r) return; adder.hidden = false; hits.hidden = true;
+    report([...r.added.map(t => [true, `✓ ${t}`]), ...r.failed.map(f => [false, `⚠ ${f.file}: ${f.error}`])], "PDF"); refresh(); };
+  const pickPdfs = () => pabloHost.addSource(V.task.id).then(shownPdfs, e => { adder.hidden = false; note.textContent = "⚠ " + fail(e); });
+  const item = v => ARXIV.test(v) || /^https?:\/\//i.test(v);
+  const one = v => (ARXIV.test(v) ? pabloHost.addArxiv : pabloHost.addWeb)(V.task.id, v);
+  const label = r => `${r.title}${r.version ? " " + r.version : ""}`;
+  async function batch(vs) {
+    hold(true); hits.hidden = true; const rows = [];
+    for (const [i, v] of vs.entries()) {
+      note.textContent = `${vs.length}개 중 ${i + 1}번째를 가져오는 중…`;
+      try { const r = await one(v); rows.push([true, `✓ ${label(r)}${r.same ? " (이미 있음)" : ""}${r.moved ? " ·" + moved(r.moved) : ""}`]); }
+      catch (e) { rows.push([false, `⚠ ${v}: ${fail(e)}`]); }
+    }
+    hold(false); arx.value = ""; report(rows, "자료"); refresh();
+  }
   const fetchArxiv = (v = arx.value.trim()) => {
     if (!v || get.disabled) return;
+    const parts = v.replace(/arxiv:\s+/gi, "arxiv:").split(/[\s,;]+/).filter(Boolean);
+    if (parts.length > 1 && parts.every(item)) return batch(parts);  // ② several ids / links / addresses
     const web = !ARXIV.test(v) && /^https?:\/\//i.test(v);
     if (!web && !ARXIV.test(v)) return search();  // words: find the paper first
+    lines.hidden = true;
     hold(true); hits.hidden = true; note.textContent = web ? "웹 문서를 가져오는 중…" : "arXiv에서 받는 중…";
     (web ? pabloHost.addWeb : pabloHost.addArxiv)(V.task.id, v).then(r => {
       hold(false); arx.value = "";
@@ -1178,32 +1217,62 @@ if (window.pabloHost && pabloHost.chat) {
   const search = () => {
     const v = arx.value.trim(); if (!v || find.disabled || !pabloHost.searchArxiv) return;
     hold(true); hits.hidden = true; note.textContent = "arXiv에서 찾는 중…";
+    lines.hidden = true;
     pabloHost.searchArxiv(v).then(rs => {
       hold(false); note.textContent = rs.length ? "" : "arXiv에서 찾은 논문이 없습니다."; hits.textContent = ""; hits.hidden = !rs.length;
+      const picked = () => [...hits.querySelectorAll("[data-pick]:checked")].map(c => c.dataset.pick);
+      const many = h("button", { class: "pill", id: "arxiv-many", disabled: true, on: () => picked().length && batch(picked()) }, "고른 논문 가져오기");
+      const have = new Set((((M.desk || {})[V.task.id] || {}).papers || []).map(p => p.arxiv).filter(Boolean));  // already a source here
       hits.append(h("p", { class: "muted" }, "검색어를 arXiv(export.arxiv.org)로 보냈습니다. arXiv의 요청 제한 때문에 3초에 한 번까지 찾습니다."),
-        ...rs.map(x => h("div", { class: "hit", "data-hit": x.id }, h("b", null, x.title), " ",
-          h("small", { class: "muted" }, `${x.authors} · ${x.year} · arXiv ${x.id}${x.version || ""}`), " ",
-          h("button", { class: "link", "data-import": x.id, on: () => fetchArxiv(x.id) }, "가져오기"))));
+        ...rs.map(x => h("div", { class: "hit", "data-hit": x.id, title: x.summary || null },
+          have.has(x.id) ? null : [h("input", { type: "checkbox", "data-pick": x.id, title: "여러 개 골라 한 번에 가져오기" }), " "],
+          h("b", null, x.title), " ", h("small", { class: "muted" }, `${x.authors} · ${x.year} · arXiv ${x.id}${x.version || ""}`), " ",
+          have.has(x.id) ? h("small", { class: "have", "data-have": "1" }, "✓ 자료에 있음")
+            : h("button", { class: "link", "data-import": x.id, on: () => fetchArxiv(x.id) }, "가져오기"),
+          x.summary ? h("div", { class: "sum" }, x.summary) : null)), h("p", null, many));
+      hits.addEventListener("change", () => { const n = picked().length; many.disabled = !n; many.textContent = n ? `고른 ${n}개 가져오기` : "고른 논문 가져오기"; });
     }, e => { hold(false); note.textContent = "⚠ " + fail(e); });
   };
   const get = h("button", { class: "pill", id: "arxiv-get", on: () => fetchArxiv() }, "가져오기");
   const find = h("button", { class: "pill", id: "arxiv-find", title: "검색어가 arXiv(export.arxiv.org)로 보내집니다. 3초에 한 번까지 찾습니다.", on: search }, "🔎 arXiv에서 찾기");
   arx.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) fetchArxiv(); });
-  adder.append(...[link("📄 PDF 파일 고르기", () => attach("addSource")), "또는", arx, get, pabloHost.searchArxiv ? find : null, note, hits].filter(Boolean));
+  adder.append(...[link("📄 PDF 파일 고르기 (여러 개 가능)", pickPdfs), "또는", arx, get, pabloHost.searchArxiv ? find : null, note, lines, hits].filter(Boolean));
+  // ② PDFs dropped anywhere on the window become the open task's sources (preload gives each file's path; main checks it)
+  if (pabloHost.addFiles && pabloHost.pathOf) {
+    const files = e => [...((e.dataTransfer || {}).types || [])].includes("Files");
+    addEventListener("dragover", e => { if (!V || !files(e)) return; e.preventDefault(); document.body.classList.add("dropping"); });
+    addEventListener("dragleave", e => { if (!e.relatedTarget) document.body.classList.remove("dropping"); });
+    addEventListener("drop", e => {
+      document.body.classList.remove("dropping");
+      if (!V || !files(e)) return;
+      e.preventDefault();
+      const paths = [...e.dataTransfer.files].map(f => pabloHost.pathOf(f)).filter(Boolean);
+      adder.hidden = false;
+      if (!paths.length) { note.textContent = "놓은 것 중에 PDF 파일이 없습니다."; return; }
+      note.textContent = `PDF ${paths.length}개를 추가하는 중…`;
+      pabloHost.addFiles(V.task.id, paths).then(shownPdfs, err => { note.textContent = "⚠ " + fail(err); });
+    });
+  }
   tools = () => {
     bar.textContent = "";
     if (!V) { adder.hidden = true; return; }
     const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [], main = ps.find(p => p.primary);
     const pdfs = ps.filter(p => p.kind !== "web"), several = pdfs.length > 1;  // D1: a web page is asked, never reproduced or a row
     const hasSpec = V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived");
-    bar.append(...[h("span", { id: "src" }, "📎 자료: ", ps.length ? ps.map((p, i) => [i ? " · " : "", h("span", { class: "paper", "data-paper": p.id, "data-kind": p.kind || "pdf" },
+    // ② more than 3 sources: one line "자료 N개 (주 논문 X) ▾", the list opens below it (one per line)
+    const many = ps.length > 3, open = !many || srcOpen;
+    const chip = p => h("span", { class: "paper", "data-paper": p.id, "data-kind": p.kind || "pdf" },
         p.kind === "web" ? h("span", { title: "웹 문서" }, "🌐 ") : null, h("b", null, p.title), p.version ? h("small", null, " " + p.version) : null,
         several && p.kind !== "web" ? (p.primary ? h("small", { class: "muted", "data-primary": "1" }, " (주 논문)")
           : [" ", h("button", { class: "link", title: "이 논문을 재현 대상으로 (재현 조건은 주 논문에서 뽑습니다)", "data-make-primary": p.id,
               on: () => pabloHost.setPrimary(V.task.id, p.id).then(() => refresh()) }, "주 논문으로")]) : null,
         h("button", { class: "rm", title: "자료에서 빼기 (찾은 근거 기록은 남습니다)", "data-remove": p.id,
-          on: () => pabloHost.removeSource(V.task.id, p.id).then(() => refresh()) }, "×"))]) : "없음", " ",
-        pabloHost.addArxiv ? link("+ 추가", () => { adder.hidden = !adder.hidden; if (!adder.hidden) arx.focus(); }) : link("PDF 추가", () => attach("addSource"))),
+          on: () => pabloHost.removeSource(V.task.id, p.id).then(() => refresh()) }, "×"));
+    bar.append(...[h("span", { id: "src", class: many ? "many" : null }, "📎 자료: ",
+        many ? h("button", { class: "link", id: "src-toggle", on: () => { srcOpen = !srcOpen; tools(); } },
+          `${ps.length}개${main ? ` (주 논문 ${main.title})` : ""} ${open ? "▴" : "▾"}`) : null,
+        ps.length ? h("span", { class: "plist", hidden: !open }, ps.map((p, i) => [i && !many ? " · " : "", chip(p)])) : "없음", " ",
+        pabloHost.addArxiv ? link("+ 추가", () => { adder.hidden = !adder.hidden; if (!adder.hidden) arx.focus(); }) : link("PDF 추가", pickPdfs)),
       h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder"))),
       ps.length && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
         link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => spec(V.task.id))) : null,
@@ -1271,7 +1340,8 @@ if (window.pabloHost && pabloHost.chat) {
       Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources); M.views[t].checks[r.check.id] = r.check;
       box.textContent = ""; box.dataset.check = r.check.id;
       box.append(h("p", null, cited(r.check.conclusion, r.check.evidence)));
-      if (r.dropped.length) box.append(h("p", { class: "muted" }, `PDF에서 찾지 못한 인용 ${r.dropped.length}개는 뺐습니다.`));
+      const w = webOnly(r.check); if (w) box.append(w);
+      if (r.dropped.length) box.append(h("p", { class: "muted" }, `자료에서 찾지 못한 인용 ${r.dropped.length}개는 뺐습니다.`));
       busy = null; status("Ready"); scroll(); refresh();
     }, e => {
       box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e))));

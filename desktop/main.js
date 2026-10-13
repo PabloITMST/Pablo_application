@@ -149,7 +149,7 @@ ipcMain.handle("pablo:state", async e => {
   m.desk = Object.fromEntries(m.tasks.map(t => { const w = d.workspace[t.id] || envWorkspace, p = papers.primary(d, t.id);
     return [t.id, { folder: w ? path.basename(w) : null, net: !!(d.net || {})[t.id],
       papers: papers.list(d, t.id).map(x => ({ id: x.id, title: x.title, version: x.version || null, kind: x.kind === "web" ? "web" : "pdf",
-        primary: !!p && x.id === p.id })),
+        arxiv: x.arxiv || null, primary: !!p && x.id === p.id })),  // arxiv: a search result already here says so
       route: (d.route || {})[t.id] === "ask" ? "ask" : "agent" }]; }));  // names only, no paths
   m.last = d.last;
   return m;
@@ -193,13 +193,40 @@ const join = (task, entry, replaces) => saveDesk(d => {
   if (replaces && (d.primary || {})[task] === replaces) d.primary[task] = entry.id;  // a newer version stays the 주 논문
   d.last = task;
 });
+// several PDFs at once (the dialog takes many; a drop on the window gives their paths): one capture each, in order;
+// one that fails does not stop the rest -> {added: [titles], failed: [{file, error}]}
+async function captureAll(task, files) {
+  const out = { added: [], failed: [] };
+  for (const f of files) {
+    try {
+      const x = (await ctl.py("source", f)).source;  // M3.3 capture: copied to state/sources/SRCn.pdf
+      join(task, { id: x.id, title: x.title });
+      out.added.push(x.title);
+    } catch (err) {
+      console.error("[pablo] source", err.message);
+      out.failed.push({ file: path.basename(f), error: /pypdf|PdfRead|EOF|xref|startxref/i.test(err.message) ? "PDF를 읽지 못했습니다." : short(err.message) });
+    }
+  }
+  return out;
+}
 ipcMain.handle("pablo:add-source", async (e, task) => {
   fromWindow(e); known(task);
-  const f = await pick(e, { title: "자료 추가", properties: ["openFile"], filters: [{ name: "PDF", extensions: ["pdf"] }] });
-  if (!f) return null;
-  const x = (await ctl.py("source", f)).source;  // M3.3 capture: copied to state/sources/SRCn.pdf
-  join(task, { id: x.id, title: x.title });
-  return x.title;
+  const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender),
+    { title: "자료 추가", properties: ["openFile", "multiSelections"], filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  return r.canceled || !r.filePaths.length ? null : captureAll(task, r.filePaths);
+});
+// PDFs dropped on the window (preload turns each File into its path): only real PDF files, as the dialog would allow
+const isPdf = f => { try {
+  if (!str(f, 1000) || !path.isAbsolute(f) || !/\.pdf$/i.test(f) || !fs.statSync(f).isFile() || fs.statSync(f).size > arxiv.max) return false;
+  const fd = fs.openSync(f, "r"), head = Buffer.alloc(5); fs.readSync(fd, head, 0, 5, 0); fs.closeSync(fd);
+  return head.toString("latin1") === "%PDF-";
+} catch { return false; } };
+ipcMain.handle("pablo:add-files", async (e, task, files) => {
+  fromWindow(e); known(task);
+  if (!Array.isArray(files) || !files.length || files.length > 20) throw new Error("bad files");
+  const ok = files.filter(isPdf), r = await captureAll(task, ok);
+  r.failed.push(...files.filter(f => !ok.includes(f)).map(f => ({ file: path.basename(String(f)), error: "PDF 파일이 아닙니다." })));
+  return r;
 });
 // C2 arXiv: "arXiv:2510.10114", an abs/pdf link. main downloads it (the agent never does): https://arxiv.org/pdf/<id> only,
 // <= 50 MB, <= 60 s, then the usual capture. One file per paper (state/papers/arxiv-<id>.pdf): a newer version saved over
