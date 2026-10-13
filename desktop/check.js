@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addSource", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pickFolder", "readFile", "removeSource", "retry", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "removeSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -1043,6 +1043,7 @@ async function papersUi() {
   // ② pick two results -> one import each, one line each; the one arxiv.org does not have says so, the other is added
   await js(`document.querySelectorAll("#arxiv-hits [data-pick]").forEach(c => { c.checked = true; c.dispatchEvent(new Event("change", { bubbles: true })); })`);
   assert.strictEqual(await js(`$("arxiv-many").textContent`), "고른 2개 가져오기");
+  assert.ok(await js(`document.querySelector("#arxiv-hits [data-pick]").getBoundingClientRect().width < 30`), "a checkbox is a checkbox, not the box's width");
   await sleep(200); await shot("papers-search.png");
   await js(`$("arxiv-many").click()`);
   const lineRows = () => js(`[...document.querySelectorAll("#arxiv-lines li")].map(x => x.className + " " + x.textContent)`);
@@ -1059,7 +1060,7 @@ async function papersUi() {
   const { dialog } = require("electron"), dialog0 = dialog.showOpenDialog;
   dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path.join(fx.drop, "FourthRAG.pdf"), path.join(fx.drop, "broken.pdf")] });
   await js(`[...$("adder").querySelectorAll(".link")].find(b => /PDF 파일/.test(b.textContent)).click()`);
-  assert.strictEqual(await until(`(n => /PDF \\d+개 중/.test(n.textContent) && n.textContent)($("arxiv-note"))`), "PDF 2개 중 1개를 추가했습니다.");
+  assert.strictEqual(await until(`(n => /개를 추가했습니다\\.$/.test(n.textContent) && n.textContent)($("arxiv-note"))`), "PDF 2개 중 1개를 추가했습니다.");
   assert.deepStrictEqual(await lineRows(), ["ok ✓ FourthRAG", "bad ⚠ broken.pdf: PDF를 읽지 못했습니다."]);
   dialog.showOpenDialog = dialog0;
   const dropped = await js(`pabloHost.addFiles("T1", ${JSON.stringify([path.join(fx.drop, "notes.txt"), path.join(fx.drop, "missing.pdf"), "relative.pdf"])})`);
@@ -1067,8 +1068,13 @@ async function papersUi() {
   await js(`(dt => { dt.items.add(new File(["x"], "made-in-js.pdf", { type: "application/pdf" }));
     window.dispatchEvent(new DragEvent("dragover", { dataTransfer: dt, cancelable: true }));
     return document.body.classList.contains("dropping") && window.dispatchEvent(new DragEvent("drop", { dataTransfer: dt, cancelable: true })); })(new DataTransfer())`);
-  assert.strictEqual(await js(`$("arxiv-note").textContent + "|" + document.body.classList.contains("dropping")`), "놓은 것 중에 PDF 파일이 없습니다.|false",
-    "a File with no place on disk (not a dropped file) is not added");
+  assert.strictEqual(await js(`$("arxiv-note").textContent + "|" + document.body.classList.contains("dropping") + "|" + $("arxiv-lines").hidden`),
+    "놓은 것 중에 PDF 파일이 없습니다.|false|true", "a File with no place on disk is not added; the dialog's lines above are gone");
+  // the same PDF again: said, not added twice
+  dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path.join(fx.drop, "FourthRAG.pdf")] });
+  await js(`[...$("adder").querySelectorAll(".link")].find(b => /PDF 파일/.test(b.textContent)).click()`);
+  assert.deepStrictEqual(await until(`(l => l.length && l)([...document.querySelectorAll("#arxiv-lines li")].map(x => x.textContent))`), ["✓ FourthRAG (이미 있음)"]);
+  dialog.showOpenDialog = dialog0;
   // ② more than 3 sources: folded into one line, opened on click
   assert.strictEqual(await until(`(t => t && t.textContent.startsWith("6개") && t.textContent)($("src-toggle"))`).catch(async e => {
     throw new Error(e.message + " | " + JSON.stringify(await titles())); }), "6개 (주 논문 OtherRAG) ▾");

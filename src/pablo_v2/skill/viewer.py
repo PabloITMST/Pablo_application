@@ -357,7 +357,7 @@ body.panel.wide { grid-template-columns:220px minmax(0, 1fr) min(900px, 58vw); }
 #src.many { flex-basis:100%; } #src.many .plist { display:flex; flex-direction:column; gap:2px; margin:4px 0 2px 18px; }
 body.dropping #log { outline:3px dashed var(--accent); outline-offset:-8px; }
 body.dropping #log::before { content:"PDF를 놓으면 이 작업의 자료로 추가합니다"; display:block; text-align:center; padding:10px;
-  color:var(--accent); font-weight:700; } #adder input { min-width:240px; border:1px solid var(--line); border-radius:8px; padding:3px 8px;
+  color:var(--accent); font-weight:700; } #adder #arxiv { min-width:240px; border:1px solid var(--line); border-radius:8px; padding:3px 8px;
          background:none; } .ask-pick { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
 .cols { width:100%; border:1px solid var(--line); border-radius:8px; padding:6px 10px; background:none; margin:6px 0; }
 .changes p { margin:2px 0; font-size:14px; overflow-wrap:anywhere; }
@@ -1166,7 +1166,7 @@ if (window.pabloHost && pabloHost.chat) {
     }));
   }).catch(e => console.error("[pablo] state", e)));
   const bar = $("chat").insertBefore(h("div", { id: "tools" }), box);
-  let srcOpen = false;  // ② the source list, when it is folded into "자료 N개"
+  let srcOpen = false, shownTask = null;  // ② the source list, when it is folded into "자료 N개"; the task the box belongs to
   const attach = kind => pabloHost[kind](V.task.id).then(name => name && refresh(),
     e => { live(V.task.id).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + clean(e))))); scroll(); });
   // C1/C2: + 추가 -> a PDF file, or an arXiv id / link that main downloads (one row under the tools)
@@ -1185,14 +1185,24 @@ if (window.pabloHost && pabloHost.chat) {
     const n = rows.filter(([ok]) => ok).length;
     note.textContent = `${what} ${rows.length}개 중 ${n}개를 추가했습니다.`;
   };
-  const shownPdfs = r => { if (!r) return; adder.hidden = false; hits.hidden = true;
-    report([...r.added.map(t => [true, `✓ ${t}`]), ...r.failed.map(f => [false, `⚠ ${f.file}: ${f.error}`])], "PDF"); refresh(); };
-  const pickPdfs = () => pabloHost.addSource(V.task.id).then(shownPdfs, e => { adder.hidden = false; note.textContent = "⚠ " + fail(e); });
+  const fresh = () => { lines.textContent = ""; lines.hidden = hits.hidden = true; };  // one action's result at a time
+  // picked or dropped PDFs: one at a time, so the note says how far it got ("3개 중 2번째") and a slow one is visible
+  async function addPaths(paths) {
+    adder.hidden = false; fresh(); hold(true); const rows = [];
+    for (const [i, p] of paths.entries()) {
+      note.textContent = `PDF ${paths.length}개 중 ${i + 1}번째를 추가하는 중…`;
+      try { const r = await pabloHost.addFiles(V.task.id, [p]);
+        rows.push(...r.added.map(t => [true, `✓ ${t.title}${t.same ? " (이미 있음)" : ""}`]), ...r.failed.map(f => [false, `⚠ ${f.file}: ${f.error}`])); }
+      catch (e) { rows.push([false, `⚠ ${p.split(/[\\/]/).pop()}: ${fail(e)}`]); }
+    }
+    hold(false); report(rows, "PDF"); refresh();
+  }
+  const pickPdfs = () => pabloHost.pickPdfs(V.task.id).then(ps => ps && addPaths(ps), e => { adder.hidden = false; note.textContent = "⚠ " + fail(e); });
   const item = v => ARXIV.test(v) || /^https?:\/\//i.test(v);
   const one = v => (ARXIV.test(v) ? pabloHost.addArxiv : pabloHost.addWeb)(V.task.id, v);
   const label = r => `${r.title}${r.version ? " " + r.version : ""}`;
   async function batch(vs) {
-    hold(true); hits.hidden = true; const rows = [];
+    hold(true); fresh(); const rows = [];
     for (const [i, v] of vs.entries()) {
       note.textContent = `${vs.length}개 중 ${i + 1}번째를 가져오는 중…`;
       try { const r = await one(v); rows.push([true, `✓ ${label(r)}${r.same ? " (이미 있음)" : ""}${r.moved ? " ·" + moved(r.moved) : ""}`]); }
@@ -1206,8 +1216,7 @@ if (window.pabloHost && pabloHost.chat) {
     if (parts.length > 1 && parts.every(item)) return batch(parts);  // ② several ids / links / addresses
     const web = !ARXIV.test(v) && /^https?:\/\//i.test(v);
     if (!web && !ARXIV.test(v)) return search();  // words: find the paper first
-    lines.hidden = true;
-    hold(true); hits.hidden = true; note.textContent = web ? "웹 문서를 가져오는 중…" : "arXiv에서 받는 중…";
+    hold(true); fresh(); note.textContent = web ? "웹 문서를 가져오는 중…" : "arXiv에서 받는 중…";
     (web ? pabloHost.addWeb : pabloHost.addArxiv)(V.task.id, v).then(r => {
       hold(false); arx.value = "";
       note.textContent = `${r.same ? "이미 있는 자료입니다" : "추가했습니다"}: ${r.title}${r.version ? " " + r.version : ""}.` + (r.moved ? moved(r.moved) : "");
@@ -1216,8 +1225,7 @@ if (window.pabloHost && pabloHost.chat) {
   };
   const search = () => {
     const v = arx.value.trim(); if (!v || find.disabled || !pabloHost.searchArxiv) return;
-    hold(true); hits.hidden = true; note.textContent = "arXiv에서 찾는 중…";
-    lines.hidden = true;
+    hold(true); fresh(); note.textContent = "arXiv에서 찾는 중…";
     pabloHost.searchArxiv(v).then(rs => {
       hold(false); note.textContent = rs.length ? "" : "arXiv에서 찾은 논문이 없습니다."; hits.textContent = ""; hits.hidden = !rs.length;
       const picked = () => [...hits.querySelectorAll("[data-pick]:checked")].map(c => c.dataset.pick);
@@ -1247,15 +1255,15 @@ if (window.pabloHost && pabloHost.chat) {
       if (!V || !files(e)) return;
       e.preventDefault();
       const paths = [...e.dataTransfer.files].map(f => pabloHost.pathOf(f)).filter(Boolean);
-      adder.hidden = false;
+      adder.hidden = false; fresh();
       if (!paths.length) { note.textContent = "놓은 것 중에 PDF 파일이 없습니다."; return; }
-      note.textContent = `PDF ${paths.length}개를 추가하는 중…`;
-      pabloHost.addFiles(V.task.id, paths).then(shownPdfs, err => { note.textContent = "⚠ " + fail(err); });
+      addPaths(paths);
     });
   }
   tools = () => {
     bar.textContent = "";
     if (!V) { adder.hidden = true; return; }
+    if (shownTask !== V.task.id) { shownTask = V.task.id; fresh(); note.textContent = ""; arx.value = ""; }  // another task's results never stay
     const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [], main = ps.find(p => p.primary);
     const pdfs = ps.filter(p => p.kind !== "web"), several = pdfs.length > 1;  // D1: a web page is asked, never reproduced or a row
     const hasSpec = V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived");

@@ -18,8 +18,8 @@ contextBridge.exposeInMainWorld("pabloHost", {
   audit: task => ipcRenderer.invoke("pablo:audit", task),
   intent: (task, id, action) => ipcRenderer.invoke("pablo:intent", task, id, action),  // B4: promote | reject a held-back criterion  // A5/A6: 재현 점검 of the work folder (read-only turn)
   pickFolder: task => ipcRenderer.invoke("pablo:pick-folder", task),
-  addSource: task => ipcRenderer.invoke("pablo:add-source", task),  // the dialog, several PDFs at once
-  addFiles: (task, files) => ipcRenderer.invoke("pablo:add-files", task, files),  // PDFs dropped on the window (main checks each)
+  pickPdfs: task => ipcRenderer.invoke("pablo:pick-pdfs", task),  // the dialog, several PDFs at once -> their paths
+  addFiles: (task, files) => ipcRenderer.invoke("pablo:add-files", task, files),  // picked or dropped PDFs (main checks each)
   pathOf: file => webUtils.getPathForFile(file),  // a dropped File -> its path ("" for one that is not a file on disk)
   addArxiv: (task, text) => ipcRenderer.invoke("pablo:add-arxiv", task, text),  // C2: main downloads arxiv.org/pdf/<id>
   addWeb: (task, url) => ipcRenderer.invoke("pablo:add-web", task, url),  // D1: Pablo fetches the page and keeps its snapshot

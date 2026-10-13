@@ -200,8 +200,9 @@ async function captureAll(task, files) {
   for (const f of files) {
     try {
       const x = (await ctl.py("source", f)).source;  // M3.3 capture: copied to state/sources/SRCn.pdf
+      const same = papers.list(desk(), task).some(p => p.id === x.id);  // the same file again: said, not added twice
       join(task, { id: x.id, title: x.title });
-      out.added.push(x.title);
+      out.added.push({ title: x.title, same });
     } catch (err) {
       console.error("[pablo] source", err.message);
       out.failed.push({ file: path.basename(f), error: /pypdf|PdfRead|EOF|xref|startxref/i.test(err.message) ? "PDF를 읽지 못했습니다." : short(err.message) });
@@ -209,11 +210,12 @@ async function captureAll(task, files) {
   }
   return out;
 }
-ipcMain.handle("pablo:add-source", async (e, task) => {
+// the dialog only picks (so the page can show "N개 중 i번째" while each is added through pablo:add-files)
+ipcMain.handle("pablo:pick-pdfs", async (e, task) => {
   fromWindow(e); known(task);
   const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender),
     { title: "자료 추가", properties: ["openFile", "multiSelections"], filters: [{ name: "PDF", extensions: ["pdf"] }] });
-  return r.canceled || !r.filePaths.length ? null : captureAll(task, r.filePaths);
+  return r.canceled || !r.filePaths.length ? null : r.filePaths;
 });
 // PDFs dropped on the window (preload turns each File into its path): only real PDF files, as the dialog would allow
 const isPdf = f => { try {
