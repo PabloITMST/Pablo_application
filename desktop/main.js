@@ -409,9 +409,14 @@ function audited(r) {
       where: String(x.where || ""), found: String(x.found || "").slice(0, where.FOUND), note: String(x.note || "").slice(0, 300) }));
     // A2: the model says where and what is there; Pablo opens that file and looks (the line, the text, the paper's value)
     for (const x of items) Object.assign(x, where.verify(r.work, x, (r.values || {})[x.id]));
+    // what no item covers: kept apart from the verdicts, its place checked the same way (no paper value to hold it to)
+    const outside = (Array.isArray(j.outside) ? j.outside : []).filter(x => x && String(x.what || "").trim()).slice(0, 12)
+      .map(x => ({ kind: x.kind === "scope" ? "scope" : "method", what: String(x.what).slice(0, 300), where: String(x.where || ""),
+                   found: String(x.found || "").slice(0, where.FOUND) }));
+    for (const x of outside) Object.assign(x, where.verify(r.work, x, ""));
     const n = items.reduce((m, x) => ({ ...m, [x.check]: (m[x.check] || 0) + 1 }), {});
-    console.log("[pablo] audit checked:", JSON.stringify(n));
-    return { items, summary: String(j.summary || "").slice(0, 1000) };
+    console.log("[pablo] audit checked:", JSON.stringify(n), outside.length ? `+ ${outside.length} outside the items` : "");
+    return { items, outside, summary: String(j.summary || "").slice(0, 1000) };
   } catch { return r.text.trim() ? { items: [], summary: "", unreadable: true } : { items: [], summary: "" }; }
 }
 agent.on("event", ev => broadcast("pablo:agent", ev.type === "status" && ev.error ? { ...ev, error: short(ev.error) } : ev));

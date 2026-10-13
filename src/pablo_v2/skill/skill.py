@@ -776,7 +776,7 @@ def render_task(s: PabloSkill, task_id: str) -> str:
 
 
 BRIEF_FACT_CHARS = 400
-SPEC_LABEL = {"dataset": "데이터셋", "split": "데이터 분할", "preprocessing": "전처리", "model": "모델",
+SPEC_LABEL = {"dataset": "데이터셋", "split": "데이터 분할", "preprocessing": "전처리", "model": "모델", "method": "방법",
               "hyperparameter": "하이퍼파라미터", "training": "학습", "metric": "평가 지표", "baseline": "비교 대상",
               "result": "보고된 결과", "protocol": "평가 규칙"}
 
@@ -828,20 +828,27 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
 
 
 AUDIT_STATUS = ["followed", "differs", "missing", "unclear", "chosen"]
+AUDIT_OUTSIDE = ["method", "scope"]  # a difference no item covers: how the method is done | an experiment not in the folder
 AUDIT_SCHEMA = {
-    "type": "object", "additionalProperties": False, "required": ["items", "summary"],
+    "type": "object", "additionalProperties": False, "required": ["items", "outside", "summary"],
     "properties": {
         "summary": {"type": "string"},
         "items": {"type": "array", "items": {
             "type": "object", "additionalProperties": False, "required": ["id", "status", "where", "found", "note"],
             "properties": {"id": {"type": "string"}, "status": {"enum": AUDIT_STATUS}, "where": {"type": "string"},
-                           "found": {"type": "string"}, "note": {"type": "string"}}}}}}
+                           "found": {"type": "string"}, "note": {"type": "string"}}}},
+        "outside": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["kind", "what", "where", "found"],
+            "properties": {"kind": {"enum": AUDIT_OUTSIDE}, "what": {"type": "string"}, "where": {"type": "string"},
+                           "found": {"type": "string"}}}}}}
 
 
 def render_audit(s: PabloSkill, task_id: str) -> tuple[str, list[dict]]:
     """The 재현 점검 the desktop agent runs read-only over the work folder: every stated paper condition, every setting
     the paper leaves open and every criterion of the task, each to be judged against the code, configs and run logs
-    (a reported result against the value a log shows). -> (prompt, items [{id, kind, label, text}])."""
+    (a reported result against the value a log shows). A value is judged by its value and a method step (방법) by what
+    the code does; what no item covers comes back apart (outside), so the verdicts stay one per item.
+    -> (prompt, items [{id, kind, label, text}])."""
     items = []
     for c in s.checks(task_id):
         if not c.spec or c.research_state == "waived":
@@ -870,6 +877,13 @@ def render_audit(s: PabloSkill, task_id: str) -> tuple[str, list[dict]]:
         "where: 근거가 된 파일과 줄(예: configs/base.yaml:12). 없으면 빈 문자열.",
         "found: 그 자리에 실제로 있는 값이나 코드 한 줄(짧게, 바꾸지 말고 그대로).",
         "note: 판단 이유 한 문장. summary: 전체를 두세 문장으로.",
+        "값 항목(하이퍼파라미터, 모델 이름 등)은 값으로 판정하세요. '방법' 항목은 코드가 실제로 그 일을 그렇게 하는지로 "
+        "판정하세요. 값이 맞아도 다른 용도로 쓰거나(예: 임계값을 반복 횟수로 씀) 계산을 줄였으면 differs, 그 단계가 "
+        "없으면 missing입니다.",
+        "outside: 아래 항목이 다루지 않는데 결과가 달라질 만한 차이. 예: 설정한 값이나 모델을 불러 놓고 실제로 쓰지 않음, "
+        "단계 사이에 넘겨야 할 것을 넘기지 않음. kind는 method(구현이 다름) 또는 scope(논문의 실험 가운데 이 폴더에 "
+        "없는 것)입니다. what은 한 문장, where와 found는 위와 같습니다. 많아야 8개, 결과에 큰 것부터 쓰세요. 항목과 "
+        "겹치는 것은 쓰지 말고, 없으면 빈 목록을 주세요.",
         "항목 (id | 분류 | 내용):",
         *[f"{x['id']} | {x['label']} | {x['text']}" for x in items]])
     return prompt, items

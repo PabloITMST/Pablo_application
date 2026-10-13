@@ -155,8 +155,8 @@ PAPER: {title}
 {pages}
 """
 
-SPEC_CATEGORIES = ["dataset", "split", "preprocessing", "model", "hyperparameter", "training", "metric", "baseline",
-                   "result", "protocol"]
+SPEC_CATEGORIES = ["dataset", "split", "preprocessing", "model", "method", "hyperparameter", "training", "metric",
+                   "baseline", "result", "protocol"]
 SPEC_SCHEMA = _obj(
     items={"type": "array", "items": _obj(category={"enum": SPEC_CATEGORIES}, statement=_str, value=_str, quote=_str,
                                           page={"type": "integer"})},
@@ -167,18 +167,25 @@ text below. Pablo locates every quote in the PDF and highlights it; an item whos
 
 items: concrete conditions the paper states.
 - category: dataset (benchmarks, versions, sizes) | split (what is used for training / validation / testing, sizes) |
-  preprocessing | model (architecture, backbone, embedding or language model names) | hyperparameter (named values:
-  learning rate, top-k, thresholds, dimensions, ...) | training (steps, epochs, hardware, seeds when stated) |
-  metric (how results are scored) | baseline (methods compared against) | result (a main reported number) |
-  protocol (evaluation rules a reproduction must not break, e.g. data used only for testing).
+  preprocessing | model (architecture, backbone, embedding or language model names) | method (how the method works,
+  where code can keep every value right and still differ: what a named value controls, how a score is computed or
+  combined, which model computes what, what one stage hands to the next) | hyperparameter (named values: learning rate,
+  top-k, thresholds, dimensions, ...) | training (steps, epochs, hardware, seeds when stated) | metric (how results are
+  scored) | baseline (methods compared against) | result (a main reported number) | protocol (evaluation rules a
+  reproduction must not break, e.g. data used only for testing).
 - statement: one short Korean sentence stating the condition with its exact value (e.g. "검색 단계의 top-k는 5이다").
-- value: the value alone ("5", "GPT-4o-mini", "Contriever"), or "" when it is not one value.
+  For method: what the code has to do, so that reading the code can tell (e.g. "δ는 엔티티 활성 점수의 pruning
+  임계값이다", not "δ는 4이다"; "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다").
+- value: the value alone ("5", "GPT-4o-mini", "Contriever"), or "" when it is not one value (always "" for method).
 - quote: copied verbatim from that page's text (same words and numbers, in order), 5-30 words, one contiguous span that
   appears only once in the paper and contains the value. For a result from a table: ONE row, its label followed by the
-  numbers, exactly as in the text (e.g. "MethodName 12.3 4.5"); never a whole table or a caption.
+  numbers, exactly as in the text (e.g. "MethodName 12.3 4.5"); never a whole table or a caption. For method: the
+  sentence that says it in words, never a formula's symbols (formulas do not survive PDF text extraction).
 - page: the [p.N] it is on.
-At most 24 items. Prefer what changes results: data and splits, the model, key hyperparameters, metrics, the main
-baselines and main results. Never invent a value. Never paraphrase inside quote.
+At most 24 items besides method, and at most 10 method items. Prefer what changes results: data and splits, the
+model, key hyperparameters, metrics, the main baselines and main results. Method items: one per step of the main
+method that a reproduction could simplify or get wrong; never restate a value item. Never invent a value. Never
+paraphrase inside quote.
 
 missing: settings a reproduction must decide that the paper does NOT state (e.g. random seed, learning rate schedule,
 number of runs, prompt templates, hardware), at most 6, each with a Korean statement naming what is missing. List

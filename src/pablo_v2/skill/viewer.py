@@ -325,6 +325,7 @@ pre.diff .del { background:rgba(220,38,38,.13); } pre.diff .hunk { color:var(--m
 .audit li { padding:5px 0; border-top:1px solid var(--line); font-size:14px; } .audit .at { font-size:13px; overflow-wrap:anywhere; }
 .audit .st-differs b { color:var(--bad); } .audit .st-followed b { color:var(--ok); } .audit .st-missing b, .audit .st-unclear b { color:var(--warn); }
 .audit details summary { cursor:pointer; font-size:13px; color:var(--muted); margin-top:6px; }
+.audit .outside h4 { font-size:12px; color:var(--muted); margin:10px 0 0; } .audit .st-outside b { color:var(--warn); }
 .chk { font-size:12px; color:var(--ok); margin-left:6px; white-space:nowrap; } .chk.moved { color:var(--muted); }
 .chk.warn { color:var(--warn); font-weight:600; }
 /* A3: a work-folder path that opens the code panel (audit where, change and WARN / BLOCK cards) */
@@ -568,8 +569,9 @@ function changed(c, task) {
   return box;
 }
 // A2: a paper's reproduction conditions (PabloSkill.spec), by category, each with its page [n]; what the paper leaves open
-const SPEC = { dataset: "데이터셋", split: "데이터 분할", preprocessing: "전처리", model: "모델", hyperparameter: "하이퍼파라미터",
-               training: "학습", metric: "평가 지표", baseline: "비교 대상", result: "보고된 결과", protocol: "평가 규칙" };
+const SPEC = { dataset: "데이터셋", split: "데이터 분할", preprocessing: "전처리", model: "모델", method: "방법",
+               hyperparameter: "하이퍼파라미터", training: "학습", metric: "평가 지표", baseline: "비교 대상", result: "보고된 결과",
+               protocol: "평가 규칙" };
 const fact = c => [rich((c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")), " ", c.evidence.map(e => cite(e))];  // [n] numbered in this chat
 function conditions(ids, dropped) {
   const cs = ids.map(id => V.checks[id]).filter(c => c && c.state !== "waived"), stated = cs.filter(c => !c.spec.missing);
@@ -608,8 +610,9 @@ function audited(c) {
       c.status === "interrupted" ? "중지했습니다." : c.error || (c.unreadable ? "에이전트의 답을 읽지 못했습니다." : "판정된 항목이 없습니다.")));
     return box;
   }
-  const n = k => c.items.filter(x => x.status === k).length, task = c.task || V.task.id;
-  box.append(h("p", { class: "head" }, "🔎 재현 점검: ", Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`).join(" · ")));
+  const n = k => c.items.filter(x => x.status === k).length, task = c.task || V.task.id, out = c.outside || [];
+  box.append(h("p", { class: "head" }, "🔎 재현 점검: ", [...Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`),
+    ...(out.length ? [`조건 밖 ${out.length}`] : [])].join(" · ")));
   if (c.summary) box.append(h("p", null, rich(c.summary)));
   const placed = c.items.filter(x => x.check && x.check !== "unchecked"), lost = placed.filter(x => x.check === "not_found" || x.check === "no_file").length;
   const off = placed.filter(x => x.check === "value_mismatch").length;
@@ -632,6 +635,18 @@ function audited(c) {
   box.append(h("ul", null, xs.filter(x => warned(x) || !fold[x.status]).map(row)));
   for (const [k, label] of Object.entries(fold)) { const ys = xs.filter(x => x.status === k && !warned(x));
     if (ys.length) box.append(h("details", null, h("summary", null, `${label} ${ys.length}개`), h("ul", null, ys.map(row)))); }
+  // what no item covers (main.js audited): how the method is done stays open, the paper's experiments the folder does not
+  // have fold away. The model wrote them from the code and the items, not from the paper: no page is attached.
+  if (out.length) {
+    const orow = x => h("li", { class: "st-outside" }, h("b", null, "△"), " ", x.what,
+      x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x)) : null,
+        x.found ? [" ", h("span", null, x.found)] : null, mark(x)) : null);
+    const m = out.filter(x => x.kind !== "scope").sort((a, b) => warned(b) - warned(a)), s = out.filter(x => x.kind === "scope");
+    box.append(h("div", { class: "outside", "data-outside": "1" }, h("h4", null, `조건 밖에서 본 차이 ${out.length}개`),
+      m.length ? h("ul", null, m.map(orow)) : null,
+      s.length ? h("details", null, h("summary", null, `논문의 실험 가운데 이 폴더에 없는 것 ${s.length}개`), h("ul", null, s.map(orow))) : null,
+      h("p", { class: "muted" }, "재현 조건 목록 밖이라 논문 쪽이 붙지 않습니다. 중요한 차이면 논문에서 확인하고 조건을 다시 뽑아 보세요.")));
+  }
   return box;
 }
 // C3 비교표 (chat.json "compare"): the task's papers (rows) by columns. A cell is a value with its place in that paper

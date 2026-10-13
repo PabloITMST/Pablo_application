@@ -72,7 +72,9 @@ class SpecJudge:  # extract_spec stub on LinearRAG.pdf: two results, a method st
              "quote": "LinearRAG achieves 63.70% GPT-based accuracy on 2Wiki", "page": 8},
             {"category": "model", "statement": "문서 중요도는 personalized PageRank로 계산한다", "value": "PageRank",
              "quote": "In the second Stage, the model uses personalized PageRank algorithms", "page": 4},
-            {"category": "dataset", "statement": "없는 데이터셋", "value": "X", "quote": "a dataset this paper never names", "page": 6}],
+            {"category": "dataset", "statement": "없는 데이터셋", "value": "X", "quote": "a dataset this paper never names", "page": 6},
+            {"category": "method", "statement": "δ는 새로 활성된 엔티티의 관련도 점수를 거르는 임계값이다", "value": "",
+             "quote": "A newly activated entity is retained for the next iteration only if its relevance score exceeds", "page": 6}],
             "missing": [{"category": "training", "statement": "난수 시드가 적혀 있지 않다"}]}
 
     def analyze_action(self, action, justification, step, constraints, checks):
@@ -92,20 +94,22 @@ def test_spec():
     t = s.start_task("LinearRAG 재현", [])
     src = s.capture_pdf(PDF)
     stated, missing, dropped = s.spec(t.id, src.id)
-    assert [c.spec["category"] for c in stated] == ["result", "result", "model"] and len(dropped) == 1
+    assert [c.spec["category"] for c in stated] == ["result", "result", "model", "method"] and len(dropped) == 1
     pages = [s.evidence_for(c.id)[0][1].selector["page"] for c in stated]
-    assert pages == [9, 8, 9]  # the method step's page was wrong: found where it is
+    assert pages == [9, 8, 9, 6]  # the PageRank step's page was wrong: found where it is
     assert all(c.outcome == "VERIFIED" and c.sources[0]["tier"] == 4 for c in stated)
+    assert "value_in_quote" not in stated[3].spec  # a method step has no single value to look for in its quote
     assert len(missing) == 1 and missing[0].research_state == "pending" and missing[0].spec["missing"]
     text, basis = render_brief(s, t.id)
     assert "[보고된 결과] LinearRAG의 색인 시간은 249.78초이다 (LinearRAG p.9)" in text, text
+    assert "[방법] δ는 새로 활성된 엔티티의 관련도 점수를 거르는 임계값이다 (LinearRAG p.6)" in text, text
     assert "근거 없이 바꾸지 마세요" in text and "[학습] 난수 시드가 적혀 있지 않다" in text
     assert basis == [c.id for c in stated]
     act = s.propose_action(t.id, "eval.py에서 색인 시간 249.78을 120으로 고쳐 쓴다")
     assert act.verdict == "BLOCK" and "S01" in [r["rule"] for r in act.reasons]  # against a verified paper condition
     s.spec(t.id, src.id)  # again: the earlier set is replaced, not doubled
     live = [c for c in s.checks(t.id) if c.spec and c.research_state != "waived"]
-    assert len(live) == 4 and all(c.id not in {x.id for x in stated + missing} for c in live)
+    assert len(live) == 5 and all(c.id not in {x.id for x in stated + missing} for c in live)
     v = model(s, t.id)
     assert v["checks"][live[0].id]["spec"]["category"] == "result"
 
@@ -143,19 +147,24 @@ def test_rewrite_and_cache():
 
 def test_audit_prompt():
     """재현 점검 asks about every stated condition (with its page), every open setting and every task criterion, by id;
-    the answer's shape is a strict schema (status from a fixed set)."""
+    a method step is judged by what the code does, not by a value; what no item covers comes back apart (outside).
+    The answer's shape is a strict schema (status and kind from fixed sets, every property required)."""
     with tempfile.TemporaryDirectory() as d:
         ui_fixture.build(d)
         s = load(d)
         prompt, items = render_audit(s, "T1")
         kinds = {x["kind"] for x in items}
         assert kinds == {"condition", "open", "criterion"}, items
-        assert [x["label"] for x in items if x["kind"] == "condition"] == ["하이퍼파라미터", "보고된 결과", "모델"]
+        assert [x["label"] for x in items if x["kind"] == "condition"] == ["하이퍼파라미터", "보고된 결과", "모델", "방법"]
         assert all(f"{x['id']} | " in prompt for x in items) and "읽기만 하세요" in prompt
+        assert "'방법' 항목은 코드가 실제로 그 일을 그렇게 하는지로" in prompt and "outside:" in prompt
         assert {x["id"] for x in items if x["kind"] == "criterion"} == {"C1", "C2"}
         assert AUDIT_SCHEMA["properties"]["items"]["items"]["properties"]["status"]["enum"] ==             ["followed", "differs", "missing", "unclear", "chosen"]
+        out = AUDIT_SCHEMA["properties"]["outside"]["items"]
+        assert "outside" in AUDIT_SCHEMA["required"] and sorted(out["required"]) == sorted(out["properties"])
+        assert out["properties"]["kind"]["enum"] == ["method", "scope"]
         # the paper's value goes to the desktop with each condition: Pablo checks the verdict against it (desktop/where.js)
-        assert [x["value"] for x in items if x["kind"] == "condition"] == ["5", "63.70%", "all-mpnet-base-v2"]
+        assert [x["value"] for x in items if x["kind"] == "condition"] == ["5", "63.70%", "all-mpnet-base-v2", ""]
 
 
 # ---- A1/A2 (0.8): desktop/where.js, run with node on the same tables the Python rule uses ----
@@ -305,6 +314,8 @@ def test_audit_fixture_is_what_main_stores():
         got = node([["verify", os.path.join(d, "repro"), x, values.get(x["id"], "")] for x in audit["items"]])
         assert got == [{k: x[k] for k in ("check", "line_found") if k in x} for x in audit["items"]], got
         assert {x["check"] for x in audit["items"]} == {"unchecked", "verified", "not_found", "value_mismatch", "moved"}
+        got = node([["verify", os.path.join(d, "repro"), x, ""] for x in audit["outside"]])  # no paper value outside the items
+        assert got == [{k: x[k] for k in ("check", "line_found") if k in x} for x in audit["outside"]], got
 
 
 class QuoteJudge:  # one value in its quote, one the model read wrong (70.20 is the paper's other number)

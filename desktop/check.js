@@ -808,17 +808,24 @@ async function uiCheck() {
   const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, checked: b.querySelector("[data-checked]").textContent,
     rows: [...b.querySelectorAll(":scope > ul > li")].map(x => [x.className, x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent,
       (x.querySelector("[data-check]") || {}).textContent]), folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit]"))`);
-  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 코드가 정함 1 · 따름 2", folded: "따르는 항목 1개",
-    checked: "📍 모델이 댄 위치 4곳 중 3곳을 Pablo가 파일에서 직접 확인했습니다. 1곳은 그 자리에서 찾지 못했습니다. 1곳은 판정과 논문 값이 어긋납니다. 이 항목은 위에 따로 둡니다.",
+  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 아직 없음 1 · 코드가 정함 1 · 따름 2 · 조건 밖 3", folded: "따르는 항목 1개",
+    checked: "📍 모델이 댄 위치 5곳 중 4곳을 Pablo가 파일에서 직접 확인했습니다. 1곳은 그 자리에서 찾지 못했습니다. 1곳은 판정과 논문 값이 어긋납니다. 이 항목은 위에 따로 둡니다.",
     rows: [["st-differs", "✗ 다름", "config.yaml:2", "⚠ 논문 값(all-mpnet-base-v2)이 이 자리에 그대로 있음"],
       ["st-followed", "✓ 따름", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
-      ["st-differs", "✗ 다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-chosen", "• 코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
+      ["st-differs", "✗ 다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-missing", "○ 아직 없음", "run.py:3", "✓ Pablo가 코드에서 확인"],
+      ["st-chosen", "• 코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
+  // what no item covers: apart from the verdicts, its places checked the same way, the paper's experiments folded
+  const outside = await js(`(b => ({ head: b.querySelector("h4").textContent, rows: [...b.querySelectorAll(":scope > ul > li")].map(x =>
+    [x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent, (x.querySelector("[data-check]") || {}).textContent]),
+    folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit] [data-outside]"))`);
+  assert.deepStrictEqual(outside, { head: "조건 밖에서 본 차이 3개", folded: "논문의 실험 가운데 이 폴더에 없는 것 1개",
+    rows: [["△", "retrieve.py:22", "⚠ 모델이 댄 위치에서 찾지 못함"], ["△", "run.py:1-3", "✓ Pablo가 코드에서 확인"]] });
   const spec = await js(`(b => ({ heads: [...b.querySelectorAll("h4")].map(x => x.textContent), items: [...b.querySelectorAll("li")].map(x => x.textContent.trim()),
     text: b.textContent }))(document.querySelector("[data-spec]"))`);
-  assert.deepStrictEqual(spec.heads, ["모델", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
-  assert.deepStrictEqual(spec.items, ["임베딩 모델은 all-mpnet-base-v2이다 ⚠ 값(all-mpnet-base-v2)이 인용 안에 없음", "검색 단계의 top-k는 5이다",
-    "2Wiki 정확도는 63.70%이다", "난수 시드가 적혀 있지 않다"]);
-  assert.ok(/재현 조건 3개/.test(spec.text) && /위치를 찾지 못한 조건 1개/.test(spec.text), spec.text);
+  assert.deepStrictEqual(spec.heads, ["모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
+  assert.deepStrictEqual(spec.items, ["임베딩 모델은 all-mpnet-base-v2이다 ⚠ 값(all-mpnet-base-v2)이 인용 안에 없음",
+    "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", "검색 단계의 top-k는 5이다", "2Wiki 정확도는 63.70%이다", "난수 시드가 적혀 있지 않다"]);
+  assert.ok(/재현 조건 4개/.test(spec.text) && /위치를 찾지 못한 조건 1개/.test(spec.text), spec.text);
   await js(`show({ mode: "intent" })`);
   assert.match(await js(`$("panel").innerText`), /논문 조건[\s\S]*top-k는 5이다/);
   await js(`close()`);
@@ -864,6 +871,10 @@ async function uiCheck() {
   assert.strictEqual(opened.at(-1), vscode(12));
   c = await code("not_found");  // the deliberately wrong place: the log has one line
   assert.deepStrictEqual([c.live, c.on], ["OPEN", []]); assert.match(c.info, /이 파일에는 3줄이 없습니다/);
+  await js(`close(); document.querySelector('[data-outside] li:has([data-check=verified]) button.file').click()`);  // outside the items: same panel
+  await until1(`(p => p.dataset.live && p.dataset.live !== "LOADING")($("panel"))`);
+  assert.deepStrictEqual(await js(`[$("panel").querySelector(".url b").textContent, [...document.querySelectorAll("#panel .ln.on")].map(x => +x.dataset.n)]`),
+    ["run.py:1-3", [1, 2, 3]]);
   const refused = await js(`Promise.all([pabloHost.readFile("T1", "../skill.json"), pabloHost.readFile("T1", ${JSON.stringify(path.join(S, "intent.json"))}),
     pabloHost.openFile("T1", "../chat.json", 1, "vscode")].map(p => p.then(() => "allowed", e => fail(e))))`);
   assert.deepStrictEqual(refused, Array(3).fill("작업 폴더 밖의 파일은 열지 않습니다."), "outside the task's folder: refused in main");

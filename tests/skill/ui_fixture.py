@@ -93,9 +93,10 @@ def build(d: str) -> str:
     sc = s.add_check(t.id, "LinearRAG가 더 효율적이라는 근거는?", "USEFUL")
     s.complete_check(sc.id, "VERIFIED", "저자는 색인 시간을 77% 넘게 줄였다고 씁니다.",
                      [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "LinearRAG.pdf", "supports": []}])
-    specs = []  # A2: three stated reproduction conditions and one the paper leaves open (no PDF here: no anchors)
+    specs = []  # A2: four stated reproduction conditions (one a method step) and one the paper leaves open (no PDF: no anchors)
     for cat, text, value in [("hyperparameter", "검색 단계의 top-k는 5이다", "5"), ("result", "2Wiki 정확도는 63.70%이다", "63.70%"),
-                             ("model", "임베딩 모델은 all-mpnet-base-v2이다", "all-mpnet-base-v2")]:
+                             ("model", "임베딩 모델은 all-mpnet-base-v2이다", "all-mpnet-base-v2"),
+                             ("method", "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", "")]:
         c = s.add_check(t.id, text, "USEFUL")
         c.spec = {"category": cat, "value": value, "source_id": "SRC1"}
         s.complete_check(c.id, "VERIFIED", text, [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "x", "supports": []}])
@@ -125,7 +126,16 @@ def build(d: str) -> str:
             {"id": specs[2], "status": "differs", "where": "config.yaml:2", "found": "embedding_model: all-mpnet-base-v2",
              "note": "", "check": "value_mismatch"},  # says differs, but the paper's value is right there
             {"id": gap.id, "status": "chosen", "where": "config.yaml:2", "found": "seed: 42", "note": "",
-             "check": "moved", "line_found": 12}]},
+             "check": "moved", "line_found": 12},
+            {"id": specs[3], "status": "missing", "where": "run.py:3", "found": "print('top_k', cfg['retrieval']['top_k'])",
+             "note": "검색도 생성도 하지 않고 설정만 출력한다", "check": "verified"}],
+         # what no item covers: a method difference Pablo found there, one at a place the model made up, an experiment
+         "outside": [
+             {"kind": "method", "what": "설정한 임베딩 모델을 불러 쓰는 코드가 없습니다.", "where": "run.py:1-3",
+              "found": "cfg = yaml.safe_load(open('config.yaml'))", "check": "verified"},
+             {"kind": "scope", "what": "논문의 baseline 비교 실험이 이 폴더에 없습니다.", "where": "", "found": "", "check": "unchecked"},
+             {"kind": "method", "what": "PageRank 대신 차수로 순위를 매깁니다.", "where": "retrieve.py:22",
+              "found": "scores = sub.degree()", "check": "no_file"}]},
     ]}
     repro = os.path.join(d, "repro")
     shutil.copytree(DEMO, repro, dirs_exist_ok=True)
