@@ -490,6 +490,16 @@ ipcMain.handle("pablo:read-file", (e, task, raw, around, expect) => {
   const still = expect ? where.verify(work, { where: at ? `${w.path}:${at}` : w.path, found: expect }).check : undefined;
   return { ...where.read(work, w.path, at), ranges: w.ranges, ...(still ? { still } : {}) };
 });
+// ⑤ review: an audit card's confirmed places, each looked at again now (the same rule as the audit's check): verified |
+// moved | not_found | no_file | unchecked. Read-only; nothing outside the task's folder is read.
+ipcMain.handle("pablo:recheck", (e, task, places) => {
+  fromWindow(e); known(task);
+  if (!Array.isArray(places) || places.length > 100 || !places.every(p => p && str(p.where, 1000) && str(p.found, where.FOUND + 10)
+    && (p.line == null || (Number.isInteger(p.line) && p.line > 0)))) throw new Error("bad places");
+  const work = workOf(task);
+  return places.map(p => { const w = where.where(p.where);
+    return !w || !work ? "unchecked" : where.verify(work, { where: p.line ? `${w.path}:${p.line}` : p.where, found: p.found }).check; });
+});
 // "VS Code에서 열기" (vscode://file/<abs>:<line>; no VS Code -> the file's own app, else its folder) | "폴더에서 보기"
 ipcMain.handle("pablo:open-file", async (e, task, raw, line, how) => {
   fromWindow(e); known(task); if (!["vscode", "folder"].includes(how)) throw new Error("bad open");

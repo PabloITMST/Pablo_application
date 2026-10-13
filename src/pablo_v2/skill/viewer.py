@@ -388,6 +388,7 @@ pre.diff .del { background:rgba(220,38,38,.13); } pre.diff .hunk { color:var(--m
 .audit .st-differs b { color:var(--bad); } .audit .st-followed b { color:var(--ok); } .audit .st-missing b, .audit .st-unclear b { color:var(--warn); }
 .audit details summary { cursor:pointer; font-size:13px; color:var(--muted); margin-top:6px; }
 .audit .stale { background:var(--warnbg); border:1px solid var(--warnline); border-radius:6px; padding:5px 10px; font-size:13px; margin:4px 0 6px; }
+.audit .stale.same { background:none; border-color:var(--line); }
 .audit .via { color:var(--muted); }
 .audit .outside h4 { font-size:12px; color:var(--muted); margin:10px 0 0; } .audit .st-outside b { color:var(--warn); }
 .chk { font-size:12px; color:var(--ok); margin-left:6px; white-space:nowrap; } .chk.moved { color:var(--muted); }
@@ -705,7 +706,7 @@ function audited(c) {
   const n = k => c.items.filter(x => st(x) === k).length, task = c.task || V.task.id, out = c.outside || [];
   box.append(h("p", { class: "head" }, "🔎 재현 점검: ", [...Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`),
     ...(out.length ? [`조건 밖 ${out.length}`] : [])].join(" · ")));
-  box._c = c; fresh(box);  // ⑤ files changed after it: said at the top (again after every refresh)
+  box._c = c; aged(box);  // ⑤ files changed after it: said at the top (again after every refresh)
   if (c.summary) box.append(h("p", null, rich(c.summary)));
   // ④ criteria the user removed before this audit ran were not checked: said here, with why, never left out silently
   const t = Date.parse(c.at), during = x => Date.parse(x.from) < t && (!x.to || Date.parse(x.to) > t);
@@ -760,15 +761,28 @@ function audited(c) {
 }
 // ⑤ an audit card is a moment: the files its rows name may have changed since (an agent turn, an undo). Said at its top.
 let reAudit = null;  // desktop: run 재현 점검 again
-function fresh(box) {
+// ⑤ review: the desktop also looks at the places Pablo confirmed in this audit, as the files are now (the code panel's rule,
+// for the whole card): a change undone since is not old, an edit outside any turn (no change record) is.
+function aged(box) {  // (not fresh(): the desktop's add box has its own)
   const c = box._c, task = c.task || V.task.id, v = M.views[task] || V, t = Date.parse(c.at);
   const files = [...new Set((v.chat || []).filter(x => (x.role === "changes" || x.role === "undo") && Date.parse(x.at) > t)
     .flatMap(x => (x.files || []).map(f => typeof f === "string" ? f : f.path)))];
-  const old = box.querySelector(":scope > .stale"), line = files.length ? h("p", { class: "stale", "data-stale": String(files.length) },
-    `⚠ 이 점검 뒤 파일 ${files.length}개가 바뀌었습니다(${files.slice(0, 3).join(", ")}${files.length > 3 ? " 외" : ""}). 판정이 지금 파일과 다를 수 있습니다.`,
-    reAudit && V && V.task.id === task ? [" ", h("button", { class: "link", "data-reaudit": "1", on: () => reAudit(task) }, "다시 점검")] : null) : null;
-  if (old) old.replaceWith(line || ""); else if (line) box.querySelector(".head").after(line);
+  const again = () => reAudit && V && V.task.id === task ? [" ", h("button", { class: "link", "data-reaudit": "1", on: () => reAudit(task) }, "다시 점검")] : null;
+  const put = line => { const old = box.querySelector(":scope > .stale"); if (old) old.replaceWith(line || ""); else if (line) box.querySelector(".head").after(line); };
+  const changed = () => files.length ? h("p", { class: "stale", "data-stale": String(files.length) },
+    `⚠ 이 점검 뒤 파일 ${files.length}개가 바뀌었습니다(${files.slice(0, 3).join(", ")}${files.length > 3 ? " 외" : ""}). 판정이 지금 파일과 다를 수 있습니다.`, again()) : null;
+  const placed = window.pabloHost && pabloHost.recheck
+    ? [...c.items, ...(c.outside || [])].filter(x => ["verified", "moved", "value_mismatch"].includes(x.check) && x.where && x.found) : [];
+  if (!placed.length) return put(changed());
+  pabloHost.recheck(task, placed.map(x => ({ where: x.where, found: x.found, line: x.line_found || null }))).then(r => {
+    const gone = placed.filter((x, i) => r[i] === "not_found" || r[i] === "no_file"), at = x => x.line_found ? `${where0(x.where)}:${x.line_found}` : x.where;
+    put(gone.length ? h("p", { class: "stale", "data-stale": String(files.length), "data-gone": String(gone.length) },
+        `⚠ 점검 때 Pablo가 확인한 ${placed.length}곳 중 ${gone.length}곳이 지금은 그대로가 아닙니다(${gone.slice(0, 3).map(at).join(", ")}${gone.length > 3 ? " 외" : ""}). 판정이 지금 파일과 다를 수 있습니다.`, again())
+      : files.length ? h("p", { class: "stale same muted", "data-same": String(placed.length) },
+        `이 점검 뒤 파일 ${files.length}개가 바뀌었지만, 점검 때 Pablo가 확인한 ${placed.length}곳은 지금도 그대로입니다.`, again()) : null);
+  }, () => put(changed()));
 }
+const where0 = w => String(w).split(/[;,]\s/)[0].replace(/(:\d+(?:[-,]\d+)*)+$/, "");  // "config.yaml:2" -> "config.yaml"
 // C3 비교표 (chat.json "compare"): the task's papers (rows) by columns. A cell is a value with its place in that paper
 // ([n] -> the PDF on that page), or 근거 없음: Pablo did not find where the paper says it, so nothing is filled in.
 function matrix(c, wide) {
@@ -1464,7 +1478,7 @@ if (window.pabloHost && pabloHost.chat) {
     if (to !== undefined || !V || !M.views[V.task.id]) return (select(to || (V && V.task.id)), gate());
     V = M.views[V.task.id]; V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
     sidebar(); header(); tools(); gate(); finish();
-    document.querySelectorAll("#log [data-audit]").forEach(b => b._c && fresh(b));  // ⑤ a turn changed files since an audit
+    document.querySelectorAll("#log [data-audit]").forEach(b => b._c && aged(b));  // ⑤ a turn changed files since an audit
     if (open && !["source", "code", "paper"].includes(open.mode)) show(open, false);  // Intent / Plan / 왜? stay open and show the new state
     Object.values(lives).forEach(l => l.querySelectorAll(".crit:empty").forEach(c => {  // the live card's criteria, once stored
       const v = Object.values(M.views).find(v => v.actions.some(x => x.id === c.closest("[data-act]").dataset.act));

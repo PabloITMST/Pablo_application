@@ -33,7 +33,8 @@ contextBridge.exposeInMainWorld("pabloHost", {
   setRoute: (task, route) => ipcRenderer.invoke("pablo:set-route", task, route),  // paper + folder: agent | ask  // D1: 인터넷 for this task's commands
   diff: (task, from, to) => ipcRenderer.invoke("pablo:diff", task, from, to),  // D4: what a turn changed in the work folder
   undo: (task, from, to) => ipcRenderer.invoke("pablo:undo", task, from, to),  // D4: put those files back
-  readFile: (task, where, around, expect) => ipcRenderer.invoke("pablo:read-file", task, where, around, expect),  // A3: a work-folder file, read-only
+  readFile: (task, where, around, expect) => ipcRenderer.invoke("pablo:read-file", task, where, around, expect),
+  recheck: (task, places) => ipcRenderer.invoke("pablo:recheck", task, places),  // ⑤ an audit card's confirmed places, now  // A3: a work-folder file, read-only
   openFile: (task, where, line, how) => ipcRenderer.invoke("pablo:open-file", task, where, line, how),  // "vscode" | "folder"
   onAgent: cb => ipcRenderer.on("pablo:agent", (_, ev) => cb(ev)),
   // M4.1 ChatGPT connection: commands and {state, error} only; tokens never cross this bridge

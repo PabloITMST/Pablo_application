@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "removeSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -902,8 +902,14 @@ async function uiCheck() {
   fs.writeFileSync(cfg, cfgText.replace("top_k: 10", "top_k: 5"));
   c = await code("verified");
   assert.strictEqual(await js(`$("panel").dataset.still`), "not_found");
+  await js(`refresh()`);  // ⑤ review: the card looks again at what Pablo confirmed, so the edit (no change record) shows there too
+  assert.match(await until1(`(s => s && s.textContent)(document.querySelector("[data-audit] .stale[data-gone]"))`),
+    /^⚠ 점검 때 Pablo가 확인한 5곳 중 1곳이 지금은 그대로가 아닙니다\(config\.yaml:5\)\. 판정이 지금 파일과 다를 수 있습니다\. 다시 점검$/);
+  assert.ok(await js(`!document.querySelectorAll("[data-audit]")[1].querySelector(".stale")`), "the second card's places are as they were");
   assert.match(c.info, /^⚠ 점검 때 이 자리에 있던 "top_k: 10"이\(가\) 지금은 없습니다\. 점검 뒤 파일이 바뀌었습니다\./);
   fs.writeFileSync(cfg, cfgText);
+  await js(`refresh()`);
+  await until1(`!document.querySelector("[data-audit] .stale")`);
   c = await code("verified");
   assert.ok(await js(`!$("panel").dataset.still`) && !/점검 때/.test(c.info), "as it was: no word");
   console.log("ok code panel: config.yaml:5 highlighted, VS Code at :5, moved -> 12, wrong place says so, outside refused, changed since the audit -> said");
@@ -941,6 +947,7 @@ async function uiCheck() {
 
   // D4: a turn's changes (checkpoint before / after, shadow git under the state dir) -> 변경 보기 -> 되돌리기
   const W = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-ui-ws-")), at = f => path.join(W, f);
+  fs.cpSync(fx.repro, W, { recursive: true });  // the audits' places (config.yaml, run.py, logs/), untouched by the turn
   fs.writeFileSync(at("train.py"), "lr = 0.01\n"); fs.writeFileSync(at("keep.txt"), "keep\r\n"); fs.writeFileSync(at("model.pt"), "weights");
   const from = await checkpoint.snapshot(S, "T1", W);
   fs.writeFileSync(at("train.py"), "lr = 0.003\n"); fs.rmSync(at("keep.txt")); fs.writeFileSync(at("new.py"), "x = 1\n");
@@ -955,10 +962,10 @@ async function uiCheck() {
   await js(`refresh().then(() => select("T1"))`);
   const until = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
   assert.match(await until(`(c => c && c.textContent)(document.querySelector(".changes"))`), /파일 3개가 바뀌었습니다/);
-  // ⑤ the audits before this turn are old now: said on each card, with 다시 점검
-  assert.match(await until(`(s => s && s.textContent)(document.querySelector("[data-audit] .stale"))`),
-    /^⚠ 이 점검 뒤 파일 3개가 바뀌었습니다\(.*\)\. 판정이 지금 파일과 다를 수 있습니다\. 다시 점검$/);
-  assert.strictEqual(await js(`document.querySelectorAll("[data-audit] .stale[data-stale='3']").length`), 2);
+  // ⑤ the turn changed 3 files after the audits, none of the places they confirmed: said so, not as a warning
+  assert.deepStrictEqual(await until(`(xs => xs.length === 2 && xs)([...document.querySelectorAll("[data-audit] .stale")].map(s => s.textContent))`),
+    ["이 점검 뒤 파일 3개가 바뀌었지만, 점검 때 Pablo가 확인한 5곳은 지금도 그대로입니다. 다시 점검",
+     "이 점검 뒤 파일 3개가 바뀌었지만, 점검 때 Pablo가 확인한 2곳은 지금도 그대로입니다. 다시 점검"]);
   if (shots || view) { await js(`document.querySelectorAll("[data-audit]")[1].scrollIntoView()`); await sleep(200); fs.writeFileSync(path.join(shots || view, "audit-stale.png"), (await win.capturePage()).toPNG()); }
   // A3: a changed file's name opens it as it is now; a deleted one is not a link
   assert.ok(await js(`!document.querySelector('.changes [data-file="keep.txt"]')`), "a deleted file is not a link");
