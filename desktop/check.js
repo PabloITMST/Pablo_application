@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "removeSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "removeSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -823,6 +823,8 @@ async function uiCheck() {
   // ④ a criterion removed before the audit ran: the card says it was not checked, and why it was removed
   assert.strictEqual(await js(`document.querySelector("[data-audit] [data-skipped]").textContent`),
     "이 점검 전에 지운 기준 1개는 대조하지 않았습니다: 로그 파일은 지우지 마 (이유: 로그는 서버에 따로 남김)");
+  assert.strictEqual(await js(`document.querySelector("[data-audit] [data-skipped-spec]").textContent`),
+    "이 점검 전에 뺀 재현 조건 1개는 대조하지 않았습니다: 비교 대상은 HippoRAG2이다 (이유: 이 재현의 범위 밖)");
   const spec = await js(`(b => ({ heads: [...b.querySelectorAll("h4")].map(x => x.textContent), items: [...b.querySelectorAll("li")].map(x => x.textContent.trim()),
     text: b.textContent }))(document.querySelector("[data-spec]"))`);
   assert.deepStrictEqual(spec.heads, ["모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
@@ -1173,6 +1175,59 @@ async function papersUi() {
   await js(`$("compare-go").click()`);
   assert.match(await until(`(b => b && b.textContent)(document.querySelector("[data-compare-form] .call.block"))`), /ChatGPT에 먼저 연결하세요/);
   console.log("ok removed: OtherRAG out of the list, its table row kept; 비교표 form with the default columns");
+  // ⑩ a paper opened from its name: the page's text is selectable; a sentence picked there becomes a reproduction
+  // condition (anchored on that page), only in the 주 논문; a condition is taken out with why and put back
+  const pick = (from, to) => js(`(() => { const l = document.querySelector("#pbody .textLayer"), w = document.createTreeWalker(l, NodeFilter.SHOW_TEXT), ns = [];
+    let all = ""; for (let n; (n = w.nextNode());) { ns.push([n, all.length]); all += n.textContent; }
+    const s = all.indexOf(${JSON.stringify(from)}), e = all.indexOf(${JSON.stringify(to)}, s) + ${to.length};
+    if (s < 0 || e < s) return "not on the page: " + all;
+    const at = o => { for (let i = ns.length - 1; i >= 0; i--) if (ns[i][1] <= o) return [ns[i][0], o - ns[i][1]]; };
+    const r = document.createRange(); r.setStart(...at(s)); r.setEnd(...at(e));
+    getSelection().removeAllRanges(); getSelection().addRange(r);
+    $("pbody").dispatchEvent(new MouseEvent("mouseup", { bubbles: true })); return getSelection().toString().replace(/\\s+/g, " ").trim(); })()`);
+  const main = deskJson().pdf.T1[0], other = deskJson().pdf.T1.find(p => p.title === "ThirdRAG");
+  await js(`document.querySelector('#src [data-open-paper="${main.id}"]').click()`);
+  assert.strictEqual(await settled(), "PAPER");
+  await js(`$("panel").querySelector('[title="다음 쪽"]').click()`);
+  await until(`$("panel").dataset.live === "PAPER" && $("panel").querySelector(".pnum").textContent === "2 / 2" && !!document.querySelector("#pbody .textLayer span")`);
+  assert.match(await js(`$("panel").querySelector(".info").textContent`), /문장을 끌어서 고르면 재현 조건으로 더할 수 있습니다/);
+  assert.strictEqual(await pick("Indexing takes 12", "one GPU."), "Indexing takes 12 seconds on one GPU.");
+  await until(`!$("pick").hidden && !!$("pick").querySelector("[data-add-spec]")`);
+  await js(`$("pick").querySelector("[data-add-spec]").click()`);
+  await js(`(b => { b.querySelector("[data-cat]").value = "result"; b.querySelector("[data-statement]").value = "색인 시간은 GPU 한 장에서 12초";
+    b.querySelector("[data-value]").value = "12"; })($("pick"))`);
+  await sleep(200); await shot("paper-pick.png");
+  await js(`$("pick").querySelector("[data-add-ok]").click()`);
+  const added = await until(`(x => x && x.dataset.added)($("pick").querySelector("[data-added]"))`);
+  assert.match(await until(`(x => x && x.textContent)(document.querySelector("#live [data-spec-add]"))`), /^📋 고른 문장을 재현 조건에 더했습니다: 보고된 결과 · 색인 시간은 GPU 한 장에서 12초 \[\d+\]$/);
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8")).T1.filter(x => x.role === "spec-add").map(x => x.check), [added]);
+  await js(`document.querySelector("#live [data-spec-add] .cite").click()`);
+  assert.strictEqual(await settled(), "FOUND", "its [n] opens the page with the sentence boxed");
+  // another paper of the task: only the 주 논문's sentences become conditions
+  await js(`document.querySelector('#src [data-open-paper="${other.id}"]').click()`);
+  await settled(); await js(`$("panel").querySelector('[title="다음 쪽"]').click()`);
+  await until(`$("panel").dataset.live === "PAPER" && $("panel").querySelector(".pnum").textContent === "2 / 2" && !!document.querySelector("#pbody .textLayer span")`);
+  await pick("ThirdRAG reaches", "HotpotQA.");
+  await until(`!!$("pick").querySelector("[data-add-spec]")`);
+  await js(`$("pick").querySelector("[data-add-spec]").click(); $("pick").querySelector("[data-add-ok]").click()`);
+  assert.strictEqual(await until(`(n => n && /주 논문/.test(n.textContent) && n.textContent)($("pick").querySelector("[data-pick-note]"))`), "재현 조건은 주 논문(TinyRAG)에서만 더합니다.");
+  // the 기준 panel: the added one says so; 빼기 waits for why; 뺀 조건 keeps when and why; 되살리기
+  await js(`close(); show({ mode: "intent" })`);
+  const row = `[...document.querySelectorAll("#panel ul.ck.must li")].find(l => l.dataset.id === ${JSON.stringify(added)})`;
+  assert.ok(await until(`!!(${row} || {}).querySelector && !!${row}.querySelector("[data-by-user]") && !!document.querySelector('#panel [data-open-paper="${main.id}"]')`));
+  await js(`${row}.querySelector("[data-spec-drop]").click()`);
+  await js(`document.querySelector("#panel [data-spec-drop-ok]").click()`);
+  await sleep(300);
+  assert.ok(await js(`document.querySelector("#panel [data-spec-why]").classList.contains("need") && !!${row}`), "no reason: still a condition");
+  await js(`document.querySelector("#panel [data-spec-why]").value = "표의 다른 설정에서 나온 값"; document.querySelector("#panel [data-spec-drop-ok]").click()`);
+  await until(`!!document.querySelector('#panel [data-spec-out="1"]') && !${row}`);
+  await js(`document.querySelector("#panel [data-spec-out]").open = true`);
+  assert.match(await js(`document.querySelector("#panel [data-spec-out] li").textContent`), /^보고된 결과 · 색인 시간은 GPU 한 장에서 12초.* 뺌 · 이유: 표의 다른 설정에서 나온 값 · 되살리기$/);
+  await sleep(200); await shot("conditions-out.png");
+  await js(`document.querySelector("#panel [data-spec-restore]").click()`);
+  await until(`!document.querySelector("#panel [data-spec-out]") && !!${row}`);
+  await js(`close()`);
+  console.log("ok conditions: a sentence picked on page 2 of the 주 논문 -> a condition, its [n] boxed; ThirdRAG refused; 빼기 needs why -> 뺀 조건 -> 되살림");
   assert.deepStrictEqual(errors, [], "no script errors");
   arxiv.base = base0; arxiv.api = api0; srv.close(); win.destroy();
 }

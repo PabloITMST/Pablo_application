@@ -83,7 +83,7 @@ def model(s, task_id: str) -> dict:
         paper = next((x.title for x in s.state.sources if x.id == of), None) if of else None
         checks[sc_id] = {"id": c.id, "title": c.requirement, "state": c.research_state, "outcome": c.outcome,
                          "conclusion": c.conclusion, "necessity": c.necessity, "evidence": ev, "spec": c.spec,
-                         "matrix": c.matrix, "paper": paper,
+                         "matrix": c.matrix, "paper": paper, "waived_by": c.waived_by, "waive_reason": c.waive_reason,
                          "sources": [{"tier": x.get("tier"), "title": x.get("title", "")} for x in c.sources],
                          "issues": []}
         return checks[sc_id]
@@ -198,10 +198,22 @@ def workspace(s, current: str | None = None) -> dict:
     for v in views.values():
         anchors.update(v.pop("anchors"))
         sources.update(v.pop("sources"))
+    # ⑩ every captured PDF, so one opens without a citation (to pick a sentence as a condition): what the PDF panel needs
+    papers = {x.id: {k: sources[x.id][k] for k in ("title", "url", "captured_at", "hash", "kind", "file", "pages", "intact")}
+              if x.id in sources else paper_entry(s, x) for x in s.state.sources if x.kind == "pdf"}
     return {"current": current or (s.state.tasks[-1].id if s.state.tasks else None),
             "tasks": [{"id": t.id, "text": t.text, "at": t.created_at} for t in s.state.tasks],
-            "views": views, "anchors": anchors, "sources": sources,
+            "views": views, "anchors": anchors, "sources": sources, "papers": papers,
             "pdf": any(x.kind == "pdf" for x in s.state.sources)}  # M3.3: the static page's composer asks the PDF
+
+
+def paper_entry(s, src) -> dict:
+    try:
+        pages, intact = s.snapshot_text(src).count("\f") + 1, pdf.content_hash(s.snapshot_pdf(src)) == src.version["content_hash"]
+    except (OSError, KeyError):  # the copy is gone: the panel says it cannot open it
+        pages, intact = 0, False
+    return {"title": src.title, "url": src.locator, "captured_at": src.captured_at, "hash": src.version["content_hash"],
+            "kind": "pdf", "file": f"{src.id}.pdf", "pages": pages, "intact": intact}
 
 
 def render_html(s, task_id: str | None = None) -> str:
@@ -331,6 +343,23 @@ body.panel.pdf { grid-template-columns:220px minmax(0, 1fr) min(760px, 48vw); }
 .pg { position:relative; margin:0 auto; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.25); }
 .pg canvas { display:block; }
 .pg .hl { position:absolute; background:rgba(250,204,21,.45); mix-blend-mode:multiply; border-radius:2px; pointer-events:none; }
+/* ⑩ the page's text over the canvas, transparent and selectable (pdf.js TextLayer; rules from its pdf_viewer.css) */
+.pg .textLayer { position:absolute; text-align:initial; inset:0; overflow:clip; opacity:1; line-height:1; text-size-adjust:none;
+  forced-color-adjust:none; transform-origin:0 0; caret-color:CanvasText; z-index:0;
+  --min-font-size:1; --text-scale-factor:calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv:calc(1 / var(--min-font-size)); }
+.pg .textLayer :is(span,br) { color:transparent; position:absolute; white-space:pre; cursor:text; transform-origin:0% 0%; }
+.pg .textLayer > :not(.markedContent), .pg .textLayer .markedContent span:not(.markedContent) { z-index:1; --font-height:0;
+  font-size:calc(var(--text-scale-factor) * var(--font-height)); --scale-x:1; --rotate:0deg;
+  transform:rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv)); }
+.pg .textLayer .markedContent { display:contents; }
+.pg .textLayer ::selection { background:rgba(37,99,235,.28); } .pg .textLayer br::selection { background:transparent; }
+.pg .textLayer .endOfContent { display:block; position:absolute; inset:100% 0 0; z-index:0; cursor:default; user-select:none; }
+.pg .textLayer.selecting .endOfContent { top:0; }
+#pick { border-top:1px solid var(--line); padding:8px 14px; background:var(--bg); font-size:13px; display:flex; flex-direction:column; gap:6px; }
+#pick[hidden] { display:none; } #pick .q { color:var(--muted); overflow-wrap:anywhere; max-height:5.6em; overflow:auto; }
+#pick .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+#pick input, #pick select { border:1px solid var(--line); border-radius:6px; padding:3px 6px; background:var(--bg); color:var(--fg); font:inherit; }
+#pick [data-statement] { flex:1 1 220px; min-width:0; } #pick [data-value] { width:120px; }
 .pnum { font-size:13px; color:var(--muted); white-space:nowrap; }
 /* M5.1 app: new task form, task tools, technical details */
 #goal { width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:none; color:inherit;
@@ -659,9 +688,14 @@ function audited(c) {
     ...(out.length ? [`조건 밖 ${out.length}`] : [])].join(" · ")));
   if (c.summary) box.append(h("p", null, rich(c.summary)));
   // ④ criteria the user removed before this audit ran were not checked: said here, with why, never left out silently
-  const t = Date.parse(c.at), skipped = (V.intent.removed || []).filter(x => Date.parse(x.from) < t && (!x.to || Date.parse(x.to) > t));
+  const t = Date.parse(c.at), during = x => Date.parse(x.from) < t && (!x.to || Date.parse(x.to) > t);
+  const skipped = (V.intent.removed || []).filter(during);
   if (skipped.length) box.append(h("p", { class: "muted", "data-skipped": String(skipped.length) }, `이 점검 전에 지운 기준 ${skipped.length}개는 대조하지 않았습니다: `,
     skipped.map((x, i) => [i ? " · " : "", x.text, x.why ? ` (이유: ${x.why})` : " (이유를 적지 않음)"])));
+  // ⑩ and the paper conditions the user took out before it ran (each with its why)
+  const outs = V.research.map(id => V.checks[id]).flatMap(k => ((k.spec || {}).dropped || []).filter(during).map(x => [k, x]));
+  if (outs.length) box.append(h("p", { class: "muted", "data-skipped-spec": String(outs.length) }, `이 점검 전에 뺀 재현 조건 ${outs.length}개는 대조하지 않았습니다: `,
+    outs.map(([k, x], i) => [i ? " · " : "", (k.conclusion || k.title).replace(/\s*\[\d+\]/g, ""), ` (이유: ${x.why})`])));
   const placed = c.items.filter(x => x.check && x.check !== "unchecked"), lost = placed.filter(x => x.check === "not_found" || x.check === "no_file").length;
   const off = placed.filter(x => x.check === "value_mismatch").length;
   if (placed.length) box.append(h("p", { class: "muted", "data-checked": "1" },
@@ -753,6 +787,9 @@ function held(k, task) {
 function said(c) {
   if (c.role === "audit") return [msg("Pablo", null, audited(c))];
   if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped))];
+  if (c.role === "spec-add") { const k = V.checks[c.check];  // ⑩ a sentence the user picked in the paper
+    return k ? [msg("Pablo", null, h("p", { class: "muted", "data-spec-add": k.id }, "📋 고른 문장을 재현 조건에 더했습니다: ",
+      (SPEC[k.spec.category] || k.spec.category) + " · ", fact(k), k.state === "waived" ? " (나중에 뺌)" : ""))] : []; }
   if (c.role === "compare") return [msg("Pablo", null, matrix(c))];
   if (c.role === "intent") return [noted(c)];
   if (c.role === "changes") return [msg("Pablo", null, changed(c, V.task.id))];
@@ -775,7 +812,7 @@ function conversation() {
   const chat = V.chat || [], asked = new Set(chat.map(c => c.check).filter(Boolean)), research = answer(asked);
   const at = x => new Date(x || 0).getTime(), t0 = at(V.task.at), items = [[t0, msg("You", V.task.at, h("p", null, V.task.text))]];
   if (research.length) items.push([t0, msg("Pablo", null, research)]);
-  const inLog = new Set(chat.flatMap(c => c.role === "spec" ? [...(c.checks || []), ...(c.missing || [])] : []));
+  const inLog = new Set(chat.flatMap(c => c.role === "spec" ? [...(c.checks || []), ...(c.missing || [])] : c.role === "spec-add" ? [c.check] : []));
   const loose = V.research.filter(id => V.checks[id].spec && V.checks[id].state !== "waived" && !inLog.has(id));
   if (loose.length) items.push([t0, msg("Pablo", null, conditions(loose, 0))]);
   issues().forEach(x => items.push([t0, msg("Pablo", null, x)]));
@@ -820,7 +857,7 @@ function show(st, push = true) {
   CSS.highlights.clear();
   document.querySelectorAll(".cite").forEach(b => b.classList.toggle("on", st.mode === "source" && b.dataset.e === st.e));
   const p = $("panel"); p.textContent = ""; delete p.dataset.live;
-  ({ source, intent, plan, trace, code: codeView, matrix: matrixView })[st.mode](p, st);
+  ({ source, intent, plan, trace, code: codeView, matrix: matrixView, paper })[st.mode](p, st);
   header();
 }
 function close() {
@@ -834,6 +871,25 @@ const simple = (p, title, body, foot) => p.append(h("div", { class: "phead" }, h
   h("div", { id: "pbody" }, body), foot ? h("div", { class: "pfoot" }, h("div", { class: "composer" },
     h("input", { disabled: true, placeholder: foot }), h("button", { disabled: true }, "↑"))) : "");  // append(null) prints "null"
 
+// ⑩ (desktop) a paper condition's 빼기: why first (whoever reads the audit or the report sees it), then the Guard, the
+// brief and 재현 점검 stop holding it; 되살리기 puts it back
+function takeOut(c) {
+  const box = h("span", { class: "edits" }), task = V.task.id;
+  const ask = () => { const why = h("input", { class: "why", "data-spec-why": c.id, placeholder: "빼는 이유 (필수)" });
+    const ok = () => !why.value.trim() ? (why.classList.add("need"), why.focus())
+      : pabloHost.condition(task, "drop", { id: c.id, reason: why.value.trim() }).then(() => refresh(), e => box.replaceChildren(h("span", { class: "muted" }, " " + fail(e))));
+    why.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); });
+    box.replaceChildren(" ", why, " ", h("button", { class: "link", "data-spec-drop-ok": c.id, on: ok }, "빼기"), " · ",
+      h("button", { class: "link", on: () => box.replaceWith(takeOut(c)) }, "취소"));
+    why.focus(); };
+  box.append(" ", h("button", { class: "link", "data-spec-drop": c.id, title: "잘못 뽑혔거나 이 재현과 상관없는 조건을 뺍니다", on: ask }, "빼기"));
+  return box;
+}
+function putBack(c) {
+  const at = h("span");
+  return [at, h("button", { class: "link", "data-spec-restore": c.id, on: () => pabloHost.condition(V.task.id, "restore", { id: c.id }).then(() => refresh(),
+    e => at.replaceChildren(h("span", { class: "muted" }, fail(e) + " "))) }, "되살리기")];
+}
 // ④ (desktop) a criterion's own buttons: the other strength, and 지우기 with an optional why, asked in place
 function edits(x, kind) {
   if (!kind || !window.pabloHost || !pabloHost.criterion || !/^[A-Z]\d+$/.test(x.id) || /^[TK]\d+$/.test(x.id)) return null;  // not the task itself
@@ -858,8 +914,17 @@ function intent(p) {
       x.all && kind ? h("small", { class: "all", "data-all": "1", title: "이 기준은 모든 작업에 걸립니다. 바꾸면 다른 작업에도 바뀝니다." }, " 모든 작업") : null,
       edits(x, kind))))] : null;
   const spec = V.research.map(id => V.checks[id]).filter(c => c.spec && !c.spec.missing && c.state !== "waived");
-  const paper = spec.length ? [h("h3", null, "논문 조건"), h("ul", { class: "ck must" }, spec.map(c => h("li", { title: c.id, "data-id": c.id },
-    h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), fact(c))))] : null;
+  // ⑩ a condition taken out by the user (extracted wrongly, not part of this reproduction): with why, restorable
+  const out = V.research.map(id => V.checks[id]).filter(c => c.spec && c.state === "waived" && c.waived_by === "user");
+  const d = (M.desk || {})[V.task.id] || {}, main = (d.papers || []).find(x => x.primary), canEdit = window.pabloHost && pabloHost.condition;
+  const pick = canEdit && main && (M.papers || {})[main.id] ? h("p", { class: "muted" }, h("button", { class: "link", "data-open-paper": main.id,
+    on: () => show({ mode: "paper", src: main.id }) }, `📄 ${main.title} 열기`), " · 빠진 조건은 문장을 골라 더합니다.") : null;
+  const paper = spec.length || out.length || pick ? [h("h3", null, "논문 조건"), spec.length ? h("ul", { class: "ck must" }, spec.map(c => h("li", { title: c.id, "data-id": c.id },
+    h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), fact(c),
+    c.spec.by === "user" ? h("small", { class: "muted", "data-by-user": "1" }, " 직접 더함") : null, canEdit ? takeOut(c) : null))) : null,
+    out.length ? h("details", { class: "gone", "data-spec-out": String(out.length) }, h("summary", null, `뺀 조건 ${out.length}개`),
+      h("ul", { class: "ck" }, out.map(c => h("li", { title: c.id, "data-id": c.id }, h("s", null, (SPEC[c.spec.category] || c.spec.category) + " · " + (c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")),
+        h("div", { class: "muted" }, `${day(((c.spec.dropped || []).at(-1) || {}).from)} 뺌 · 이유: ${c.waive_reason}`, canEdit ? [" · ", putBack(c)] : null))))) : null, pick] : null;
   const body = [g("목표", "", I.goals, "goal"), g("반드시 지킬 것", "must", I.must, "must"), paper, g("선호", "", I.prefer, "prefer"),
     g("성공 조건", "q", I.success, "other"), g("결정", "", I.decisions, "other"), g("확인 필요", "q", I.questions)];
   const how = window.pabloHost && pabloHost.criterion
@@ -1082,12 +1147,18 @@ function boxes(items, s, e, vp, L) {
   }
   return out;
 }
+// ⑩ (desktop) a paper of the task opened without a citation (its name in 📎 자료, 기준 panel): read it, pick a sentence
+function paper(p, st) {
+  const src = (M.papers || {})[st.src];
+  if (!src || !src.intact || !src.pages) return simple(p, "PDF", h("p", { class: "muted" }, "이 PDF의 캡처본을 열 수 없습니다."));
+  return pdfPanel(p, st, null, src);
+}
 async function pdfPanel(p, st, a, src) {
-  const t0 = performance.now(), n = st.page || a.page;
-  const turn = d => show({ mode: "source", e: st.e, page: n + d });
+  const t0 = performance.now(), n = st.page || (a ? a.page : 1), sid = a ? a.source : st.src;
+  const turn = d => show({ ...st, page: n + d });
   document.body.classList.add("pdf");
   p.dataset.live = "LOADING";
-  const info = h("div", { class: "info", title: src.hash }, `캡처한 PDF · ${day(src.captured_at)} · 근거 위치를 찾는 중…`);
+  const info = h("div", { class: "info", title: src.hash }, `캡처한 PDF · ${day(src.captured_at)} · ${a ? "근거 위치를 찾는 중…" : "여는 중…"}`);
   p.append(h("div", { class: "phead" },
       h("button", { class: "nav", title: "뒤로", disabled: hi <= 0, on: () => go(-1) }, "←"),
       h("button", { class: "nav", title: "앞으로", disabled: hi >= hist.length - 1, on: () => go(1) }, "→"),
@@ -1096,20 +1167,28 @@ async function pdfPanel(p, st, a, src) {
       h("span", { class: "pnum" }, `${n} / ${src.pages}`),
       h("button", { class: "nav", title: "다음 쪽", disabled: n >= src.pages, on: () => turn(1) }, "›"), xbtn()),
     info, h("div", { id: "pbody", class: "pdf" }));
-  const fail = why => { if (hist[hi] !== st) return; hist[hi] = { mode: "source", e: st.e, failed: why }; show(hist[hi], false); };
+  const fail = why => { if (hist[hi] !== st) return;
+    if (!a) { p.dataset.live = "ERROR"; info.textContent = "⚠ PDF를 열지 못했습니다."; return; }
+    hist[hi] = { mode: "source", e: st.e, failed: why }; show(hist[hi], false); };
   try {
     const L = await pdfLib();
-    const doc = await (pdfs[a.source] = pdfs[a.source] || L.getDocument({ url: "pablo://source/" + src.file,
+    const doc = await (pdfs[sid] = pdfs[sid] || L.getDocument({ url: "pablo://source/" + src.file,
       standardFontDataUrl: PDFJS + "standard_fonts/", cMapUrl: PDFJS + "cmaps/", wasmUrl: PDFJS + "wasm/" }).promise);
     const pg = await doc.getPage(n), box = $("pbody");
     if (hist[hi] !== st || !box) return;
     const vp = pg.getViewport({ scale: (box.clientWidth - 24) / pg.getViewport({ scale: 1 }).width }), dpr = devicePixelRatio || 1;
     const cv = h("canvas", { width: Math.floor(vp.width * dpr), height: Math.floor(vp.height * dpr), style: `width:${vp.width}px;height:${vp.height}px` });
-    const sheet = box.appendChild(h("div", { class: "pg", style: `width:${vp.width}px` }, cv));
+    const sheet = box.appendChild(h("div", { class: "pg", style: `width:${vp.width}px;--total-scale-factor:${vp.scale};--scale-round-x:1px;--scale-round-y:1px` }, cv));
     await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp, transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0] }).promise;
     if (hist[hi] !== st) return;
+    // ⑩ the page's text over the canvas (selectable); a sentence picked there can become a reproduction condition
+    const tc = await pg.getTextContent(), layer = sheet.appendChild(h("div", { class: "textLayer" }));
+    await new L.TextLayer({ textContentSource: tc, container: layer, viewport: vp }).render().catch(e => console.error("[pdf] text", e));
+    if (hist[hi] !== st) return;
+    const picks = picker(p, box, layer, sid, n);
+    if (!a) { p.dataset.live = "PAPER"; info.textContent = `캡처한 PDF · ${n}쪽` + (picks ? " · 문장을 끌어서 고르면 재현 조건으로 더할 수 있습니다." : ""); return; }
     if (n !== a.page) { p.dataset.live = "PAGE"; info.textContent = `캡처한 PDF · ${n}쪽 · 근거는 ${a.page}쪽에 있습니다.`; return; }
-    const items = (await pg.getTextContent()).items.filter(i => "str" in i), r = findIn(items, a);
+    const items = tc.items.filter(i => "str" in i), r = findIn(items, a);
     if (r.status !== "FOUND") return fail(r.status);
     const bs = boxes(items, r.start, r.end, vp, L);
     if (!bs.length) return fail("HIDDEN");
@@ -1118,6 +1197,45 @@ async function pdfPanel(p, st, a, src) {
     p.dataset.ms = Math.round(performance.now() - t0); p.dataset.live = "FOUND";
     info.textContent = `✓ 캡처한 PDF ${n}쪽에서 근거를 찾아 표시했습니다.`;
   } catch (err) { console.error("[pdf]", err); fail("ERROR"); }
+}
+// ⑩ (desktop) a sentence picked on a page of the task's paper -> 재현 조건으로 더하기: its kind, what it says, its value.
+// Pablo anchors the sentence on that page like an extracted condition (main.js: only the 주 논문; not found -> refused).
+function picker(p, box, layer, sid, n) {
+  const d = V && (M.desk || {})[V.task.id] || {};
+  if (!window.pabloHost || !pabloHost.condition || !(d.papers || []).some(x => x.id === sid && x.kind !== "web")) return false;
+  const bar = p.appendChild(h("div", { id: "pick", hidden: true })), task = V.task.id;
+  let form = false;
+  const offer = () => {
+    if (form) return;
+    const sel = getSelection(), q = sel.toString().replace(/\s+/g, " ").trim();
+    if (!q || !sel.rangeCount || !layer.contains(sel.getRangeAt(0).commonAncestorContainer)) { bar.hidden = true; return; }
+    bar.hidden = false;
+    bar.replaceChildren(h("div", { class: "row" }, h("span", { class: "q" }, `“${q.length > 90 ? q.slice(0, 90) + "…" : q}”`),
+      q.length > 600 ? h("span", { class: "muted" }, "한 문장만 골라 주세요.")
+        : h("button", { class: "pill on", "data-add-spec": "1", on: () => open(q) }, "📋 재현 조건으로 더하기")));
+  };
+  const open = q => {
+    form = true;
+    const cat = h("select", { "data-cat": "1", title: "조건의 종류" }, Object.entries(SPEC).map(([k, v]) => h("option", { value: k }, v)));
+    const say = h("input", { "data-statement": "1", value: q.slice(0, 200), placeholder: "조건을 한 줄로 (예: 검색 단계의 top-k는 5)" });
+    const val = h("input", { "data-value": "1", placeholder: "값 (선택, 예: 5)" }), note = h("span", { class: "muted", "data-pick-note": "1" });
+    const add = h("button", { class: "pill on", "data-add-ok": "1", on: () => {
+      if (!say.value.trim()) return say.focus();
+      add.disabled = true; note.textContent = "원문에서 위치를 찾는 중…";
+      pabloHost.condition(task, "add", { src: sid, page: n, quote: q, category: cat.value, statement: say.value.trim(), value: val.value.trim() }).then(r => {
+        Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources); M.views[task].checks[r.check.id] = r.check;
+        form = false; getSelection().removeAllRanges();
+        bar.replaceChildren(h("span", { "data-added": r.check.id }, "✓ 재현 조건에 더했습니다. 에이전트와 재현 점검이 이 조건도 봅니다."));
+        if (V && V.task.id === task) { live(task).append(...said({ role: "spec-add", check: r.check.id })); $("log").scrollTop = $("log").scrollHeight; }
+        return refresh();
+      }, e => { add.disabled = false; note.textContent = fail(e); }); } }, "더하기");
+    const cancel = h("button", { class: "link", on: () => { form = false; bar.hidden = true; } }, "취소");
+    bar.replaceChildren(h("div", { class: "q" }, `“${q}”`), h("div", { class: "row" }, cat, say, val),
+      h("div", { class: "row" }, add, cancel, note));
+    say.focus();
+  };
+  box.addEventListener("mouseup", () => setTimeout(offer, 0));
+  return true;
 }
 
 addEventListener("keydown", e => { if (e.key === "Escape") close(); });
@@ -1238,7 +1356,7 @@ if (window.pabloHost && pabloHost.chat) {
     if (to !== undefined || !V || !M.views[V.task.id]) return (select(to || (V && V.task.id)), gate());
     V = M.views[V.task.id]; V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
     sidebar(); header(); tools(); gate(); finish();
-    if (open && open.mode !== "source" && open.mode !== "code") show(open, false);  // Intent / Plan / 왜? stay open and show the new state
+    if (open && !["source", "code", "paper"].includes(open.mode)) show(open, false);  // Intent / Plan / 왜? stay open and show the new state
     Object.values(lives).forEach(l => l.querySelectorAll(".crit:empty").forEach(c => {  // the live card's criteria, once stored
       const v = Object.values(M.views).find(v => v.actions.some(x => x.id === c.closest("[data-act]").dataset.act));
       const a = v && v.actions.find(x => x.id === c.closest("[data-act]").dataset.act);
@@ -1352,7 +1470,10 @@ if (window.pabloHost && pabloHost.chat) {
     // ② more than 3 sources: one line "자료 N개 (주 논문 X) ▾", the list opens below it (one per line)
     const many = ps.length > 3, open = !many || srcOpen;
     const chip = p => h("span", { class: "paper", "data-paper": p.id, "data-kind": p.kind || "pdf" },
-        p.kind === "web" ? h("span", { title: "웹 문서" }, "🌐 ") : null, h("b", null, p.title), p.version ? h("small", null, " " + p.version) : null,
+        p.kind === "web" ? h("span", { title: "웹 문서" }, "🌐 ") : null,
+        ...(name => p.kind !== "web" && (M.papers || {})[p.id] ? [h("button", { class: "link", "data-open-paper": p.id,
+          title: "PDF 열기 (문장을 골라 재현 조건으로 더할 수 있습니다)", on: () => show({ mode: "paper", src: p.id }) }, name)] : name)(
+          [h("b", null, p.title), p.version ? h("small", null, " " + p.version) : null]),
         several && p.kind !== "web" ? (p.primary ? h("small", { class: "muted", "data-primary": "1" }, " (주 논문)")
           : [" ", h("button", { class: "link", title: "이 논문을 재현 대상으로 (재현 조건은 주 논문에서 뽑습니다)", "data-make-primary": p.id,
               on: () => pabloHost.setPrimary(V.task.id, p.id).then(() => refresh()) }, "주 논문으로")]) : null,

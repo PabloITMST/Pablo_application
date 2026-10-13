@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   removeSource: (task, id) => ipcRenderer.invoke("pablo:remove-source", task, id),  // C1: the records stay
   setPrimary: (task, id) => ipcRenderer.invoke("pablo:set-primary", task, id),  // C1: the 주 논문 (재현 조건)
   compare: (task, columns) => ipcRenderer.invoke("pablo:compare", task, columns),  // C3: 비교표
+  condition: (task, action, o) => ipcRenderer.invoke("pablo:condition", task, action, o),  // ⑩ add (a picked sentence) | drop (why) | restore
   setNet: (task, on) => ipcRenderer.invoke("pablo:set-net", task, on),
   setRoute: (task, route) => ipcRenderer.invoke("pablo:set-route", task, route),  // paper + folder: agent | ask  // D1: 인터넷 for this task's commands
   diff: (task, from, to) => ipcRenderer.invoke("pablo:diff", task, from, to),  // D4: what a turn changed in the work folder

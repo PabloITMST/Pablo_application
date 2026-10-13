@@ -29,6 +29,8 @@ Evidence  source <url> [--title T]                Pablo fetches + snapshots the 
           spec T1 [--source SRC1]                 the paper's reproduction conditions -> anchored VERIFIED checks
                                                   (+ pending checks for what the paper does not state; replaces the
                                                   task's conditions from any paper: one paper is reproduced)
+          add-spec T1 --source SRC1 --quote Q --page N --category C --statement S [--value V]   one condition by hand
+          drop-spec SC5 --reason R | restore-spec SC5   take a condition out (kept, with why) / back
           compare T1 --source SRC1 --source SRC2 [--columns JSON]   C3: a table, one judge call per paper, each cell
                                                   anchored or left empty -> M1 + cells
 JSON args accept inline JSON or @file.json. State lives in --dir (default .pablo/).
@@ -53,8 +55,8 @@ from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
 from pablo_v2.skill.viewer import model, render_html, workspace
 from pablo_v2.skill.evidence import AnchorRejected
-from pablo_v2.skill.skill import (AUDIT_SCHEMA, REPRO_CRITERIA, DecisionRejected, PabloSkill, ResearchIncomplete,
-                                  ResearchRejected, render_audit, render_brief, render_evidence, render_task)
+from pablo_v2.skill.skill import (AUDIT_SCHEMA, REPRO_CRITERIA, SPEC_LABEL, DecisionRejected, PabloSkill,
+                                  ResearchIncomplete, ResearchRejected, render_audit, render_brief, render_evidence, render_task)
 
 # M1.1 acceptance conversation: (role, text)
 ACCEPTANCE = [
@@ -117,6 +119,13 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("id")
     s.add_argument("--reason", default="", help="required for a reproduction task's default criterion")
     add("restore").add_argument("id")  # ④ a removed criterion back
+    s = add("add-spec")  # ⑩ a sentence the user picked in the paper -> a reproduction condition, anchored
+    s.add_argument("task_id"), s.add_argument("--source", required=True), s.add_argument("--quote", required=True)
+    s.add_argument("--page", type=int), s.add_argument("--category", required=True, choices=list(SPEC_LABEL))
+    s.add_argument("--statement", required=True), s.add_argument("--value", default="")
+    s = add("drop-spec")  # ⑩ a condition taken out by the user (with why; restorable)
+    s.add_argument("check_id"), s.add_argument("--reason", required=True)
+    add("restore-spec").add_argument("check_id")
     s = add("view")
     s.add_argument("id", nargs="?", help="task to show first (--html: default the latest)")
     s.add_argument("--html", action="store_true", help="write <dir>/view-T1.html (export/debug snapshot of every task)")
@@ -368,6 +377,16 @@ def _run(a, out) -> int:
             "\n".join([f"{c.id} [{c.spec['category']}] {c.conclusion}" for c in stated]
                       + [f"{c.id} [{c.spec['category']}] 논문에 없음: {c.requirement}" for c in missing]
                       + [f"dropped p.{d['page']}: {d['quote']} ({d['why']})" for d in dropped]))
+    elif a.cmd == "add-spec":
+        sc = s.add_spec(a.task_id, a.source, a.quote, a.page, a.category, a.statement, a.value)
+        v = model(s, a.task_id)
+        ids = v["checks"][sc.id]["evidence"]
+        out({"check": v["checks"][sc.id], "anchors": {e: v["anchors"][e] for e in ids},
+             "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
+            f"{sc.id} [{sc.spec['category']}] {sc.conclusion}")
+    elif a.cmd in ("drop-spec", "restore-spec"):
+        sc = s.drop_spec(a.check_id, a.reason) if a.cmd == "drop-spec" else s.restore_spec(a.check_id)
+        out({"check": asdict(sc)}, f"{sc.id} {sc.research_state}")
     elif a.cmd == "view" and a.html:
         path = os.path.abspath(os.path.join(a.dir, f"view-{a.id}.html" if a.id else "pablo.html"))
         with open(path, "w", encoding="utf-8") as f:

@@ -494,6 +494,63 @@ class PabloSkill:
         self.save()
         return stated, missing, dropped
 
+    # --- 0.8 ⑩ the user's own hand on the conditions: a sentence picked in the PDF, a condition taken out (with why) ----
+    def add_spec(self, task_id: str, src_id: str, quote: str, page: int | None, category: str, statement: str,
+                 value: str = "") -> SourceCheck:
+        """A condition the extraction missed: the sentence the user picked on a page of the paper, anchored like an
+        extracted one (a quote Pablo cannot find there is refused, never kept unanchored). Only the paper whose
+        conditions the task holds now: the Guard and the brief never mix two papers' settings."""
+        src, statement, value = self._pdf(src_id), " ".join(statement.split()), " ".join(value.split())
+        self.get_task(task_id)
+        if category not in SPEC_LABEL or not statement or not quote.strip():
+            raise ValueError("a condition needs its kind, what it says and the sentence it rests on")
+        other = {c.spec["source_id"] for c in self.checks(task_id) if c.spec and c.research_state != "waived"} - {src.id}
+        if other:
+            raise ValueError(f"이 작업의 재현 조건은 {self.get_source(other.pop()).title}에서 뽑았습니다. 다른 논문의 조건은 "
+                             "그 논문에서 재현 조건을 다시 뽑은 뒤에 더하세요.")
+        try:
+            try:
+                a = self.add_anchor(src.id, quote, page=page)
+            except evidence.AnchorRejected:  # the picked sentence runs onto the next page, or the page is off by one
+                a = self.add_anchor(src.id, quote)
+        except evidence.AnchorRejected as e:
+            raise evidence.AnchorRejected(f"고른 문장을 논문에서 찾지 못했습니다 ({e}). 한 문장만 다시 골라 보세요.") from e
+        sc = self.add_check(task_id, statement, "USEFUL")
+        sc.spec = {"category": category, "value": value, "source_id": src.id, "by": "user", "at": now()}
+        if checkable(value) and not has_value(a.quote["exact"], value):
+            sc.spec["value_in_quote"] = False
+        self.complete_check(sc.id, "VERIFIED", statement + " [1]",
+                            [{"tier": 4, "type": "pdf", "title": src.title, "url": src.locator, "supports": [a.id]}])
+        self.link_evidence(a.id, sc.id, "supports", category)
+        self.save()
+        return sc
+
+    def drop_spec(self, sc_id: str, reason: str) -> SourceCheck:
+        """A condition taken out by the user (extracted wrongly, not part of this reproduction): the Guard, the brief and
+        재현 점검 stop holding it. Kept with why and when (spec["dropped"]: one span per removal), restorable."""
+        sc = self._find_check(sc_id)
+        if not sc or not sc.spec or sc.research_state == "waived":
+            raise KeyError(f"no live condition {sc_id} to take out")
+        if not reason.strip():
+            raise ValueError("재현 조건을 빼는 이유를 적어야 합니다.")
+        sc.research_state, sc.waived_by, sc.waive_reason = "waived", "user", reason.strip()
+        sc.spec["dropped"] = sc.spec.get("dropped", []) + [{"from": now(), "to": None, "why": reason.strip()}]
+        self.save()
+        return sc
+
+    def restore_spec(self, sc_id: str) -> SourceCheck:
+        """A condition the user took out, back as it was; not over another paper's conditions extracted since."""
+        sc = self._find_check(sc_id)
+        if not sc or not sc.spec or sc.research_state != "waived" or sc.waived_by != "user":
+            raise KeyError(f"no condition {sc_id} taken out by the user to restore")
+        if {c.spec["source_id"] for c in self.checks(sc.task_id) if c.spec and c.research_state != "waived"} - {sc.spec["source_id"]}:
+            raise ValueError("그 뒤로 다른 논문의 재현 조건을 뽑아서 되살리지 않습니다.")
+        sc.research_state = "pending" if sc.spec.get("missing") else "completed"
+        sc.waived_by = sc.waive_reason = None
+        sc.spec["dropped"][-1]["to"] = now()
+        self.save()
+        return sc
+
     def compare(self, task_id: str, src_ids: list[str], columns: list[str] | None = None
                 ) -> tuple[str, list[SourceCheck], list[dict]]:
         """C3: a table of the task's papers (rows) by columns (default COLUMNS). The judge fills one paper's row per

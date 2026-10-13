@@ -352,6 +352,28 @@ ipcMain.handle("pablo:criterion", async (e, task, id, action, reason) => {
     .catch(err => { throw new Error(/no (active|removed) /.test(err.message) ? "이미 바뀌었거나 지운 기준입니다." : short(err.message)); });
   return r.item.statement;
 });
+// ⑩ the user's own hand on the reproduction conditions: add one from a sentence picked in the 주 논문 (Pablo anchors it on
+// that page, or refuses), take one out with why, or put it back. The Guard, the brief and 재현 점검 follow at once.
+ipcMain.handle("pablo:condition", async (e, task, action, o) => {
+  fromWindow(e); known(task); o = o || {};
+  if (action === "add") {
+    const main = papers.primary(desk(), task);
+    if (!str(o.src, 20) || !/^SRC\d+$/.test(o.src) || !Number.isInteger(o.page) || o.page < 1 || o.page > 5000 || !str(o.quote, 600) || !o.quote.trim()
+      || !str(o.category, 20) || !/^[a-z]+$/.test(o.category) || !str(o.statement, 300) || !o.statement.trim() || (o.value != null && !str(o.value, 100)))
+      throw new Error("bad condition");
+    if (!main || main.id !== o.src) throw new Error(main ? `재현 조건은 주 논문(${main.title})에서만 더합니다.` : "먼저 논문 PDF를 추가하세요.");
+    const at = new Date().toISOString();
+    const r = await ctl.py("add-spec", task, "--source", o.src, "--page", String(o.page), "--quote", o.quote, "--category", o.category,
+      "--statement", o.statement.trim(), "--value", (o.value || "").trim()).catch(err => { throw new Error(short(err.message)); });
+    logChat(task, { role: "spec-add", at, check: r.check.id });
+    return r;
+  }
+  if (!["drop", "restore"].includes(action) || !str(o.id, 20) || !/^SC\d+$/.test(o.id) || (action === "drop" && (!str(o.reason, 300) || !o.reason.trim())))
+    throw new Error("bad condition");
+  const r = await ctl.py(...(action === "drop" ? ["drop-spec", o.id, "--reason", o.reason.trim()] : ["restore-spec", o.id]))
+    .catch(err => { throw new Error(/^no (live )?condition/.test(err.message) ? "이미 빠졌거나 바뀐 조건입니다." : short(err.message)); });
+  return r.check.id;
+});
 // A2 the paper's reproduction conditions -> anchored checks; the conversation gets a card (chat.json "spec")
 ipcMain.handle("pablo:spec", async (e, task) => {
   fromWindow(e); known(task);
