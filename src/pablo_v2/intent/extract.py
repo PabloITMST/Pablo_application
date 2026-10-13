@@ -129,6 +129,21 @@ def _has(pattern: str, text: str) -> bool:
     return re.search(pattern, text, re.IGNORECASE) is not None
 
 
+# a chat message to the desktop agent: "X 해줘/알려줘" + "파일은 읽지 마" -> the prohibition qualifies this request only.
+# It stays a criterion of the task when it says it lasts ("절대", "앞으로", ...) or when the message is only criteria.
+ASKING = r"줘|주세요|줄래|할래|설명해|\?\s*$"
+MARKED = r"절대|반드시|항상|앞으로|계속|무조건|언제나|매번|이 작업 (내내|동안|전체)|가능하면|되도록|선호"
+
+
+def standing_criteria(text: str) -> list[str]:
+    """The sentences of a chat message that are the task's criteria (not the request, not a one-off qualifier)."""
+    parts = [p.strip() for p in re.split(r"(?<=[.!?。])\s+|\n+", text) if p.strip()]
+    asks = [p for p in parts if _has(ASKING, p) and not _has(MARKED, p)]  # plain requests ("가능하면 ~로 짜줘" is a wish)
+    if not asks:
+        return parts
+    return [p for p in parts if p not in asks and _has(MARKED, p)]
+
+
 class HeuristicExtractor:
     name = "heuristic"
     links_by_id = False

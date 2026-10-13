@@ -147,7 +147,7 @@ function start() {
     });
     p.on("error", e => console.error("[agent] spawn", e.message));
 
-    await call("initialize", { clientInfo: { name: "pablo", title: "Pablo", version: "0.4.2" }, capabilities: null });
+    await call("initialize", { clientInfo: { name: "pablo", title: "Pablo", version: require("./package.json").version }, capabilities: null });
     write({ method: "initialized" });
     // never trust the user's config.toml model; prefer app-server's default if the account offers it
     const ms = (await call("model/list", {})).data;

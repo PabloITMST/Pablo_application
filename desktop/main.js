@@ -144,7 +144,8 @@ ipcMain.handle("pablo:state", async e => {
   fromWindow(e);
   const m = await ctl.py("state"), d = desk();
   m.desk = Object.fromEntries(m.tasks.map(t => { const w = d.workspace[t.id] || envWorkspace, p = d.pdf[t.id];
-    return [t.id, { folder: w ? path.basename(w) : null, pdf: p ? p.title : null, net: !!(d.net || {})[t.id] }]; }));  // names only, no paths
+    return [t.id, { folder: w ? path.basename(w) : null, pdf: p ? p.title : null, net: !!(d.net || {})[t.id],
+      route: (d.route || {})[t.id] === "ask" ? "ask" : "agent" }]; }));  // names only, no paths
   m.last = d.last;
   return m;
 });
@@ -167,6 +168,12 @@ ipcMain.handle("pablo:pick-folder", async (e, task) => {
   const w = workspace(dir);
   saveDesk(x => { x.workspace[task] = w; x.last = task; });
   return path.basename(w);
+});
+// a task with both a paper and a work folder: where the composer sends (the agent by default; it knows the paper's facts)
+ipcMain.handle("pablo:set-route", (e, task, route) => {
+  fromWindow(e); known(task); if (!["agent", "ask"].includes(route)) throw new Error("bad route");
+  saveDesk(x => { x.route = { ...(x.route || {}), [task]: route }; });
+  return route;
 });
 // D1 인터넷 per task: package installs, dataset downloads, git clone. Each command still goes through the Guard.
 ipcMain.handle("pablo:set-net", (e, task, on) => {

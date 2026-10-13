@@ -41,7 +41,7 @@ from dataclasses import asdict
 
 from pablo_v2 import auth
 from pablo_v2.intent.engine import IntentEngine
-from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor
+from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor, standing_criteria
 from pablo_v2.intent.render import render_candidates, render_history, render_intent
 from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
@@ -226,8 +226,7 @@ def _run(a, out) -> int:
         if a.request:  # "X 해줘. Y는 건드리지 마." -> the request is the step; only its criteria (Y) are intent
             ex2 = e.extractor.extract
             e.extractor.extract = lambda *x: [dict(f, type="other") if f.get("type") == "goal" else f for f in ex2(*x)]
-            parts = [p for p in re.split(r"(?<=[.!?。])\s+|\n+", a.text) if p.strip()]
-            ks = [k for p in parts for k in e.process_message(p)]
+            ks = [k for p in standing_criteria(a.text) for k in e.process_message(p)]
         else:
             ks = e.process_message(a.text, role="agent" if a.agent else "user")
         added = [e.get_item(k.item_id) for k in ks if k.status == "committed" and k.item_id]

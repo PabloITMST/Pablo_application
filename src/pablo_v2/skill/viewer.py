@@ -30,6 +30,10 @@ STATUS = {
     ("UNRESOLVED", "fetch_failed"): "현재 원문을 가져오지 못했습니다. 아래는 캡처 당시 원문입니다.",
 }
 UNCHECKED = "아직 현재 원문과 대조하지 않았습니다."
+# Pablo's own policies as the user reads them on a card (guard.SYSTEM_POLICIES is what the judge reads)
+POLICY_TEXT = {"SP1": "꼭 필요한 외부 사실은 계획하기 전에 확인한다.",
+               "SP2": "확인된 공식 방식을 근거 없이 비공식 방식으로 바꾸지 않는다.",
+               "SP3": "토큰, API 키, 비밀번호 같은 자격 증명은 그 주인 구성 요소 밖에서 읽거나 옮기거나 저장하지 않는다."}
 
 
 def model(s, task_id: str) -> dict:
@@ -42,7 +46,7 @@ def model(s, task_id: str) -> dict:
 
     def label(ref):  # intent item or system policy -> text
         it = eng.get_item(ref)
-        return it.statement if it else SYSTEM_POLICIES.get(ref, ref)
+        return it.statement if it else POLICY_TEXT.get(ref, SYSTEM_POLICIES.get(ref, ref))
 
     anchors, sources, checks = {}, {}, {}
 
@@ -990,13 +994,9 @@ if (window.pabloHost && pabloHost.chat) {
     const d = (M.desk || {})[talk] || {}, pdf = !!d.pdf || (!M.desk && M.pdf), dir = !!d.folder;
     if (pdf && !dir) return ask(text, talk);
     if (dir && !pdf) return chat(text, talk);
-    const t = talk, row = h("p", null);
-    const go = f => () => { row.textContent = ""; f(text, t); };
-    if (pdf && dir) row.append(h("button", { class: "pill on", "data-route": "ask", on: go(ask) }, "PDF에서 답 찾기"), " ",
-      h("button", { class: "pill", "data-route": "agent", on: go(chat) }, "작업 폴더에서 실행"));
-    else row.append(link("📎 PDF 추가", () => attach("addSource")), " · ", link("📁 작업 폴더 선택", () => attach("pickFolder")));
-    live(t).append(msg("Pablo", null, h("div", { class: "call", "data-route": pdf ? "choose" : "none" },
-      h("p", { class: "head" }, pdf ? "어디에서 처리할까요?" : "먼저 자료나 작업 폴더를 정해 주세요."), row))); scroll();
+    if (pdf && dir) return (d.route === "ask" ? ask : chat)(text, talk);  // both: the task's 보낼 곳 (agent by default)
+    const t = talk, row = h("p", null, link("📎 PDF 추가", () => attach("addSource")), " · ", link("📁 작업 폴더 선택", () => attach("pickFolder")));
+    live(t).append(msg("Pablo", null, h("div", { class: "call", "data-route": "none" }, h("p", { class: "head" }, "먼저 자료나 작업 폴더를 정해 주세요."), row))); scroll();
   };
   // ---- M5.1 live state: after every Guard / review / answer the panels read the same records again (no view rebuild) ----
   let q = Promise.resolve();
@@ -1027,6 +1027,9 @@ if (window.pabloHost && pabloHost.chat) {
       h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder"))),
       d.pdf && pabloHost.spec ? h("span", { id: "specs" }, link(V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived")
         ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기", () => spec(V.task.id))) : null,
+      d.pdf && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
+        "💬 보낼 곳: ", ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label], i) => [i ? " · " : "",
+          (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh()))])) : null,
       d.folder && pabloHost.audit && (V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived") || V.intent.must.length || V.intent.prefer.length)
         ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null,
       d.folder && pabloHost.setNet ? h("span", { id: "net", "data-on": d.net ? "1" : "", title: "패키지 설치, 데이터 내려받기, git clone에 필요합니다. 켜도 명령마다 Pablo가 검토합니다." },

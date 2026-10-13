@@ -182,8 +182,10 @@ def test_chat_criteria():
     with tempfile.TemporaryDirectory() as d:
         cli(d, "task", "T1 작업", "--checks", "[]")
         cli(d, "task", "T2 작업", "--checks", "[]")
-        _, r = cli(d, "say", "hello.txt에 world를 추가해줘. 다른 파일은 건드리지 마.", "--request", "--task", "T1")
-        assert [(x["kind"], x["strength"], x["text"]) for x in r["added"]] == [("constraint", "hard", "다른 파일은 건드리지 마")]
+        _, r = cli(d, "say", "hello.txt에 world를 추가해줘. 앞으로 다른 파일은 절대 건드리지 마.", "--request", "--task", "T1")
+        assert [(x["kind"], x["strength"], x["text"]) for x in r["added"]] == [("constraint", "hard", "앞으로 다른 파일은 절대 건드리지 마")]
+        _, once = cli(d, "say", "방금 추가한 줄을 한 줄로만 알려줘. 파일은 읽지 마.", "--request", "--task", "T1")
+        assert once["added"] == [] and once["candidates"] == []  # qualifies this request only: never a lasting criterion
         _, r2 = cli(d, "say", "이 프로젝트 구조 설명해줘", "--request", "--task", "T1")
         assert r2["added"] == [] and all(c["status"] == "ignored" for c in r2["candidates"])  # a request is not a goal
         s = load(d)

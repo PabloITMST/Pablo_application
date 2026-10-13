@@ -19,7 +19,8 @@ contextBridge.exposeInMainWorld("pabloHost", {
   intent: (task, id, action) => ipcRenderer.invoke("pablo:intent", task, id, action),  // B4: promote | reject a held-back criterion  // A5/A6: 재현 점검 of the work folder (read-only turn)
   pickFolder: task => ipcRenderer.invoke("pablo:pick-folder", task),
   addSource: task => ipcRenderer.invoke("pablo:add-source", task),
-  setNet: (task, on) => ipcRenderer.invoke("pablo:set-net", task, on),  // D1: 인터넷 for this task's commands
+  setNet: (task, on) => ipcRenderer.invoke("pablo:set-net", task, on),
+  setRoute: (task, route) => ipcRenderer.invoke("pablo:set-route", task, route),  // paper + folder: agent | ask  // D1: 인터넷 for this task's commands
   diff: (task, from, to) => ipcRenderer.invoke("pablo:diff", task, from, to),  // D4: what a turn changed in the work folder
   undo: (task, from, to) => ipcRenderer.invoke("pablo:undo", task, from, to),  // D4: put those files back
   onAgent: cb => ipcRenderer.on("pablo:agent", (_, ev) => cb(ev)),
