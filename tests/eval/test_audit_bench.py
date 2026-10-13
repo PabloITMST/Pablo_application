@@ -28,6 +28,23 @@ def test_drifts_apply_to_the_base():
                 assert not any(B.marked(x, drift["mark"]) for x in base.splitlines()), f"{drift['id']}: its mark is in the base"
 
 
+def test_crlf_checkout():
+    """A Windows checkout gives the base CRLF line ends: every drift still applies, on the same line."""
+    with tempfile.TemporaryDirectory() as d:
+        base = os.path.join(d, "base")
+        shutil.copytree(B.BASE, base)
+        for root, _, files in os.walk(base):
+            for f in files:
+                p = os.path.join(root, f)
+                t = open(p, encoding="utf-8", newline="").read().replace("\r\n", "\n").replace("\n", "\r\n")
+                open(p, "w", encoding="utf-8", newline="").write(t)
+        for drift in B.CATALOG:
+            lf, crlf = os.path.join(d, "lf-" + drift["id"]), os.path.join(d, "crlf-" + drift["id"])
+            shutil.copytree(B.BASE, lf)
+            shutil.copytree(base, crlf)
+            assert B.plant(crlf, drift) == B.plant(lf, drift), drift["id"]
+
+
 def test_variants():
     with tempfile.TemporaryDirectory() as d:
         t = B.variants(d, n=8, seed=7, clean=1)

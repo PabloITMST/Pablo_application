@@ -101,7 +101,9 @@ def plant(folder: str, drift: dict) -> int | None:
     """Apply one drift in place -> the 1-based line its mark is on now (None when the drift removes code)."""
     path = os.path.join(folder, drift["file"])
     text = open(path, encoding="utf-8", newline="").read()
+    nl = "\r\n" if "\r\n" in text else "\n"  # a Windows checkout (core.autocrlf) has CRLF; the edits are written with \n
     for old, new in drift["edits"]:
+        old, new = old.replace("\n", nl), new.replace("\n", nl)
         if text.count(old) != 1:
             raise ValueError(f"{drift['id']}: {old!r} occurs {text.count(old)} times in {drift['file']}")
         text = text.replace(old, new)
