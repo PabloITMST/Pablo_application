@@ -980,6 +980,9 @@ async function uiCheck() {
   if (shots || view) { await sleep(200); fs.writeFileSync(path.join(shots || view, "criteria-edit.png"), (await win.capturePage()).toPNG()); }
   await js(`[...document.querySelectorAll("#panel [data-removed] li")].find(l => /GPU/.test(l.textContent)).querySelector("[data-restore]").click()`);
   await until(`V.intent.must.some(x => /GPU 메모리/.test(x.text)) && document.querySelector("#panel [data-removed]").dataset.removed === "1"`);
+  assert.deepStrictEqual(await until(`(xs => xs.length === 3 && xs)([...document.querySelectorAll("#live [data-criterion-edit]")].map(x => x.textContent))`),
+    ["📌 작업 기준을 '가능하면'으로 바꿨습니다: 결과는 3번 돌려서 평균 내", "📌 작업 기준을 지웠습니다: GPU 메모리는 24GB 안에서만 써 (이유: 장비가 바뀜)",
+     "📌 지운 작업 기준을 되살렸습니다: GPU 메모리는 24GB 안에서만 써"], "each change by hand is said in the conversation");
   const hist = JSON.parse(execFileSync("python", ["-m", "pablo_v2", "history", "--json", "--dir", S],
     { encoding: "utf8", env: { ...process.env, PYTHONPATH: path.join(__dirname, "../src"), PYTHONIOENCODING: "utf-8" } })).history;
   assert.deepStrictEqual(hist.slice(-3).map(x => [x.reason, x.source.type, x.source.note]), [["사용자가 세기를 가능하면으로 바꿈", "user", "직접"],
@@ -1194,13 +1197,24 @@ async function papersUi() {
   assert.strictEqual(await pick("Indexing takes 12", "one GPU."), "Indexing takes 12 seconds on one GPU.");
   await until(`!$("pick").hidden && !!$("pick").querySelector("[data-add-spec]")`);
   await js(`$("pick").querySelector("[data-add-spec]").click()`);
-  await js(`(b => { b.querySelector("[data-cat]").value = "result"; b.querySelector("[data-statement]").value = "색인 시간은 GPU 한 장에서 12초";
-    b.querySelector("[data-value]").value = "12"; })($("pick"))`);
+  assert.ok(await js(`$("pick").querySelector("[data-cat]").value === "" && $("pick").querySelector("[data-add-ok]").disabled`), "no kind yet: 더하기 waits for one");
+  const fill = (cat, say, value) => js(`(b => { const c = b.querySelector("[data-cat]"); c.value = ${JSON.stringify(cat)}; c.dispatchEvent(new Event("change"));
+    ${say ? `b.querySelector("[data-statement]").value = ${JSON.stringify(say)};` : ""} b.querySelector("[data-value]").value = ${JSON.stringify(value)}; })($("pick"))`);
+  await fill("result", "색인 시간은 GPU 한 장에서 12초", "12");
   await sleep(200); await shot("paper-pick.png");
   await js(`$("pick").querySelector("[data-add-ok]").click()`);
   const added = await until(`(x => x && x.dataset.added)($("pick").querySelector("[data-added]"))`);
   assert.match(await until(`(x => x && x.textContent)(document.querySelector("#live [data-spec-add]"))`), /^📋 고른 문장을 재현 조건에 더했습니다: 보고된 결과 · 색인 시간은 GPU 한 장에서 12초 \[\d+\]$/);
   assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8")).T1.filter(x => x.role === "spec-add").map(x => x.check), [added]);
+  // the same sentence again: the condition already there is named first, and nothing is made until 그래도 더하기
+  await pick("Indexing takes 12", "one GPU.");
+  await until(`!!$("pick").querySelector("[data-add-spec]")`);
+  await js(`$("pick").querySelector("[data-add-spec]").click()`);
+  await fill("result", "", "12");
+  await js(`$("pick").querySelector("[data-add-ok]").click()`);
+  assert.strictEqual(await until(`(x => x && x.dataset.similar)($("pick").querySelector("[data-similar]"))`), added);
+  assert.ok(await js(`!!$("pick").querySelector("[data-anyway]")`));
+  await js(`[...$("pick").querySelectorAll("button.link")].find(b => b.textContent === "취소").click()`);
   await js(`document.querySelector("#live [data-spec-add] .cite").click()`);
   assert.strictEqual(await settled(), "FOUND", "its [n] opens the page with the sentence boxed");
   // another paper of the task: only the 주 논문's sentences become conditions
@@ -1209,7 +1223,9 @@ async function papersUi() {
   await until(`$("panel").dataset.live === "PAPER" && $("panel").querySelector(".pnum").textContent === "2 / 2" && !!document.querySelector("#pbody .textLayer span")`);
   await pick("ThirdRAG reaches", "HotpotQA.");
   await until(`!!$("pick").querySelector("[data-add-spec]")`);
-  await js(`$("pick").querySelector("[data-add-spec]").click(); $("pick").querySelector("[data-add-ok]").click()`);
+  await js(`$("pick").querySelector("[data-add-spec]").click()`);
+  await fill("result", "", "63.0");
+  await js(`$("pick").querySelector("[data-add-ok]").click()`);
   assert.strictEqual(await until(`(n => n && /주 논문/.test(n.textContent) && n.textContent)($("pick").querySelector("[data-pick-note]"))`), "재현 조건은 주 논문(TinyRAG)에서만 더합니다.");
   // the 기준 panel: the added one says so; 빼기 waits for why; 뺀 조건 keeps when and why; 되살리기
   await js(`close(); show({ mode: "intent" })`);
@@ -1221,13 +1237,19 @@ async function papersUi() {
   assert.ok(await js(`document.querySelector("#panel [data-spec-why]").classList.contains("need") && !!${row}`), "no reason: still a condition");
   await js(`document.querySelector("#panel [data-spec-why]").value = "표의 다른 설정에서 나온 값"; document.querySelector("#panel [data-spec-drop-ok]").click()`);
   await until(`!!document.querySelector('#panel [data-spec-out="1"]') && !${row}`);
+  assert.strictEqual(await until(`(x => x && x.textContent)(document.querySelector('#live [data-spec-edit="drop"]'))`).then(t => t.replace(/\[\d+\]/, "[n]")),
+    "📋 재현 조건에서 뺐습니다: 보고된 결과 · 색인 시간은 GPU 한 장에서 12초 [n] (이유: 표의 다른 설정에서 나온 값)", "the conversation says it too");
   await js(`document.querySelector("#panel [data-spec-out]").open = true`);
   assert.match(await js(`document.querySelector("#panel [data-spec-out] li").textContent`), /^보고된 결과 · 색인 시간은 GPU 한 장에서 12초.* 뺌 · 이유: 표의 다른 설정에서 나온 값 · 되살리기$/);
   await sleep(200); await shot("conditions-out.png");
   await js(`document.querySelector("#panel [data-spec-restore]").click()`);
   await until(`!document.querySelector("#panel [data-spec-out]") && !!${row}`);
+  assert.ok(await until(`!!document.querySelector('#live [data-spec-edit="restore"]')`));
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("#panel h4.kind")].map(x => x.textContent)`), ["보고된 결과"], "the paper's conditions by kind");
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8")).T1.filter(x => /^spec-(drop|restore)$/.test(x.role)).map(x => [x.role, x.check, x.reason]),
+    [["spec-drop", added, "표의 다른 설정에서 나온 값"], ["spec-restore", added, undefined]]);
   await js(`close()`);
-  console.log("ok conditions: a sentence picked on page 2 of the 주 논문 -> a condition, its [n] boxed; ThirdRAG refused; 빼기 needs why -> 뺀 조건 -> 되살림");
+  console.log("ok conditions: a sentence picked on page 2 of the 주 논문 -> a condition (kind chosen first), its [n] boxed; the same again -> named first; ThirdRAG refused; 빼기 needs why -> 뺀 조건 -> 되살림, each said in the conversation");
   assert.deepStrictEqual(errors, [], "no script errors");
   arxiv.base = base0; arxiv.api = api0; srv.close(); win.destroy();
 }

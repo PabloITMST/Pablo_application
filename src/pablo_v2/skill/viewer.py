@@ -309,6 +309,7 @@ ul.ck .edits { font-size:12px; white-space:nowrap; } ul.ck .all { color:var(--wa
 ul.ck .edits .why { border:1px solid var(--line); border-radius:6px; padding:1px 6px; background:none; width:170px; font-size:12px; }
 ul.ck .edits .why.need { border-color:var(--bad); } #panel details.gone { margin-top:14px; } #panel details.gone summary { cursor:pointer; font-size:13px; color:var(--muted); }
 #panel details.gone s { color:var(--muted); } #panel details.gone .muted { font-size:12px; }
+#panel h4.kind { font-size:12px; color:var(--muted); font-weight:600; margin:8px 0 0; }
 ul.ck li::before { position:absolute; left:2px; content:"•"; color:var(--faint); }
 ul.ck.must li::before { content:"✓"; color:var(--ok); font-weight:700; } ul.ck.q li::before { content:"○"; }
 .ck .note { display:block; color:var(--muted); font-size:13px; }
@@ -787,6 +788,12 @@ function held(k, task) {
 function said(c) {
   if (c.role === "audit") return [msg("Pablo", null, audited(c))];
   if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped))];
+  if (c.role === "spec-drop" || c.role === "spec-restore") { const k = V.checks[c.check];  // ⑩ a condition taken out / back
+    return k ? [msg("Pablo", null, h("p", { class: "muted", "data-spec-edit": c.role.slice(5) }, c.role === "spec-drop" ? "📋 재현 조건에서 뺐습니다: " : "📋 뺀 재현 조건을 되살렸습니다: ",
+      (SPEC[k.spec.category] || k.spec.category) + " · ", fact(k), c.reason ? ` (이유: ${c.reason})` : ""))] : []; }
+  if (c.role === "criterion-edit") return [msg("Pablo", null, h("p", { class: "muted", "data-criterion-edit": c.action },  // ④ a criterion changed in the panel
+    { hard: "📌 작업 기준을 '반드시'로 바꿨습니다: ", soft: "📌 작업 기준을 '가능하면'으로 바꿨습니다: ", drop: "📌 작업 기준을 지웠습니다: ",
+      restore: "📌 지운 작업 기준을 되살렸습니다: " }[c.action] || "📌 작업 기준을 바꿨습니다: ", c.text, c.reason ? ` (이유: ${c.reason})` : ""))];
   if (c.role === "spec-add") { const k = V.checks[c.check];  // ⑩ a sentence the user picked in the paper
     return k ? [msg("Pablo", null, h("p", { class: "muted", "data-spec-add": k.id }, "📋 고른 문장을 재현 조건에 더했습니다: ",
       (SPEC[k.spec.category] || k.spec.category) + " · ", fact(k), k.state === "waived" ? " (나중에 뺌)" : ""))] : []; }
@@ -803,6 +810,11 @@ function said(c) {
     k ? [h("p", null, cited(k.conclusion || k.title, k.evidence)), webOnly(k),
          c.dropped ? h("p", { class: "muted" }, `자료에서 찾지 못한 인용 ${c.dropped}개는 뺐습니다.`) : null]
       : h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + (c.error || ASKFAIL)))))];
+}
+// an edit made just now (panel, picked sentence): its line joins the conversation at once (chat.json has it for later)
+function echo(task, c) {
+  if (!V || V.task.id !== task) return;
+  live(task).append(...said(c)); $("log").scrollTop = $("log").scrollHeight;
 }
 // one timeline: the task, its research, the chat log and the Guard cards, in the order they happened
 function conversation() {
@@ -877,7 +889,8 @@ function takeOut(c) {
   const box = h("span", { class: "edits" }), task = V.task.id;
   const ask = () => { const why = h("input", { class: "why", "data-spec-why": c.id, placeholder: "빼는 이유 (필수)" });
     const ok = () => !why.value.trim() ? (why.classList.add("need"), why.focus())
-      : pabloHost.condition(task, "drop", { id: c.id, reason: why.value.trim() }).then(() => refresh(), e => box.replaceChildren(h("span", { class: "muted" }, " " + fail(e))));
+      : pabloHost.condition(task, "drop", { id: c.id, reason: why.value.trim() }).then(() => {
+          echo(task, { role: "spec-drop", check: c.id, reason: why.value.trim() }); return refresh(); }, e => box.replaceChildren(h("span", { class: "muted" }, " " + fail(e))));
     why.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); });
     box.replaceChildren(" ", why, " ", h("button", { class: "link", "data-spec-drop-ok": c.id, on: ok }, "빼기"), " · ",
       h("button", { class: "link", on: () => box.replaceWith(takeOut(c)) }, "취소"));
@@ -887,14 +900,16 @@ function takeOut(c) {
 }
 function putBack(c) {
   const at = h("span");
-  return [at, h("button", { class: "link", "data-spec-restore": c.id, on: () => pabloHost.condition(V.task.id, "restore", { id: c.id }).then(() => refresh(),
+  return [at, h("button", { class: "link", "data-spec-restore": c.id, on: () => pabloHost.condition(V.task.id, "restore", { id: c.id }).then(() => {
+    echo(V.task.id, { role: "spec-restore", check: c.id }); return refresh(); },
     e => at.replaceChildren(h("span", { class: "muted" }, fail(e) + " "))) }, "되살리기")];
 }
 // ④ (desktop) a criterion's own buttons: the other strength, and 지우기 with an optional why, asked in place
 function edits(x, kind) {
   if (!kind || !window.pabloHost || !pabloHost.criterion || !/^[A-Z]\d+$/.test(x.id) || /^[TK]\d+$/.test(x.id)) return null;  // not the task itself
   const box = h("span", { class: "edits" }), task = V.task.id;
-  const run = (action, reason) => pabloHost.criterion(task, x.id, action, reason).then(() => refresh(),
+  const run = (action, reason) => pabloHost.criterion(task, x.id, action, reason).then(text => {
+    echo(task, { role: "criterion-edit", action, text, reason: action === "drop" ? (reason || "").trim() : "" }); return refresh(); },
     e => box.replaceChildren(h("span", { class: "muted" }, " " + fail(e))));
   const ask = () => { const why = h("input", { class: "why", "data-why": x.id, placeholder: x.repro ? "재현 기본 기준입니다. 지우는 이유 (필수)"
       : x.all ? "모든 작업에서 지워집니다. 왜? (선택)" : "왜 지우나요? (선택)" });
@@ -919,9 +934,11 @@ function intent(p) {
   const d = (M.desk || {})[V.task.id] || {}, main = (d.papers || []).find(x => x.primary), canEdit = window.pabloHost && pabloHost.condition;
   const pick = canEdit && main && (M.papers || {})[main.id] ? h("p", { class: "muted" }, h("button", { class: "link", "data-open-paper": main.id,
     on: () => show({ mode: "paper", src: main.id }) }, `📄 ${main.title} 열기`), " · 빠진 조건은 문장을 골라 더합니다.") : null;
-  const paper = spec.length || out.length || pick ? [h("h3", null, "논문 조건"), spec.length ? h("ul", { class: "ck must" }, spec.map(c => h("li", { title: c.id, "data-id": c.id },
-    h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), fact(c),
-    c.spec.by === "user" ? h("small", { class: "muted", "data-by-user": "1" }, " 직접 더함") : null, canEdit ? takeOut(c) : null))) : null,
+  const row = c => h("li", { title: c.id, "data-id": c.id }, fact(c),
+    c.spec.by === "user" ? h("small", { class: "muted", "data-by-user": "1" }, " 직접 더함") : null, canEdit ? takeOut(c) : null);
+  const kinds = [...Object.keys(SPEC), ...new Set(spec.map(c => c.spec.category).filter(k => !SPEC[k]))];  // grouped by kind, as in the card
+  const paper = spec.length || out.length || pick ? [h("h3", null, "논문 조건"), kinds.flatMap(k => { const xs = spec.filter(c => c.spec.category === k);
+      return xs.length ? [h("h4", { class: "kind" }, SPEC[k] || k), h("ul", { class: "ck must" }, xs.map(row))] : []; }),
     out.length ? h("details", { class: "gone", "data-spec-out": String(out.length) }, h("summary", null, `뺀 조건 ${out.length}개`),
       h("ul", { class: "ck" }, out.map(c => h("li", { title: c.id, "data-id": c.id }, h("s", null, (SPEC[c.spec.category] || c.spec.category) + " · " + (c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")),
         h("div", { class: "muted" }, `${day(((c.spec.dropped || []).at(-1) || {}).from)} 뺌 · 이유: ${c.waive_reason}`, canEdit ? [" · ", putBack(c)] : null))))) : null, pick] : null;
@@ -931,7 +948,8 @@ function intent(p) {
     ? h("p", { class: "muted", "data-how": "1" }, "기준은 항목 옆 버튼으로 고칩니다. 문장을 고치려면 지우고 대화에 다시 적으세요. 새 기준은 대화에 적으면 이 작업의 기준이 됩니다.") : null;
   // ④ removed criteria stay in view: when, why, and 되살리기 (the same criterion back, as strong as it was)
   const gone = (I.removed || []).filter(x => !x.to), back = x => { const at = h("span");
-    return [at, h("button", { class: "link", "data-restore": x.id, on: () => pabloHost.criterion(V.task.id, x.id, "restore").then(() => refresh(),
+    return [at, h("button", { class: "link", "data-restore": x.id, on: () => pabloHost.criterion(V.task.id, x.id, "restore").then(text => {
+      echo(V.task.id, { role: "criterion-edit", action: "restore", text }); return refresh(); },
       e => at.replaceChildren(h("span", { class: "muted" }, fail(e) + " "))) }, "되살리기")]; };
   const removed = gone.length ? h("details", { class: "gone", "data-removed": String(gone.length) }, h("summary", null, `지운 기준 ${gone.length}개`),
     h("ul", { class: "ck" }, gone.map(x => h("li", { title: x.id, "data-id": x.id }, h("s", null, x.text), x.all ? h("small", { class: "all", title: "되살리면 모든 작업에 다시 걸립니다." }, " 모든 작업") : null,
@@ -1216,17 +1234,29 @@ function picker(p, box, layer, sid, n) {
   };
   const open = q => {
     form = true;
-    const cat = h("select", { "data-cat": "1", title: "조건의 종류" }, Object.entries(SPEC).map(([k, v]) => h("option", { value: k }, v)));
+    const cat = h("select", { "data-cat": "1", title: "조건의 종류" }, h("option", { value: "" }, "종류 고르기"),
+      Object.entries(SPEC).map(([k, v]) => h("option", { value: k }, v)));
+    cat.addEventListener("change", () => { add.disabled = !cat.value; });
+    // a condition already there: the same kind and value, or the same sentence (one contains the other) of this paper
+    const kq = keyed(q)[0], similar = () => { const v = val.value.trim().toLowerCase();
+      return Object.values(M.views[task].checks).find(c => c.spec && !c.spec.missing && c.state !== "waived" && (
+        (v && c.spec.category === cat.value && String(c.spec.value || "").toLowerCase() === v) ||
+        c.evidence.some(e => { const a = M.anchors[e], ka = a && a.source === sid ? keyed(a.exact)[0] : "";
+          return ka.length >= 12 && (ka.includes(kq) || kq.includes(ka)); }))); };
+    let sure = false;
     const say = h("input", { "data-statement": "1", value: q.slice(0, 200), placeholder: "조건을 한 줄로 (예: 검색 단계의 top-k는 5)" });
     const val = h("input", { "data-value": "1", placeholder: "값 (선택, 예: 5)" }), note = h("span", { class: "muted", "data-pick-note": "1" });
-    const add = h("button", { class: "pill on", "data-add-ok": "1", on: () => {
+    const add = h("button", { class: "pill on", "data-add-ok": "1", disabled: true, on: () => {
       if (!say.value.trim()) return say.focus();
+      const same = !sure && similar();
+      if (same) return note.replaceChildren("비슷한 조건이 이미 있습니다: ", h("span", { "data-similar": same.id }, (SPEC[same.spec.category] || same.spec.category) + " · ", fact(same)),
+        " · ", h("button", { class: "link", "data-anyway": "1", on: () => { sure = true; add.click(); } }, "그래도 더하기"));
       add.disabled = true; note.textContent = "원문에서 위치를 찾는 중…";
       pabloHost.condition(task, "add", { src: sid, page: n, quote: q, category: cat.value, statement: say.value.trim(), value: val.value.trim() }).then(r => {
         Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources); M.views[task].checks[r.check.id] = r.check;
         form = false; getSelection().removeAllRanges();
         bar.replaceChildren(h("span", { "data-added": r.check.id }, "✓ 재현 조건에 더했습니다. 에이전트와 재현 점검이 이 조건도 봅니다."));
-        if (V && V.task.id === task) { live(task).append(...said({ role: "spec-add", check: r.check.id })); $("log").scrollTop = $("log").scrollHeight; }
+        echo(task, { role: "spec-add", check: r.check.id });
         return refresh();
       }, e => { add.disabled = false; note.textContent = fail(e); }); } }, "더하기");
     const cancel = h("button", { class: "link", on: () => { form = false; bar.hidden = true; } }, "취소");

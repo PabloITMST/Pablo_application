@@ -350,6 +350,9 @@ ipcMain.handle("pablo:criterion", async (e, task, id, action, reason) => {
     throw new Error("bad criterion");
   const r = await ctl.py(...(action === "drop" ? ["drop", id, "--reason", (reason || "").trim()] : action === "restore" ? ["restore", id] : ["strength", id, action]))
     .catch(err => { throw new Error(/no (active|removed) /.test(err.message) ? "이미 바뀌었거나 지운 기준입니다." : short(err.message)); });
+  // ⑩ review: whoever reads only the conversation (a supervisor, oneself later) sees what changed and why
+  logChat(task, { role: "criterion-edit", at: new Date().toISOString(), action, id, text: r.item.statement,
+    ...(action === "drop" && reason && reason.trim() ? { reason: reason.trim() } : {}) });
   return r.item.statement;
 });
 // ⑩ the user's own hand on the reproduction conditions: add one from a sentence picked in the 주 논문 (Pablo anchors it on
@@ -372,6 +375,7 @@ ipcMain.handle("pablo:condition", async (e, task, action, o) => {
     throw new Error("bad condition");
   const r = await ctl.py(...(action === "drop" ? ["drop-spec", o.id, "--reason", o.reason.trim()] : ["restore-spec", o.id]))
     .catch(err => { throw new Error(/^no (live )?condition/.test(err.message) ? "이미 빠졌거나 바뀐 조건입니다." : short(err.message)); });
+  logChat(task, { role: "spec-" + action, at: new Date().toISOString(), check: o.id, ...(action === "drop" ? { reason: o.reason.trim() } : {}) });
   return r.check.id;
 });
 // A2 the paper's reproduction conditions -> anchored checks; the conversation gets a card (chat.json "spec")
