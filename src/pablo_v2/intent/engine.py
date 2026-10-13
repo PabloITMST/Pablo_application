@@ -113,6 +113,33 @@ class IntentEngine:
         self._require_candidate(cid).status = "rejected"
         self.save()
 
+    # --- 0.8 ③④: the user decides what the reader could not, and changes or removes a criterion (with why, in history)
+    def promote_as(self, cid: str, strength: str) -> IntentItem:
+        """A line the offline reader could not classify (ignored) or held back (pending), made a rule of its task."""
+        c = self._require_candidate(cid)
+        if c.status not in ("ignored", "pending") or strength not in ("hard", "soft"):
+            raise ValueError(f"{cid} is {c.status}; only an undecided line becomes a {strength} rule")
+        c.features = {**c.features, "candidate": True, "type": "constraint", "strength": strength,
+                      "persistence": "high", "impact": "high"}
+        return self.promote_candidate(cid, f"사용자가 기준으로 정함({'반드시' if strength == 'hard' else '가능하면'})")
+
+    def set_strength(self, item_id: str, strength: str) -> IntentItem:
+        item = self.get_item(item_id)
+        if not item or item.kind != "constraint" or item.status != "active" or strength not in ("hard", "soft"):
+            raise KeyError(f"no active constraint {item_id} to make {strength}")
+        self._update(item_id, Source("user"), f"사용자가 세기를 {'반드시' if strength == 'hard' else '가능하면'}으로 바꿈",
+                     change_type="refinement", strength=strength)
+        self.save()
+        return item
+
+    def remove_item(self, item_id: str, reason: str = "") -> IntentItem:
+        item = self.get_item(item_id)
+        if not item or item.kind not in USER_KINDS or item.status != "active":
+            raise KeyError(f"no active criterion {item_id} to remove")
+        self._update(item_id, Source("user"), "사용자가 지움" + (f": {reason}" if reason else ""), status="removed")
+        self.save()
+        return item
+
     # --- agent-side API (source = agent, kept apart from user intent) --------
     def add_assumption(self, statement: str, note: str | None = None) -> IntentItem:
         return self._new(dict(type="assumption", statement=statement), Source("agent", note=note),

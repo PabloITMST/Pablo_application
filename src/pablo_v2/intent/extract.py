@@ -118,7 +118,10 @@ CORRECTION = r"^아니|했잖아|라고 했|말했잖|하랬잖|그거 말고|�
 CHANGE = r"바꾸자|바꿔|으로 변경|대신 .*(하자|쓰자)"
 ONE_OFF = r"^(일단|먼저|지금)|부터 |먼저 .*(보고|읽|확인)"
 HEDGE = r"것 같|긴 한데|긴 해|좋을 것|아마|면 좋겠|싶은데|나을 듯"
-HARD = r"반드시|꼭 |그대로 유지|해야 (돼|해|한다|합니다)|절대|무조건|하지 마|지 ?마(?:세요|라)?(?![가-힣])|지 말(?:고|아)|안 ?돼|금지|\bmust\b|\bnever\b"
+HARD = (r"반드시|꼭 |그대로 유지|해야 (돼|해|한다|합니다)|절대|무조건|하지 마|지 ?마(?:세요|라)?(?![가-힣])|지 말(?:고|아)|안 ?돼|금지|\bmust\b|\bnever\b"
+        # 0.8 review: the usual ways a researcher writes a rule ("~면 안 됨", "~없게", "~만 써", "~할 것", "~지 않는다")
+        r"|안 ?(됨|된다|됩니다)|(없|않)(게|도록)|만 (써|쓰|사용)|[가-힣] 것\.?$|지 않(는다|음|습니다)")
+SOFTEN = r"가능하면|되도록|선호|웬만하면|할 수 있으면"  # "가능하면 PyTorch만 써": a wish, even with a rule's ending
 SUCCESS = r"성공|비교 가능|달성하면"
 DECISION = r"말고 .*(하자|가자)|(으로|로) (하자|가자|결정)"
 PREFERENCE = r"있으면|가능하면|우선|선호|되도록|써\.?$|사용해"
@@ -133,6 +136,15 @@ def _has(pattern: str, text: str) -> bool:
 # It stays a criterion of the task when it says it lasts ("절대", "앞으로", ...) or when the message is only criteria.
 ASKING = r"줘|주세요|줄래|할래|설명해|\?\s*$"
 MARKED = r"절대|반드시|항상|앞으로|계속|무조건|언제나|매번|이 작업 (내내|동안|전체)|가능하면|되도록|선호"
+
+
+RULE_LIKE = r"(해|내|써|둬|라|것|돼|됨|된다|한다|함|하자|지켜|유지해|맞춰)\s*[.!]?$"
+
+
+def reads_like_rule(text: str) -> bool:
+    """③ a chat sentence the reader could not classify is shown to the user only when it ends like an instruction
+    ("평균 내", "~할 것"), so "고마워" or a question is not."""
+    return _has(RULE_LIKE, text.strip())
 
 
 def standing_criteria(text: str) -> list[str]:
@@ -169,8 +181,10 @@ class HeuristicExtractor:
         if _has(HEDGE, t):
             return hit("hedged wording", **{**constraint, "persistence": "medium"}, explicitness="implicit",
                        strength="soft")
-        if _has(HARD, t):
+        if _has(HARD, t) and not _has(SOFTEN, t):
             return hit("obligation/prohibition marker", **constraint, strength="hard")
+        if _has(HARD, t):
+            return hit("softened rule", **constraint, strength="soft")
         if _has(SUCCESS, t):
             return hit("success marker", type="success_criterion", persistence="high", impact="high")
         if _has(DECISION, t):

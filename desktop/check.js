@@ -929,6 +929,30 @@ async function uiCheck() {
   assert.strictEqual(await until(`(r => r && r.querySelector("b").dataset.route === "ask" && "ask")($("route"))`), "ask");
   assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")).route.T1, "ask");
   console.log("ok route: paper + folder -> 보낼 곳 에이전트 by default, 논문 질문 remembered for the task");
+  // ③ a new task's criterion lines (the review's own): the ones read become criteria, the ones the reader could not
+  // classify wait in the conversation for 반드시 / 가능하면 / 괜찮음; nothing is dropped without a word
+  const lines3 = ["재현 작업", "test 셋은 튜닝에 쓰면 안 됨", "결과는 3번 돌려서 평균 내", "GPU 메모리는 24GB 안에서만 써",
+    "원본 데이터 폴더는 건드리지 마", "시드는 여러 개로 돌려서 표에 정리해"];
+  await js(`$("new").click()`);
+  await js(`$("goal").value = ${JSON.stringify(lines3.join("\n"))}; $("create").click()`);
+  assert.match(await until(`(p => p && p.textContent)(document.querySelector("[data-made]"))`, 60000),
+    /^작업 기준 3개를 기록했습니다\. 적은 기준 5줄 중 2줄은 기준으로 읽지 못해, 위에서 정해 주세요\./);
+  assert.strictEqual(await js(`document.querySelector("[data-intent]").textContent.replace(/ 기준 보기$/, "")`),
+    "📌 작업 기준에 추가했습니다: test 셋은 튜닝에 쓰면 안 됨 (반드시) · GPU 메모리는 24GB 안에서만 써 (반드시) · 원본 데이터 폴더는 건드리지 마 (반드시)");
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("[data-unread]")].map(r => r.querySelector("b").textContent)`),
+    ["결과는 3번 돌려서 평균 내", "시드는 여러 개로 돌려서 표에 정리해"]);
+  if (shots || view) { await sleep(200); fs.writeFileSync(path.join(shots || view, "criteria-unread.png"), (await win.capturePage()).toPNG()); }
+  await js(`document.querySelectorAll("[data-unread]")[0].querySelector("[data-as=hard]").click()`);
+  await until(`!!document.querySelector("[data-unread] [data-decided=hard]")`);
+  await js(`document.querySelectorAll("[data-unread]")[1].querySelector("[data-as=skip]").click()`);
+  await until(`!!document.querySelector("[data-unread] [data-decided=reject]")`);
+  await until(`V.intent.must.some(x => x.text === "결과는 3번 돌려서 평균 내")`);
+  assert.ok(await js(`!V.intent.must.concat(V.intent.prefer).some(x => /표에 정리/.test(x.text))`), "let go: not a criterion");
+  const t3 = await js(`V.task.id`);
+  await js(`refresh().then(() => select(${JSON.stringify(t3)}))`);
+  assert.deepStrictEqual(await until(`(r => r.length === 2 && r)([...document.querySelectorAll("[data-unread]")].map(x => x.textContent.trim().slice(-5)))`),
+    ["(처리함)", "(처리함)"], "decided lines keep no buttons after a reload");
+  console.log("ok criteria: 5 lines -> 3 read as rules, 2 shown; 반드시 -> a rule of this task, 괜찮음 -> let go; decided after reload");
   assert.deepStrictEqual(errors, [], "no script errors");
   win.destroy();
 }

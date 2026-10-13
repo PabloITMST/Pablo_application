@@ -99,8 +99,10 @@ async function chatTurn(text, task, prep) {
   const said = await ctl.py("say", text, "--request", "--task", task).catch(err => { console.error("[pablo] say", err.message); return null; });
   // hedged ones the policy held back ("~것 같긴 한데") wait for the user's click: [기준으로 추가] / [무시]
   const held = said ? said.candidates.filter(k => k.status === "pending").map(k => ({ id: k.id, text: k.features.statement || k.text })) : [];
-  if (said && (said.added.length || held.length)) {
-    const entry = { role: "intent", at: new Date(at + 1).toISOString(), items: said.added, ...(held.length ? { pending: held } : {}) };
+  const unread = said ? said.unread || [] : [];  // ③ a rule-like sentence the reader could not classify: the user decides
+  if (said && (said.added.length || held.length || unread.length)) {
+    const entry = { role: "intent", at: new Date(at + 1).toISOString(), items: said.added, ...(held.length ? { pending: held } : {}),
+      ...(unread.length ? { unread } : {}) };
     logChat(task, entry);
     broadcast("pablo:agent", { type: "intent", task, ...entry });
   }
@@ -161,10 +163,18 @@ ipcMain.handle("pablo:new-task", async (e, text, opts) => {
   fromWindow(e); if (!str(text, 4000) || !text.trim()) throw new Error("bad task");
   const lines = [...text.split(/\r?\n/).map(x => x.trim()).filter(Boolean), ...(opts && opts.repro === true ? REPRO : [])];
   const t = await ctl.py("task", lines[0], "--checks", "[]");  // first line = the goal; no research loop in the app
-  // the other lines are this task's criteria: task scope, so they never reach other tasks
-  for (const l of lines.slice(1)) await ctl.py("say", l, "--scope", "task", "--task", t.task.id);
+  // the other lines are this task's criteria: task scope, so they never reach other tasks. ③ A line the reader could
+  // not classify is never dropped without a word: the conversation keeps every line, read or not, for the user to decide.
+  const items = [], unread = [], pending = [];
+  for (const l of lines.slice(1)) {
+    const r = await ctl.py("say", l, "--scope", "task", "--task", t.task.id);
+    items.push(...r.added); unread.push(...(r.unread || []));
+    pending.push(...r.candidates.filter(k => k.status === "pending").map(k => ({ id: k.id, text: k.features.statement || k.text })));
+  }
+  if (items.length || unread.length || pending.length)
+    logChat(t.task.id, { role: "intent", at: new Date().toISOString(), items, ...(pending.length ? { pending } : {}), ...(unread.length ? { unread } : {}) });
   saveDesk(x => { x.last = t.task.id; });
-  return t.task.id;
+  return { id: t.task.id, lines: lines.length - 1, added: items.length, unread: unread.length + pending.length };
 });
 ipcMain.handle("pablo:pick-folder", async (e, task) => {
   fromWindow(e); known(task);
@@ -327,9 +337,10 @@ ipcMain.handle("pablo:ask", (e, text, task, only) => {
 // B4 a held-back criterion: promote it to the task's intent, or drop it (the candidate stays, with its status)
 ipcMain.handle("pablo:intent", async (e, task, id, action) => {
   fromWindow(e); known(task);
-  if (!str(id, 20) || !/^K\d+$/.test(id) || !["promote", "reject"].includes(action)) throw new Error("bad candidate");
-  const r = await ctl.py(action, id);
-  return action === "promote" ? r.item.statement : null;
+  if (!str(id, 20) || !/^K\d+$/.test(id) || !["promote", "reject", "hard", "soft"].includes(action)) throw new Error("bad candidate");
+  // ③ hard / soft: a line the reader could not classify becomes this task's rule (반드시 / 가능하면)
+  const r = await ctl.py(...(action === "hard" || action === "soft" ? ["promote", id, "--as", action] : [action, id]));
+  return action === "reject" ? null : r.item.statement;
 });
 // A2 the paper's reproduction conditions -> anchored checks; the conversation gets a card (chat.json "spec")
 ipcMain.handle("pablo:spec", async (e, task) => {

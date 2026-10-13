@@ -146,6 +146,9 @@ def model(s, task_id: str) -> dict:
     for c in chat:
         if c.get("check"):
             check(c["check"])  # an ask answered from a reused or earlier check still needs its record
+    # ③ lines the reader could not classify that the user has not decided yet (their buttons stay until then)
+    status = {k.id: k.status for k in eng.state.candidates}
+    intent["unread"] = [u["id"] for c in chat for u in (c.get("unread") or []) if status.get(u["id"]) == "ignored"]
     return {"task": {"id": t.id, "text": t.text}, "stage": stage, "progress": [done, len(research)],
             "intent": intent, "research": research, "checks": checks, "plan": plan, "actions": actions,
             "chat": chat, "anchors": anchors, "sources": sources}
@@ -686,7 +689,20 @@ function matrix(c, wide) {
 const noted = c => msg("Pablo", null, (c.items || []).length ? h("p", { class: "muted", "data-intent": "1" }, "📌 작업 기준에 추가했습니다: ",
   c.items.map(i => `${i.text} (${i.strength === "hard" ? "반드시" : "가능하면"})`).join(" · "), " ",
   h("button", { class: "link", on: () => show({ mode: "intent" }) }, "기준 보기")) : null,
-  (c.pending || []).map(k => held({ ...k, live: c.live }, c.task || (V && V.task.id))));
+  (c.pending || []).map(k => held({ ...k, live: c.live }, c.task || (V && V.task.id))),
+  (c.unread || []).map(u => unreadRow({ ...u, live: c.live }, c.task || (V && V.task.id))));
+// ③ a line the reader could not classify is shown, never dropped: the user makes it a rule (반드시 / 가능하면) or lets it go
+function unreadRow(u, task) {
+  const open = u.live || (V && (V.intent.unread || []).includes(u.id));
+  const row = h("p", { class: "muted", "data-unread": u.id }, "❔ 기준으로 읽지 못했습니다: ", h("b", null, u.text), " ");
+  if (!open || !window.pabloHost || !pabloHost.intent) return row.append(open ? "" : "(처리함)"), row;
+  const act = (a, done) => () => pabloHost.intent(task, u.id, a).then(() => { row.lastChild.replaceWith(h("span", { "data-decided": a }, done)); refresh(); },
+    e => row.append(h("span", null, " " + fail(e))));
+  row.append(h("span", null, h("button", { class: "link", "data-as": "hard", on: act("hard", "반드시 지킬 기준으로 두었습니다.") }, "반드시"), " · ",
+    h("button", { class: "link", "data-as": "soft", on: act("soft", "가능하면 지킬 기준으로 두었습니다.") }, "가능하면"), " · ",
+    h("button", { class: "link", "data-as": "skip", on: act("reject", "기준으로 두지 않았습니다.") }, "괜찮음")));
+  return row;
+}
 // B4: a criterion said in hedged words is held back until the user decides; decided ones show what was decided
 function held(k, task) {
   const open = k.live || (V && V.intent.questions.some(q => q.id === k.id)), row = h("p", { class: "muted", "data-held": k.id }, "❔ 기준으로 둘까요? ", h("b", null, k.text), " ");
@@ -1302,9 +1318,11 @@ if (window.pabloHost && pabloHost.chat) {
     const err = h("p", { class: "muted" }), make = h("button", { class: "pill on", id: "create", on: () => {
       const text = ta.value.trim(); if (!text) return;
       make.disabled = true; err.textContent = "작업을 만드는 중…";
-      pabloHost.newTask(text, { repro: repro.checked }).then(id => refresh(id).then(() => {
-        const I = V.intent, n = I.must.length + I.prefer.length;
-        live(id).append(msg("Pablo", null, M.tasks.length === 1 ? art("waving", "pose") : null, h("p", null, n ? `작업 기준 ${n}개를 기록했습니다. ` : "작업을 만들었습니다. ",
+      pabloHost.newTask(text, { repro: repro.checked }).then(r => refresh(r.id).then(() => {
+        const n = r.added, id = r.id;  // what this form's lines recorded (project-wide criteria are in 기준 보기)
+        // ③ every criterion line is accounted for: recorded, or waiting above for the user to decide
+        live(id).append(msg("Pablo", null, M.tasks.length === 1 ? art("waving", "pose") : null, h("p", { "data-made": "1" }, n ? `작업 기준 ${n}개를 기록했습니다. ` : "작업을 만들었습니다. ",
+          r.unread ? h("b", null, `적은 기준 ${r.lines}줄 중 ${r.unread}줄은 기준으로 읽지 못해, 위에서 정해 주세요. `) : null,
           link("작업 기준 보기", () => show({ mode: "intent" }))),
           h("p", { class: "muted" }, "PDF를 추가하면 근거를 찾아 답하고, 작업 폴더를 고르면 그 폴더에서 작업합니다.")));
       }), e => { make.disabled = false; err.textContent = clean(e); });

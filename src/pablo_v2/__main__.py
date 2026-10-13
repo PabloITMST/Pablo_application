@@ -46,7 +46,7 @@ from dataclasses import asdict
 
 from pablo_v2 import auth
 from pablo_v2.intent.engine import IntentEngine
-from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor, standing_criteria
+from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor, reads_like_rule, standing_criteria
 from pablo_v2.intent.render import render_candidates, render_history, render_intent
 from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
@@ -106,8 +106,15 @@ def _parser() -> argparse.ArgumentParser:
                    "criteria become task-scoped intent; the request itself is the plan step, never a goal")
     s.add_argument("--task", help="the task this was said in (--scope task / --request): its task-scoped intent applies "
                    "to that task only, also when other tasks were made later")
-    for name in ("promote", "reject"):
-        add(name).add_argument("id")
+    s = add("promote")
+    s.add_argument("id")
+    s.add_argument("--as", dest="as_", choices=["hard", "soft"], help="③ make an unread / held line a rule of its task")
+    add("reject").add_argument("id")
+    s = add("strength")  # ④ the user changes a criterion's strength
+    s.add_argument("id"), s.add_argument("level", choices=["hard", "soft"])
+    s = add("drop")  # ④ the user removes a criterion (kept in the history, status removed)
+    s.add_argument("id")
+    s.add_argument("--reason", default="")
     s = add("view")
     s.add_argument("id", nargs="?", help="task to show first (--html: default the latest)")
     s.add_argument("--html", action="store_true", help="write <dir>/view-T1.html (export/debug snapshot of every task)")
@@ -241,7 +248,10 @@ def _run(a, out) -> int:
         else:
             ks = e.process_message(a.text, role="agent" if a.agent else "user")
         added = [e.get_item(k.item_id) for k in ks if k.status == "committed" and k.item_id]
-        out({"candidates": [asdict(k) for k in ks],
+        # ③ never dropped without a word: a criterion line the reader could not classify comes back for the user to
+        # decide (a new task's lines always; a chat sentence when it ends like an instruction)
+        unread = [{"id": k.id, "text": k.text} for k in ks if k.status == "ignored" and (not a.request or reads_like_rule(k.text))]
+        out({"candidates": [asdict(k) for k in ks], "unread": unread,
              "added": [{"id": i.id, "kind": i.kind, "strength": i.strength, "text": i.statement} for i in added if i]},
             "\n".join(f"{k.id} {k.action} -> {k.status} {k.item_id or ''} ({k.policy_reason})" for k in ks)
             or "(agent message stored as context)")
@@ -252,8 +262,14 @@ def _run(a, out) -> int:
     elif a.cmd == "history":
         out({"history": [asdict(c) for c in e.get_intent_history()]}, render_history(e))
     elif a.cmd == "promote":
-        item = e.promote_candidate(a.id)
+        item = e.promote_as(a.id, a.as_) if a.as_ else e.promote_candidate(a.id)
         out({"item": asdict(item)}, item.id)
+    elif a.cmd == "strength":
+        item = e.set_strength(a.id, a.level)
+        out({"item": asdict(item)}, f"{item.id} -> {item.strength}")
+    elif a.cmd == "drop":
+        item = e.remove_item(a.id, a.reason)
+        out({"item": asdict(item)}, f"{item.id} removed")
     elif a.cmd == "reject":
         e.reject_candidate(a.id)
         out({}, f"{a.id} rejected")
