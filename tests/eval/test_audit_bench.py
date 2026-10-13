@@ -219,6 +219,53 @@ def test_recheck():
         assert "check" not in runs[1]["items"][0]  # the saved answers stay as they were
 
 
+def test_rows():
+    """What a card shows: open rows (not followed / unclear, or warned; outside method differences) and what each is."""
+    with tempfile.TemporaryDirectory() as d:
+        t = B.variants(d, n=8, seed=7, clean=1)
+        keys = {"r01": "SC1", "r02": "SC2", "r03": "SC3"}
+        labels = {"r01": {"category": "dataset", "statement": "HotpotQA는 97k", "missing": False},
+                  "r02": {"category": "method", "statement": "δ는 임계값", "missing": False},
+                  "r03": {"category": "training", "statement": "시드가 없다", "missing": True}}
+        v1 = t["variants"][1]
+        p = next(p for p in v1["planted"] if p["line"])
+        line = open(os.path.join(v1["dir"], p["file"]), encoding="utf-8").read().splitlines()[p["line"] - 1]
+        runs = [{"variant": v["name"], "items": [
+            {"id": "SC1", "status": "missing", "where": "", "found": "", "note": "데이터셋 크기를 확인할 코드가 없다", "check": "unchecked"},
+            {"id": "SC2", "status": "differs", "where": "retrieve.py:8", "found": "", "note": "delta를 hop 수로 쓴다", "check": "verified"},
+            {"id": "SC3", "status": "chosen", "where": "config.yaml:15", "found": "seed: 42", "note": "", "check": "verified"},
+            {"id": "SC1", "status": "followed", "where": "run.py:19", "found": "", "note": "", "check": "value_mismatch"}]
+            + ([{"id": "SC2", "status": "differs", "where": f"{p['file']}:{p['line']}", "found": line, "note": p["id"].replace("_", " ")}]
+               if v is v1 else []),
+            "outside": [{"kind": "method", "what": "임베딩 모델을 불러 놓고 쓰지 않는다", "where": "run.py:16", "found": ""},
+                        {"kind": "scope", "what": "baseline 비교가 없다", "where": "", "found": ""}]} for v in t["variants"]]
+        r = B.rows(runs, t, labels, keys)
+        c0, c1 = r["per_variant"][0], r["per_variant"][1]
+        assert (c0["items"], c0["open"], c0["other"], c0["method"], c0["chosen"], c0["warn"], c0["planted"]) == (4, 5, 1, 2, 1, 1, 0), c0
+        assert c1["planted"] == 1 and c1["open"] == 6
+        assert r["other"][0]["condition"] == "HotpotQA는 97k" and r["conditions"]["r01"] == {"missing": 9, "followed": 9}
+        md = B.markdown_rows(r, {"date": "test", "model": "x", "avg_ms": 1})
+        assert "| 그 밖 (손으로 읽음) | 9 | 1.0 |" in md and "HotpotQA는 97k | dataset | missing 9, followed 9" in md
+
+
+def test_state_real():
+    """The spec output as a user gets it, through PabloSkill.spec: every saved quote anchors again; the audit asks all."""
+    if not os.path.exists(os.path.join(B.ROOT, "LinearRAG.pdf")):
+        print("skip test_state_real: LinearRAG.pdf not here")
+        return
+    sys.path.insert(0, os.path.join(B.ROOT, "src"))
+    from pablo_v2.intent.engine import IntentEngine
+    from pablo_v2.skill.skill import PabloSkill, render_audit
+    with tempfile.TemporaryDirectory() as d:
+        r = B.state(d, "real")
+        labels = json.load(open(os.path.join(d, "conditions.json"), encoding="utf-8"))
+        real = json.load(open(B.REAL_SPEC, encoding="utf-8"))
+        assert len(r["keys"]) == len(labels) == len(real["items"]) + len(real["missing"]) == 31
+        s = PabloSkill.load(os.path.join(d, "skill.json"), IntentEngine.load(os.path.join(d, "intent.json")))
+        _, items = render_audit(s, r["task"])
+        assert len(items) == 31 and sum(x["kind"] == "open" for x in items) == 4
+
+
 def test_state():
     if not os.path.exists(os.path.join(B.ROOT, "LinearRAG.pdf")):
         print("skip test_state: LinearRAG.pdf not here")

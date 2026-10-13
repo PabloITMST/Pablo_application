@@ -1,0 +1,213 @@
+{
+ "pdf": "LinearRAG.pdf",
+ "note": "The spec model's answer for LinearRAG.pdf as it came on 2026-10-13 (check.js --spec, the method-category prompt of c0e7fac): 27 conditions, all anchored, and 4 settings the paper does not state. Unedited: dataset sizes, the GPU, a baseline's settings and hedged sentences are in it, as a user gets them. The end-to-end bench (audit_bench.py state --conditions real) feeds it through PabloSkill.spec, before spec items carry a kind.",
+ "items": [
+  {
+   "category": "dataset",
+   "statement": "HotpotQA는 약 97,000개의 질의-응답 인스턴스로 구성된다.",
+   "value": "97k",
+   "quote": "A comprehensive benchmark comprising 97k question-answer instances designed to evaluate multi-hop reasoning capabilities.",
+   "page": 15
+  },
+  {
+   "category": "dataset",
+   "statement": "2WikiMultiHopQA는 192,000개의 질문을 포함한다.",
+   "value": "192k",
+   "quote": "A multi-hop reasoning benchmark containing 192k questions that necessitate information integration across multiple Wikipedia articles.",
+   "page": 15
+  },
+  {
+   "category": "dataset",
+   "statement": "MuSiQue는 25,000개의 질문-답변 쌍으로 구성된다.",
+   "value": "25k",
+   "quote": "A sophisticated multi-hop QA benchmark featuring 25k question-answer pairs that demand 2-4 sequential reasoning steps.",
+   "page": 15
+  },
+  {
+   "category": "dataset",
+   "statement": "Medical 데이터셋은 총 4,076개의 질문으로 구성된다.",
+   "value": "4,076",
+   "quote": "The dataset encompasses four tasks of increasing complexity: fact retrieval, complex reasoning, contextual summarization, and creative generation, totaling 4,076 questions across all difficulty levels.",
+   "page": 15
+  },
+  {
+   "category": "split",
+   "statement": "각 데이터셋의 검증 세트에서 1,000개의 질문을 선택한다.",
+   "value": "1,000",
+   "quote": "us- ing the same corpus for retrieval and choosing 1,000 questions from each validation set",
+   "page": 7
+  },
+  {
+   "category": "preprocessing",
+   "statement": "각 passage는 구두점을 사용해 문장으로 분할한다.",
+   "value": "periods or exclamation marks",
+   "quote": "we first segment each passage into sentences using punctuation (e.g., periods or exclamation marks)",
+   "page": 5
+  },
+  {
+   "category": "model",
+   "statement": "모든 방법은 all-mpnet-base-v2 임베딩 모델을 사용한다.",
+   "value": "all-mpnet-base-v2",
+   "quote": "all algorithms use the same embedding model,i.e., all-mpnet-base-v2",
+   "page": 8
+  },
+  {
+   "category": "model",
+   "statement": "생성과 평가에는 GPT-4o-mini를 사용한다.",
+   "value": "GPT-4o-mini",
+   "quote": "All RAG approaches employ the same LLM (GPT-4o-mini) for both generation and evaluation tasks.",
+   "page": 8
+  },
+  {
+   "category": "hyperparameter",
+   "statement": "모든 방법의 top-k 검색값은 5이다.",
+   "value": "5",
+   "quote": "We setk= 5 for topkretrieval in all meth- ods.",
+   "page": 8
+  },
+  {
+   "category": "hyperparameter",
+   "statement": "동적 pruning 임계값 δ는 4로 설정한다.",
+   "value": "4",
+   "quote": "And, we setδ= 4based on our experimental setting.",
+   "page": 17
+  },
+  {
+   "category": "hyperparameter",
+   "statement": "passage 초기 점수의 trade-off 계수 λ는 0.05에서 최적이다.",
+   "value": "0.05",
+   "quote": "optimal performance is achieved whenλtakes a relatively small value (e.g., 0.05)",
+   "page": 18
+  },
+  {
+   "category": "hyperparameter",
+   "statement": "PageRank의 damping factor는 일반적으로 0.85이다.",
+   "value": "0.85",
+   "quote": "Here,dis the damping factor (typically 0.85)",
+   "page": 6
+  },
+  {
+   "category": "metric",
+   "statement": "Contain-Match Accuracy는 생성된 응답에 정답이 포함되는지를 검사한다.",
+   "value": "",
+   "quote": "Contain-Match Accuracy (Contain-Acc.), which checks if the correct answer appears in the generated response",
+   "page": 8
+  },
+  {
+   "category": "metric",
+   "statement": "GPT-Evaluation Accuracy는 LLM이 예측 답변과 정답의 일치 여부를 평가한다.",
+   "value": "",
+   "quote": "GPT-Evaluation Accuracy (GPT-ACC.), an LLM-based metric that assesses whether the pre- dicted answer matches the ground truth.",
+   "page": 8
+  },
+  {
+   "category": "protocol",
+   "statement": "Medical 데이터셋은 GPT-ACC.만으로 평가한다.",
+   "value": "GPT-ACC.",
+   "quote": "For the Medical dataset, since golden answers consist of lengthy descriptive statements, we only evaluate using GPT-ACC.",
+   "page": 8
+  },
+  {
+   "category": "baseline",
+   "statement": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
+   "value": "",
+   "quote": "including KGP (Wang et al., 2024), G-retriever (He et al., 2024), RAPTOR (Sarthi et al., 2024), E2GraphRAG (Zhao et al., 2025), LightRAG",
+   "page": 7
+  },
+  {
+   "category": "baseline",
+   "statement": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
+   "value": "1, 3, or 5",
+   "quote": "We deploy Vanilla RAG methodologies across multiple retrieval configurations (retrieving 1, 3, or 5 top passages)",
+   "page": 7
+  },
+  {
+   "category": "training",
+   "statement": "실험은 NVIDIA GeForce RTX 4090 D 24GB GPU에서 수행한다.",
+   "value": "NVIDIA GeForce RTX 4090 D (24GB VRAM)",
+   "quote": "GPU NVIDIA GeForce RTX 4090 D (24GB VRAM)",
+   "page": 16
+  },
+  {
+   "category": "result",
+   "statement": "LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다.",
+   "value": "",
+   "quote": "LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72",
+   "page": 7
+  },
+  {
+   "category": "result",
+   "statement": "LinearRAG의 2Wiki GPT 기반 정확도는 63.70%이다.",
+   "value": "63.70%",
+   "quote": "LinearRAG achieves 63.70% GPT-based accuracy on 2Wiki",
+   "page": 8
+  },
+  {
+   "category": "result",
+   "statement": "LinearRAG의 2Wiki Contain 기반 정확도는 70.20%이다.",
+   "value": "70.20%",
+   "quote": "and boosts Contain-based accuracy to 70.20%.",
+   "page": 8
+  },
+  {
+   "category": "method",
+   "statement": "Tri-Graph는 entity, sentence, passage 노드와 entity-문장 및 entity-passage 연결로 구성된다.",
+   "value": "",
+   "quote": "We construct a hierarchical graph, called Tri-graph, with multiple granularities that is efficient to maintain and update.",
+   "page": 5
+  },
+  {
+   "category": "method",
+   "statement": "질문에서 추출한 각 entity는 그래프에서 가장 유사한 entity에 초기 활성화된다.",
+   "value": "",
+   "quote": "Then for each extracted entity, we find the most similar entity in the knowl- edge graph.",
+   "page": 5
+  },
+  {
+   "category": "method",
+   "statement": "문장-entity 그래프에서 질문-문장 유사도를 이용해 중간 entity의 활성화 점수를 전파한다.",
+   "value": "",
+   "quote": "Semantic propagationthat propagates the similarities inσ q through semantic similarity extrac- tion to activate relevant intermediate entities",
+   "page": 5
+  },
+  {
+   "category": "method",
+   "statement": "각 전파 단계에서 관련성 점수가 임계값을 넘는 새 entity만 다음 반복에 유지한다.",
+   "value": "",
+   "quote": "A newly activated entity is retained for the next iteration only if its relevance score exceedsδ; otherwise, it is pruned.",
+   "page": 6
+  },
+  {
+   "category": "method",
+   "statement": "활성화된 entity를 seed로 사용해 entity-passage 그래프에서 Personalized PageRank로 passage 중요도를 집계한다.",
+   "value": "",
+   "quote": "The second stage performs global impor- tance aggregation with hybrid initialization for passage nodes to retrieve important passages using Personalized PageRank",
+   "page": 6
+  },
+  {
+   "category": "method",
+   "statement": "최종 검색 결과는 passage의 PageRank 점수가 높은 top-k passage이다.",
+   "value": "",
+   "quote": "Passages are ranked by their PPR scoresI(v|v∈V p), and the top-kpassages with the highest scores are selected for retrieval.",
+   "page": 6
+  }
+ ],
+ "missing": [
+  {
+   "category": "training",
+   "statement": "실험의 난수 시드와 재현에 사용할 시드 개수는 명시되지 않았다."
+  },
+  {
+   "category": "training",
+   "statement": "학습률과 학습률 스케줄은 명시되지 않았다."
+  },
+  {
+   "category": "protocol",
+   "statement": "각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다."
+  },
+  {
+   "category": "method",
+   "statement": "생성 단계에서 사용할 구체적인 프롬프트 템플릿은 명시되지 않았다."
+  }
+ ]
+}

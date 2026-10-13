@@ -1,7 +1,11 @@
 """재현 점검 benchmark: how often 🔎 재현 점검 finds a planted drift from the paper, and how often it flags one that is not there.
 
-  state <dir>                       a Pablo state with LinearRAG.pdf and the frozen conditions (linearrag_conditions.json),
-                                    each anchored on its page -> {view, task, keys: {condition key: check id}}
+  state <dir> [--conditions frozen|real]
+                                    a Pablo state with LinearRAG.pdf and the frozen conditions (linearrag_conditions.json),
+                                    each anchored on its page -> {view, task, keys: {condition key: check id}}; real: the
+                                    spec output as a user gets it (linearrag_spec_real.json), labels in conditions.json
+  rows <results> <truth> <keys> <conditions.json> [--out prefix]
+                                    what each audit card shows a user: the open rows and what each one is
   variants <dir> [--n 8] [--seed 7] [--clean 1] [--set base|hard]
                                     copies of repro_base/ (a folder that follows every condition) with 1-3 planted drifts
                                     each, plus clean copies -> <dir>/<name>/ and <dir>/truth.json
@@ -233,18 +237,43 @@ def variants(out_dir: str, n: int = 8, seed: int = 7, clean: int = 1, set: str =
     return truth
 
 
-def state(out_dir: str) -> dict:
+REAL_SPEC = os.path.join(HERE, "linearrag_spec_real.json")
+
+
+class _Saved:
+    """The spec model's answer as it came (linearrag_spec_real.json): spec() anchors and files it like a live one."""
+    def __init__(self, answer: dict):
+        self.answer = answer
+
+    def extract_spec(self, pages: list[str]) -> dict:
+        return {"items": self.answer["items"], "missing": self.answer["missing"]}
+
+
+def state(out_dir: str, conditions_from: str = "frozen") -> dict:
+    """frozen: the hand-picked conditions with keys the truth scores (linearrag_conditions.json). real: the conditions a
+    user gets from 📋 재현 조건 뽑기, through PabloSkill.spec as the app files them; keys r01.. with their labels in
+    conditions.json (no truth per condition: what the card shows is read off, see rows)."""
     sys.path.insert(0, os.path.join(ROOT, "src"))
     from pablo_v2.intent.engine import IntentEngine
     from pablo_v2.skill.skill import PabloSkill
     from pablo_v2.skill.viewer import render_html
     spec = conditions()
     os.makedirs(out_dir, exist_ok=True)
-    s = PabloSkill(IntentEngine.load(os.path.join(out_dir, "intent.json")), path=os.path.join(out_dir, "skill.json"))
+    real = json.load(open(REAL_SPEC, encoding="utf-8")) if conditions_from == "real" else None
+    s = PabloSkill(IntentEngine.load(os.path.join(out_dir, "intent.json")), _Saved(real) if real else None,
+                   path=os.path.join(out_dir, "skill.json"))
     src = s.capture_pdf(os.path.abspath(os.path.join(ROOT, spec["pdf"])))
     t = s.start_task("LinearRAG 재현 (점검 벤치마크)", checks=[])
     keys = {}
-    for c in spec["conditions"]:
+    if real:
+        stated, missing, dropped = s.spec(t.id, src.id)
+        assert not dropped, f"{len(dropped)} saved quotes no longer anchor"
+        labels = {}
+        for i, c in enumerate(stated + missing, 1):
+            keys[f"r{i:02d}"] = c.id
+            labels[f"r{i:02d}"] = {"category": c.spec["category"], "statement": c.requirement.strip(), "missing": bool(c.spec.get("missing"))}
+        json.dump(labels, open(os.path.join(out_dir, "conditions.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    for c in [] if real else spec["conditions"]:
         a = s.add_anchor(src.id, c["quote"], page=c["page"])
         sc = s.add_check(t.id, c["statement"], "USEFUL")
         sc.spec = {"category": c["category"], "value": c["value"], "source_id": src.id, "key": c["key"]}
@@ -252,7 +281,7 @@ def state(out_dir: str) -> dict:
                          [{"tier": 4, "type": "pdf", "title": src.title, "url": src.locator, "supports": [a.id]}])
         s.link_evidence(a.id, sc.id, "supports", c["category"])
         keys[c["key"]] = sc.id
-    for c in spec["open"]:
+    for c in [] if real else spec["open"]:
         sc = s.add_check(t.id, c["statement"], "USEFUL", "논문에 없는 설정")
         sc.spec = {"category": c["category"], "value": "", "source_id": src.id, "missing": True, "key": c["key"]}
         keys[c["key"]] = sc.id
@@ -552,6 +581,65 @@ def compare(systems: dict, truth: dict) -> dict:
     return out
 
 
+WARNED = {"not_found", "no_file", "value_mismatch"}  # desktop viewer: a place Pablo could not confirm stays open
+ROW_KINDS = {"planted": "심은 어긋남", "method": "바탕의 방법 차이", "chosen": "논문에 없는 설정(코드가 정함)",
+             "warn": "따름/판단 못 함에 붙은 확인 경고", "other": "그 밖 (손으로 읽음)"}
+
+
+def rows(results: list[dict], truth: dict, labels: dict, keys: dict) -> dict:
+    """What a user reads on each audit card and what it is. Open on the card (desktop viewer): a verdict other than
+    followed / unclear, a place Pablo could not confirm, an outside method difference (the paper's experiments the folder
+    lacks fold away, like followed and unclear). Each open row: a planted drift (its place and words, as in compare), one
+    of the base's method gaps (THEMES on what the row says), an open setting the code fixed (chosen), a warning on a row
+    that is followed or unclear, or other: read by hand. labels: {key: {category, statement}} for the conditions."""
+    by_check = {v: k for k, v in keys.items()}
+    per, other, conds = [], [], {}
+    for v in truth["variants"]:
+        r = next((x for x in results if x["variant"] == v["name"]), None) or {}
+        items, outs = r.get("items", []), r.get("outside", [])
+        shown = [i for i in items if i.get("status") in ("differs", "missing", "chosen") or i.get("check") in WARNED] + \
+                [dict(o, status="outside", note=o.get("what", "")) for o in outs if o.get("kind") != "scope"]
+        c = dict(variant=v["name"], items=len(items), outside=len(outs), open=len(shown), **{k: 0 for k in ROW_KINDS})
+        for i in shown:
+            text = " ".join(str(i.get(f, "")) for f in ("what", "note"))
+            lab = labels.get(by_check.get(i.get("id"), ""), {})
+            step = lab.get("category") == "method" and not lab.get("missing")  # a method step the base only sketches
+            kind = "planted" if any(any(hits(l, p) for l in locs(i.get("where", ""))) and about(i, p) for p in v["planted"]) \
+                else "chosen" if i["status"] == "chosen" else "warn" if i["status"] in ("followed", "unclear") \
+                else "method" if step or any(re.search(rx, text, re.I | re.A) for rx in THEMES.values()) else "other"
+            c[kind] += 1
+            if kind == "other":
+                lab = labels.get(by_check.get(i.get("id"), ""), {})
+                other.append({"variant": v["name"], "status": i["status"], "category": lab.get("category", "조건 밖"),
+                              "condition": lab.get("statement", ""), "note": i.get("note", ""), "where": i.get("where", "")})
+        for i in items:
+            k = by_check.get(i.get("id"))
+            if k:
+                conds.setdefault(k, {})[i["status"]] = conds.get(k, {}).get(i["status"], 0) + 1
+        per.append(c)
+    total = {k: sum(c[k] for c in per) for k in ("items", "outside", "open", *ROW_KINDS)}
+    return {"per_variant": per, "total": total, "other": other, "conditions": conds, "labels": labels}
+
+
+def markdown_rows(r: dict, meta: dict) -> str:
+    n, t = len(r["per_variant"]), r["total"]
+    out = [f"# 점검 카드에 펼쳐지는 행 — {meta.get('date', '')} ({meta.get('tag') or ''})", "",
+           f"- 변형 {n}개, 모델 {meta.get('model')}, 점검 1회 평균 {meta.get('avg_ms')} ms",
+           f"- 카드당 판정 {round(t['items'] / n, 1)}행, 그중 펼쳐진 행 {round(t['open'] / n, 1)}행 (조건 밖 방법 차이 포함)", "",
+           "| 펼쳐진 행 | 합 | 카드당 |", "|---|---|---|"]
+    out += [f"| {label} | {t[k]} | {round(t[k] / n, 1)} |" for k, label in ROW_KINDS.items()]
+    out += ["", "## 변형별", "", "| 변형 | 판정 | 펼쳐짐 | " + " | ".join(ROW_KINDS.values()) + " |", "|---|---|---|" + "---|" * len(ROW_KINDS)]
+    out += [f"| {c['variant']} | {c['items']} | {c['open']} | " + " | ".join(str(c[k]) for k in ROW_KINDS) + " |" for c in r["per_variant"]]
+    out += ["", "## 조건별 판정 (변형 전체)", "", "| 조건 | 분류 | 판정 |", "|---|---|---|"]
+    for k, lab in r["labels"].items():
+        st = r["conditions"].get(k, {})
+        out.append(f"| {lab['statement']} | {lab['category']}{' (논문에 없음)' if lab.get('missing') else ''} | "
+                   + ", ".join(f"{s} {m}" for s, m in sorted(st.items(), key=lambda x: -x[1])) + " |")
+    out += ["", f"## 그 밖의 펼쳐진 행 {len(r['other'])}개", ""]
+    out += [f"- {o['variant']} {o['status']} [{o['category']}] {o['condition'][:60]} — {' '.join(o['note'].split())[:120]}" for o in r["other"]] or ["- 없음"]
+    return "\n".join(out) + "\n"
+
+
 def markdown_compare(c: dict, meta: dict) -> str:
     rows = ["# 비교군: Pablo 재현 점검 vs 같은 모델에 그냥 묻기 — " + meta.get("date", ""), "",
             f"- 같은 변형 {meta.get('variants')}개(씨앗 {meta.get('seed')}), 같은 모델 {meta.get('model')}, 둘 다 읽기 전용 + JSON 답",
@@ -630,8 +718,18 @@ def markdown(s: dict, meta: dict) -> str:
 def main(argv: list[str]) -> None:
     cmd = argv[0]
     opt = lambda name, d: argv[argv.index(name) + 1] if name in argv else d  # noqa: E731
-    if cmd == "state":
-        print(json.dumps(state(argv[1]), ensure_ascii=False))
+    if cmd == "state":  # state <dir> [--conditions frozen|real]
+        print(json.dumps(state(argv[1], opt("--conditions", "frozen")), ensure_ascii=False))
+    elif cmd == "rows":  # rows <results> <truth> <keys> <labels: conditions.json> [--out prefix]
+        results, truth, keys, labels = (json.load(open(x, encoding="utf-8")) for x in argv[1:5])
+        r = rows(results["runs"], truth, labels, keys)
+        md = markdown_rows(r, results.get("meta", {}))
+        prefix = opt("--out", None)
+        if prefix:
+            open(prefix + "-rows.md", "w", encoding="utf-8").write(md)
+            json.dump(r, open(prefix + "-rows.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        sys.stdout.reconfigure(encoding="utf-8")
+        print(md)
     elif cmd == "variants":
         t = variants(argv[1], int(opt("--n", 8)), int(opt("--seed", 7)), int(opt("--clean", 1)), opt("--set", "base"))
         print(json.dumps({"truth": os.path.join(os.path.abspath(argv[1]), "truth.json"),

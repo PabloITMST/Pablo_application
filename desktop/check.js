@@ -1228,12 +1228,14 @@ async function auditCheck() {
 // --set=hard: the held-out drift types (audit_bench.py HARD) instead of the ones the audit prompt was revised on
 const benchSet = () => (process.argv.find(a => /^--set=\w+$/.test(a)) || "--set=base").slice(6);
 const benchTag = () => (process.argv.find(a => /^--tag=[\w-]+$/.test(a)) || "").slice(6);
+// --conditions=real: the spec output as a user gets it (tests/eval/linearrag_spec_real.json) instead of the hand-picked set
+const benchConditions = () => (process.argv.find(a => /^--conditions=\w+$/.test(a)) || "--conditions=frozen").slice(13);
 async function auditBench() {
-  const [n = 8, seed = 7] = process.argv.slice(2).filter(a => /^\d+$/.test(a)).map(Number), set = benchSet(), tag = benchTag();
+  const [n = 8, seed = 7] = process.argv.slice(2).filter(a => /^\d+$/.test(a)).map(Number), set = benchSet(), tag = benchTag(), conds = benchConditions();
   const S = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-bench-")), BENCH = path.join(__dirname, "../tests/eval/audit_bench.py");
   const bench = (...a) => execFileSync("python", [BENCH, ...a], { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } });
   await boot(); assert.strictEqual(auth().state, "connected", "sign in once with `npm start` first");
-  const st = JSON.parse(bench("state", S)), vs = JSON.parse(bench("variants", path.join(S, "variants"), "--n", String(n), "--seed", String(seed), "--clean", "1", "--set", set));
+  const st = JSON.parse(bench("state", S, "--conditions", conds)), vs = JSON.parse(bench("variants", path.join(S, "variants"), "--n", String(n), "--seed", String(seed), "--clean", "1", "--set", set));
   const desk = w => fs.writeFileSync(path.join(S, "desktop.json"), JSON.stringify({ pdf: { [st.task]: { id: st.source, title: "LinearRAG" } }, workspace: { [st.task]: w } }));
   desk(vs.variants[0].dir);
   const win = open(st.view);
@@ -1241,7 +1243,7 @@ async function auditBench() {
   const js = code => win.webContents.executeJavaScript(code);
   const until = async (code, ms = 60000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
   const audits = () => { try { return (JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"))[st.task] || []).filter(c => c.role === "audit"); } catch { return []; } };
-  console.log(`bench: ${vs.variants.length} variants (seed ${seed}, drifts ${set}), model ${agent.model}, state ${S}`);
+  console.log(`bench: ${vs.variants.length} variants (seed ${seed}, drifts ${set}, conditions ${conds}), model ${agent.model}, state ${S}`);
   const runs = [], threads = new Set();
   for (const v of vs.variants) {
     desk(v.dir); await js(`refresh()`);
@@ -1264,9 +1266,12 @@ async function auditBench() {
   const date = new Date().toISOString().slice(0, 10), dir = path.join(__dirname, "../docs/eval"), prefix = path.join(dir, `audit-bench-${date}${tag ? "-" + tag : ""}`);
   fs.mkdirSync(dir, { recursive: true });
   const avg = Math.round(runs.reduce((a, r) => a + r.ms, 0) / runs.length);
-  fs.writeFileSync(prefix + "-results.json", JSON.stringify({ meta: { date, model: agent.model, n, seed, set, avg_ms: avg, ...(tag ? { tag } : {}) }, runs }, null, 1));
+  fs.writeFileSync(prefix + "-results.json", JSON.stringify({ meta: { date, model: agent.model, n, seed, set, conditions: conds, avg_ms: avg, ...(tag ? { tag } : {}) }, runs }, null, 1));
   fs.copyFileSync(vs.truth, prefix + "-truth.json"); fs.copyFileSync(path.join(S, "keys.json"), prefix + "-keys.json");
-  console.log(bench("score", prefix + "-results.json", prefix + "-truth.json", prefix + "-keys.json", "--out", prefix));
+  if (conds === "real") {  // no truth per condition: what each card shows, read off (audit_bench.py rows)
+    fs.copyFileSync(path.join(S, "conditions.json"), prefix + "-conditions.json");
+    console.log(bench("rows", prefix + "-results.json", prefix + "-truth.json", prefix + "-keys.json", prefix + "-conditions.json", "--out", prefix));
+  } else console.log(bench("score", prefix + "-results.json", prefix + "-truth.json", prefix + "-keys.json", "--out", prefix));
   const cur = JSON.parse(fs.readFileSync(agent.stateFile, "utf8"));  // leave the user's thread.json as it was
   for (const key of Object.keys(cur.threads)) if (key.startsWith(S + "#")) delete cur.threads[key];
   fs.writeFileSync(agent.stateFile, JSON.stringify(cur));
