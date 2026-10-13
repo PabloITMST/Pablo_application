@@ -118,7 +118,7 @@ CORRECTION = r"^아니|했잖아|라고 했|말했잖|하랬잖|그거 말고|�
 CHANGE = r"바꾸자|바꿔|으로 변경|대신 .*(하자|쓰자)"
 ONE_OFF = r"^(일단|먼저|지금)|부터 |먼저 .*(보고|읽|확인)"
 HEDGE = r"것 같|긴 한데|긴 해|좋을 것|아마|면 좋겠|싶은데|나을 듯"
-HARD = r"반드시|꼭 |그대로 유지|해야 (돼|해|한다|합니다)|절대|무조건|하지 마|\bmust\b|\bnever\b"
+HARD = r"반드시|꼭 |그대로 유지|해야 (돼|해|한다|합니다)|절대|무조건|하지 마|지 ?마(?:세요|라)?(?![가-힣])|지 말(?:고|아)|안 ?돼|금지|\bmust\b|\bnever\b"
 SUCCESS = r"성공|비교 가능|달성하면"
 DECISION = r"말고 .*(하자|가자)|(으로|로) (하자|가자|결정)"
 PREFERENCE = r"있으면|가능하면|우선|선호|되도록|써\.?$|사용해"
@@ -127,6 +127,21 @@ REQUEST = r"해\s?줘|해주세요|해 주세요"
 
 def _has(pattern: str, text: str) -> bool:
     return re.search(pattern, text, re.IGNORECASE) is not None
+
+
+# a chat message to the desktop agent: "X 해줘/알려줘" + "파일은 읽지 마" -> the prohibition qualifies this request only.
+# It stays a criterion of the task when it says it lasts ("절대", "앞으로", ...) or when the message is only criteria.
+ASKING = r"줘|주세요|줄래|할래|설명해|\?\s*$"
+MARKED = r"절대|반드시|항상|앞으로|계속|무조건|언제나|매번|이 작업 (내내|동안|전체)|가능하면|되도록|선호"
+
+
+def standing_criteria(text: str) -> list[str]:
+    """The sentences of a chat message that are the task's criteria (not the request, not a one-off qualifier)."""
+    parts = [p.strip() for p in re.split(r"(?<=[.!?。])\s+|\n+", text) if p.strip()]
+    asks = [p for p in parts if _has(ASKING, p) and not _has(MARKED, p)]  # plain requests ("가능하면 ~로 짜줘" is a wish)
+    if not asks:
+        return parts
+    return [p for p in parts if p not in asks and _has(MARKED, p)]
 
 
 class HeuristicExtractor:

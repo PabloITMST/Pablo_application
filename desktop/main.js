@@ -7,6 +7,7 @@ const { run } = require("./locate");
 const agent = require("./agent");
 const ctl = require("./controller");
 const siwc = require("./siwc");
+const checkpoint = require("./checkpoint");
 
 // M6 Squirrel installer events (Setup.exe runs the app with these): add/remove the shortcuts, then exit at once.
 // The few lines Forge's template gets from electron-squirrel-startup.
@@ -82,34 +83,81 @@ ipcMain.handle("pablo:chat", async (e, text, task) => {
   fromWindow(e); if (!str(text, 20000) || !text.trim()) throw new Error("bad message");
   known(task);
   if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
+  if (agent.busy() || preparing) throw new Error("이전 요청이 아직 진행 중입니다.");
+  const prep = preparing = { task };  // until the agent's turn starts: 중지 now means "do not start it"
+  try { return await chatTurn(text, task, prep); } finally { if (preparing === prep) preparing = null; }
+});
+let preparing = null;
+async function chatTurn(text, task, prep) {
+  const at = Date.now();
+  logChat(task, { role: "user", text, at: new Date(at).toISOString() });
+  reply = { task, at: new Date(at + 2).toISOString(), text: "" };  // the agent's answer sorts right after the message
+  // criteria said in the message ("..., X는 건드리지 마") become this task's intent before the agent starts: Guard and
+  // the brief below already use them. The request itself is the plan step, never a goal.
+  const said = await ctl.py("say", text, "--request", "--task", task).catch(err => { console.error("[pablo] say", err.message); return null; });
+  // hedged ones the policy held back ("~것 같긴 한데") wait for the user's click: [기준으로 추가] / [무시]
+  const held = said ? said.candidates.filter(k => k.status === "pending").map(k => ({ id: k.id, text: k.features.statement || k.text })) : [];
+  if (said && (said.added.length || held.length)) {
+    const entry = { role: "intent", at: new Date(at + 1).toISOString(), items: said.added, ...(held.length ? { pending: held } : {}) };
+    logChat(task, entry);
+    broadcast("pablo:agent", { type: "intent", task, ...entry });
+  }
   const d = desk(), own = d.workspace[task];
   agent.workspace = ctl.root = own || envWorkspace;  // the task's folder (M5.1), else PABLO_WORKSPACE, else read-only
+  agent.network = !!d.net[task];  // 인터넷: off unless the user turned it on for this task
+  // D4: the work folder as it is before this turn; after it, what changed becomes a card with 보기 / 되돌리기
+  const work = agent.workspace;
+  turnCp = work ? { task, work, tree: await checkpoint.snapshot(ctl.dir, task, work).catch(err => { console.error("[pablo] checkpoint", err.message); return null; }) } : null;
+  // the task's criteria and the facts Pablo located (PDF answers, research) go to the agent, and become the step's basis
+  const brief = process.env.PABLO_BRIEF === "0" ? null  // checks of the Guard as a safety net turn it off
+    : await ctl.py("brief", task).catch(err => { console.error("[pablo] brief", err.message); return null; });
   // M5.1: a task made in the app has no CLI plan; the request itself is its one step (wiring only, Guard unchanged)
-  if (own) await ctl.py("plan", task, "--steps", JSON.stringify([{ action: text.slice(0, 500), basis: [] }]))
+  if (own) await ctl.py("plan", task, "--steps", JSON.stringify([{ action: text.slice(0, 500), basis: brief ? brief.basis : [] }]))
     .catch(err => console.error("[pablo] plan", err.message));  // no plan -> Guard warns on every action (fail safe)
   saveDesk(x => { x.last = task; });
-  return agent.send(text, ctl.dir + "#" + task);  // each task talks on its own thread
-});
+  const undone = (d.undone || {})[task];  // the user undid a change since the last message: the agent hears it once
+  if (undone) saveDesk(x => { delete x.undone[task]; });
+  const note = undone ? `[Pablo] 사용자가 앞선 변경을 되돌렸습니다: ${undone.join(", ")}. 이 파일들은 그 변경 전 상태입니다. 필요하면 다시 확인하세요.` : null;
+  if (prep.stop) {  // 중지 before it started: the same ending as an interrupted turn (log, UI), then the real status again
+    agent.emit("event", { type: "done", status: "interrupted", first: null, total: Date.now() - at });
+    return agent.emit("event", { type: "status", status: agent.status });
+  }
+  return agent.send(text, ctl.dir + "#" + task, brief && brief.text ? { text: brief.text, hash: brief.hash } : null, note);  // each task talks on its own thread
+}
 // ---- M5.1 app-first workflow: live state, new task, folder and material per task (userData/state/desktop.json) ----
 let envWorkspace = null;
-const desk = () => { try { return { workspace: {}, pdf: {}, ...JSON.parse(fs.readFileSync(path.join(ctl.dir, "desktop.json"), "utf8")) }; }
-  catch { return { workspace: {}, pdf: {} }; } };
+const desk = () => { try { return { workspace: {}, pdf: {}, net: {}, ...JSON.parse(fs.readFileSync(path.join(ctl.dir, "desktop.json"), "utf8")) }; }
+  catch { return { workspace: {}, pdf: {}, net: {} }; } };
 const saveDesk = f => { const d = desk(); f(d); fs.writeFileSync(path.join(ctl.dir, "desktop.json"), JSON.stringify(d, null, 1)); };
+// the conversation per task (state/chat.json; this file is its only writer, viewer.py reads it): the user's messages, the
+// agent's finished replies, PDF questions with the check that answered them. A reopened app shows the same conversation.
+let reply = null;  // the running turn's answer: {task, at, text}
+function logChat(task, entry) {
+  const f = path.join(ctl.dir, "chat.json");
+  let log = {};
+  try { log = JSON.parse(fs.readFileSync(f, "utf8")); } catch {}
+  (log[task] = Array.isArray(log[task]) ? log[task] : []).push(entry);
+  fs.writeFileSync(f, JSON.stringify(log, null, 1));
+}
 const pick = (e, opts) => dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), opts).then(r => r.canceled ? null : r.filePaths[0]);
 ipcMain.handle("pablo:state", async e => {
   fromWindow(e);
   const m = await ctl.py("state"), d = desk();
   m.desk = Object.fromEntries(m.tasks.map(t => { const w = d.workspace[t.id] || envWorkspace, p = d.pdf[t.id];
-    return [t.id, { folder: w ? path.basename(w) : null, pdf: p ? p.title : null }]; }));  // names only, no paths
+    return [t.id, { folder: w ? path.basename(w) : null, pdf: p ? p.title : null, net: !!(d.net || {})[t.id],
+      route: (d.route || {})[t.id] === "ask" ? "ask" : "agent" }]; }));  // names only, no paths
   m.last = d.last;
   return m;
 });
-ipcMain.handle("pablo:new-task", async (e, text) => {
+// A3: a reproduction task starts with the research-integrity criteria (task scope, editable like any other)
+const REPRO = ["평가(test) 데이터는 학습, 튜닝, 모델 선택에 절대 쓰지 마.", "논문에 적힌 설정값은 근거 없이 바꾸지 마.",
+  "결과 수치는 직접 써 넣지 말고 실행한 결과에서만 가져와."];
+ipcMain.handle("pablo:new-task", async (e, text, opts) => {
   fromWindow(e); if (!str(text, 4000) || !text.trim()) throw new Error("bad task");
-  const lines = text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const lines = [...text.split(/\r?\n/).map(x => x.trim()).filter(Boolean), ...(opts && opts.repro === true ? REPRO : [])];
   const t = await ctl.py("task", lines[0], "--checks", "[]");  // first line = the goal; no research loop in the app
   // the other lines are this task's criteria: task scope, so they never reach other tasks
-  for (const l of lines.slice(1)) await ctl.py("say", l, "--scope", "task");
+  for (const l of lines.slice(1)) await ctl.py("say", l, "--scope", "task", "--task", t.task.id);
   saveDesk(x => { x.last = t.task.id; });
   return t.task.id;
 });
@@ -120,6 +168,18 @@ ipcMain.handle("pablo:pick-folder", async (e, task) => {
   const w = workspace(dir);
   saveDesk(x => { x.workspace[task] = w; x.last = task; });
   return path.basename(w);
+});
+// a task with both a paper and a work folder: where the composer sends (the agent by default; it knows the paper's facts)
+ipcMain.handle("pablo:set-route", (e, task, route) => {
+  fromWindow(e); known(task); if (!["agent", "ask"].includes(route)) throw new Error("bad route");
+  saveDesk(x => { x.route = { ...(x.route || {}), [task]: route }; });
+  return route;
+});
+// D1 인터넷 per task: package installs, dataset downloads, git clone. Each command still goes through the Guard.
+ipcMain.handle("pablo:set-net", (e, task, on) => {
+  fromWindow(e); known(task);
+  saveDesk(x => { x.net = { ...(x.net || {}), [task]: on === true }; });
+  return on === true;
 });
 ipcMain.handle("pablo:add-source", async (e, task) => {
   fromWindow(e); known(task);
@@ -135,17 +195,125 @@ ipcMain.handle("pablo:ask", (e, text, task) => {
   known(task);
   if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
   saveDesk(x => { x.last = task; });
-  return ctl.ask(task, text, (desk().pdf[task] || {}).id).catch(err => { console.error("[pablo] ask", err.message); throw new Error(short(err.message)); });  // no raw API text in the UI
+  const at = new Date().toISOString();
+  return ctl.ask(task, text, (desk().pdf[task] || {}).id).then(r => {
+    logChat(task, { role: "ask", text, at, check: r.check.id, ...(r.dropped.length ? { dropped: r.dropped.length } : {}) });
+    return r;
+  }, err => {
+    console.error("[pablo] ask", err.message);
+    logChat(task, { role: "ask", text, at, error: short(err.message) });
+    throw new Error(short(err.message));  // no raw API text in the UI
+  });
+});
+// B4 a held-back criterion: promote it to the task's intent, or drop it (the candidate stays, with its status)
+ipcMain.handle("pablo:intent", async (e, task, id, action) => {
+  fromWindow(e); known(task);
+  if (!str(id, 20) || !/^K\d+$/.test(id) || !["promote", "reject"].includes(action)) throw new Error("bad candidate");
+  const r = await ctl.py(action, id);
+  return action === "promote" ? r.item.statement : null;
+});
+// A2 the paper's reproduction conditions -> anchored checks; the conversation gets a card (chat.json "spec")
+ipcMain.handle("pablo:spec", async (e, task) => {
+  fromWindow(e); known(task);
+  if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
+  const src = (desk().pdf[task] || {}).id;
+  if (!src) throw new Error("먼저 논문 PDF를 추가하세요.");
+  const at = new Date().toISOString();
+  const r = await ctl.py("spec", task, "--source", src).catch(err => { console.error("[pablo] spec", err.message); throw new Error(short(err.message)); });
+  logChat(task, { role: "spec", at, checks: r.stated.map(c => c.id), missing: r.missing.map(c => c.id), dropped: r.dropped.length });
+  return r;
+});
+// A5/A6 재현 점검: the agent reads the work folder (read-only sandbox, nothing can change, so no Guard per read) and
+// judges every paper condition, open setting and task criterion against the code, configs and run logs -> a table
+ipcMain.handle("pablo:audit", async (e, task) => {
+  fromWindow(e); known(task);
+  if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
+  if (agent.busy()) throw new Error("이전 요청이 아직 진행 중입니다.");
+  const work = desk().workspace[task] || envWorkspace;
+  if (!work) throw new Error("먼저 작업 폴더를 선택하세요.");
+  const a = await ctl.py("audit", task);
+  if (!a.items.length) throw new Error("대조할 논문 조건이나 작업 기준이 없습니다. 먼저 재현 조건을 뽑거나 기준을 적어 주세요.");
+  agent.workspace = ctl.root = work; agent.network = false;
+  reply = { task, at: new Date().toISOString(), text: "", audit: a.items.map(x => x.id) };
+  saveDesk(x => { x.last = task; });
+  return agent.send(a.prompt, ctl.dir + "#" + task, null, null, { readOnly: true, outputSchema: a.schema });
 });
 // M4.2 the user's answers: WARN [진행]/[취소], and "다른 모델로 다시 시도" after a capacity failure
 ipcMain.handle("pablo:decide", (e, id, proceed) => { fromWindow(e); if (!str(id, 20)) throw new Error("bad id"); ctl.decide(id, proceed === true); });
-ipcMain.handle("pablo:retry", e => { fromWindow(e); return agent.retry(); });
+ipcMain.handle("pablo:retry", e => {
+  fromWindow(e);
+  if (agent.task()) reply = { task: agent.task().split("#").pop(), at: new Date().toISOString(), text: "" };
+  return agent.retry();
+});
+ipcMain.handle("pablo:stop", e => {  // 중지: the running turn (open WARN cards decline), or the one about to start
+  fromWindow(e); ctl.cancelAll();
+  if (!agent.busy() && preparing) { preparing.stop = true; return true; }
+  return agent.interrupt();
+});
 ipcMain.handle("pablo:agent-status", e => { fromWindow(e); return agent.status; });
 ipcMain.handle("pablo:models", e => { fromWindow(e); // the account's catalog (docs: not app-server's bundled list), shown by display_name
   const name = s => ((account && account.models.find(m => m.slug === s)) || {}).name || s;
   return { models: agent.models.map(s => ({ slug: s, name: name(s) })), model: agent.model };
 });
 ipcMain.handle("pablo:set-model", (e, m) => { fromWindow(e); if (!str(m, 100)) throw new Error("bad model"); agent.setModel(m); });
+// D4 after the turn: the folder against its checkpoint; any change -> chat log + a 변경 card in the conversation
+let turnCp = null;  // {task, work, tree}
+agent.on("event", ev => {
+  if (ev.type !== "done" || !turnCp) return;
+  const c = turnCp; turnCp = null;
+  if (!c.tree) return;
+  checkpoint.snapshot(ctl.dir, c.task, c.work).then(async to => {
+    const files = await checkpoint.changes(ctl.dir, c.task, c.work, c.tree, to);
+    if (!files.length) return;
+    const entry = { role: "changes", at: new Date().toISOString(), from: c.tree, to, files };
+    logChat(c.task, entry);
+    broadcast("pablo:agent", { type: "changes", task: c.task, ...entry });
+  }).catch(err => console.error("[pablo] checkpoint", err.message));
+});
+const SHA = x => typeof x === "string" && /^[0-9a-f]{40}$/.test(x);
+const workOf = task => desk().workspace[task] || envWorkspace;
+ipcMain.handle("pablo:diff", (e, task, from, to) => {
+  fromWindow(e); known(task); if (!SHA(from) || !SHA(to) || !workOf(task)) throw new Error("bad change");
+  return checkpoint.diff(ctl.dir, task, workOf(task), from, to);
+});
+// 되돌리기: the files that changed from -> to go back to from, unless something changed them again since
+ipcMain.handle("pablo:undo", async (e, task, from, to) => {
+  fromWindow(e); known(task); if (!SHA(from) || !SHA(to) || !workOf(task)) throw new Error("bad change");
+  if (agent.busy()) throw new Error("에이전트가 작업하는 중에는 되돌릴 수 없습니다.");
+  const work = workOf(task), now = await checkpoint.snapshot(ctl.dir, task, work);
+  const mine = await checkpoint.changes(ctl.dir, task, work, from, to), later = await checkpoint.changes(ctl.dir, task, work, to, now);
+  const both = mine.filter(m => later.some(l => l.path === m.path)).map(m => m.path);
+  if (both.length) throw new Error(`그 뒤에 다시 바뀐 파일이 있어 되돌리지 않았습니다: ${both.join(", ")}`);
+  const files = await checkpoint.restore(ctl.dir, task, work, from, to);
+  logChat(task, { role: "undo", at: new Date().toISOString(), of: to, files: files.map(f => f.path) });
+  saveDesk(x => { x.undone = { ...(x.undone || {}), [task]: [...new Set([...((x.undone || {})[task] || []), ...files.map(f => f.path)])] }; });
+  return files.length;
+});
+// before the broadcast below: the reply is in chat.json when the window hears "done" and reads the state again
+agent.on("event", ev => {
+  if (!reply) return;
+  if (ev.type === "delta") reply.text += ev.text;
+  if (ev.type !== "done") return;
+  const r = reply; reply = null;
+  try {
+    if (r.audit) {  // 재현 점검: the answer is JSON (outputSchema); only the asked ids are kept
+      const entry = { role: "audit", at: r.at, status: ev.status, ...audited(r) };
+      if (ev.error) entry.error = short(ev.error);
+      logChat(r.task, entry);
+      broadcast("pablo:agent", { type: "audit", task: r.task, ...entry });
+    } else logChat(r.task, { role: "agent", text: r.text, at: r.at, status: ev.status, ...(ev.error ? { error: short(ev.error) } : {}) });
+  } catch (err) { console.error("[pablo] chat log", err.message); }
+});
+// the turn's last agent message is the answer (outputSchema shapes only that one; earlier ones are progress notes)
+agent.on("item", it => { if (reply && it.type === "agentMessage") reply.last = it.text; });
+function audited(r) {
+  try {
+    const j = JSON.parse((r.last || r.text).trim().replace(/^```(?:json)?\s*|\s*```$/g, "")), asked = new Set(r.audit);
+    const items = (j.items || []).filter(x => x && asked.has(x.id)).map(x => ({ id: x.id, status: String(x.status),
+      where: String(x.where || ""), found: String(x.found || "").slice(0, 300), note: String(x.note || "").slice(0, 300) }));
+    return { items, summary: String(j.summary || "").slice(0, 1000) };
+  } catch { return r.text.trim() ? { items: [], summary: "", unreadable: true } : { items: [], summary: "" }; }
+}
 agent.on("event", ev => broadcast("pablo:agent", ev.type === "status" && ev.error ? { ...ev, error: short(ev.error) } : ev));
 agent.onRequest = ctl.request;
 agent.on("item", ctl.item);

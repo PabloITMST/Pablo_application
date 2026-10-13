@@ -1,7 +1,7 @@
 {
   "name": "pablo-desktop",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "author": "Pablo",
   "description": "Pablo desktop app",
   "main": "main.js",

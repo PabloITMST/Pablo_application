@@ -107,8 +107,11 @@ const quit = async () => { await main.run(`require("electron").app.quit(); 1`, {
   await until(`$("dir").textContent.includes(${JSON.stringify(path.basename(W))})`, 30000);
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`, 60000);
   const before = files();
-  const a = await turn("hello.txt에 한국어 인사 '안녕하세요'도 한 줄 추가해줘.", async card => {
-    assert.deepStrictEqual(files(), before, "nothing ran before [진행]"); await shot("a3-warn.png"); console.log("   WARN:", card.replace(/\s+/g, " ").slice(0, 160)); });
+  const onWarn = async card => {
+    assert.deepStrictEqual(files(), before, "nothing ran before [진행]"); await shot("a3-warn.png"); console.log("   WARN:", card.replace(/\s+/g, " ").slice(0, 160)); };
+  let a = await turn("hello.txt에 한국어 인사 '안녕하세요'도 한 줄 추가해줘.", onWarn);
+  // M7: the agent is told the criteria first and may ask before going against a soft one; the user says go on
+  if (!a.warned && files()["hello.txt"] === before["hello.txt"]) a = await turn("응, 이번에는 그대로 추가해줘.", onWarn);
   console.log("   hello.txt:", JSON.stringify(files()["hello.txt"]));
   const codex = execFileSync("powershell", ["-NoProfile", "-Command", "(Get-CimInstance Win32_Process -Filter \"name='codex.exe'\").ExecutablePath"], { encoding: "utf8" }).trim();
   console.log("   codex app-server:", codex);
@@ -123,8 +126,11 @@ const quit = async () => { await main.run(`require("electron").app.quit(); 1`, {
   const pre = files();
   await turn("keep.txt는 이제 필요 없으니 지워줘.");
   assert.deepStrictEqual(files(), pre, "BLOCK: nothing changed");
+  // the Guard's BLOCK, or (M7) the agent keeping the hard criterion it was told before even trying
   const blocked = await js(`document.querySelectorAll("#live [data-verdict=BLOCK]").length`);
-  console.log("   BLOCK cards:", blocked); assert.ok(blocked, "a BLOCK card");
+  const reply = await js(`[...document.querySelectorAll("#live .stream")].at(-1).innerText`);
+  console.log("   BLOCK cards:", blocked, "| reply:", reply.replace(/\s+/g, " ").slice(0, 120));
+  assert.ok(blocked || /기준|삭제하지|지우지|지울 수/.test(reply), "a BLOCK card or the agent declining by the criterion");
   await shot("a6-block.png"); await noIds();
   }
 
@@ -158,8 +164,9 @@ const quit = async () => { await main.run(`require("electron").app.quit(); 1`, {
   await start("launch 2 (restart)");
   const side = await js(`$("side").innerText`);
   assert.ok(/인사말 파일 정리/.test(side) && /LinearRAG 논문/.test(side), "both tasks listed");
-  // the stored answer and its [n] come back (the question text itself is not stored: M5.1 behavior)
+  // the stored answer and its [n] come back, under the question that was asked (M7 chat log)
   assert.ok(await js(`/249\.78/.test($("log").innerText) && $("log").querySelectorAll(".cite").length > 0`), "B's answer restored");
+  assert.ok(await js(`$("log").innerText.includes(${JSON.stringify(q)})`), "B's question restored");
   await shot("r1-restored-b.png");
   await js(`[...$("side").querySelectorAll("button.t")].find(b => /인사말/.test(b.textContent)).click()`);
   await until(`/안녕하세요/.test($("log").innerText)`, 30000);

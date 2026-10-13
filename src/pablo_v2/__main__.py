@@ -14,6 +14,8 @@ Skill     task "<task>" [--checks JSON]          start task; no --checks -> Code
                  [--observe "<fact>"]... [--error "<error>"]...      -> EX1
           review EX1                              -> PostReview (observations + proposals, changes nothing)
           view T1 [--html]                        --html: snapshot evidence viewer file
+          brief T1                                what the desktop agent is told: criteria + located facts (+ basis ids)
+          audit T1                                the 재현 점검 turn for the desktop agent: prompt + output schema + items
 Evidence  source <url> [--title T]                Pablo fetches + snapshots the page -> SRC1 (version = content hash)
           source <file.pdf> [--title T]           M3.3: copies the PDF + its page text -> SRC1 (version = bytes hash)
           anchor SRC1 "<exact quote>" [--near "<text next to it>"] [--page N]   -> E1 (refused if missing or ambiguous)
@@ -21,12 +23,15 @@ Evidence  source <url> [--title T]                Pablo fetches + snapshots the 
           resolve E1 | resolve --all              re-fetch live source -> VALID | STALE | UNRESOLVED
           evidence E1                             quote in context, status, links
           ask T1 "<question>" [--source SRC1]     M3.3: answer from a captured PDF, quotes anchored -> SC + [n] citations
+          spec T1 [--source SRC1]                 the paper's reproduction conditions -> anchored VERIFIED checks
+                                                  (+ pending checks for what the paper does not state)
 JSON args accept inline JSON or @file.json. State lives in --dir (default .pablo/).
 Exit codes: 0 ok, 2 refused by Pablo (research gate etc.), 1 other error.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import pathlib
@@ -36,14 +41,14 @@ from dataclasses import asdict
 
 from pablo_v2 import auth
 from pablo_v2.intent.engine import IntentEngine
-from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor
+from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor, standing_criteria
 from pablo_v2.intent.render import render_candidates, render_history, render_intent
 from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
 from pablo_v2.skill.viewer import model, render_html, workspace
 from pablo_v2.skill.evidence import AnchorRejected
-from pablo_v2.skill.skill import (DecisionRejected, PabloSkill, ResearchIncomplete, ResearchRejected, render_evidence,
-                                  render_task)
+from pablo_v2.skill.skill import (AUDIT_SCHEMA, DecisionRejected, PabloSkill, ResearchIncomplete, ResearchRejected,
+                                  render_audit, render_brief, render_evidence, render_task)
 
 # M1.1 acceptance conversation: (role, text)
 ACCEPTANCE = [
@@ -92,12 +97,18 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--agent", action="store_true", help="agent message: context only, never intent")
     s.add_argument("--scope", choices=["task"], help="said as part of the current (latest) task, e.g. desktop new-task criteria: "
                    "project-scope candidates become task-scoped")
+    s.add_argument("--request", action="store_true", help="a chat message to the desktop agent: one sentence at a time, its "
+                   "criteria become task-scoped intent; the request itself is the plan step, never a goal")
+    s.add_argument("--task", help="the task this was said in (--scope task / --request): its task-scoped intent applies "
+                   "to that task only, also when other tasks were made later")
     for name in ("promote", "reject"):
         add(name).add_argument("id")
     s = add("view")
     s.add_argument("id", nargs="?", help="task to show first (--html: default the latest)")
     s.add_argument("--html", action="store_true", help="write <dir>/view-T1.html (export/debug snapshot of every task)")
     add("state")  # the desktop's live workspace model (read-only)
+    add("brief").add_argument("task_id")
+    add("audit").add_argument("task_id")
 
     s = add("task")
     s.add_argument("text")
@@ -124,6 +135,7 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("--why", help="justification when the action departs from the plan, a constraint or a source")
     s = add("gate")
     s.add_argument("task_id"), s.add_argument("description")
+    s.add_argument("--rewrites", type=_json_arg, default=[], help='file edits measured by the host: [{"path", "lines", "removed"}]')
     s = add("decide")
     s.add_argument("action_id"), s.add_argument("decision", choices=["proceed", "defer", "reject"])
     s.add_argument("--reason", default="")
@@ -152,6 +164,9 @@ def _parser() -> argparse.ArgumentParser:
     add("evidence").add_argument("evidence_id")
     s = add("ask")
     s.add_argument("task_id"), s.add_argument("question")
+    s.add_argument("--source", help="PDF source id (default: the latest captured PDF)")
+    s = add("spec")
+    s.add_argument("task_id")
     s.add_argument("--source", help="PDF source id (default: the latest captured PDF)")
     return p
 
@@ -200,11 +215,23 @@ def _run(a, out) -> int:
     s = PabloSkill.load(os.path.join(a.dir, "skill.json"), e, LLMJudge(provider(a.model)))
 
     if a.cmd == "say":
-        if a.scope:  # same task scope the extractor gives "이번 작업에서는 ..."; the M1 policy/relations are unchanged
+        if a.scope or a.request:  # same task scope the extractor gives "이번 작업에서는 ..."; the M1 policy/relations are unchanged
             ex = e.extractor.extract
-            e.extractor.extract = lambda *x: [dict(f, scope=a.scope) if f.get("scope") == "project" else f for f in ex(*x)]
-        ks = e.process_message(a.text, role="agent" if a.agent else "user")
-        out({"candidates": [asdict(k) for k in ks]},
+            e.extractor.extract = lambda *x: [dict(f, scope="task") if f.get("scope") == "project" else f for f in ex(*x)]
+            if a.task:
+                s.get_task(a.task)
+                ex1 = e.extractor.extract
+                e.extractor.extract = lambda *x: [dict(f, task=a.task) if f.get("scope") in ("task", "action") else f
+                                                  for f in ex1(*x)]
+        if a.request:  # "X 해줘. Y는 건드리지 마." -> the request is the step; only its criteria (Y) are intent
+            ex2 = e.extractor.extract
+            e.extractor.extract = lambda *x: [dict(f, type="other") if f.get("type") == "goal" else f for f in ex2(*x)]
+            ks = [k for p in standing_criteria(a.text) for k in e.process_message(p)]
+        else:
+            ks = e.process_message(a.text, role="agent" if a.agent else "user")
+        added = [e.get_item(k.item_id) for k in ks if k.status == "committed" and k.item_id]
+        out({"candidates": [asdict(k) for k in ks],
+             "added": [{"id": i.id, "kind": i.kind, "strength": i.strength, "text": i.statement} for i in added if i]},
             "\n".join(f"{k.id} {k.action} -> {k.status} {k.item_id or ''} ({k.policy_reason})" for k in ks)
             or "(agent message stored as context)")
     elif a.cmd == "show":
@@ -244,7 +271,7 @@ def _run(a, out) -> int:
                                               [f"  {r['rule']} {r['verdict']}: {r['reason']}" for r in act.reasons]))
     elif a.cmd == "gate":
         step = current_step(s, a.task_id)
-        act = s.propose_action(a.task_id, a.description, step)
+        act = s.propose_action(a.task_id, a.description, step, rewrites=a.rewrites)
         v = next(x for x in model(s, a.task_id)["actions"] if x["id"] == act.id)
         reason = plain(v["problems"][0], {c["id"]: c["text"] for c in v["criteria"]}) \
             if v["problems"] and act.verdict != "ALLOW" else ""
@@ -286,6 +313,16 @@ def _run(a, out) -> int:
              "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
             "\n".join([sc.conclusion, *(render_evidence(s, e) for e in ids),
                        *(f"dropped p.{d['page']}: {d['quote']} ({d['why']})" for d in dropped)]))
+    elif a.cmd == "spec":
+        stated, missing, dropped = s.spec(a.task_id, a.source)
+        v = model(s, a.task_id)
+        ids = [e for c in stated for e in v["checks"][c.id]["evidence"]]
+        out({"stated": [v["checks"][c.id] for c in stated], "missing": [v["checks"][c.id] for c in missing],
+             "dropped": dropped, "anchors": {e: v["anchors"][e] for e in ids},
+             "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
+            "\n".join([f"{c.id} [{c.spec['category']}] {c.conclusion}" for c in stated]
+                      + [f"{c.id} [{c.spec['category']}] 논문에 없음: {c.requirement}" for c in missing]
+                      + [f"dropped p.{d['page']}: {d['quote']} ({d['why']})" for d in dropped]))
     elif a.cmd == "view" and a.html:
         path = os.path.abspath(os.path.join(a.dir, f"view-{a.id}.html" if a.id else "pablo.html"))
         with open(path, "w", encoding="utf-8") as f:
@@ -298,6 +335,13 @@ def _run(a, out) -> int:
         raise SystemExit("view: task id required (or --html)")
     elif a.cmd == "state":
         out(workspace(s), f"{len(s.state.tasks)} tasks")
+    elif a.cmd == "audit":
+        prompt, items = render_audit(s, a.task_id)
+        out({"prompt": prompt, "schema": AUDIT_SCHEMA, "items": items}, prompt)
+    elif a.cmd == "brief":
+        text, basis = render_brief(s, a.task_id)
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16] if text else ""
+        out({"text": text, "basis": basis, "hash": digest}, text or "(nothing to tell the agent)")
     return 0
 
 
@@ -315,11 +359,14 @@ def plain(text: str, labels: dict) -> str:
 
 
 def current_step(s: PabloSkill, task_id: str) -> str | None:
-    """First step of the active plan that no PostReview has marked completed (None without a plan)."""
+    """First step of the active plan that no PostReview has marked completed; when every step is, the last one: the
+    agent is still working on that request (follow-up edits, a test run), not acting without a plan. None without a plan."""
     plans = [p for p in s.plans(task_id) if p.status == "active"]
     done = {r.action_id for r in s.state.reviews if r.plan_step_status == "completed"}
     done = {s.get_action(i).plan_step for i in done}
-    return next((st["id"] for st in plans[-1].steps if st["id"] not in done), None) if plans else None
+    if not plans or not plans[-1].steps:
+        return None
+    return next((st["id"] for st in plans[-1].steps if st["id"] not in done), plans[-1].steps[-1]["id"])
 
 
 def _intent_json(e: IntentEngine) -> dict:
