@@ -808,7 +808,12 @@ async function uiCheck() {
   // checked in a file, not in code
   assert.deepStrictEqual(await js(`(b => [...b.querySelectorAll(":scope > ul > li, details li")].map(x => [x.querySelector(".at code").textContent,
     (x.querySelector(".at [data-check]") || {}).textContent, (x.querySelector("[data-via]") || {}).textContent]))(document.querySelectorAll("[data-audit]")[1])`),
-    [["run.py:3", "✓ Pablo가 코드에서 확인", "↳ 값을 정하는 곳: config.yaml:5 top_k: 10"], ["logs/2wiki.log:1", "✓ Pablo가 파일에서 확인", undefined]]);
+    [["logs/2wiki.log:1", "✓ Pablo가 파일에서 확인", undefined], ["run.py:3", "✓ Pablo가 코드에서 확인", "↳ 값을 정하는 곳: config.yaml:5 top_k: 10"]]);
+  // ⑦ top-k was an intended deviation when the second audit ran: its 다름 is 의도한 차이, with why; the first audit's is not
+  assert.deepStrictEqual(await js(`(b => [b.querySelector(".head").textContent, b.querySelector("li.st-intended b").textContent,
+    b.querySelector("[data-dev-why]").textContent])(document.querySelectorAll("[data-audit]")[1])`),
+    ["🔎 재현 점검: 다름 1 · 의도한 차이 1", "◇ 의도한 차이", "이유: ablation: top-k 10으로 비교"]);
+  assert.ok(await js(`!document.querySelectorAll("[data-audit]")[0].querySelector(".st-intended")`));
   // A2: what Pablo saw at each place: the ones it could not confirm come first, open, whatever the verdict
   const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, checked: b.querySelector("[data-checked]").textContent,
     rows: [...b.querySelectorAll(":scope > ul > li")].map(x => [x.className, x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent,
@@ -902,6 +907,37 @@ async function uiCheck() {
   c = await code("verified");
   assert.ok(await js(`!$("panel").dataset.still`) && !/점검 때/.test(c.info), "as it was: no word");
   console.log("ok code panel: config.yaml:5 highlighted, VS Code at :5, moved -> 12, wrong place says so, outside refused, changed since the audit -> said");
+  // ⑦ the agent asks to swap the embedding model: BLOCK on the paper's condition; the card offers 의도한 차이로 두기 (why
+  // first); then the same request is not blocked on it; 논문대로 되돌리기 in the 기준 panel and it is blocked again
+  const swap = () => JSON.parse(execFileSync("python", [path.join(__dirname, "../tests/skill/ui_fixture.py"), "--block-spec", S],
+    { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } }));
+  const b1 = swap();
+  assert.ok(b1.verdict === "BLOCK" && b1.rules.includes("S01"), JSON.stringify(b1));
+  await js(`close(); refresh().then(() => select("T1"))`);
+  const card = `document.querySelector('[data-id="${b1.act}"] [data-offer]')`;
+  assert.match(await until1(`(o => o && o.textContent)(${card})`), /^일부러 논문과 다르게 하려는 것이라면.*모델 · 임베딩 모델은 all-mpnet-base-v2이다 의도한 차이로 두기$/);
+  await js(`${card}.querySelector("[data-deviate]").click()`);
+  await js(`${card}.querySelector("[data-deviate-ok]").click()`);
+  await sleep(200);
+  assert.ok(await js(`${card}.querySelector("[data-dev-why-in]").classList.contains("need")`), "no reason: not yet");
+  await js(`${card}.querySelector("[data-dev-why-in]").value = "ablation: 임베딩 모델 비교"; ${card}.querySelector("[data-deviate-ok]").click()`);
+  await until1(`!!${card}.querySelector("[data-deviated]")`);
+  assert.match(await until1(`(x => x && x.textContent)(document.querySelector('#live [data-spec-edit="deviate"]'))`),
+    /^◇ 논문 조건을 의도한 차이로 두었습니다: 모델 · 임베딩 모델은 all-mpnet-base-v2이다 \(이유: ablation: 임베딩 모델 비교\)\. Pablo는/);
+  const b2 = swap();
+  assert.ok(b2.verdict !== "BLOCK" && !b2.rules.includes("S01"), JSON.stringify(b2));
+  const brief = JSON.parse(execFileSync("python", ["-m", "pablo_v2", "brief", "T1", "--json", "--dir", S],
+    { encoding: "utf8", env: { ...process.env, PYTHONPATH: path.join(__dirname, "../src"), PYTHONIOENCODING: "utf-8" } })).text;
+  assert.match(brief, /일부러 논문과 다르게 두는 조건[^\n]*\n- \[모델\] 임베딩 모델은 all-mpnet-base-v2이다 → 이유: ablation: 임베딩 모델 비교/);
+  await js(`show({ mode: "intent" })`);
+  assert.match(await until1(`(x => x && x.textContent)(document.querySelector('#panel [data-dev]'))`), /^◇ 의도한 차이: ablation: 임베딩 모델 비교$/);
+  if (shots || view) { await sleep(200); fs.writeFileSync(path.join(shots || view, "intended-deviation.png"), (await win.capturePage()).toPNG()); }
+  await js(`document.querySelector('#panel [data-undeviate]').click()`);
+  await until1(`!document.querySelector('#panel [data-dev]') && !!document.querySelector('#live [data-spec-edit="undeviate"]')`);
+  const b3 = swap();
+  assert.ok(b3.verdict === "BLOCK" && b3.rules.includes("S01"), JSON.stringify(b3));
+  await js(`close()`);
+  console.log("ok intended deviation: BLOCK on the embedding model -> 의도한 차이로 두기 (why first) -> not blocked, the brief says why -> 논문대로 되돌리기 -> blocked again");
 
   // D4: a turn's changes (checkpoint before / after, shadow git under the state dir) -> 변경 보기 -> 되돌리기
   const W = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-ui-ws-")), at = f => path.join(W, f);

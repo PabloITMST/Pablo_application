@@ -371,11 +371,14 @@ ipcMain.handle("pablo:condition", async (e, task, action, o) => {
     logChat(task, { role: "spec-add", at, check: r.check.id });
     return r;
   }
-  if (!["drop", "restore"].includes(action) || !str(o.id, 20) || !/^SC\d+$/.test(o.id) || (action === "drop" && (!str(o.reason, 300) || !o.reason.trim())))
+  // ⑦ deviate (why required) / undeviate: the user differs from the condition on purpose, or goes back to the paper
+  const why = ["drop", "deviate"].includes(action);
+  if (!["drop", "restore", "deviate", "undeviate"].includes(action) || !str(o.id, 20) || !/^SC\d+$/.test(o.id) || (why && (!str(o.reason, 300) || !o.reason.trim())))
     throw new Error("bad condition");
-  const r = await ctl.py(...(action === "drop" ? ["drop-spec", o.id, "--reason", o.reason.trim()] : ["restore-spec", o.id]))
-    .catch(err => { throw new Error(/^no (live )?condition/.test(err.message) ? "이미 빠졌거나 바뀐 조건입니다." : short(err.message)); });
-  logChat(task, { role: "spec-" + action, at: new Date().toISOString(), check: o.id, ...(action === "drop" ? { reason: o.reason.trim() } : {}) });
+  const cmd = { drop: "drop-spec", restore: "restore-spec", deviate: "deviate", undeviate: "undeviate" }[action];
+  const r = await ctl.py(cmd, o.id, ...(why ? ["--reason", o.reason.trim()] : []))
+    .catch(err => { throw new Error(/^no (live condition|condition|intended deviation)/.test(err.message) ? "이미 빠졌거나 바뀐 조건입니다." : short(err.message)); });
+  logChat(task, { role: "spec-" + action, at: new Date().toISOString(), check: o.id, ...(why ? { reason: o.reason.trim() } : {}) });
   return r.check.id;
 });
 // A2 the paper's reproduction conditions -> anchored checks; the conversation gets a card (chat.json "spec")

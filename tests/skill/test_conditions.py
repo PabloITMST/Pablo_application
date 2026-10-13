@@ -100,6 +100,38 @@ def test_take_out_and_put_back():
         assert len(res.spec["dropped"]) == 2
 
 
+class GuardJudge(SpecJudge):  # the judge says an action contradicts the result condition, when it is given that fact
+    def analyze_action(self, description, justification, step, constraints, facts):
+        sid = next((ln.split()[0] for ln in facts.splitlines() if "HotpotQA 정확도" in ln), None)
+        return {"intent_conflicts": [], "justification": {"present": False, "relevant": False, "supported_by": []},
+                "source_conflicts": [{"source_check_id": sid, "kind": "contradicts", "note": ""}] if sid else [],
+                "plan_alignment": {"follows_step": True}}
+
+
+def test_intended_deviation():
+    """⑦ the user differs from a paper condition on purpose, with why: the Guard no longer blocks on it (S01), the brief
+    says it apart with the reason, the condition stays a cited fact; back to the paper, the Guard holds it again."""
+    with tempfile.TemporaryDirectory() as d:
+        s, t, a, _ = two(d)
+        s.judge = GuardJudge()
+        (res,), (seed,), _ = s.spec(t.id, a.id)
+        rules = lambda: [r["rule"] for r in s.propose_action(t.id, "평가 정확도를 70으로 맞춘다").reasons]  # noqa: E731
+        assert "S01" in rules()
+        refused(lambda: s.deviate_spec(res.id, "  "), ValueError, "이유")
+        refused(lambda: s.deviate_spec(seed.id, "x"), KeyError)  # what the paper does not state: nothing to differ from
+        s.deviate_spec(res.id, "ablation: 다른 모델로 비교")
+        refused(lambda: s.deviate_spec(res.id, "again"), ValueError, "이미")
+        assert "S01" not in rules() and res.outcome == "VERIFIED"
+        brief = render_brief(s, t.id)[0]
+        assert "일부러 논문과 다르게 두는 조건" in brief and "이유: ablation: 다른 모델로 비교" in brief, brief
+        assert "확인된 근거:" not in brief  # its only fact is the one differed from
+        assert held(s, t.id)[1] == ["61.5"]  # 재현 점검 still compares it (the card shows the difference as intended)
+        s.undeviate_spec(res.id)
+        assert "S01" in rules() and "일부러" not in render_brief(s, t.id)[0]
+        assert [x["why"] for x in res.spec["deviations"]] == ["ablation: 다른 모델로 비교"] and res.spec["deviations"][0]["to"]
+        refused(lambda: s.undeviate_spec(res.id), KeyError)
+
+
 def cli(d, *args):
     r = subprocess.run([sys.executable, "-m", "pablo_v2", *args, "--json", "--dir", d], capture_output=True, encoding="utf-8",
                        env={**os.environ, "PYTHONPATH": SRC, "PYTHONIOENCODING": "utf-8"})
@@ -127,6 +159,11 @@ def test_cli():
         assert code == 0 and r3["check"]["research_state"] == "waived", r3
         code, r4 = cli(d, "restore-spec", r["check"]["id"])
         assert code == 0 and r4["check"]["research_state"] == "completed", r4
+        assert cli(d, "deviate", r["check"]["id"])[0] != 0  # argparse: --reason is required
+        code, r5 = cli(d, "deviate", r["check"]["id"], "--reason", "GPU가 달라 색인 시간은 비교만 함")
+        assert code == 0 and r5["check"]["spec"]["deviations"][-1]["to"] is None, r5
+        code, r6 = cli(d, "undeviate", r["check"]["id"])
+        assert code == 0 and r6["check"]["spec"]["deviations"][-1]["to"], r6
 
 
 if __name__ == "__main__":

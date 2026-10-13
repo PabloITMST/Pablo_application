@@ -210,7 +210,8 @@ class PabloSkill:
         constraints = {i.id: (i.strength or "soft", i.statement) for i in self.get_applicable_intent(task_id)["constraints"]}
         constraints |= {k: (v, guard.SYSTEM_POLICIES[k]) for k, v in guard.JUDGED_POLICIES.items()}
         basis = set(step["basis"]) if step else set()
-        sources = {c.id: c for c in self.checks(task_id) if not c.matrix}  # a comparison table compares; it does not bind
+        # a comparison table compares, it does not bind; ⑦ nor does a condition the user differs from on purpose
+        sources = {c.id: c for c in self.checks(task_id) if not c.matrix and not deviation(c)}
         sources |= {c.id: c for c in map(self._find_check, basis) if c}
         done = [c for c in sources.values() if c.research_state == "completed"]
         said = (description, justification, step and step["action"],
@@ -551,6 +552,31 @@ class PabloSkill:
         self.save()
         return sc
 
+    # --- 0.8 ⑦ an intended deviation: the user differs from the paper on purpose (ablation, hardware), with why -------
+    def deviate_spec(self, sc_id: str, reason: str) -> SourceCheck:
+        """The paper's condition stays a fact (VERIFIED, cited); the Guard stops holding the work to it, the brief tells
+        the agent it differs on purpose and why, and 재현 점검 shows a difference as 의도한 차이. One span per decision
+        (spec["deviations"]: from, to, why), so a report says when it held."""
+        sc = self._find_check(sc_id)
+        if not sc or not sc.spec or sc.spec.get("missing") or sc.research_state != "completed":
+            raise KeyError(f"no live condition {sc_id} to differ from")
+        if deviation(sc):
+            raise ValueError("이미 의도한 차이로 둔 조건입니다.")
+        if not reason.strip():
+            raise ValueError("의도한 차이로 두려면 이유를 적어야 합니다.")
+        sc.spec["deviations"] = sc.spec.get("deviations", []) + [{"from": now(), "to": None, "why": reason.strip()}]
+        self.save()
+        return sc
+
+    def undeviate_spec(self, sc_id: str) -> SourceCheck:
+        """Back to the paper: the Guard holds the work to this condition again."""
+        sc = self._find_check(sc_id)
+        if not sc or not sc.spec or not deviation(sc):
+            raise KeyError(f"no intended deviation on {sc_id} to end")
+        sc.spec["deviations"][-1]["to"] = now()
+        self.save()
+        return sc
+
     def compare(self, task_id: str, src_ids: list[str], columns: list[str] | None = None
                 ) -> tuple[str, list[SourceCheck], list[dict]]:
         """C3: a table of the task's papers (rows) by columns (default COLUMNS). The judge fills one paper's row per
@@ -839,6 +865,12 @@ def _display_path(src: EvidenceSource) -> str:
     return src.snapshot.removesuffix(".txt") + ".display.json"
 
 
+def deviation(c) -> dict | None:
+    """⑦ the user's intended deviation from this paper condition, while it holds ({from, to: None, why}), else None."""
+    d = ((c.spec or {}).get("deviations") or [None])[-1]
+    return d if d and d.get("to") is None else None
+
+
 def _pdf_path(src: EvidenceSource) -> str:
     return src.snapshot.removesuffix(".txt") + ".pdf"
 
@@ -902,7 +934,7 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
     ai = s.get_applicable_intent(task_id)
     must = [c.statement for c in ai["constraints"] if c.strength == "hard"]
     prefer = [c.statement for c in ai["constraints"] if c.strength != "hard"]
-    facts, basis, open_, paper = [], [], [], False
+    facts, basis, open_, paper, differ = [], [], [], False, []
     for c in s.checks(task_id):
         if c.matrix:  # C3 a comparison-table cell: the user reads it; the agent is not bound by another paper's row
             continue
@@ -920,13 +952,16 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
         if not re.search(r"\[\d+\]", c.conclusion) and where:
             text += f" ({', '.join(dict.fromkeys(where))})"
         text = text if len(text) <= BRIEF_FACT_CHARS else text[:BRIEF_FACT_CHARS] + "…"
+        if c.spec and deviation(c):  # ⑦ the user differs from it on purpose: not a rule for the agent, said with why
+            differ.append(f"- [{SPEC_LABEL.get(c.spec['category'], c.spec['category'])}] {text} → 이유: {deviation(c)['why']}")
+            continue
         if c.spec:  # a paper's reproduction condition: the statement is the fact
             paper = True
             facts.append(f"- [{SPEC_LABEL.get(c.spec['category'], c.spec['category'])}] {text}")
         else:
             facts.append(f"- {c.requirement.strip()} → {text}" + (" (일부만 확인됨)" if c.outcome != "VERIFIED" else ""))
         basis.append(c.id)
-    if not (must or prefer or facts or open_):
+    if not (must or prefer or facts or open_ or differ):
         return "", []
     out = ["[Pablo] 이 작업에서 사용자가 정한 기준과 확인된 근거입니다. 기준과 어긋나는 일은 하기 전에 말하고, "
            "근거를 쓸 때는 괄호 안의 출처와 쪽을 함께 밝히세요."]
@@ -937,6 +972,8 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
         out.append("논문에 적힌 조건은 근거 없이 바꾸지 마세요. 결과를 맞추려고 바꾸면 재현이 아닙니다.")
     if open_:
         out += ["논문에 없는 설정 (정하면 무엇을 근거로 정했는지 밝히세요):"] + open_
+    if differ:
+        out += ["사용자가 이유와 함께 일부러 논문과 다르게 두는 조건 (막지 않습니다. 결과를 말할 때 이 차이를 밝히세요):"] + differ
     return "\n".join(out), basis
 
 

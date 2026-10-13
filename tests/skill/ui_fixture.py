@@ -21,6 +21,26 @@ CALM = {"source_conflicts": [], "plan_alignment": {"follows_step": True},
         "justification": {"present": False, "relevant": False, "supported_by": []}}
 
 
+SWAP = "파일 수정: config.yaml\n--- config.yaml\n@@ -2 +2 @@\n-embedding_model: all-mpnet-base-v2\n+embedding_model: bge-large"
+
+
+class SwapJudge:  # ⑦ the swap contradicts the embedding-model condition, when the judge is given that fact
+    def analyze_action(self, action, justification, step, constraints, checks):
+        sid = next((ln.split()[0] for ln in checks.splitlines() if "all-mpnet-base-v2" in ln), None)
+        return {**CALM, "intent_conflicts": [], "source_conflicts": [
+            {"source_check_id": sid, "kind": "contradicts", "note": "임베딩 모델을 논문과 다른 bge-large로 바꾼다."}] if sid else []}
+
+
+def block_spec(d: str) -> dict:
+    """⑦ (uiCheck) the agent asks to swap the embedding model: S01 BLOCK while the paper's condition holds."""
+    e = IntentEngine.load(os.path.join(d, "intent.json"))
+    s = PabloSkill.load(os.path.join(d, "skill.json"), e, SwapJudge())
+    act = s.propose_action("T1", SWAP)
+    if act.verdict == "BLOCK":
+        s.decide_action(act.id, "reject", "Guard BLOCK: 실행하지 않았습니다.")
+    return {"act": act.id, "verdict": act.verdict, "rules": [r["rule"] for r in act.reasons]}
+
+
 class Judge:  # C2 soft clear conflict without a reason -> WARN; C1 hard clear conflict -> BLOCK
     def analyze_action(self, action, justification, step, constraints, checks):
         cid, note = ("C2", "hello.txt에 한국어 줄을 더한다.") if action == EDIT else ("C1", "keep.txt를 지운다.")
@@ -102,6 +122,9 @@ def build(d: str) -> str:
         s.complete_check(c.id, "VERIFIED", text, [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "x", "supports": []}])
         specs.append(c.id)
     s._find_check(specs[2]).spec["value_in_quote"] = False  # the model's value is not in its own quote
+    # ⑦ top-k was an intended deviation between the two audits only: the second card shows it as 의도한 차이
+    s._find_check(specs[0]).spec["deviations"] = [{"from": "2026-10-13T01:00:58.200+00:00", "to": "2026-10-13T01:00:58.800+00:00",
+                                                   "why": "ablation: top-k 10으로 비교"}]
     gap = s.add_check(t.id, "난수 시드가 적혀 있지 않다", "USEFUL")
     gap.spec = {"category": "training", "value": "", "source_id": "SRC1", "missing": True}
     out = s.add_check(t.id, "비교 대상은 HippoRAG2이다", "USEFUL")  # ⑩ taken out before the audit: its card says so too
@@ -145,7 +168,7 @@ def build(d: str) -> str:
              {"kind": "method", "what": "PageRank 대신 차수로 순위를 매깁니다.", "where": "retrieve.py:22",
               "found": "scores = sub.degree()", "check": "no_file"}]},
         # ⑤ a second audit: the model named the line that reads top-k (the config line that sets it: via), and a log line
-        {"role": "audit", "at": at(58), "status": "completed", "summary": "", "items": [
+        {"role": "audit", "at": "2026-10-13T01:00:58.500+00:00", "status": "completed", "summary": "", "items": [
             {"id": specs[0], "status": "differs", "where": "run.py:3", "found": "print('top_k', cfg['retrieval']['top_k'])",
              "note": "", "check": "verified", "via": {"where": "config.yaml:5", "found": "top_k: 10", "agrees": True}},
             {"id": specs[1], "status": "differs", "where": "logs/2wiki.log:1", "found": "gpt_acc=61.20", "note": "",
@@ -263,7 +286,9 @@ def build_papers(d: str, web: str | None = None) -> dict:
 
 
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["--papers"]:
+    if sys.argv[1:2] == ["--block-spec"]:
+        print(json.dumps(block_spec(sys.argv[2])))
+    elif sys.argv[1:2] == ["--papers"]:
         print(json.dumps(build_papers(sys.argv[2], sys.argv[4] if sys.argv[3:4] == ["--web"] else None)))
     else:
         print(json.dumps({"view": os.path.abspath(build(sys.argv[1])), "repro": os.path.abspath(os.path.join(sys.argv[1], "repro"))}))
