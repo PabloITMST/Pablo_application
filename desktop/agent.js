@@ -102,11 +102,14 @@ function setModel(m) { if (!agent.models.includes(m)) throw new Error("unknown m
 function forget() { threadId = key = null; loaded.clear(); if (agent.stateFile) fs.rmSync(agent.stateFile, { force: true }); }
 
 // switch to a task's own thread: loaded in this process -> as is; saved -> thread/resume; else thread/start
+// The open thread is tied to a work folder and sandbox: a task whose folder changed while the app runs gets the thread
+// of the new folder (saved -> resume, else a new one), never keeps working in the old folder.
+let place = null;
 async function open(task) {
-  if (task === key && loaded.has(threadId)) return;
-  const th = { model: agent.model, ...where() }, s = (state().threads || {})[task];
+  const th = { model: agent.model, ...where() }, here = th.cwd + "|" + th.sandbox, s = (state().threads || {})[task];
+  if (task === key && loaded.has(threadId) && place === here) return;
   const old = s && s.cwd === th.cwd && s.sandbox === th.sandbox ? s.threadId : null;
-  key = task; threadId = null;
+  key = task; threadId = null; place = here;
   if (old && loaded.has(old)) { threadId = old; return; }
   const r = old ? await call("thread/resume", { threadId: old, ...th }).catch(() => call("thread/start", th)) : await call("thread/start", th);
   agent.resumed = !!old && r.thread.id === old;

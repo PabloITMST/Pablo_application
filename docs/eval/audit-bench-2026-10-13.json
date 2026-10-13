@@ -1,0 +1,316 @@
+{
+ "meta": {
+  "date": "2026-10-13",
+  "model": "gpt-5.6-luna",
+  "n": 8,
+  "seed": 7,
+  "avg_ms": 44292
+ },
+ "summary": {
+  "recall": 100.0,
+  "exact_status": 94.4,
+  "false_alarm_rate": 0.0,
+  "followed_confirmed": 100.0,
+  "unclear_on_followed": 0.0,
+  "file_accuracy": 100.0,
+  "line_accuracy": 100.0,
+  "open_chosen": 100.0,
+  "planted": 18,
+  "followed_items": 131,
+  "variants": 9
+ },
+ "planted": {
+  "n": 18,
+  "detected": 18,
+  "exact": 17,
+  "file": 18,
+  "line": 17,
+  "line_n": 17,
+  "missed_as": {}
+ },
+ "followed": {
+  "n": 131,
+  "followed": 131,
+  "false_alarm": 0,
+  "unclear": 0,
+  "other": 0
+ },
+ "open": {
+  "n": 9,
+  "exact": 9
+ },
+ "per_drift": {
+  "contain_missing": {
+   "n": 1,
+   "detected": 1,
+   "exact": 0,
+   "file": 1,
+   "line": 0
+  },
+  "ppr_degree": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "segment_window": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "embedding": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "delta": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "damping": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "split_test": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "medical_both": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "result_gpt_low": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "questions_500": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "datasets_drop": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "topk_hardcoded": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "lambda": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "topk_config": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "ner_regex": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "result_contain_low": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "llm": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "graph_no_sentences": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  }
+ },
+ "false_alarms": {},
+ "rows": [
+  {
+   "variant": "v00-clean",
+   "planted": [],
+   "found": [],
+   "missed": [],
+   "false": [],
+   "ms": 45874,
+   "error": null
+  },
+  {
+   "variant": "v01",
+   "planted": [
+    "contain_missing",
+    "ppr_degree",
+    "segment_window"
+   ],
+   "found": [
+    "contain_missing",
+    "ppr_degree",
+    "segment_window"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 54085,
+   "error": null
+  },
+  {
+   "variant": "v02",
+   "planted": [
+    "embedding",
+    "delta",
+    "damping"
+   ],
+   "found": [
+    "embedding",
+    "delta",
+    "damping"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 42494,
+   "error": null
+  },
+  {
+   "variant": "v03",
+   "planted": [
+    "split_test",
+    "medical_both"
+   ],
+   "found": [
+    "split_test",
+    "medical_both"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 40913,
+   "error": null
+  },
+  {
+   "variant": "v04",
+   "planted": [
+    "result_gpt_low",
+    "questions_500"
+   ],
+   "found": [
+    "result_gpt_low",
+    "questions_500"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 39884,
+   "error": null
+  },
+  {
+   "variant": "v05",
+   "planted": [
+    "datasets_drop",
+    "topk_hardcoded"
+   ],
+   "found": [
+    "datasets_drop",
+    "topk_hardcoded"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 51036,
+   "error": null
+  },
+  {
+   "variant": "v06",
+   "planted": [
+    "lambda",
+    "topk_config"
+   ],
+   "found": [
+    "lambda",
+    "topk_config"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 39917,
+   "error": null
+  },
+  {
+   "variant": "v07",
+   "planted": [
+    "ner_regex",
+    "result_contain_low"
+   ],
+   "found": [
+    "ner_regex",
+    "result_contain_low"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 40488,
+   "error": null
+  },
+  {
+   "variant": "v08",
+   "planted": [
+    "llm",
+    "graph_no_sentences"
+   ],
+   "found": [
+    "llm",
+    "graph_no_sentences"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 43940,
+   "error": null
+  }
+ ],
+ "verify": {
+  "drift": {
+   "verified": 18
+  },
+  "followed": {
+   "verified": 94,
+   "value_mismatch": 28,
+   "no_file": 9
+  }
+ }
+}

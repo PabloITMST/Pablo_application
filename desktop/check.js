@@ -1038,6 +1038,51 @@ async function auditCheck() {
   fs.writeFileSync(agent.stateFile, JSON.stringify(cur));
 }
 
+// 12) --audit-bench [n] [seed] (real ChatGPT connection, about a minute per variant): tests/eval/audit_bench.py plants
+//     drifts in copies of a LinearRAG reproduction that follows the paper (n variants + 1 clean); each copy gets
+//     🔎 재현 점검 as a user would, on its own thread (a new work folder is a new thread); the answers are scored against
+//     the truth -> docs/eval/audit-bench-<date>.md / .json (+ the raw results).
+async function auditBench() {
+  const [n = 8, seed = 7] = process.argv.slice(2).filter(a => /^\d+$/.test(a)).map(Number);
+  const S = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-bench-")), BENCH = path.join(__dirname, "../tests/eval/audit_bench.py");
+  const bench = (...a) => execFileSync("python", [BENCH, ...a], { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } });
+  await boot(); assert.strictEqual(auth().state, "connected", "sign in once with `npm start` first");
+  const st = JSON.parse(bench("state", S)), vs = JSON.parse(bench("variants", path.join(S, "variants"), "--n", String(n), "--seed", String(seed), "--clean", "1"));
+  const desk = w => fs.writeFileSync(path.join(S, "desktop.json"), JSON.stringify({ pdf: { [st.task]: { id: st.source, title: "LinearRAG" } }, workspace: { [st.task]: w } }));
+  desk(vs.variants[0].dir);
+  const win = open(st.view);
+  await new Promise(r => win.webContents.once("did-finish-load", r));
+  const js = code => win.webContents.executeJavaScript(code);
+  const until = async (code, ms = 60000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
+  const audits = () => { try { return (JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"))[st.task] || []).filter(c => c.role === "audit"); } catch { return []; } };
+  console.log(`bench: ${vs.variants.length} variants (seed ${seed}), model ${agent.model}, state ${S}`);
+  const runs = [], threads = new Set();
+  for (const v of vs.variants) {
+    desk(v.dir); await js(`refresh()`);
+    await until(`!!document.querySelector("#audits .link") && $("dir").textContent.includes(${JSON.stringify(path.basename(v.dir))}) && $("chat").querySelector(".composer").dataset.agent === "Ready"`, 120000);
+    const k = audits().length, t0 = Date.now();
+    await js(`document.querySelector("#audits .link").click()`);
+    for (let t = 0; audits().length <= k; t += 500) { if (t > 900000) throw new Error("audit timeout: " + v.name); await sleep(500); }
+    const e = audits().at(-1), ms = Date.now() - t0;
+    // each variant on its own thread, working in its own folder (a stale thread would audit the previous folder)
+    const th = JSON.parse(fs.readFileSync(agent.stateFile, "utf8")).threads[S + "#" + st.task];
+    assert.ok(th && th.cwd === v.dir && !threads.has(th.threadId), `${v.name}: audited in ${th && th.cwd}, thread ${th && th.threadId}`);
+    threads.add(th.threadId);
+    runs.push({ variant: v.name, ms, status: e.status, error: e.error, unreadable: e.unreadable, summary: e.summary, items: e.items });
+    const by = {}; for (const x of e.items) by[x.status] = (by[x.status] || 0) + 1;
+    console.log(`  ${v.name}: ${e.items.length} items in ${ms} ms ${JSON.stringify(by)}${e.error ? " ⚠ " + e.error : ""}`);
+  }
+  await agent.stop(); win.destroy();
+  const date = new Date().toISOString().slice(0, 10), dir = path.join(__dirname, "../docs/eval"), prefix = path.join(dir, `audit-bench-${date}`);
+  fs.mkdirSync(dir, { recursive: true });
+  const avg = Math.round(runs.reduce((a, r) => a + r.ms, 0) / runs.length);
+  fs.writeFileSync(prefix + "-results.json", JSON.stringify({ meta: { date, model: agent.model, n, seed, avg_ms: avg }, runs }, null, 1));
+  console.log(bench("score", prefix + "-results.json", vs.truth, path.join(S, "keys.json"), "--out", prefix));
+  const cur = JSON.parse(fs.readFileSync(agent.stateFile, "utf8"));  // leave the user's thread.json as it was
+  for (const key of Object.keys(cur.threads)) if (key.startsWith(S + "#")) delete cur.threads[key];
+  fs.writeFileSync(agent.stateFile, JSON.stringify(cur));
+}
+
 // --shot <view.html> [selector] (offline): a picture of a saved view, scrolled to the first element matching selector
 async function shotCheck() {
   const sel = process.argv.slice(2).find(a => !a.startsWith("-") && a !== view && !a.endsWith("check.js"));
@@ -1054,7 +1099,7 @@ async function shotCheck() {
 }
 
 // --agent uses `npm start`'s folder, not "Electron"; before ready, since safeStorage's key lives in userData/Local State
-if (["--agent", "--guard", "--ask", "--demo", "--app", "--spec", "--audit"].some(f => process.argv.includes(f))) app.setPath("userData", path.join(app.getPath("appData"), require("./package.json").name));
+if (["--agent", "--guard", "--ask", "--demo", "--app", "--spec", "--audit", "--audit-bench"].some(f => process.argv.includes(f))) app.setPath("userData", path.join(app.getPath("appData"), require("./package.json").name));
 // a check window covered by other windows for minutes stops painting (Windows occlusion): pdf.js render() never resolves
 // and capturePage returns an old frame. A user looks at the window, so this is for the unattended checks only.
 app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
@@ -1075,6 +1120,7 @@ app.whenReady().then(async () => {
     else if (process.argv.includes("--ui")) await uiCheck();
     else if (process.argv.includes("--spec")) await specCheck();
     else if (process.argv.includes("--shot")) await shotCheck();
+    else if (process.argv.includes("--audit-bench")) await auditBench();
     else if (process.argv.includes("--audit")) await auditCheck();
     else { await unit(base); if (view) await e2e(base); }
     console.log("ALL OK");

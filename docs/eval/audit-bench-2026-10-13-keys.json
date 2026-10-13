@@ -1,0 +1,20 @@
+{
+ "datasets": "SC1",
+ "questions": "SC2",
+ "segment": "SC3",
+ "ner": "SC4",
+ "graph": "SC5",
+ "ppr": "SC6",
+ "damping": "SC7",
+ "delta": "SC8",
+ "lambda": "SC9",
+ "topk": "SC10",
+ "embedding": "SC11",
+ "llm": "SC12",
+ "contain_acc": "SC13",
+ "gpt_acc": "SC14",
+ "medical_gpt_only": "SC15",
+ "result_gpt": "SC16",
+ "result_contain": "SC17",
+ "seed": "SC18"
+}

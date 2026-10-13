@@ -1,0 +1,15 @@
+# LinearRAG reproduction settings
+embedding_model: all-mpnet-base-v2
+llm: gpt-4o-mini
+datasets: [hotpotqa, 2wikimultihopqa, musique, medical]
+eval:
+  split: validation
+  questions_per_dataset: 1000
+retrieval:
+  top_k: 5
+  lam: 0.05
+pruning:
+  delta: 4
+pagerank:
+  damping: 0.85
+seed: 42
