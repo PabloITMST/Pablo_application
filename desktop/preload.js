@@ -4,7 +4,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("pabloHost", {
   locate: (webContentsId, quote) => ipcRenderer.invoke("pablo:locate", webContentsId, quote),
   chat: (text, task) => ipcRenderer.invoke("pablo:chat", text, task),
-  ask: (text, task) => ipcRenderer.invoke("pablo:ask", text, task),  // M3.3: a question about the captured PDF
+  ask: (text, task, only) => ipcRenderer.invoke("pablo:ask", text, task, only),  // M3.3: a question about the task's PDFs (C1: only = some)
   decide: (id, proceed) => ipcRenderer.invoke("pablo:decide", id, proceed),  // M4.2: the user's answer to a WARN
   retry: () => ipcRenderer.invoke("pablo:retry"),  // "다른 모델로 다시 시도" after a capacity failure
   stop: () => ipcRenderer.invoke("pablo:stop"),  // 중지: interrupt the running agent turn
@@ -19,6 +19,10 @@ contextBridge.exposeInMainWorld("pabloHost", {
   intent: (task, id, action) => ipcRenderer.invoke("pablo:intent", task, id, action),  // B4: promote | reject a held-back criterion  // A5/A6: 재현 점검 of the work folder (read-only turn)
   pickFolder: task => ipcRenderer.invoke("pablo:pick-folder", task),
   addSource: task => ipcRenderer.invoke("pablo:add-source", task),
+  addArxiv: (task, text) => ipcRenderer.invoke("pablo:add-arxiv", task, text),  // C2: main downloads arxiv.org/pdf/<id>
+  removeSource: (task, id) => ipcRenderer.invoke("pablo:remove-source", task, id),  // C1: the records stay
+  setPrimary: (task, id) => ipcRenderer.invoke("pablo:set-primary", task, id),  // C1: the 주 논문 (재현 조건)
+  compare: (task, columns) => ipcRenderer.invoke("pablo:compare", task, columns),  // C3: 비교표
   setNet: (task, on) => ipcRenderer.invoke("pablo:set-net", task, on),
   setRoute: (task, route) => ipcRenderer.invoke("pablo:set-route", task, route),  // paper + folder: agent | ask  // D1: 인터넷 for this task's commands
   diff: (task, from, to) => ipcRenderer.invoke("pablo:diff", task, from, to),  // D4: what a turn changed in the work folder

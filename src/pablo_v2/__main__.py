@@ -17,14 +17,19 @@ Skill     task "<task>" [--checks JSON]          start task; no --checks -> Code
           brief T1                                what the desktop agent is told: criteria + located facts (+ basis ids)
           audit T1                                the 재현 점검 turn for the desktop agent: prompt + output schema + items
 Evidence  source <url> [--title T]                Pablo fetches + snapshots the page -> SRC1 (version = content hash)
-          source <file.pdf> [--title T]           M3.3: copies the PDF + its page text -> SRC1 (version = bytes hash)
+          source <file.pdf> [--title T] [--arxiv ID]   M3.3: copies the PDF + its page text -> SRC1 (version = bytes hash)
+                                                  (C2 --arxiv: title and arXiv version read from the PDF)
           anchor SRC1 "<exact quote>" [--near "<text next to it>"] [--page N]   -> E1 (refused if missing or ambiguous)
           link E1 SC2 supports|contradicts|verifies|implements|derived_from [--note ...]
-          resolve E1 | resolve --all              re-fetch live source -> VALID | STALE | UNRESOLVED
+          resolve E1 | --all | --source SRC1      re-fetch live source -> VALID | STALE | UNRESOLVED
           evidence E1                             quote in context, status, links
-          ask T1 "<question>" [--source SRC1]     M3.3: answer from a captured PDF, quotes anchored -> SC + [n] citations
+          ask T1 "<question>" [--source SRC1]...  M3.3: answer from a captured PDF, quotes anchored -> SC + [n] citations
+                                                  (C1: several --source, each quote anchored in its own paper)
           spec T1 [--source SRC1]                 the paper's reproduction conditions -> anchored VERIFIED checks
-                                                  (+ pending checks for what the paper does not state)
+                                                  (+ pending checks for what the paper does not state; replaces the
+                                                  task's conditions from any paper: one paper is reproduced)
+          compare T1 --source SRC1 --source SRC2 [--columns JSON]   C3: a table, one judge call per paper, each cell
+                                                  anchored or left empty -> M1 + cells
 JSON args accept inline JSON or @file.json. State lives in --dir (default .pablo/).
 Exit codes: 0 ok, 2 refused by Pablo (research gate etc.), 1 other error.
 """
@@ -149,6 +154,7 @@ def _parser() -> argparse.ArgumentParser:
     add("review").add_argument("execution_id")
     s = add("source")
     s.add_argument("url"), s.add_argument("--title", default="")
+    s.add_argument("--arxiv", help="C2: the arXiv id the PDF was downloaded as (title + version from the PDF itself)")
     s = add("anchor")
     s.add_argument("source_id"), s.add_argument("exact")
     s.add_argument("--near", default="", help="text next to the intended occurrence when the quote repeats")
@@ -161,13 +167,18 @@ def _parser() -> argparse.ArgumentParser:
     g = s.add_mutually_exclusive_group(required=True)
     g.add_argument("evidence_id", nargs="?")
     g.add_argument("--all", action="store_true")
+    g.add_argument("--source", dest="source_id", help="C2: every anchor of one source (a newer version saved over its file)")
     add("evidence").add_argument("evidence_id")
     s = add("ask")
     s.add_argument("task_id"), s.add_argument("question")
-    s.add_argument("--source", help="PDF source id (default: the latest captured PDF)")
+    s.add_argument("--source", action="append", help="PDF source id, repeat for several papers (default: the latest PDF)")
     s = add("spec")
     s.add_argument("task_id")
     s.add_argument("--source", help="PDF source id (default: the latest captured PDF)")
+    s = add("compare")
+    s.add_argument("task_id")
+    s.add_argument("--source", action="append", required=True, help="PDF source id, two or more")
+    s.add_argument("--columns", type=_json_arg, help='["데이터셋", "평가 지표", ...] (default: skill.COLUMNS)')
     return p
 
 
@@ -289,7 +300,7 @@ def _run(a, out) -> int:
         out({"review": asdict(r), "research_issues": [asdict(i) for i in s.state.issues if i.review_id == r.id]},
             render_task(s, s.get_action(r.action_id).task_id))
     elif a.cmd == "source":
-        x = s.capture_pdf(a.url, a.title) if a.url.lower().endswith(".pdf") and os.path.isfile(a.url) \
+        x = s.capture_pdf(a.url, a.title, a.arxiv) if a.url.lower().endswith(".pdf") and os.path.isfile(a.url) \
             else s.capture_source(a.url, a.title)
         out({"source": asdict(x)}, f"{x.id} {x.title} {x.version['content_hash'][:19]} -> {x.snapshot}")
     elif a.cmd == "anchor":
@@ -299,7 +310,8 @@ def _run(a, out) -> int:
         x = s.link_evidence(a.evidence_id, a.target_id, a.relation, a.note)
         out({"link": asdict(x)}, f"{x.id}: {x.evidence_id} {x.relation} {x.target_id}")
     elif a.cmd == "resolve":
-        xs = [s.resolve_anchor(i) for i in ([x.id for x in s.state.anchors] if a.all else [a.evidence_id])]
+        xs = s.resolve_source(a.source_id) if a.source_id else \
+            [s.resolve_anchor(i) for i in ([x.id for x in s.state.anchors] if a.all else [a.evidence_id])]
         out({"anchors": [asdict(x) for x in xs]}, "\n".join(render_evidence(s, x.id) for x in xs))
     elif a.cmd == "evidence":
         out({"anchor": asdict(s.get_anchor(a.evidence_id)),
@@ -313,6 +325,16 @@ def _run(a, out) -> int:
              "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
             "\n".join([sc.conclusion, *(render_evidence(s, e) for e in ids),
                        *(f"dropped p.{d['page']}: {d['quote']} ({d['why']})" for d in dropped)]))
+    elif a.cmd == "compare":
+        mid, cells, empty = s.compare(a.task_id, a.source, a.columns)
+        v = model(s, a.task_id)  # the desktop shows the table without a reload
+        ids = [e for c in cells for e in v["checks"][c.id]["evidence"]]
+        out({"matrix": mid, "cells": [v["checks"][c.id] for c in cells], "empty": empty,
+             "anchors": {e: v["anchors"][e] for e in ids},
+             "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
+            "\n".join([f"{mid}: {len(cells)} cells anchored, {len(empty)} empty"]
+                      + [f"{c.id} [{c.matrix['source_id']} · {c.matrix['column']}] {c.conclusion}" for c in cells]
+                      + [f"empty [{x['source_id']} · {x['column']}] {x['why']}" for x in empty]))
     elif a.cmd == "spec":
         stated, missing, dropped = s.spec(a.task_id, a.source)
         v = model(s, a.task_id)

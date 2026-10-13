@@ -53,6 +53,7 @@ class SourceCheck:
     waived_by: str | None = None  # "host" when the host dropped an over-generated check
     waive_reason: str | None = None
     spec: dict | None = None  # a paper's reproduction condition (PabloSkill.spec): {category, value, source_id, missing}
+    matrix: dict | None = None  # C3 a comparison-table cell (PabloSkill.compare): {id: "M1", column, source_id}
 
 
 @dataclass

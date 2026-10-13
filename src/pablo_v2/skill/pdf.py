@@ -34,6 +34,23 @@ def pages(data: bytes) -> list[str]:
     return [re.sub(r"\s+", " ", p.extract_text() or "").strip() for p in PdfReader(io.BytesIO(data)).pages]
 
 
+ARXIV_STAMP = re.compile(r"arXiv:(\d{4}\.\d{4,5})(v\d+)")
+
+
+def meta(data: bytes, ps: list[str]) -> dict:
+    """C2: what the file says about itself -> {title (the PDF's /Title, "" if none), short (the name before ":" in it,
+    "LinearRAG" for "LinearRAG: Linear Graph ..."), arxiv, version} (arXiv stamps "arXiv:2510.10114v4 [cs.CL]" on p.1)."""
+    from pypdf import PdfReader
+    try:
+        title = re.sub(r"\s+", " ", str((PdfReader(io.BytesIO(data)).metadata or {}).get("/Title") or "")).strip()
+    except Exception:  # a damaged info dictionary costs the title, never the capture
+        title = ""
+    head = title.split(":")[0].strip()
+    m = ARXIV_STAMP.search(ps[0] if ps else "")
+    return {"title": title, "short": head if 0 < len(head) <= 40 else title[:60],
+            "arxiv": m[1] if m else None, "version": m[2] if m else None}
+
+
 def key(text: str) -> tuple[str, list[int]]:
     """-> (key, idx): key[i] comes from text[idx[i]]."""
     out, idx = [], []

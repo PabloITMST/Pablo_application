@@ -42,6 +42,15 @@ class DecisionRejected(ValueError):
     """decide_action the verdict does not allow (proceed on BLOCK, proceed on WARN without a reason)."""
 
 
+class TooMuchText(ValueError):
+    """ask over several papers whose text is more than one question can carry: the user picks fewer."""
+
+
+ASK_PAGES, ASK_CHARS = 40, 250_000  # C1: per paper, and in all, for one question over several papers
+COMPARE_PAGES = 40  # C3: one paper's pages for its row of a comparison table
+COLUMNS = ["데이터셋", "평가 지표", "주요 결과", "효율", "한계"]
+
+
 # A2 (0.8): a paper's value in a text, with the same rule as desktop/where.js (tests run both on one table): numbers by
 # value ("1,000" = 1000, "63.70%" = 63.7, never inside "2wiki" or "v2"), words case-insensitive and ignoring spaces.
 _NUM = re.compile(r"(?<![A-Za-z0-9_.])\d+(?:,\d{3})*(?:\.\d+)?(?:e[-+]?\d+)?(?![A-Za-z0-9_])", re.I)
@@ -197,7 +206,7 @@ class PabloSkill:
         constraints = {i.id: (i.strength or "soft", i.statement) for i in self.get_applicable_intent(task_id)["constraints"]}
         constraints |= {k: (v, guard.SYSTEM_POLICIES[k]) for k, v in guard.JUDGED_POLICIES.items()}
         basis = set(step["basis"]) if step else set()
-        sources = {c.id: c for c in self.checks(task_id)}
+        sources = {c.id: c for c in self.checks(task_id) if not c.matrix}  # a comparison table compares; it does not bind
         sources |= {c.id: c for c in map(self._find_check, basis) if c}
         done = [c for c in sources.values() if c.research_state == "completed"]
         said = (description, justification, step and step["action"],
@@ -305,9 +314,11 @@ class PabloSkill:
         self.save()
         return src
 
-    def capture_pdf(self, path: str, title: str = "") -> EvidenceSource:
+    def capture_pdf(self, path: str, title: str = "", arxiv: str | None = None) -> EvidenceSource:
         """M3.3: a local PDF. The bytes are copied into the state dir (the version the anchors point at); the
-        snapshot is its pypdf page text joined by \f. Same path + same bytes -> same SRC."""
+        snapshot is its pypdf page text joined by \f. Same path + same bytes -> same SRC.
+        C2 arxiv (the id it was downloaded as): the title comes from the PDF itself, the version from arXiv's stamp
+        on page 1 (version = {content_hash, arxiv, arxiv_version})."""
         path = os.path.abspath(path)
         with open(path, "rb") as f:
             data = f.read()
@@ -315,10 +326,15 @@ class PabloSkill:
         old = next((x for x in self.state.sources if x.locator == path and x.version["content_hash"] == h), None)
         if old:
             return old
+        ps, version = pdf.pages(data), {"content_hash": h}
+        if arxiv:
+            m = pdf.meta(data, ps)
+            title = title or m["short"] or f"arXiv {arxiv}"
+            version.update(arxiv=m["arxiv"] or arxiv, arxiv_version=m["version"])
         sid = self._next_id("SRC")
         src = EvidenceSource(sid, "pdf", title or os.path.splitext(os.path.basename(path))[0], path,
-                             {"content_hash": h}, f"sources/{sid}.txt")
-        self._write_snapshot(src.snapshot, "\f".join(pdf.pages(data)))
+                             version, f"sources/{sid}.txt")
+        self._write_snapshot(src.snapshot, "\f".join(ps))
         self._write_snapshot(_pdf_path(src), data)
         self.state.sources.append(src)
         self.save()
@@ -354,35 +370,58 @@ class PabloSkill:
         self.save()
         return link
 
-    def ask(self, task_id: str, question: str, src_id: str | None = None) -> tuple[SourceCheck, list[dict]]:
-        """M3.3: answer a question from a captured PDF (default: the latest one). The judge picks the quotes; Pablo
-        anchors each one in the captured text, drops the ones it cannot find once, renumbers the [n] markers, and
-        stores the answer as a completed check whose supports links are in citation order. -> (check, dropped)"""
+    def _pdf(self, src_id: str | None) -> EvidenceSource:
         src = self.get_source(src_id) if src_id else next((x for x in reversed(self.state.sources) if x.kind == "pdf"), None)
         if not src or src.kind != "pdf":
             raise KeyError("no captured PDF to answer from")
-        r = self.judge.answer_from_pdf(question, self.snapshot_text(src).split("\f"))
+        return src
+
+    def ask(self, task_id: str, question: str, src_id: str | list[str] | None = None) -> tuple[SourceCheck, list[dict]]:
+        """M3.3: answer a question from a captured PDF (default: the latest one). The judge picks the quotes; Pablo
+        anchors each one in the captured text, drops the ones it cannot find once, renumbers the [n] markers, and
+        stores the answer as a completed check whose supports links are in citation order. -> (check, dropped)
+        C1: several PDFs (a list of ids) are asked together; each quote is anchored in the paper it names, on its page.
+        Too much text for one question (ASK_PAGES a paper, ASK_CHARS in all) raises TooMuchText: ask fewer papers."""
+        ids = [src_id] if isinstance(src_id, str) or src_id is None else list(dict.fromkeys(src_id))
+        srcs = [self._pdf(i) for i in ids]
+        if len(srcs) == 1:
+            src = srcs[0]
+            r = self.judge.answer_from_pdf(question, self.snapshot_text(src).split("\f"))
+            of = {}
+        else:
+            papers = [{"label": chr(65 + i), "title": x.title, "pages": self.snapshot_text(x).split("\f")[:ASK_PAGES]}
+                      for i, x in enumerate(srcs)]
+            size = sum(len(p) for x in papers for p in x["pages"])
+            if size > ASK_CHARS:
+                raise TooMuchText(f"논문 {len(srcs)}편을 한 번에 묻기에는 본문이 너무 깁니다({size:,}자, 상한 {ASK_CHARS:,}자). "
+                                  "물어볼 논문을 골라 주세요.")
+            r = self.judge.answer_from_sources(question, papers)
+            of = {x["label"]: s for x, s in zip(papers, srcs)}
         kept, dropped, new = [], [], {}
         for c in sorted(r["citations"], key=lambda c: c["n"]):
+            src = of.get(str(c.get("paper", "")).strip().upper()[:1]) if of else srcs[0]
             try:
+                if not src:
+                    raise evidence.AnchorRejected(f"no paper {c.get('paper')!r} among {sorted(of)}")
                 try:
                     a = self.add_anchor(src.id, c["quote"], page=c["page"])
-                except evidence.AnchorRejected:  # wrong page from the judge: unique anywhere is still exact
+                except evidence.AnchorRejected:  # wrong page from the judge: unique anywhere in that paper is still exact
                     a = self.add_anchor(src.id, c["quote"])
             except evidence.AnchorRejected as e:
                 dropped.append({**c, "why": str(e)})
                 continue
-            kept.append((a, c["role"]))
+            kept.append((a, c["role"], src))
             new[c["n"]] = len(kept)
         answer = re.sub(r"\[(\d+(?:\s*,\s*\d+)+)\]", lambda m: "".join(f"[{x.strip()}]" for x in m[1].split(",")),
                         r["answer"])
         answer = re.sub(r"\s?\[(\d+)\]", lambda m: f"[{new[int(m[1])]}]" if int(m[1]) in new else "", answer)
         sc = self.add_check(task_id, question, "USEFUL")
         self.complete_check(sc.id, "VERIFIED" if kept and not dropped else "PARTIALLY_VERIFIED", answer,
-                            [{"tier": 4, "type": "pdf", "title": src.title, "url": src.locator,
-                              "supports": [a.id for a, _ in kept]}],
+                            [{"tier": 4, "type": "pdf", "title": s.title, "url": s.locator,
+                              "supports": [a.id for a, _, x in kept if x is s]}
+                             for s in [s for s in srcs if any(x is s for *_, x in kept)] or srcs],
                             None if kept and not dropped else "budget_exhausted")
-        for a, role in kept:
+        for a, role, _ in kept:
             self.link_evidence(a.id, sc.id, "supports", role)
         return sc, dropped
 
@@ -391,16 +430,21 @@ class PabloSkill:
         evaluation rules), each a completed check whose evidence is its verbatim quote anchored on its page: the Guard
         reads them like any verified fact (an action against one is S01), the agent gets them in its brief.
         A quote Pablo cannot find is dropped, never kept unanchored. Settings the paper does not state become pending
-        checks ("decide, and say on what basis"). Extracting again replaces the task's earlier conditions from that
-        paper. -> (stated, missing, dropped)"""
+        checks ("decide, and say on what basis"). Extracting again replaces the task's earlier conditions.
+        C1: a task with several papers reproduces one of them (the 주 논문). Extracting from a paper replaces the
+        conditions of every paper of the task, so the Guard, the brief and 재현 점검 never hold two papers' settings
+        at once (a baseline's top-k would block the reproduction's). The old ones stay, waived.
+        -> (stated, missing, dropped)"""
         src = self.get_source(src_id) if src_id else next((x for x in reversed(self.state.sources) if x.kind == "pdf"), None)
         if not src or src.kind != "pdf":
             raise KeyError("no captured PDF to read the conditions from")
         self.get_task(task_id)
         r = self.judge.extract_spec(self.snapshot_text(src).split("\f"))
         for c in self.checks(task_id):
-            if c.spec and c.spec.get("source_id") == src.id and c.research_state != "waived" and c.task_id == task_id:
-                c.research_state, c.waived_by, c.waive_reason = "waived", "pablo", "replaced by a new extraction"
+            if c.spec and c.research_state != "waived" and c.task_id == task_id:
+                c.research_state, c.waived_by = "waived", "pablo"
+                c.waive_reason = "replaced by a new extraction" if c.spec.get("source_id") == src.id \
+                    else f"replaced by the conditions of {src.id} ({src.title})"
         stated, missing, dropped = [], [], []
         for it in r["items"]:
             try:
@@ -426,6 +470,53 @@ class PabloSkill:
             missing.append(sc)
         self.save()
         return stated, missing, dropped
+
+    def compare(self, task_id: str, src_ids: list[str], columns: list[str] | None = None
+                ) -> tuple[str, list[SourceCheck], list[dict]]:
+        """C3: a table of the task's papers (rows) by columns (default COLUMNS). The judge fills one paper's row per
+        call, the same columns each time and no other paper in view (no value crosses between rows, no paper is cut to
+        fit). Each cell's quote is anchored on its page, or the cell stays empty: a value never stands without its place
+        in the paper. A cell is a completed check with matrix {id, column, source_id} and its anchor, like a spec
+        condition; it is not a fact the Guard enforces nor in the agent's brief (the table compares, it does not bind).
+        -> (matrix id, cells, empty [{source_id, column, why}])"""
+        self.get_task(task_id)
+        srcs = [self._pdf(i) for i in dict.fromkeys(src_ids)]
+        if len(srcs) < 2:
+            raise ValueError("a comparison table needs two or more papers")
+        columns = list(dict.fromkeys(c.strip() for c in (columns or COLUMNS) if c and c.strip()))[:8]
+        if not columns:
+            raise ValueError("a comparison table needs at least one column")
+        mid, cells, empty = self._next_id("M"), [], []
+        for src in srcs:
+            r = self.judge.compare_paper(columns, src.title, self.snapshot_text(src).split("\f")[:COMPARE_PAGES])
+            row = {}
+            for x in r["cells"]:
+                row.setdefault(str(x.get("column", "")).strip(), x)
+            for col in columns:
+                x = row.get(col) or {}
+                if not str(x.get("value", "")).strip() or not str(x.get("quote", "")).strip():
+                    empty.append({"source_id": src.id, "column": col, "why": "the paper does not state it"})
+                    continue
+                try:
+                    try:
+                        a = self.add_anchor(src.id, x["quote"], page=x.get("page") or None)
+                    except evidence.AnchorRejected:  # wrong page: unique anywhere in the paper is still exact
+                        a = self.add_anchor(src.id, x["quote"])
+                except evidence.AnchorRejected as e:
+                    empty.append({"source_id": src.id, "column": col, "why": str(e), "value": x["value"]})
+                    continue
+                sc = self.add_check(task_id, f"{src.title} · {col}", "USEFUL")
+                sc.matrix = {"id": mid, "column": col, "source_id": src.id}
+                self.complete_check(sc.id, "VERIFIED", x["value"].strip() + " [1]",
+                                    [{"tier": 4, "type": "pdf", "title": src.title, "url": src.locator, "supports": [a.id]}])
+                self.link_evidence(a.id, sc.id, "supports", col)
+                cells.append(sc)
+        self.save()
+        return mid, cells, empty
+
+    def resolve_source(self, src_id: str) -> list[EvidenceAnchor]:
+        """C2: every anchor of one source against the file at its path now (a newer arXiv version saved over it)."""
+        return [self.resolve_anchor(a.id) for a in list(self.state.anchors) if a.source_id == self.get_source(src_id).id]
 
     def resolve_anchor(self, e_id: str) -> EvidenceAnchor:
         """Re-fetch the live source and find the anchor in it. Never moves the anchor; records where it is now."""
@@ -700,6 +791,8 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
     prefer = [c.statement for c in ai["constraints"] if c.strength != "hard"]
     facts, basis, open_, paper = [], [], [], False
     for c in s.checks(task_id):
+        if c.matrix:  # C3 a comparison-table cell: the user reads it; the agent is not bound by another paper's row
+            continue
         if c.spec and c.spec.get("missing") and c.research_state == "pending":
             open_.append(f"- [{SPEC_LABEL.get(c.spec['category'], c.spec['category'])}] {c.requirement.strip()}")
             continue

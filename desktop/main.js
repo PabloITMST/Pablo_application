@@ -9,6 +9,7 @@ const ctl = require("./controller");
 const siwc = require("./siwc");
 const checkpoint = require("./checkpoint");
 const where = require("./where");
+const papers = require("./papers");
 
 // M6 Squirrel installer events (Setup.exe runs the app with these): add/remove the shortcuts, then exit at once.
 // The few lines Forge's template gets from electron-squirrel-startup.
@@ -127,7 +128,8 @@ async function chatTurn(text, task, prep) {
 }
 // ---- M5.1 app-first workflow: live state, new task, folder and material per task (userData/state/desktop.json) ----
 let envWorkspace = null;
-const desk = () => { try { return { workspace: {}, pdf: {}, net: {}, ...JSON.parse(fs.readFileSync(path.join(ctl.dir, "desktop.json"), "utf8")) }; }
+// C1: pdf[task] is a list of papers (0.7's one {id, title} reads as a list of one, written back as one on the next save)
+const desk = () => { try { return papers.migrate({ workspace: {}, pdf: {}, net: {}, ...JSON.parse(fs.readFileSync(path.join(ctl.dir, "desktop.json"), "utf8")) }); }
   catch { return { workspace: {}, pdf: {}, net: {} }; } };
 const saveDesk = f => { const d = desk(); f(d); fs.writeFileSync(path.join(ctl.dir, "desktop.json"), JSON.stringify(d, null, 1)); };
 // the conversation per task (state/chat.json; this file is its only writer, viewer.py reads it): the user's messages, the
@@ -144,8 +146,9 @@ const pick = (e, opts) => dialog.showOpenDialog(BrowserWindow.fromWebContents(e.
 ipcMain.handle("pablo:state", async e => {
   fromWindow(e);
   const m = await ctl.py("state"), d = desk();
-  m.desk = Object.fromEntries(m.tasks.map(t => { const w = d.workspace[t.id] || envWorkspace, p = d.pdf[t.id];
-    return [t.id, { folder: w ? path.basename(w) : null, pdf: p ? p.title : null, net: !!(d.net || {})[t.id],
+  m.desk = Object.fromEntries(m.tasks.map(t => { const w = d.workspace[t.id] || envWorkspace, p = papers.primary(d, t.id);
+    return [t.id, { folder: w ? path.basename(w) : null, net: !!(d.net || {})[t.id],
+      papers: papers.list(d, t.id).map(x => ({ id: x.id, title: x.title, version: x.version || null, primary: x.id === p.id })),
       route: (d.route || {})[t.id] === "ask" ? "ask" : "agent" }]; }));  // names only, no paths
   m.last = d.last;
   return m;
@@ -182,22 +185,71 @@ ipcMain.handle("pablo:set-net", (e, task, on) => {
   saveDesk(x => { x.net = { ...(x.net || {}), [task]: on === true }; });
   return on === true;
 });
+// C1: a paper joins the task's list (one PDF per task until 0.7); the same file again is the same paper
+const join = (task, entry, replaces) => saveDesk(d => {
+  const ps = papers.list(d, task), at = ps.findIndex(p => p.id === replaces || p.id === entry.id);
+  d.pdf[task] = at < 0 ? [...ps, entry] : ps.map((p, i) => i === at ? entry : p).filter((p, i) => i === at || p.id !== entry.id);
+  if (replaces && (d.primary || {})[task] === replaces) d.primary[task] = entry.id;  // a newer version stays the 주 논문
+  d.last = task;
+});
 ipcMain.handle("pablo:add-source", async (e, task) => {
   fromWindow(e); known(task);
   const f = await pick(e, { title: "자료 추가", properties: ["openFile"], filters: [{ name: "PDF", extensions: ["pdf"] }] });
   if (!f) return null;
   const x = (await ctl.py("source", f)).source;  // M3.3 capture: copied to state/sources/SRCn.pdf
-  saveDesk(d => { d.pdf[task] = { id: x.id, title: x.title }; d.last = task; });
+  join(task, { id: x.id, title: x.title });
   return x.title;
 });
-// M3.3 a question about the captured PDF -> Pablo ask (judge picks quotes, Pablo anchors them) -> answer + citations
-ipcMain.handle("pablo:ask", (e, text, task) => {
+// C2 arXiv: "arXiv:2510.10114", an abs/pdf link. main downloads it (the agent never does): https://arxiv.org/pdf/<id> only,
+// <= 50 MB, <= 60 s, then the usual capture. One file per paper (state/papers/arxiv-<id>.pdf): a newer version saved over
+// it is a new source, and the old one's anchors are resolved against it (VALID / STALE / UNRESOLVED) so the user hears
+// whether the evidence moved. The version and the bytes' sha256 stay with the paper.
+const arxiv = { base: "https://arxiv.org/pdf/", max: 50 << 20, ms: 60000 };  // check.js points base at a local server
+ipcMain.handle("pablo:add-arxiv", async (e, task, text) => {
+  fromWindow(e); known(task); if (!str(text, 300)) throw new Error("bad arXiv id");
+  const a = papers.arxiv(text);
+  if (!a) throw new Error("arXiv 번호나 링크를 읽지 못했습니다. 예: arXiv:2510.10114, https://arxiv.org/abs/2510.10114v4");
+  const data = await papers.fetchPdf(arxiv.base + a.id + (a.version || ""), { origin: new URL(arxiv.base).origin, max: arxiv.max, ms: arxiv.ms })
+    .catch(err => { throw new Error(err.name === "TimeoutError" ? "arXiv가 60초 안에 답하지 않았습니다."
+      : /[가-힣]/.test(err.message) ? err.message : "arXiv에 연결하지 못했습니다. 인터넷 연결을 확인하세요."); });
+  const file = path.join(ctl.dir, "papers", `arxiv-${a.id.replace("/", "_")}.pdf`);
+  const before = papers.list(desk(), task).find(p => p.arxiv === a.id);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, data);
+  const x = (await ctl.py("source", file, "--arxiv", a.id)).source;
+  let moved = null;
+  if (before && before.id !== x.id) {  // another version of a paper already here: did its evidence move?
+    const r = await ctl.py("resolve", "--source", before.id);
+    moved = r.anchors.reduce((m, y) => ({ ...m, [y.status]: (m[y.status] || 0) + 1 }), {});
+  }
+  const version = x.version.arxiv_version || a.version || null;
+  join(task, { id: x.id, title: x.title, arxiv: a.id, version, sha256: x.version.content_hash }, before && before.id);
+  return { title: x.title, version, same: !!before && before.id === x.id, moved };
+});
+// C1: a paper leaves the task's list; what was located in it (answers, conditions, table cells) stays in the records
+ipcMain.handle("pablo:remove-source", (e, task, id) => {
+  fromWindow(e); known(task); if (!str(id, 20)) throw new Error("bad source");
+  saveDesk(d => { d.pdf[task] = papers.list(d, task).filter(p => p.id !== id); if ((d.primary || {})[task] === id) delete d.primary[task]; });
+  return true;
+});
+// C1: the 주 논문, the paper this task reproduces: 재현 조건 뽑기 reads it (and replaces any other paper's conditions)
+ipcMain.handle("pablo:set-primary", (e, task, id) => {
+  fromWindow(e); known(task);
+  if (!papers.list(desk(), task).some(p => p.id === id)) throw new Error("이 작업의 자료가 아닙니다.");
+  saveDesk(d => { d.primary = { ...(d.primary || {}), [task]: id }; });
+  return id;
+});
+// M3.3 a question about the captured PDF -> Pablo ask (judge picks quotes, Pablo anchors them) -> answer + citations.
+// C1: every paper of the task, or the ones the user picked when they are too long for one question (only)
+ipcMain.handle("pablo:ask", (e, text, task, only) => {
   fromWindow(e); if (!str(text, 2000) || !text.trim()) throw new Error("bad question");
   known(task);
   if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
+  const ids = papers.list(desk(), task).map(p => p.id).filter(id => !Array.isArray(only) || only.includes(id));
+  if (!ids.length) throw new Error("먼저 논문 PDF를 추가하세요.");
   saveDesk(x => { x.last = task; });
   const at = new Date().toISOString();
-  return ctl.ask(task, text, (desk().pdf[task] || {}).id).then(r => {
+  return ctl.ask(task, text, ids).then(r => {
     logChat(task, { role: "ask", text, at, check: r.check.id, ...(r.dropped.length ? { dropped: r.dropped.length } : {}) });
     return r;
   }, err => {
@@ -217,12 +269,27 @@ ipcMain.handle("pablo:intent", async (e, task, id, action) => {
 ipcMain.handle("pablo:spec", async (e, task) => {
   fromWindow(e); known(task);
   if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
-  const src = (desk().pdf[task] || {}).id;
+  const src = (papers.primary(desk(), task) || {}).id;  // C1: the 주 논문
   if (!src) throw new Error("먼저 논문 PDF를 추가하세요.");
   const at = new Date().toISOString();
   const r = await ctl.py("spec", task, "--source", src).catch(err => { console.error("[pablo] spec", err.message); throw new Error(short(err.message)); });
   logChat(task, { role: "spec", at, checks: r.stated.map(c => c.id), missing: r.missing.map(c => c.id), dropped: r.dropped.length });
   return r;
+});
+// C3 비교표: the task's papers (rows) by columns; one judge call per paper, every cell anchored or left empty
+ipcMain.handle("pablo:compare", async (e, task, columns) => {
+  fromWindow(e); known(task);
+  if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
+  if (!Array.isArray(columns) || !columns.length || columns.length > 8 || !columns.every(c => str(c, 40) && c.trim())) throw new Error("bad columns");
+  const ps = papers.list(desk(), task);
+  if (ps.length < 2) throw new Error("비교하려면 논문이 두 편 이상 있어야 합니다.");
+  const at = new Date().toISOString();
+  const r = await ctl.py("compare", task, ...ps.flatMap(p => ["--source", p.id]), "--columns", JSON.stringify(columns))
+    .catch(err => { console.error("[pablo] compare", err.message); throw new Error(short(err.message)); });
+  const entry = { role: "compare", at, matrix: r.matrix, columns, papers: ps.map(p => ({ id: p.id, title: p.title, version: p.version || null })),
+    cells: r.cells.map(c => c.id), empty: r.empty.map(x => ({ source: x.source_id, column: x.column, ...(x.value ? { value: x.value } : {}) })) };
+  logChat(task, entry);
+  return { ...r, entry };
 });
 // A5/A6 재현 점검: the agent reads the work folder (read-only sandbox, nothing can change, so no Guard per read) and
 // judges every paper condition, open setting and task criterion against the code, configs and run logs -> a table
@@ -473,4 +540,4 @@ async function launch(dir = path.join(app.getPath("userData"), "state")) {
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => { clearTimeout(timer); agent.stop(); });
 
-module.exports = { open, boot, launch, auth: () => auth };
+module.exports = { open, boot, launch, auth: () => auth, arxiv };

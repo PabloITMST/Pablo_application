@@ -78,8 +78,11 @@ def model(s, task_id: str) -> dict:
                              "message": STATUS.get((a.status, r.get("reason")), UNCHECKED) if r else UNCHECKED,
                              "claim": link.note or c.conclusion or c.requirement, "check": c.id,
                              "relation": link.relation}
+        of = (c.spec or c.matrix or {}).get("source_id")  # C1: which paper a condition / table cell is from, by title
+        paper = next((x.title for x in s.state.sources if x.id == of), None) if of else None
         checks[sc_id] = {"id": c.id, "title": c.requirement, "state": c.research_state, "outcome": c.outcome,
                          "conclusion": c.conclusion, "necessity": c.necessity, "evidence": ev, "spec": c.spec,
+                         "matrix": c.matrix, "paper": paper,
                          "sources": [{"tier": x.get("tier"), "title": x.get("title", "")} for x in c.sources],
                          "issues": []}
         return checks[sc_id]
@@ -221,7 +224,7 @@ code { font:0.88em ui-monospace, SFMono-Regular, Consolas, monospace; background
 .pill:hover:not(:disabled) { background:var(--hover); } .pill.on { background:var(--fg); color:var(--bg); border-color:var(--fg); }
 #menu { display:none; font-size:18px; padding:0 6px; }
 #log { flex:1; overflow:auto; padding:24px 20px 40px; }
-.msg { max-width:720px; margin:0 auto 28px; display:grid; grid-template-columns:32px 1fr; gap:12px; }
+.msg { max-width:720px; margin:0 auto 28px; display:grid; grid-template-columns:32px minmax(0, 1fr); gap:12px; }
 .av { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:700;
       background:var(--hover); color:var(--muted); }
 .msg.pablo .av { background:var(--accent); color:#fff; }
@@ -334,6 +337,21 @@ body.panel.code { grid-template-columns:220px minmax(0, 1fr) min(760px, 48vw); }
 .src .t { padding-right:16px; } .src .ln.on { background:var(--lineon); } .src .ln.on .n { color:var(--fg); font-weight:700; }
 .phead .open { font-size:12px; white-space:nowrap; }
 .changes { border-left:3px solid var(--line); background:var(--side); border-radius:0 8px 8px 0; padding:8px 14px; margin:8px 0; }
+/* C3 comparison table; C1 the task's papers */
+.matrix { border-left:3px solid var(--accent); background:var(--side); border-radius:0 8px 8px 0; padding:8px 14px; margin:8px 0; }
+.matrix .head { font-weight:700; margin:0 0 4px; } .matrix .scroll { overflow-x:auto; margin:6px 0; }
+.matrix table { border-collapse:collapse; font-size:13px; line-height:1.45; min-width:100%; }
+.matrix th, .matrix td { border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; min-width:110px; }
+.matrix thead th { background:var(--bg); font-weight:600; } .matrix tbody th { min-width:90px; }
+.matrix th small { color:var(--muted); font-weight:400; } .matrix td.none { color:var(--faint); cursor:help; }
+.matrix.wide { border:0; background:none; padding:0; margin:0; } .matrix.wide table { font-size:14px; }
+body.panel.wide { grid-template-columns:220px minmax(0, 1fr) min(900px, 58vw); }
+#src .paper { white-space:nowrap; } #src .rm { color:var(--faint); padding:0 3px; } #src .rm:hover { color:var(--bad); }
+#adder { max-width:760px; width:calc(100% - 40px); margin:0 auto 6px; font-size:13px; color:var(--muted); display:flex; gap:8px;
+         flex-wrap:wrap; align-items:center; }
+#adder[hidden] { display:none; } #adder input { min-width:240px; border:1px solid var(--line); border-radius:8px; padding:3px 8px;
+         background:none; } .ask-pick { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+.cols { width:100%; border:1px solid var(--line); border-radius:8px; padding:6px 10px; background:none; margin:6px 0; }
 .changes p { margin:2px 0; font-size:14px; overflow-wrap:anywhere; }
 .empty { max-width:560px; margin:18vh auto 0; text-align:center; color:var(--muted); }
 .empty b { display:block; font-size:22px; color:var(--fg); margin-bottom:6px; }
@@ -351,7 +369,7 @@ body.panel.code { grid-template-columns:220px minmax(0, 1fr) min(760px, 48vw); }
   #side { display:none; position:fixed; inset:0 30% 0 0; z-index:3; box-shadow:0 0 0 100vmax var(--shade); }
   body.side #side { display:block; } #menu { display:block; }
   #panel { position:fixed; inset:0; z-index:4; } #bar { padding:10px 12px; } #log { padding:18px 12px 32px; }
-  .msg { grid-template-columns:26px 1fr; gap:8px; } .av { width:26px; height:26px; } }
+  .msg { grid-template-columns:26px minmax(0, 1fr); gap:8px; } .av { width:26px; height:26px; } }
 </style></head>
 <body>
 <nav id="side"></nav>
@@ -481,7 +499,7 @@ function answer(asked) {
   const out = [];
   for (const id of V.research) {
     const c = V.checks[id];
-    if (c.state === "waived" || c.spec || asked.has(id) || live().querySelector(`.asked[data-check="${CSS.escape(id)}"]`)) continue;  // shown as its question's answer / in the conditions card
+    if (c.state === "waived" || c.spec || c.matrix || asked.has(id) || live().querySelector(`.asked[data-check="${CSS.escape(id)}"]`)) continue;  // shown as its question's answer / in the conditions card / in its table
     const note = c.state === "pending" ? "아직 조사 중입니다." : SURE[c.outcome];
     out.push(h("p", { title: c.id, "data-id": c.id }, cited(c.conclusion || c.title, c.evidence),
                note ? h("span", { class: "muted" }, " · " + note) : null));
@@ -558,7 +576,8 @@ function conditions(ids, dropped) {
   const open = cs.filter(c => c.spec.missing);
   const box = h("div", { class: "spec", "data-spec": "1" });
   if (!cs.length) return box.appendChild(h("p", { class: "muted" }, "이 조건 목록은 다시 뽑은 목록으로 바뀌었습니다.")), box;
-  box.append(h("p", { class: "head" }, `📋 논문에서 재현 조건 ${stated.length}개를 찾았습니다.`));
+  const paper = (cs.find(c => c.paper) || {}).paper;  // C1: which of the task's papers they are from
+  box.append(h("p", { class: "head" }, `📋 ${paper ? paper + "에서" : "논문에서"} 재현 조건 ${stated.length}개를 찾았습니다.`));
   for (const k of Object.keys(SPEC)) {
     const xs = stated.filter(c => c.spec.category === k);
     if (xs.length) box.append(h("h4", null, SPEC[k]), h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id },
@@ -615,6 +634,26 @@ function audited(c) {
     if (ys.length) box.append(h("details", null, h("summary", null, `${label} ${ys.length}개`), h("ul", null, ys.map(row)))); }
   return box;
 }
+// C3 비교표 (chat.json "compare"): the task's papers (rows) by columns. A cell is a value with its place in that paper
+// ([n] -> the PDF on that page), or 근거 없음: Pablo did not find where the paper says it, so nothing is filled in.
+function matrix(c, wide) {
+  const box = h("div", { class: "matrix" + (wide ? " wide" : ""), "data-matrix": c.matrix || "" });
+  const cells = (c.cells || []).map(id => V.checks[id]).filter(Boolean), all = c.papers.length * c.columns.length;
+  const cell = (p, col) => cells.find(k => k.matrix && k.matrix.source_id === p.id && k.matrix.column === col);
+  const why = (p, col) => { const x = (c.empty || []).find(y => y.source === p.id && y.column === col);
+    return x && x.value ? `모델은 "${x.value}"라고 했지만 논문에서 그 문장을 찾지 못해 비웠습니다.` : "이 논문에서 찾지 못했습니다."; };
+  if (!wide) box.append(h("p", { class: "head" }, `📊 비교표: 논문 ${c.papers.length}편 × 항목 ${c.columns.length}개`),
+    h("p", { class: "muted" }, `칸 ${all}개 중 ${cells.length}개는 논문에서 위치를 찾은 값입니다.`,
+      cells.length < all ? ` 나머지 ${all - cells.length}개는 근거를 찾지 못해 비웠습니다.` : ""));
+  box.append(h("div", { class: "scroll" }, h("table", null,
+    h("thead", null, h("tr", null, h("th", null, "논문"), c.columns.map(col => h("th", null, col)))),
+    h("tbody", null, c.papers.map(p => h("tr", { "data-paper": p.id }, h("th", { scope: "row" }, p.title, p.version ? h("small", null, " " + p.version) : null),
+      c.columns.map(col => { const k = cell(p, col);
+        return k ? h("td", { "data-cell": k.id }, rich(k.conclusion.replace(/\s*\[\d+\]/g, "")), " ", k.evidence.map(e => cite(e)))
+          : h("td", { class: "none", title: why(p, col) }, "근거 없음"); })))))));
+  if (!wide) box.append(h("p", null, h("button", { class: "link", "data-wide": "1", on: () => show({ mode: "matrix", c }) }, "크게 보기")));
+  return box;
+}
 // criteria the user said in a chat message, now this task's intent (Guard and the agent's brief use them)
 const noted = c => msg("Pablo", null, (c.items || []).length ? h("p", { class: "muted", "data-intent": "1" }, "📌 작업 기준에 추가했습니다: ",
   c.items.map(i => `${i.text} (${i.strength === "hard" ? "반드시" : "가능하면"})`).join(" · "), " ",
@@ -633,6 +672,7 @@ function held(k, task) {
 function said(c) {
   if (c.role === "audit") return [msg("Pablo", null, audited(c))];
   if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped))];
+  if (c.role === "compare") return [msg("Pablo", null, matrix(c))];
   if (c.role === "intent") return [noted(c)];
   if (c.role === "changes") return [msg("Pablo", null, changed(c, V.task.id))];
   if (c.role === "user") return [msg("You", c.at, h("p", null, c.text))];
@@ -695,15 +735,15 @@ let tools = () => {}, newTask = () => {}, refresh = () => Promise.resolve();  //
 function toggle(st) { (hi >= 0 && document.body.classList.contains("panel") && hist[hi].mode === st.mode && !st.e) ? close() : show(st); }
 function show(st, push = true) {
   if (push) { hist = hist.slice(0, hi + 1); hist.push(st); hi = hist.length - 1; }
-  document.body.classList.add("panel"); document.body.classList.remove("pdf", "code");
+  document.body.classList.add("panel"); document.body.classList.remove("pdf", "code", "wide");
   CSS.highlights.clear();
   document.querySelectorAll(".cite").forEach(b => b.classList.toggle("on", st.mode === "source" && b.dataset.e === st.e));
   const p = $("panel"); p.textContent = ""; delete p.dataset.live;
-  ({ source, intent, plan, trace, code: codeView })[st.mode](p, st);
+  ({ source, intent, plan, trace, code: codeView, matrix: matrixView })[st.mode](p, st);
   header();
 }
 function close() {
-  document.body.classList.remove("panel", "pdf", "code"); CSS.highlights.clear(); hist = []; hi = -1;
+  document.body.classList.remove("panel", "pdf", "code", "wide"); CSS.highlights.clear(); hist = []; hi = -1;
   document.querySelectorAll(".cite.on").forEach(b => b.classList.remove("on"));
   if (V) header();
 }
@@ -745,7 +785,7 @@ function trace(p, st) {
   const stepId = act ? act.step : st.step, step = V.plan && V.plan.steps.find(s => s.id === stepId);
   const scoped = act || step;
   const checks = [...new Set(scoped ? [...(step ? step.checks : []), ...(act ? act.criteria.map(c => c.id) : [])]
-                                     .filter(id => V.checks[id]) : V.research)]
+                                     .filter(id => V.checks[id]) : V.research.filter(id => !V.checks[id].matrix))]
     .sort((x, y) => V.checks[y].evidence.length - V.checks[x].evidence.length);
   const crit = scoped ? [...(step ? step.intent : []), ...(act ? act.criteria.filter(c => !V.checks[c.id]) : [])] : V.intent.must;
   const li = (cls, k, ...v) => h("li", { class: cls }, h("div", { class: "k" }, k), h("div", { class: "v" }, v));
@@ -768,6 +808,16 @@ function trace(p, st) {
     act.runs.forEach(r => nodes.push(li("", "결과", done(r), r.alignment ? h("div", null, ALIGN[r.alignment] || r.alignment) : null)));
   }
   simple(p, act ? (act.verdict === "BLOCK" ? "이 작업이 막힌 과정" : "이 작업을 판단한 과정") : step ? "이 단계가 계획에 들어간 과정" : "이 판단이 나온 과정", h("ol", { class: "tl" }, nodes));
+}
+
+// C3: the comparison table, wide; a cell's [n] opens that paper's page here and ← comes back to the table
+function matrixView(p, st) {
+  document.body.classList.add("wide");
+  p.append(h("div", { class: "phead" },
+      h("button", { class: "nav", title: "뒤로", disabled: hi <= 0, on: () => go(-1) }, "←"),
+      h("button", { class: "nav", title: "앞으로", disabled: hi >= hist.length - 1, on: () => go(1) }, "→"),
+      h("h2", null, "비교표"), xbtn()),
+    h("div", { id: "pbody" }, matrix(st.c, true)));
 }
 
 // ---- A3 code (desktop): a work-folder file, read-only, line numbers, the lines the audit or a card names marked ----------
@@ -1062,7 +1112,7 @@ if (window.pabloHost && pabloHost.chat) {
     inp.value = ""; talk = V.task.id;
     live(talk).append(msg("You", new Date().toISOString(), h("p", null, text)));
     if (!M.desk) { inp.disabled = true; await refresh(); gate(); }  // the task's folder / PDF come with the first state read
-    const d = (M.desk || {})[talk] || {}, pdf = !!d.pdf || (!M.desk && M.pdf), dir = !!d.folder;
+    const d = (M.desk || {})[talk] || {}, pdf = (d.papers || []).length > 0 || (!M.desk && M.pdf), dir = !!d.folder;
     if (pdf && !dir) return ask(text, talk);
     if (dir && !pdf) return chat(text, talk);
     if (pdf && dir) return (d.route === "ask" ? ask : chat)(text, talk);  // both: the task's 보낼 곳 (agent by default)
@@ -1090,15 +1140,41 @@ if (window.pabloHost && pabloHost.chat) {
   const bar = $("chat").insertBefore(h("div", { id: "tools" }), box);
   const attach = kind => pabloHost[kind](V.task.id).then(name => name && refresh(),
     e => { live(V.task.id).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + clean(e))))); scroll(); });
+  // C1/C2: + 추가 -> a PDF file, or an arXiv id / link that main downloads (one row under the tools)
+  const adder = $("chat").insertBefore(h("div", { id: "adder", hidden: true }), box);
+  const arx = h("input", { id: "arxiv", placeholder: "arXiv 번호나 링크 (예: 2510.10114)" }), note = h("span", { id: "arxiv-note" });
+  const moved = m => { const n = Object.values(m).reduce((a, b) => a + b, 0);
+    return n ? ` 이전 버전에서 찾은 근거 ${n}개: 그대로 ${m.VALID || 0} · 문맥 바뀜 ${m.STALE || 0} · 찾을 수 없음 ${m.UNRESOLVED || 0}.` : ""; };
+  const fetchArxiv = () => {
+    const v = arx.value.trim(); if (!v || get.disabled) return;
+    get.disabled = true; note.textContent = "arXiv에서 받는 중…";
+    pabloHost.addArxiv(V.task.id, v).then(r => {
+      get.disabled = false; arx.value = "";
+      note.textContent = `${r.same ? "이미 있는 파일입니다" : "추가했습니다"}: ${r.title}${r.version ? " " + r.version : ""}.` + (r.moved ? moved(r.moved) : "");
+      refresh();
+    }, e => { get.disabled = false; note.textContent = "⚠ " + fail(e); });
+  };
+  const get = h("button", { class: "pill", id: "arxiv-get", on: fetchArxiv }, "가져오기");
+  arx.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) fetchArxiv(); });
+  adder.append(link("📄 PDF 파일 고르기", () => attach("addSource")), "또는", arx, get, note);
   tools = () => {
     bar.textContent = "";
-    if (!V) return;
-    const d = (M.desk || {})[V.task.id] || {};
-    bar.append(...[h("span", { id: "src" }, "📎 자료: ", d.pdf ? h("b", null, d.pdf) : "없음", " ", link(d.pdf ? "바꾸기" : "PDF 추가", () => attach("addSource"))),
+    if (!V) { adder.hidden = true; return; }
+    const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [], main = ps.find(p => p.primary), several = ps.length > 1;
+    const hasSpec = V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived");
+    bar.append(...[h("span", { id: "src" }, "📎 자료: ", ps.length ? ps.map((p, i) => [i ? " · " : "", h("span", { class: "paper", "data-paper": p.id },
+        h("b", null, p.title), p.version ? h("small", null, " " + p.version) : null,
+        several ? (p.primary ? h("small", { class: "muted", "data-primary": "1" }, " (주 논문)")
+          : [" ", h("button", { class: "link", title: "이 논문을 재현 대상으로 (재현 조건은 주 논문에서 뽑습니다)", "data-make-primary": p.id,
+              on: () => pabloHost.setPrimary(V.task.id, p.id).then(() => refresh()) }, "주 논문으로")]) : null,
+        h("button", { class: "rm", title: "자료에서 빼기 (찾은 근거 기록은 남습니다)", "data-remove": p.id,
+          on: () => pabloHost.removeSource(V.task.id, p.id).then(() => refresh()) }, "×"))]) : "없음", " ",
+        pabloHost.addArxiv ? link("+ 추가", () => { adder.hidden = !adder.hidden; if (!adder.hidden) arx.focus(); }) : link("PDF 추가", () => attach("addSource"))),
       h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder"))),
-      d.pdf && pabloHost.spec ? h("span", { id: "specs" }, link(V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived")
-        ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기", () => spec(V.task.id))) : null,
-      d.pdf && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
+      ps.length && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
+        link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => spec(V.task.id))) : null,
+      several && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null,
+      ps.length && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
         "💬 보낼 곳: ", ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label], i) => [i ? " · " : "",
           (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh()))])) : null,
       d.folder && pabloHost.audit && (V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived") || V.intent.must.length || V.intent.prefer.length)
@@ -1151,18 +1227,46 @@ if (window.pabloHost && pabloHost.chat) {
       busy = null; status("Ready"); scroll(); refresh();
     }, e => { box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e)))); busy = null; status("Ready"); });
   }
-  // M3.3: with a captured PDF the question goes to Pablo (judge picks quotes, Pablo anchors them); [n] opens the page
-  function ask(text, t) {
+  // M3.3: with a captured PDF the question goes to Pablo (judge picks quotes, Pablo anchors them); [n] opens the page.
+  // C1: every paper of the task at once; when that is too much text, the user picks which papers (only) to ask
+  function ask(text, t, only) {
     talk = busy = t;
     const box = h("div", { class: "asked" }, h("p", { class: "muted" }, "PDF에서 근거를 찾는 중…"));
     live(t).append(msg("Pablo", null, box)); scroll(); status("Thinking");
-    pabloHost.ask(text, t).then(r => {
+    pabloHost.ask(text, t, only).then(r => {
       Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources); M.views[t].checks[r.check.id] = r.check;
       box.textContent = ""; box.dataset.check = r.check.id;
       box.append(h("p", null, cited(r.check.conclusion, r.check.evidence)));
       if (r.dropped.length) box.append(h("p", { class: "muted" }, `PDF에서 찾지 못한 인용 ${r.dropped.length}개는 뺐습니다.`));
       busy = null; status("Ready"); scroll(); refresh();
-    }, e => { box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + e.message.replace(/^Error invoking remote method '[^']*': (\w*Error: )?/, "")))); busy = null; status("Ready"); });
+    }, e => {
+      box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e))));
+      const ps = ((M.desk || {})[t] || {}).papers || [];
+      if (/물어볼 논문을 골라/.test(fail(e)) && ps.length > 1) box.firstChild.append(h("div", { class: "ask-pick" },
+        ps.map(p => h("button", { class: "pill", "data-ask-only": p.id, on: () => ask(text, t, [p.id]) }, `${p.title}에만 묻기`))));
+      busy = null; status("Ready");
+    });
+  }
+  // C3 비교표: the columns (editable, default as skill.COLUMNS) -> one judge call per paper -> the table card
+  const COLUMNS = ["데이터셋", "평가 지표", "주요 결과", "효율", "한계"];
+  function compareForm(t) {
+    if (agentSt === "Thinking") return;
+    const ps = ((M.desk || {})[t] || {}).papers || [], cols = h("input", { class: "cols", id: "columns", value: COLUMNS.join(", ") });
+    const box = h("div", { class: "matrix", "data-compare-form": "1" }, h("p", { class: "head" }, `📊 ${ps.map(p => p.title).join(" · ")} 비교`),
+      h("p", { class: "muted" }, "비교할 항목을 쉼표로 적어 주세요(8개까지). 논문마다 따로 읽고, 논문에서 위치를 찾은 값만 칸에 넣습니다."), cols);
+    const make = h("button", { class: "pill on", id: "compare-go", on: () => {
+      const cs = [...new Set(cols.value.split(/[,，\n]/).map(x => x.trim()).filter(Boolean))].slice(0, 8);
+      if (!cs.length) return;
+      make.disabled = true; talk = busy = t; status("Thinking");
+      const wait = h("p", { class: "muted" }, `논문 ${ps.length}편을 한 편씩 읽고 표를 채우는 중…`); box.append(wait); scroll();
+      pabloHost.compare(t, cs).then(r => {
+        Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources);
+        for (const c of r.cells) M.views[t].checks[c.id] = c;
+        box.replaceWith(matrix(r.entry)); busy = null; status("Ready"); scroll(); refresh();
+      }, e => { wait.replaceWith(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e)))); make.disabled = false; busy = null; status("Ready"); });
+    } }, "비교표 만들기");
+    box.append(h("p", null, make));
+    live(t).append(msg("Pablo", null, box)); scroll(); cols.focus();
   }
   btn.addEventListener("click", () => box.dataset.running ? stop() : send());
   inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) send(); });

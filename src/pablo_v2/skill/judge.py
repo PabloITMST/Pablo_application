@@ -7,7 +7,9 @@ Judge contract (duck-typed; tests inject stubs):
         -> {"intent_conflicts": [...], "source_conflicts": [...], "plan_alignment": {...}, "justification": {...}}
     analyze_execution(context, execution) -> REVIEW_SCHEMA facts (scope, outcome, step progress, new facts ...)
     answer_from_pdf(question, pages) -> {"answer" with [n] markers, "citations": [{n, page, quote, role}]}  (M3.3)
+    answer_from_sources(question, papers [{label, title, pages}]) -> same, each citation also has its paper's label (C1)
     extract_spec(pages) -> {"items": [{category, statement, value, quote, page}], "missing": [{category, statement}]}
+    compare_paper(columns, title, pages) -> {"cells": [{column, value, quote, page}]}  one paper's row of a table (C3)
 """
 from __future__ import annotations
 
@@ -99,6 +101,56 @@ PAPER (page text from the PDF, [p.N] = page N):
 
 QUESTION:
 {question}
+"""
+
+ASK_SOURCES_SCHEMA = _obj(answer=_str, citations={"type": "array", "items": _obj(
+    n={"type": "integer"}, paper=_str, page={"type": "integer"}, quote=_str, role={"enum": ["claim", "table", "text"]})})
+
+ASK_SOURCES_PROMPT = """You answer a question about several papers, using only their text below. Each paper has a label
+(A, B, ...); [A p.N] is page N of paper A. Pablo will locate every quote you give in that paper's PDF and highlight it;
+a quote it cannot find verbatim on that paper is dropped.
+
+Rules:
+- Answer in the question's language, in 2-6 short sentences. Name the paper each statement is about (by its title).
+  Use only what the papers say. Never invent numbers, metrics or claims, and never carry a number from one paper to
+  another. If the papers do not answer the question, say so and give no citations.
+- Put citation markers [1], [2], ... right after the sentence they support. At most 6 citations, numbered
+  n = 1, 2, ... in order of first use. paper: the label of the paper the quote is from.
+- quote: copied verbatim from that page's text (same words and numbers, in order), 5-30 words, one contiguous span
+  that appears only once in that paper. page: the N of its [label p.N].
+- A table: quote ONE row only, its row label followed by the numbers you rely on, exactly as in the text. role = table.
+  Claims in prose: role = claim. Other prose: role = text.
+- When papers report the same thing differently (other datasets, metrics, settings or numbers), say so instead of
+  merging them. A number one paper reports about another method is that paper's measurement; say whose it is.
+
+PAPERS (page text from each PDF):
+{papers}
+
+QUESTION:
+{question}
+"""
+
+COMPARE_SCHEMA = _obj(cells={"type": "array", "items": _obj(column=_str, value=_str, quote=_str, page={"type": "integer"})})
+
+COMPARE_PROMPT = """You fill one row of a table that compares several papers: the row for the paper below. Other papers
+get the same columns in separate calls, so answer about this paper only. Pablo locates every quote in the PDF and
+highlights it; a cell whose quote it cannot find verbatim is left empty.
+
+For each column, one cell, in the order given:
+- column: the column name exactly as given.
+- value: a short answer in Korean (at most 20 words; keep names, metrics and numbers as the paper writes them), or ""
+  when this paper does not state it. Never infer, estimate or carry a value from another paper.
+- quote: copied verbatim from one page's text (same words and numbers, in order), 5-30 words, one contiguous span that
+  appears only once in the paper and supports the value. For a number from a table: ONE row, its label followed by
+  the numbers, exactly as in the text. "" when value is "".
+- page: the [p.N] the quote is on (0 when value is "").
+
+COLUMNS:
+{columns}
+
+PAPER: {title}
+(page text from the PDF, [p.N] = page N)
+{pages}
 """
 
 SPEC_CATEGORIES = ["dataset", "split", "preprocessing", "model", "hyperparameter", "training", "metric", "baseline",
@@ -265,6 +317,16 @@ class LLMJudge:
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
         return self.provider.complete_json(ASK_PROMPT.format(pages=text, question=question), ASK_SCHEMA)
 
+    def answer_from_sources(self, question: str, papers: list[dict]) -> dict:
+        text = "\n\n".join(f"=== Paper {x['label']}: {x['title']} ===\n" + "\n\n".join(
+            f"[{x['label']} p.{n}] {p}" for n, p in enumerate(x["pages"], 1)) for x in papers)
+        return self.provider.complete_json(ASK_SOURCES_PROMPT.format(papers=text, question=question), ASK_SOURCES_SCHEMA)
+
     def extract_spec(self, pages: list[str]) -> dict:
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
         return self.provider.complete_json(SPEC_PROMPT.format(pages=text), SPEC_SCHEMA)
+
+    def compare_paper(self, columns: list[str], title: str, pages: list[str]) -> dict:
+        text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
+        return self.provider.complete_json(COMPARE_PROMPT.format(columns="\n".join(f"- {c}" for c in columns),
+                                                                 title=title, pages=text), COMPARE_SCHEMA)

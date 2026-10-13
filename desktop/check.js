@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addSource", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pickFolder", "readFile", "retry", "setModel", "setNet", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addSource", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pickFolder", "readFile", "removeSource", "retry", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -922,6 +922,100 @@ async function uiCheck() {
   win.destroy();
 }
 
+// 9b) --ui, Phase C (offline): a task with two papers. The table card (a cell's [n] -> that paper's page; empty cells
+//     say why), the wide panel and back, an answer over both papers, the 주 논문, arXiv import from a fake arxiv.org
+//     (a new paper, a newer version whose old evidence is resolved, the same file again, and four refusals), removing
+//     a paper (its records stay).
+async function papersUi() {
+  const S = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-papers-"));
+  const fx = JSON.parse(execFileSync("python", [path.join(__dirname, "../tests/skill/ui_fixture.py"), "--papers", S],
+    { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } }));
+  const served = [], srv = http.createServer((q, s) => {
+    const name = decodeURIComponent(q.url.replace(/^\/pdf\//, "")); served.push(name);
+    if (name === "2501.00008") { s.writeHead(302, { location: `http://localhost:${srv.address().port}/pdf/2502.00002` }); return s.end(); }
+    if (name === "2501.00009") { s.writeHead(200, { "content-type": "text/html" }); return s.end("<html>not a paper</html>"); }
+    const f = path.join(fx.arxiv, name);
+    if (!/^[\w.]+$/.test(name) || !fs.existsSync(f)) { s.writeHead(404); return s.end(); }
+    s.writeHead(200, { "content-type": "application/pdf" }); s.end(fs.readFileSync(f));
+  });
+  await new Promise(r => srv.listen(0, "127.0.0.1", r));
+  const { arxiv } = require("./main"), base0 = arxiv.base;
+  arxiv.base = `http://127.0.0.1:${srv.address().port}/pdf/`;
+  const errors = [], win = open(fx.view);
+  win.webContents.on("console-message", e => e.level === "error" && errors.push(e.message));
+  await new Promise(r => win.webContents.once("did-finish-load", r));
+  const js = c => win.webContents.executeJavaScript(c);
+  const until = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
+  const settled = () => until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`);
+  const deskJson = () => JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8"));
+  const dir = shots || view, shot = async name => dir && fs.writeFileSync(path.join(dir, name), (await win.capturePage()).toPNG());
+  const tools = () => js(`({ papers: [...document.querySelectorAll("#src .paper")].map(x => [x.querySelector("b").textContent + ((x.querySelector("b + small") || {}).textContent || ""),
+    !!x.querySelector("[data-primary]")]), spec: ($("specs") || {}).textContent, compare: !!$("compares") })`);
+  await until(`document.querySelectorAll("#src .paper").length === 2`);
+  assert.deepStrictEqual(await tools(), { papers: [["TinyRAG v2", true], ["OtherRAG", false]], spec: "📋 재현 조건 뽑기 (TinyRAG)", compare: true });
+  // the table: what each paper says, located; what Pablo could not locate is empty, and says why
+  const rows = () => js(`[...document.querySelectorAll("#log [data-matrix] tbody tr")].map(tr => [...tr.children].map(td => td.classList.contains("none") ? "-" : td.textContent.replace(/\\s*\\[\\d+\\]/g, "").trim()))`);
+  assert.deepStrictEqual(await rows(), [["TinyRAG v2", "HotpotQA, MuSiQue", "HotpotQA 61.5", "-", "-"], ["OtherRAG", "HotpotQA, MuSiQue", "HotpotQA 58.2", "색인 95초", "효율은 색인 시간만 다룸"]]);
+  assert.match(await js(`document.querySelector("#log [data-matrix] .head").textContent + " | " + document.querySelector("#log [data-matrix] .muted").textContent`),
+    /논문 2편 × 항목 4개 \| 칸 8개 중 6개는 논문에서 위치를 찾은 값입니다\. 나머지 2개는/);
+  assert.match(await js(`document.querySelector('#log [data-matrix] tr[data-paper="${fx.a}"] td:nth-child(4)').title`), /색인 3초.*찾지 못해 비웠습니다/);
+  const page = () => js(`[$("panel").querySelector(".url").textContent, $("panel").querySelector(".pnum").textContent]`);
+  await js(`close(); document.querySelector('#log [data-matrix] tr[data-paper="${fx.b}"] td:nth-child(4) .cite').click()`);
+  assert.strictEqual(await settled(), "FOUND");
+  assert.deepStrictEqual(await page(), ["📄 OtherRAG · PDF", "2 / 2"], "a cell opens its own paper's page");
+  await sleep(300); await shot("papers-table-cell.png");
+  await js(`close(); document.querySelector("#log [data-wide]").click()`);
+  assert.ok(await js(`document.body.classList.contains("wide") && document.querySelectorAll("#panel [data-matrix] tbody tr").length === 2`));
+  assert.ok(await js(`$("log").scrollWidth <= $("log").clientWidth`), "the table scrolls inside its card, never the conversation");
+  await sleep(300); await shot("papers-table-wide.png");
+  await js(`document.querySelector('#panel tr[data-paper="${fx.a}"] td:nth-child(2) .cite').click()`);
+  assert.strictEqual(await settled(), "FOUND");
+  assert.deepStrictEqual(await page(), ["📄 TinyRAG · PDF", "1 / 2"]);
+  await js(`document.querySelector("#panel .nav").click()`);  // ← back to the table
+  assert.ok(await until(`!!document.querySelector("#panel [data-matrix]")`));
+  // one answer over both papers: the sentence both have is anchored in the paper the answer cites it from
+  await js(`close(); document.querySelectorAll(".asked .cite")[1].click()`);
+  assert.strictEqual(await settled(), "FOUND");
+  assert.deepStrictEqual(await page(), ["📄 OtherRAG · PDF", "1 / 2"]);
+  await js(`close()`);
+  assert.ok(await js(`!/\\b(E|SRC|SC|M)\\d+\\b/.test(document.body.innerText)`), "no internal ids in the UI");
+  console.log("ok papers: table 6/8 cells located, a cell -> its paper's page, wide panel and back, an answer over both papers");
+  // the 주 논문: 재현 조건 뽑기 reads it
+  await js(`document.querySelector('[data-make-primary="${fx.b}"]').click()`);
+  await until(`($("specs") || {}).textContent === "📋 재현 조건 뽑기 (OtherRAG)"`);
+  assert.strictEqual(deskJson().primary.T1, fx.b);
+  // arXiv: a new paper; refusals (not arXiv, no such paper, not a PDF, sent elsewhere); a newer version; the same file again
+  await js(`[...$("src").querySelectorAll(".link")].find(b => b.textContent === "+ 추가").click()`);
+  assert.ok(await js(`!$("adder").hidden`));
+  const fetchArxiv = async text => { await js(`$("arxiv").value = ${JSON.stringify(text)}; $("arxiv-get").click()`);
+    return until(`(n => !$("arxiv-get").disabled && n.textContent && !/받는 중/.test(n.textContent) && n.textContent)($("arxiv-note"))`); };
+  assert.strictEqual(await fetchArxiv("arXiv:2502.00002"), "추가했습니다: ThirdRAG v1.");
+  await until(`document.querySelectorAll("#src .paper").length === 3`);
+  const refused = [];
+  for (const x of ["https://example.com/abs/2501.00001", "2501.00404", "2501.00009", "2501.00008"]) refused.push(await fetchArxiv(x));
+  assert.deepStrictEqual(refused.map(x => x.split(".")[0]), ["⚠ arXiv 번호나 링크를 읽지 못했습니다", "⚠ arXiv에 그 번호의 논문이 없습니다",
+    "⚠ 받은 파일이 PDF가 아닙니다", "⚠ arXiv 밖으로 넘겨져 받지 않았습니다"], JSON.stringify(refused));
+  assert.deepStrictEqual(served.filter(x => x === "2502.00002").length, 1, "the redirect elsewhere was never followed");
+  assert.match(await fetchArxiv("https://arxiv.org/abs/2501.00001"), /^추가했습니다: TinyRAG v3\. 이전 버전에서 찾은 근거 3개: 그대로 3 · 문맥 바뀜 0 · 찾을 수 없음 0\.$/);
+  assert.strictEqual(await fetchArxiv("2501.00001"), "이미 있는 파일입니다: TinyRAG v3.");
+  const ps = deskJson().pdf.T1;
+  assert.deepStrictEqual(ps.map(p => [p.title, p.version || null, !!p.sha256]), [["TinyRAG", "v3", true], ["OtherRAG", null, false], ["ThirdRAG", "v1", true]]);
+  assert.ok(ps[0].id !== fx.a && fs.existsSync(path.join(S, "papers", "arxiv-2501.00001.pdf")), "v3 is a new source in the paper's own file");
+  console.log("ok arXiv: new paper, 4 refusals (no request left the origin), v2 -> v3 with its 3 anchors resolved, same file again");
+  // removing a paper: the table and the answers keep what was found in it
+  await js(`document.querySelector('[data-remove="${fx.b}"]').click()`);
+  await until(`document.querySelectorAll("#src .paper").length === 2`);
+  assert.ok(!deskJson().pdf.T1.some(p => p.id === fx.b) && !(deskJson().primary || {}).T1, "removed; the 주 논문 falls back to the first");
+  assert.strictEqual((await rows()).length, 2, "the table keeps OtherRAG's row");
+  await js(`document.querySelector("#compares .link").click()`);
+  assert.strictEqual(await until(`(i => i && i.value)($("columns"))`), "데이터셋, 평가 지표, 주요 결과, 효율, 한계");
+  await js(`$("compare-go").click()`);
+  assert.match(await until(`(b => b && b.textContent)(document.querySelector("[data-compare-form] .call.block"))`), /ChatGPT에 먼저 연결하세요/);
+  console.log("ok removed: OtherRAG out of the list, its table row kept; 비교표 form with the default columns");
+  assert.deepStrictEqual(errors, [], "no script errors");
+  arxiv.base = base0; srv.close(); win.destroy();
+}
+
 // 10) --spec [shot-dir] (A2, real ChatGPT connection, a minute or two): LinearRAG -> 📋 재현 조건 뽑기 in the app -> the
 //     conditions card. How many of the model's quotes were found verbatim on their page (the rest are dropped, never kept
 //     unanchored); [n] opens the PDF on that page, highlighted; the agent's brief carries the conditions.
@@ -1164,7 +1258,7 @@ app.whenReady().then(async () => {
     else if (process.argv.includes("--app")) await appCheck();
     else if (process.argv.includes("--auth")) await authCheck();
     else if (process.argv.includes("--pdf")) await pdfCheck();
-    else if (process.argv.includes("--ui")) await uiCheck();
+    else if (process.argv.includes("--ui")) { await uiCheck(); await papersUi(); }
     else if (process.argv.includes("--spec")) await specCheck();
     else if (process.argv.includes("--shot")) await shotCheck();
     else if (process.argv.includes("--audit-bench") && process.argv.includes("--plain")) await plainBench();
