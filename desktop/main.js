@@ -342,6 +342,16 @@ ipcMain.handle("pablo:intent", async (e, task, id, action) => {
   const r = await ctl.py(...(action === "hard" || action === "soft" ? ["promote", id, "--as", action] : [action, id]));
   return action === "reject" ? null : r.item.statement;
 });
+// ④ the user changes a criterion: 반드시 <-> 가능하면, or removes it (with why). The Guard and the brief read the change
+// at once; the history keeps the old one and says the user did it.
+ipcMain.handle("pablo:criterion", async (e, task, id, action, reason) => {
+  fromWindow(e); known(task);
+  if (!str(id, 20) || !/^[A-Z]\d+$/.test(id) || !["hard", "soft", "drop"].includes(action) || (reason != null && !str(reason, 300)))
+    throw new Error("bad criterion");
+  const r = await ctl.py(...(action === "drop" ? ["drop", id, "--reason", (reason || "").trim()] : ["strength", id, action]))
+    .catch(err => { throw new Error(/no active/.test(err.message) ? "이미 바뀌었거나 지운 기준입니다." : short(err.message)); });
+  return r.item.statement;
+});
 // A2 the paper's reproduction conditions -> anchored checks; the conversation gets a card (chat.json "spec")
 ipcMain.handle("pablo:spec", async (e, task) => {
   fromWindow(e); known(task);

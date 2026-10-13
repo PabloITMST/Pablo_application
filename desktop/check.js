@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "removeSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "removeSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -948,11 +948,31 @@ async function uiCheck() {
   await until(`!!document.querySelector("[data-unread] [data-decided=reject]")`);
   await until(`V.intent.must.some(x => x.text === "결과는 3번 돌려서 평균 내")`);
   assert.ok(await js(`!V.intent.must.concat(V.intent.prefer).some(x => /표에 정리/.test(x.text))`), "let go: not a criterion");
+  assert.strictEqual(await js(`document.querySelector("[data-made] [data-ask]").textContent`), "읽지 못한 줄도 모두 정했습니다. ",
+    "the new-task message stops asking once every line is decided");
   const t3 = await js(`V.task.id`);
   await js(`refresh().then(() => select(${JSON.stringify(t3)}))`);
-  assert.deepStrictEqual(await until(`(r => r.length === 2 && r)([...document.querySelectorAll("[data-unread]")].map(x => x.textContent.trim().slice(-5)))`),
-    ["(처리함)", "(처리함)"], "decided lines keep no buttons after a reload");
+  assert.deepStrictEqual(await until(`(r => r.length === 2 && r)([...document.querySelectorAll("[data-unread]")].map(x => x.textContent.trim().match(/\\([^)]*\\)$/)[0]))`),
+    ["(반드시로 둠)", "(넘김)"], "after a reload each line says what was decided, with no buttons");
   console.log("ok criteria: 5 lines -> 3 read as rules, 2 shown; 반드시 -> a rule of this task, 괜찮음 -> let go; decided after reload");
+  // ④ the 기준 panel: 반드시 -> 가능하면, and 지우기 with why; the task's intent (what the Guard reads) follows at once
+  await js(`show({ mode: "intent" })`);
+  const li = text => `[...document.querySelectorAll("#panel li")].find(l => l.textContent.startsWith(${JSON.stringify(text)}))`;
+  assert.deepStrictEqual(await js(`[${li("keep.txt는 절대 삭제하면 안 돼")}, ${li("test 셋은 튜닝에 쓰면 안 됨")}].map(l => !!l.querySelector("[data-all]"))`),
+    [true, false], "a project-wide criterion says so (changing it changes every task); this task's own does not");
+  await js(`${li("결과는 3번 돌려서 평균 내")}.querySelector("[data-to=soft]").click()`);
+  await until(`V.intent.prefer.some(x => x.text === "결과는 3번 돌려서 평균 내") && !V.intent.must.some(x => x.text === "결과는 3번 돌려서 평균 내")`);
+  await until(`!!(${li("GPU 메모리는 24GB 안에서만 써")} || {}).querySelector`);
+  await js(`${li("GPU 메모리는 24GB 안에서만 써")}.querySelector("[data-drop]").click()`);
+  await js(`document.querySelector("#panel [data-why]").value = "장비가 바뀜"; document.querySelector("#panel [data-drop-ok]").click()`);
+  await until(`!V.intent.must.some(x => /GPU 메모리/.test(x.text)) && !document.querySelector("#panel [data-why]")`);
+  assert.ok(await js(`!!document.querySelector("#panel [data-how]") && !document.querySelector("#panel .pfoot")`), "no '곧 지원' box; the panel says how");
+  if (shots || view) { await sleep(200); fs.writeFileSync(path.join(shots || view, "criteria-edit.png"), (await win.capturePage()).toPNG()); }
+  const hist = JSON.parse(execFileSync("python", ["-m", "pablo_v2", "history", "--json", "--dir", S],
+    { encoding: "utf8", env: { ...process.env, PYTHONPATH: path.join(__dirname, "../src"), PYTHONIOENCODING: "utf-8" } })).history;
+  assert.deepStrictEqual(hist.slice(-2).map(x => [x.reason, x.source.type]), [["사용자가 세기를 가능하면으로 바꿈", "user"], ["사용자가 지움: 장비가 바뀜", "user"]]);
+  await js(`close()`);
+  console.log("ok criteria edit: 반드시 -> 가능하면, GPU 기준 지움(장비가 바뀜); history says the user did it");
   assert.deepStrictEqual(errors, [], "no script errors");
   win.destroy();
 }
@@ -1075,8 +1095,8 @@ async function papersUi() {
   assert.deepStrictEqual(await lineRows(), ["ok ✓ ThirdRAG v1", "bad ⚠ 2502.00003: arXiv에 그 번호의 논문이 없습니다."]);
   await until(`document.querySelectorAll("#src .paper").length === 4`);
   // ② several ids / addresses in the box (commas, spaces): a new web page, one already here, one that is not on arXiv
-  assert.strictEqual(await fetchArxiv(`2501.00404, ${at("/page/two.html")}  2502.00002`), "자료 3개 중 2개를 추가했습니다.");
-  assert.deepStrictEqual(await lineRows(), ["bad ⚠ 2501.00404: arXiv에 그 번호의 논문이 없습니다.", "ok ✓ Notes two", "ok ✓ ThirdRAG v1 (이미 있음)"]);
+  assert.strictEqual(await fetchArxiv(`2501.00404, ${at("/page/two.html")}  2502.00002`), "자료 3개 중 1개를 추가했습니다(1개는 이미 있음).");
+  assert.deepStrictEqual(await lineRows(), ["bad ⚠ 2501.00404: arXiv에 그 번호의 논문이 없습니다.", "ok ✓ Notes two", "ok same ✓ ThirdRAG v1 (이미 있음)"]);
   // D1 refusals: a PDF behind an http link, a page that is not there
   assert.strictEqual(await fetchArxiv(at("/page/paper.pdf")), "⚠ 웹 문서가 아닙니다. PDF는 파일이나 arXiv 번호로 추가하세요.");
   assert.strictEqual(await fetchArxiv(at("/page/gone.html")), "⚠ 그 주소에 문서가 없습니다(404).");

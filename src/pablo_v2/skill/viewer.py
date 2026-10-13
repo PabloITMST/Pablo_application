@@ -41,8 +41,8 @@ def model(s, task_id: str) -> dict:
     eng = s.intent
     prev = {i.superseded_by: i.statement for i in eng.get_current_intent().items if i.superseded_by}
 
-    def items(xs):
-        return [{"id": x.id, "text": x.statement, "prev": prev.get(x.id)} for x in xs]
+    def items(xs):  # all: a project-wide criterion (changing it changes every task's)
+        return [{"id": x.id, "text": x.statement, "prev": prev.get(x.id), "all": s.everywhere(x)} for x in xs]
 
     def label(ref):  # intent item or system policy -> text
         it = eng.get_item(ref)
@@ -147,8 +147,17 @@ def model(s, task_id: str) -> dict:
         if c.get("check"):
             check(c["check"])  # an ask answered from a reused or earlier check still needs its record
     # ③ lines the reader could not classify that the user has not decided yet (their buttons stay until then)
-    status = {k.id: k.status for k in eng.state.candidates}
-    intent["unread"] = [u["id"] for c in chat for u in (c.get("unread") or []) if status.get(u["id"]) == "ignored"]
+    by_id = {k.id: k for k in eng.state.candidates}
+    shown = [u["id"] for c in chat for u in (c.get("unread") or []) if u["id"] in by_id]
+    intent["unread"] = [i for i in shown if by_id[i].status == "ignored"]
+    decided = {}  # what the user made of each: hard | soft | skip (the row says so after a reload)
+    for i in shown:
+        k = by_id[i]
+        if k.status == "promoted" and (it := eng.get_item(k.item_id or "")) is not None:
+            decided[i] = it.strength if it.kind == "constraint" else "rule"
+        elif k.status == "rejected":
+            decided[i] = "skip"
+    intent["decided"] = decided
     return {"task": {"id": t.id, "text": t.text}, "stage": stage, "progress": [done, len(research)],
             "intent": intent, "research": research, "checks": checks, "plan": plan, "actions": actions,
             "chat": chat, "anchors": anchors, "sources": sources}
@@ -269,6 +278,8 @@ body.panel #panel { display:flex; }
 #pbody h3 { font-size:13px; color:var(--muted); margin:18px 0 6px; font-weight:600; }
 #pbody h3:first-child { margin-top:0; }
 ul.ck { list-style:none; margin:0; padding:0; } ul.ck li { padding:3px 0 3px 26px; position:relative; }
+ul.ck .edits { font-size:12px; white-space:nowrap; } ul.ck .all { color:var(--warn); font-size:11px; } ul.ck .edits .link { font-size:12px; }
+ul.ck .edits .why { border:1px solid var(--line); border-radius:6px; padding:1px 6px; background:none; width:170px; font-size:12px; }
 ul.ck li::before { position:absolute; left:2px; content:"•"; color:var(--faint); }
 ul.ck.must li::before { content:"✓"; color:var(--ok); font-weight:700; } ul.ck.q li::before { content:"○"; }
 .ck .note { display:block; color:var(--muted); font-size:13px; }
@@ -695,9 +706,14 @@ const noted = c => msg("Pablo", null, (c.items || []).length ? h("p", { class: "
 function unreadRow(u, task) {
   const open = u.live || (V && (V.intent.unread || []).includes(u.id));
   const row = h("p", { class: "muted", "data-unread": u.id }, "❔ 기준으로 읽지 못했습니다: ", h("b", null, u.text), " ");
-  if (!open || !window.pabloHost || !pabloHost.intent) return row.append(open ? "" : "(처리함)"), row;
-  const act = (a, done) => () => pabloHost.intent(task, u.id, a).then(() => { row.lastChild.replaceWith(h("span", { "data-decided": a }, done)); refresh(); },
-    e => row.append(h("span", null, " " + fail(e))));
+  const was = { hard: "(반드시로 둠)", soft: "(가능하면으로 둠)", skip: "(넘김)", rule: "(기준으로 둠)" }[((V && V.intent.decided) || {})[u.id]] || "(처리함)";
+  if (!open || !window.pabloHost || !pabloHost.intent) return row.append(open ? "" : was), row;
+  const act = (a, done) => () => pabloHost.intent(task, u.id, a).then(() => {
+    row.lastChild.replaceWith(h("span", { "data-decided": a }, done));
+    // the new-task message counts what is still to decide, and stops asking once nothing is
+    const left = document.querySelectorAll("[data-unread] [data-as]").length, ask = document.querySelector("[data-made] [data-ask]");
+    if (ask) ask.textContent = left ? `아직 정하지 않은 줄 ${left}개가 위에 있습니다. ` : "읽지 못한 줄도 모두 정했습니다. ";
+    refresh(); }, e => row.append(h("span", null, " " + fail(e))));
   row.append(h("span", null, h("button", { class: "link", "data-as": "hard", on: act("hard", "반드시 지킬 기준으로 두었습니다.") }, "반드시"), " · ",
     h("button", { class: "link", "data-as": "soft", on: act("soft", "가능하면 지킬 기준으로 두었습니다.") }, "가능하면"), " · ",
     h("button", { class: "link", "data-as": "skip", on: act("reject", "기준으로 두지 않았습니다.") }, "괜찮음")));
@@ -797,16 +813,34 @@ const simple = (p, title, body, foot) => p.append(h("div", { class: "phead" }, h
   h("div", { id: "pbody" }, body), foot ? h("div", { class: "pfoot" }, h("div", { class: "composer" },
     h("input", { disabled: true, placeholder: foot }), h("button", { disabled: true }, "↑"))) : "");  // append(null) prints "null"
 
+// ④ (desktop) a criterion's own buttons: the other strength, and 지우기 with an optional why, asked in place
+function edits(x, kind) {
+  if (!kind || !window.pabloHost || !pabloHost.criterion || !/^[A-Z]\d+$/.test(x.id) || /^[TK]\d+$/.test(x.id)) return null;  // not the task itself
+  const box = h("span", { class: "edits" }), task = V.task.id;
+  const run = (action, reason) => pabloHost.criterion(task, x.id, action, reason).then(() => refresh(),
+    e => box.replaceChildren(h("span", { class: "muted" }, " " + fail(e))));
+  const ask = () => { const why = h("input", { class: "why", placeholder: x.all ? "모든 작업에서 지워집니다. 왜? (선택)" : "왜 지우나요? (선택)", "data-why": x.id });
+    box.replaceChildren(" ", why, " ", h("button", { class: "link", "data-drop-ok": x.id, on: () => run("drop", why.value) }, "지우기"), " · ",
+      h("button", { class: "link", on: () => box.replaceWith(edits(x, kind)) }, "취소"));
+    why.focus(); };
+  box.append(" ", kind === "must" ? h("button", { class: "link", "data-to": "soft", on: () => run("soft") }, "가능하면으로")
+    : kind === "prefer" ? h("button", { class: "link", "data-to": "hard", on: () => run("hard") }, "반드시로") : null,
+    kind === "must" || kind === "prefer" ? " · " : null, h("button", { class: "link", "data-drop": x.id, on: ask }, "지우기"));
+  return box;
+}
 function intent(p) {
-  const I = V.intent, g = (t, cls, xs) => xs.length ? [h("h3", null, t), h("ul", { class: "ck " + cls },
-    xs.map(x => h("li", { title: x.id, "data-id": x.id }, x.prev ? h("span", { class: "prev" }, x.prev) : null, x.text)))] : null;
+  const I = V.intent, g = (t, cls, xs, kind) => xs.length ? [h("h3", null, t), h("ul", { class: "ck " + cls },
+    xs.map(x => h("li", { title: x.id, "data-id": x.id }, x.prev ? h("span", { class: "prev" }, x.prev) : null, x.text,
+      x.all && kind ? h("small", { class: "all", "data-all": "1", title: "이 기준은 모든 작업에 걸립니다. 바꾸면 다른 작업에도 바뀝니다." }, " 모든 작업") : null,
+      edits(x, kind))))] : null;
   const spec = V.research.map(id => V.checks[id]).filter(c => c.spec && !c.spec.missing && c.state !== "waived");
   const paper = spec.length ? [h("h3", null, "논문 조건"), h("ul", { class: "ck must" }, spec.map(c => h("li", { title: c.id, "data-id": c.id },
     h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), fact(c))))] : null;
-  const body = [g("목표", "", I.goals), g("반드시 지킬 것", "must", I.must), paper, g("선호", "", I.prefer),
-    g("성공 조건", "q", I.success), g("결정", "", I.decisions), g("확인 필요", "q", I.questions)];
-  simple(p, "현재 작업 기준", body.some(Boolean) ? body : h("p", { class: "muted" }, "기록된 기준이 없습니다."),
-    "기준에 대해 물어보거나 수정해보세요… (곧 지원)");
+  const body = [g("목표", "", I.goals, "goal"), g("반드시 지킬 것", "must", I.must, "must"), paper, g("선호", "", I.prefer, "prefer"),
+    g("성공 조건", "q", I.success, "other"), g("결정", "", I.decisions, "other"), g("확인 필요", "q", I.questions)];
+  const how = window.pabloHost && pabloHost.criterion
+    ? h("p", { class: "muted", "data-how": "1" }, "기준은 항목 옆 버튼으로 고칩니다. 새 기준은 대화에 적으면 이 작업의 기준이 됩니다. 지운 기준도 기록에는 남습니다.") : null;
+  simple(p, "현재 작업 기준", body.some(Boolean) ? [body, how] : [h("p", { class: "muted" }, "기록된 기준이 없습니다."), how]);
 }
 function stepState(st) {
   const rs = V.actions.filter(a => a.step === st.id).flatMap(a => a.runs).map(r => r.step_status);
@@ -1195,11 +1229,11 @@ if (window.pabloHost && pabloHost.chat) {
     return n ? ` 이전 버전에서 찾은 근거 ${n}개: 그대로 ${m.VALID || 0} · 문맥 바뀜 ${m.STALE || 0} · 찾을 수 없음 ${m.UNRESOLVED || 0}.` : ""; };
   const hold = on => { get.disabled = find.disabled = on; };
   // ② several at once: one line per item (✓ added / ⚠ why not) under the box, and a count in the note
-  const report = (rows, what) => {
+  const report = (rows, what) => {  // rows: [ok | same | bad, text]; one already there is not counted as added
     lines.textContent = ""; lines.hidden = !rows.length;
-    rows.forEach(([ok, text]) => lines.append(h("li", { class: ok ? "ok" : "bad" }, text)));
-    const n = rows.filter(([ok]) => ok).length;
-    note.textContent = `${what} ${rows.length}개 중 ${n}개를 추가했습니다.`;
+    rows.forEach(([st, text]) => lines.append(h("li", { class: st === "bad" ? "bad" : st === "same" ? "ok same" : "ok" }, text)));
+    const n = rows.filter(([st]) => st === "ok").length, same = rows.filter(([st]) => st === "same").length;
+    note.textContent = `${what} ${rows.length}개 중 ${n}개를 추가했습니다${same ? `(${same}개는 이미 있음)` : ""}.`;
   };
   const fresh = () => { lines.textContent = ""; lines.hidden = hits.hidden = true; };  // one action's result at a time
   // picked or dropped PDFs: one at a time, so the note says how far it got ("3개 중 2번째") and a slow one is visible
@@ -1208,8 +1242,8 @@ if (window.pabloHost && pabloHost.chat) {
     for (const [i, p] of paths.entries()) {
       note.textContent = `PDF ${paths.length}개 중 ${i + 1}번째를 추가하는 중…`;
       try { const r = await pabloHost.addFiles(V.task.id, [p]);
-        rows.push(...r.added.map(t => [true, `✓ ${t.title}${t.same ? " (이미 있음)" : ""}`]), ...r.failed.map(f => [false, `⚠ ${f.file}: ${f.error}`])); }
-      catch (e) { rows.push([false, `⚠ ${p.split(/[\\/]/).pop()}: ${fail(e)}`]); }
+        rows.push(...r.added.map(t => [t.same ? "same" : "ok", `✓ ${t.title}${t.same ? " (이미 있음)" : ""}`]), ...r.failed.map(f => ["bad", `⚠ ${f.file}: ${f.error}`])); }
+      catch (e) { rows.push(["bad", `⚠ ${p.split(/[\\/]/).pop()}: ${fail(e)}`]); }
     }
     hold(false); report(rows, "PDF"); refresh();
   }
@@ -1221,8 +1255,8 @@ if (window.pabloHost && pabloHost.chat) {
     hold(true); fresh(); const rows = [];
     for (const [i, v] of vs.entries()) {
       note.textContent = `${vs.length}개 중 ${i + 1}번째를 가져오는 중…`;
-      try { const r = await one(v); rows.push([true, `✓ ${label(r)}${r.same ? " (이미 있음)" : ""}${r.moved ? " ·" + moved(r.moved) : ""}`]); }
-      catch (e) { rows.push([false, `⚠ ${v}: ${fail(e)}`]); }
+      try { const r = await one(v); rows.push([r.same ? "same" : "ok", `✓ ${label(r)}${r.same ? " (이미 있음)" : ""}${r.moved ? " ·" + moved(r.moved) : ""}`]); }
+      catch (e) { rows.push(["bad", `⚠ ${v}: ${fail(e)}`]); }
     }
     hold(false); arx.value = ""; report(rows, "자료"); refresh();
   }
@@ -1322,7 +1356,7 @@ if (window.pabloHost && pabloHost.chat) {
         const n = r.added, id = r.id;  // what this form's lines recorded (project-wide criteria are in 기준 보기)
         // ③ every criterion line is accounted for: recorded, or waiting above for the user to decide
         live(id).append(msg("Pablo", null, M.tasks.length === 1 ? art("waving", "pose") : null, h("p", { "data-made": "1" }, n ? `작업 기준 ${n}개를 기록했습니다. ` : "작업을 만들었습니다. ",
-          r.unread ? h("b", null, `적은 기준 ${r.lines}줄 중 ${r.unread}줄은 기준으로 읽지 못해, 위에서 정해 주세요. `) : null,
+          r.unread ? h("b", { "data-ask": "1" }, `적은 기준 ${r.lines}줄 중 ${r.unread}줄은 기준으로 읽지 못해, 위에서 정해 주세요. `) : null,
           link("작업 기준 보기", () => show({ mode: "intent" }))),
           h("p", { class: "muted" }, "PDF를 추가하면 근거를 찾아 답하고, 작업 폴더를 고르면 그 폴더에서 작업합니다.")));
       }), e => { make.disabled = false; err.textContent = clean(e); });

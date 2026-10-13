@@ -27,6 +27,9 @@ MARKERS = [  # (a line a user writes as a criterion, what the offline reader mak
     ("가능하면 PyTorch만 써", ("constraint", "soft")),               # ... unless softened
     ("결과는 3번 돌려서 평균 낼 것", ("constraint", "hard")),        # written-instruction style
     ("원본 데이터 폴더는 건드리지 마", ("constraint", "hard")),
+    ("validation 셋으로만 튜닝해", ("constraint", "hard")),         # the leakage rule written in the positive
+    ("평가 지표는 F1로 통일", ("constraint", "hard")),
+    ("가능하면 평가 지표는 F1로 통일", ("constraint", "soft")),
     ("결과는 3번 돌려서 평균 내", ("other", None)),                  # no marker: shown to the user, not guessed
     ("고마워", ("other", None)),
 ]

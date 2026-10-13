@@ -698,6 +698,13 @@ class PabloSkill:
                 and c.features.get("scope") in ("task", "action")
                 and (i := eng.get_item(c.item_id or "")) is not None and i.status == "active" and self._in_scope(task_id, i)}
 
+    def everywhere(self, x) -> bool:
+        """④ does this intent item apply to every task (project scope) rather than the one it was said in? The same
+        reading of its candidate as _in_scope; the viewer marks such a criterion "모든 작업" before the user changes it."""
+        c = next((c for c in self.intent.get_current_intent().candidates if c.item_id == x.id), None)
+        f = c.features if c else {"scope": "task" if x.kind in ("assumption", "open_question", "decision") else "project"}
+        return f.get("scope", "project") not in ("task", "action")
+
     def _in_scope(self, task_id: str, x) -> bool:
         if x.id in self._intent_refs(task_id):
             return True
