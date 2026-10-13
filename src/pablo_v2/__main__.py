@@ -2,7 +2,8 @@
 
 Account   login [--device] | logout | status
 Intent    say "<msg>" [--agent] [--llm] | show | candidates | history | promote K4 | reject K4 | demo [--llm]
-Skill     task "<task>" [--checks JSON]          start task; no --checks -> Codex analyzer decides checks
+          promote K4 --as hard|soft | strength C2 hard|soft | drop C2 [--reason R] | restore C2   (the user's own edits)
+Skill     task "<task>" [--checks JSON] [--repro]  start task; no --checks -> Codex analyzer decides checks
           search SC1 "<target>" "<query>" --tier 1 --found|--not-found
           check SC1 VERIFIED "<conclusion>" [--sources JSON] [--stop-reason R]
           plan T1 --steps JSON                    [{"action": "...", "basis": ["SC1", "C1"]}]
@@ -52,8 +53,8 @@ from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
 from pablo_v2.skill.viewer import model, render_html, workspace
 from pablo_v2.skill.evidence import AnchorRejected
-from pablo_v2.skill.skill import (AUDIT_SCHEMA, DecisionRejected, PabloSkill, ResearchIncomplete, ResearchRejected,
-                                  render_audit, render_brief, render_evidence, render_task)
+from pablo_v2.skill.skill import (AUDIT_SCHEMA, REPRO_CRITERIA, DecisionRejected, PabloSkill, ResearchIncomplete,
+                                  ResearchRejected, render_audit, render_brief, render_evidence, render_task)
 
 # M1.1 acceptance conversation: (role, text)
 ACCEPTANCE = [
@@ -114,7 +115,8 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("id"), s.add_argument("level", choices=["hard", "soft"])
     s = add("drop")  # ④ the user removes a criterion (kept in the history, status removed)
     s.add_argument("id")
-    s.add_argument("--reason", default="")
+    s.add_argument("--reason", default="", help="required for a reproduction task's default criterion")
+    add("restore").add_argument("id")  # ④ a removed criterion back
     s = add("view")
     s.add_argument("id", nargs="?", help="task to show first (--html: default the latest)")
     s.add_argument("--html", action="store_true", help="write <dir>/view-T1.html (export/debug snapshot of every task)")
@@ -125,6 +127,8 @@ def _parser() -> argparse.ArgumentParser:
     s = add("task")
     s.add_argument("text")
     s.add_argument("--checks", type=_json_arg, help='[{"requirement", "necessity", "why"}]; [] = no research')
+    s.add_argument("--repro", action="store_true", help="a reproduction task: the output lists the criteria it starts "
+                   "with (say them with --scope task --task T)")
     s = add("search")
     s.add_argument("check_id"), s.add_argument("target"), s.add_argument("query")
     s.add_argument("--tier", type=int, required=True, help="authority of what you searched, 1 official docs .. 6 web")
@@ -268,8 +272,11 @@ def _run(a, out) -> int:
         item = e.set_strength(a.id, a.level)
         out({"item": asdict(item)}, f"{item.id} -> {item.strength}")
     elif a.cmd == "drop":
-        item = e.remove_item(a.id, a.reason)
+        item = s.drop_criterion(a.id, a.reason)
         out({"item": asdict(item)}, f"{item.id} removed")
+    elif a.cmd == "restore":
+        item = e.restore_item(a.id)
+        out({"item": asdict(item)}, f"{item.id} restored")
     elif a.cmd == "reject":
         e.reject_candidate(a.id)
         out({}, f"{a.id} rejected")
@@ -278,7 +285,7 @@ def _run(a, out) -> int:
 
     elif a.cmd == "task":
         t = s.start_task(a.text, a.checks)
-        out(_task_json(s, t.id), render_task(s, t.id))
+        out({**_task_json(s, t.id), **({"repro": list(REPRO_CRITERIA)} if a.repro else {})}, render_task(s, t.id))
     elif a.cmd == "search":
         s.record_search(a.check_id, a.target, a.query, a.tier, a.found)
         c = s.get_check(a.check_id)

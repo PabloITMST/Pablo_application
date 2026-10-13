@@ -18,6 +18,7 @@ from .models import KINDS, USER_KINDS, Candidate, Change, IntentItem, IntentStat
 CORRECTION_PRIORITY_BUMP = 2
 REPEAT_PRIORITY_BUMP = 1
 CONVERSATION_WINDOW = 8  # recent user/agent messages shown to the extractor
+BY_HAND = "직접"  # 0.8 ④ a change the user made on a criterion itself (the 기준 panel), not in a message
 
 
 class IntentEngine:
@@ -127,7 +128,7 @@ class IntentEngine:
         item = self.get_item(item_id)
         if not item or item.kind != "constraint" or item.status != "active" or strength not in ("hard", "soft"):
             raise KeyError(f"no active constraint {item_id} to make {strength}")
-        self._update(item_id, Source("user"), f"사용자가 세기를 {'반드시' if strength == 'hard' else '가능하면'}으로 바꿈",
+        self._update(item_id, Source("user", note=BY_HAND), f"사용자가 세기를 {'반드시' if strength == 'hard' else '가능하면'}으로 바꿈",
                      change_type="refinement", strength=strength)
         self.save()
         return item
@@ -136,7 +137,16 @@ class IntentEngine:
         item = self.get_item(item_id)
         if not item or item.kind not in USER_KINDS or item.status != "active":
             raise KeyError(f"no active criterion {item_id} to remove")
-        self._update(item_id, Source("user"), "사용자가 지움" + (f": {reason}" if reason else ""), status="removed")
+        self._update(item_id, Source("user", note=BY_HAND), "사용자가 지움" + (f": {reason}" if reason else ""), status="removed")
+        self.save()
+        return item
+
+    def restore_item(self, item_id: str) -> IntentItem:
+        """A removed criterion back as it was (its strength, its scope); the history keeps both changes."""
+        item = self.get_item(item_id)
+        if not item or item.kind not in USER_KINDS or item.status != "removed":
+            raise KeyError(f"no removed criterion {item_id} to restore")
+        self._update(item_id, Source("user", note=BY_HAND), "사용자가 되살림", status="active")
         self.save()
         return item
 

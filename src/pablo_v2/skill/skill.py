@@ -49,6 +49,10 @@ class TooMuchText(ValueError):
 ASK_PAGES, ASK_CHARS = 40, 250_000  # C1: per paper, and in all, for one question over several papers
 COMPARE_PAGES = 40  # C3: one paper's pages for its row of a comparison table
 COLUMNS = ["데이터셋", "평가 지표", "주요 결과", "효율", "한계"]
+# A3: the research-integrity criteria a reproduction task starts with (desktop "논문 재현 작업"). 0.8 ④: removing one
+# needs a reason, so whoever reads the audit or the report sees why it was not checked.
+REPRO_CRITERIA = ("평가(test) 데이터는 학습, 튜닝, 모델 선택에 절대 쓰지 마.", "논문에 적힌 설정값은 근거 없이 바꾸지 마.",
+                  "결과 수치는 직접 써 넣지 말고 실행한 결과에서만 가져와.")
 
 
 # A2 (0.8): a paper's value in a text, with the same rule as desktop/where.js (tests run both on one table): numbers by
@@ -704,6 +708,18 @@ class PabloSkill:
         c = next((c for c in self.intent.get_current_intent().candidates if c.item_id == x.id), None)
         f = c.features if c else {"scope": "task" if x.kind in ("assumption", "open_question", "decision") else "project"}
         return f.get("scope", "project") not in ("task", "action")
+
+    def is_repro_default(self, x) -> bool:
+        """Is this criterion one of REPRO_CRITERIA (by the line said, whatever statement the extractor made of it)?"""
+        c = next((c for c in self.intent.get_current_intent().candidates if c.item_id == x.id), None)
+        return bool(c) and c.text.strip() in REPRO_CRITERIA
+
+    def drop_criterion(self, item_id: str, reason: str = ""):
+        """④ the user removes a criterion; a reproduction task's default one only with a reason."""
+        x = self.intent.get_item(item_id)
+        if x and x.status == "active" and self.is_repro_default(x) and not reason.strip():
+            raise ValueError("재현 작업의 기본 기준은 지우는 이유를 적어야 합니다.")
+        return self.intent.remove_item(item_id, reason.strip())
 
     def _in_scope(self, task_id: str, x) -> bool:
         if x.id in self._intent_refs(task_id):

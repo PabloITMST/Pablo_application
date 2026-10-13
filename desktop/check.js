@@ -820,6 +820,9 @@ async function uiCheck() {
     folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit] [data-outside]"))`);
   assert.deepStrictEqual(outside, { head: "조건 밖에서 본 차이 3개", folded: "논문의 실험 가운데 이 폴더에 없는 것 1개",
     rows: [["△", "retrieve.py:22", "⚠ 모델이 댄 위치에서 찾지 못함"], ["△", "run.py:1-3", "✓ Pablo가 코드에서 확인"]] });
+  // ④ a criterion removed before the audit ran: the card says it was not checked, and why it was removed
+  assert.strictEqual(await js(`document.querySelector("[data-audit] [data-skipped]").textContent`),
+    "이 점검 전에 지운 기준 1개는 대조하지 않았습니다: 로그 파일은 지우지 마 (이유: 로그는 서버에 따로 남김)");
   const spec = await js(`(b => ({ heads: [...b.querySelectorAll("h4")].map(x => x.textContent), items: [...b.querySelectorAll("li")].map(x => x.textContent.trim()),
     text: b.textContent }))(document.querySelector("[data-spec]"))`);
   assert.deepStrictEqual(spec.heads, ["모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
@@ -967,12 +970,32 @@ async function uiCheck() {
   await js(`document.querySelector("#panel [data-why]").value = "장비가 바뀜"; document.querySelector("#panel [data-drop-ok]").click()`);
   await until(`!V.intent.must.some(x => /GPU 메모리/.test(x.text)) && !document.querySelector("#panel [data-why]")`);
   assert.ok(await js(`!!document.querySelector("#panel [data-how]") && !document.querySelector("#panel .pfoot")`), "no '곧 지원' box; the panel says how");
+  // ④ review: what was removed stays in view (when, why) and comes back with 되살리기, as strong as it was
+  await until(`!!document.querySelector("#panel [data-removed]")`);
+  await js(`document.querySelector("#panel [data-removed]").open = true`);
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("#panel [data-removed] li")].map(l => [l.querySelector("s").textContent, l.querySelector(".muted").textContent.replace(/^.*지움 · /, "")])`),
+    [["로그 파일은 지우지 마", "이유: 로그는 서버에 따로 남김 · 되살리기"], ["GPU 메모리는 24GB 안에서만 써", "이유: 장비가 바뀜 · 되살리기"]]);
   if (shots || view) { await sleep(200); fs.writeFileSync(path.join(shots || view, "criteria-edit.png"), (await win.capturePage()).toPNG()); }
+  await js(`[...document.querySelectorAll("#panel [data-removed] li")].find(l => /GPU/.test(l.textContent)).querySelector("[data-restore]").click()`);
+  await until(`V.intent.must.some(x => /GPU 메모리/.test(x.text)) && document.querySelector("#panel [data-removed]").dataset.removed === "1"`);
   const hist = JSON.parse(execFileSync("python", ["-m", "pablo_v2", "history", "--json", "--dir", S],
     { encoding: "utf8", env: { ...process.env, PYTHONPATH: path.join(__dirname, "../src"), PYTHONIOENCODING: "utf-8" } })).history;
-  assert.deepStrictEqual(hist.slice(-2).map(x => [x.reason, x.source.type]), [["사용자가 세기를 가능하면으로 바꿈", "user"], ["사용자가 지움: 장비가 바뀜", "user"]]);
+  assert.deepStrictEqual(hist.slice(-3).map(x => [x.reason, x.source.type, x.source.note]), [["사용자가 세기를 가능하면으로 바꿈", "user", "직접"],
+    ["사용자가 지움: 장비가 바뀜", "user", "직접"], ["사용자가 되살림", "user", "직접"]]);
+  // a reproduction task's default criterion: 지우기 waits for a reason
+  await js(`close(); $("new").click()`);
+  await js(`$("goal").value = "재현 기준 확인"; $("repro").checked = true; $("create").click()`);
+  await until(`!!V && V.task.text === "재현 기준 확인" && V.intent.must.filter(x => x.repro).length === 3`, 60000);
+  await js(`show({ mode: "intent" })`);
+  await js(`${li("평가(test) 데이터는")}.querySelector("[data-drop]").click()`);
+  await js(`document.querySelector("#panel [data-drop-ok]").click()`);
+  await sleep(300);
+  assert.ok(await js(`document.querySelector("#panel [data-why]").classList.contains("need") && V.intent.must.filter(x => x.repro).length === 3`),
+    "no reason: not removed, the box asks for one");
+  await js(`document.querySelector("#panel [data-why]").value = "test 셋이 없는 데이터"; document.querySelector("#panel [data-drop-ok]").click()`);
+  await until(`V.intent.must.filter(x => x.repro).length === 2`);
   await js(`close()`);
-  console.log("ok criteria edit: 반드시 -> 가능하면, GPU 기준 지움(장비가 바뀜); history says the user did it");
+  console.log("ok criteria edit: 반드시 -> 가능하면, GPU 기준 지움(장비가 바뀜) -> 지운 기준에 남음 -> 되살림; 재현 기본 기준은 이유를 적어야 지워짐");
   assert.deepStrictEqual(errors, [], "no script errors");
   win.destroy();
 }

@@ -57,5 +57,5 @@ def render_history(e: IntentEngine) -> str:
         elif h.change_type == "status":
             detail += f"  status {h.before['status']} -> {after['status']}"
         rows.append(f"v{h.version:<3} {h.change_type:<13} {h.item_id:<4} {detail}  | {h.reason} "
-                    f"[{h.source.type} {h.source.ref or ''}]".rstrip())
+                    f"[{h.source.type} {h.source.ref or (h.source.note if h.source.type == 'user' else '') or ''}]".rstrip())
     return "\n".join(rows)

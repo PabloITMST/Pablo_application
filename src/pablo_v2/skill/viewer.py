@@ -41,8 +41,9 @@ def model(s, task_id: str) -> dict:
     eng = s.intent
     prev = {i.superseded_by: i.statement for i in eng.get_current_intent().items if i.superseded_by}
 
-    def items(xs):  # all: a project-wide criterion (changing it changes every task's)
-        return [{"id": x.id, "text": x.statement, "prev": prev.get(x.id), "all": s.everywhere(x)} for x in xs]
+    def items(xs):  # all: a project-wide criterion (changing it changes every task's); repro: removed only with a reason
+        return [{"id": x.id, "text": x.statement, "prev": prev.get(x.id), "all": s.everywhere(x), "repro": s.is_repro_default(x)}
+                for x in xs]
 
     def label(ref):  # intent item or system policy -> text
         it = eng.get_item(ref)
@@ -158,6 +159,20 @@ def model(s, task_id: str) -> dict:
         elif k.status == "rejected":
             decided[i] = "skip"
     intent["decided"] = decided
+    # ④ a removed criterion stays in view: when and why, until it is restored (to). An audit says which it did not check.
+    gone = []
+    for c in eng.get_intent_history():
+        b, a = c.before or {}, c.after or {}
+        if c.change_type != "status" or (it := eng.get_item(c.item_id)) is None or not s.intent_applies(task_id, it):
+            continue
+        if (b.get("status"), a.get("status")) == ("active", "removed"):
+            gone.append({"id": it.id, "text": a["statement"], "strength": a.get("strength"), "all": s.everywhere(it),
+                         "from": c.at, "to": None, "why": c.reason.partition(": ")[2]})
+        elif (b.get("status"), a.get("status")) == ("removed", "active"):
+            for g in gone:
+                if g["id"] == it.id and g["to"] is None:
+                    g["to"] = c.at
+    intent["removed"] = gone
     return {"task": {"id": t.id, "text": t.text}, "stage": stage, "progress": [done, len(research)],
             "intent": intent, "research": research, "checks": checks, "plan": plan, "actions": actions,
             "chat": chat, "anchors": anchors, "sources": sources}
@@ -280,6 +295,8 @@ body.panel #panel { display:flex; }
 ul.ck { list-style:none; margin:0; padding:0; } ul.ck li { padding:3px 0 3px 26px; position:relative; }
 ul.ck .edits { font-size:12px; white-space:nowrap; } ul.ck .all { color:var(--warn); font-size:11px; } ul.ck .edits .link { font-size:12px; }
 ul.ck .edits .why { border:1px solid var(--line); border-radius:6px; padding:1px 6px; background:none; width:170px; font-size:12px; }
+ul.ck .edits .why.need { border-color:var(--bad); } #panel details.gone { margin-top:14px; } #panel details.gone summary { cursor:pointer; font-size:13px; color:var(--muted); }
+#panel details.gone s { color:var(--muted); } #panel details.gone .muted { font-size:12px; }
 ul.ck li::before { position:absolute; left:2px; content:"•"; color:var(--faint); }
 ul.ck.must li::before { content:"✓"; color:var(--ok); font-weight:700; } ul.ck.q li::before { content:"○"; }
 .ck .note { display:block; color:var(--muted); font-size:13px; }
@@ -641,6 +658,10 @@ function audited(c) {
   box.append(h("p", { class: "head" }, "🔎 재현 점검: ", [...Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`),
     ...(out.length ? [`조건 밖 ${out.length}`] : [])].join(" · ")));
   if (c.summary) box.append(h("p", null, rich(c.summary)));
+  // ④ criteria the user removed before this audit ran were not checked: said here, with why, never left out silently
+  const t = Date.parse(c.at), skipped = (V.intent.removed || []).filter(x => Date.parse(x.from) < t && (!x.to || Date.parse(x.to) > t));
+  if (skipped.length) box.append(h("p", { class: "muted", "data-skipped": String(skipped.length) }, `이 점검 전에 지운 기준 ${skipped.length}개는 대조하지 않았습니다: `,
+    skipped.map((x, i) => [i ? " · " : "", x.text, x.why ? ` (이유: ${x.why})` : " (이유를 적지 않음)"])));
   const placed = c.items.filter(x => x.check && x.check !== "unchecked"), lost = placed.filter(x => x.check === "not_found" || x.check === "no_file").length;
   const off = placed.filter(x => x.check === "value_mismatch").length;
   if (placed.length) box.append(h("p", { class: "muted", "data-checked": "1" },
@@ -819,8 +840,11 @@ function edits(x, kind) {
   const box = h("span", { class: "edits" }), task = V.task.id;
   const run = (action, reason) => pabloHost.criterion(task, x.id, action, reason).then(() => refresh(),
     e => box.replaceChildren(h("span", { class: "muted" }, " " + fail(e))));
-  const ask = () => { const why = h("input", { class: "why", placeholder: x.all ? "모든 작업에서 지워집니다. 왜? (선택)" : "왜 지우나요? (선택)", "data-why": x.id });
-    box.replaceChildren(" ", why, " ", h("button", { class: "link", "data-drop-ok": x.id, on: () => run("drop", why.value) }, "지우기"), " · ",
+  const ask = () => { const why = h("input", { class: "why", "data-why": x.id, placeholder: x.repro ? "재현 기본 기준입니다. 지우는 이유 (필수)"
+      : x.all ? "모든 작업에서 지워집니다. 왜? (선택)" : "왜 지우나요? (선택)" });
+    const ok = () => x.repro && !why.value.trim() ? (why.classList.add("need"), why.focus()) : run("drop", why.value);
+    why.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); });
+    box.replaceChildren(" ", why, " ", h("button", { class: "link", "data-drop-ok": x.id, on: ok }, "지우기"), " · ",
       h("button", { class: "link", on: () => box.replaceWith(edits(x, kind)) }, "취소"));
     why.focus(); };
   box.append(" ", kind === "must" ? h("button", { class: "link", "data-to": "soft", on: () => run("soft") }, "가능하면으로")
@@ -839,8 +863,16 @@ function intent(p) {
   const body = [g("목표", "", I.goals, "goal"), g("반드시 지킬 것", "must", I.must, "must"), paper, g("선호", "", I.prefer, "prefer"),
     g("성공 조건", "q", I.success, "other"), g("결정", "", I.decisions, "other"), g("확인 필요", "q", I.questions)];
   const how = window.pabloHost && pabloHost.criterion
-    ? h("p", { class: "muted", "data-how": "1" }, "기준은 항목 옆 버튼으로 고칩니다. 새 기준은 대화에 적으면 이 작업의 기준이 됩니다. 지운 기준도 기록에는 남습니다.") : null;
-  simple(p, "현재 작업 기준", body.some(Boolean) ? [body, how] : [h("p", { class: "muted" }, "기록된 기준이 없습니다."), how]);
+    ? h("p", { class: "muted", "data-how": "1" }, "기준은 항목 옆 버튼으로 고칩니다. 문장을 고치려면 지우고 대화에 다시 적으세요. 새 기준은 대화에 적으면 이 작업의 기준이 됩니다.") : null;
+  // ④ removed criteria stay in view: when, why, and 되살리기 (the same criterion back, as strong as it was)
+  const gone = (I.removed || []).filter(x => !x.to), back = x => { const at = h("span");
+    return [at, h("button", { class: "link", "data-restore": x.id, on: () => pabloHost.criterion(V.task.id, x.id, "restore").then(() => refresh(),
+      e => at.replaceChildren(h("span", { class: "muted" }, fail(e) + " "))) }, "되살리기")]; };
+  const removed = gone.length ? h("details", { class: "gone", "data-removed": String(gone.length) }, h("summary", null, `지운 기준 ${gone.length}개`),
+    h("ul", { class: "ck" }, gone.map(x => h("li", { title: x.id, "data-id": x.id }, h("s", null, x.text), x.all ? h("small", { class: "all", title: "되살리면 모든 작업에 다시 걸립니다." }, " 모든 작업") : null,
+      h("div", { class: "muted" }, `${day(x.from)} 지움 · `, x.why ? `이유: ${x.why}` : "이유를 적지 않음",
+        window.pabloHost && pabloHost.criterion ? [" · ", back(x)] : null))))) : null;
+  simple(p, "현재 작업 기준", body.some(Boolean) ? [body, removed, how] : [h("p", { class: "muted" }, "기록된 기준이 없습니다."), removed, how]);
 }
 function stepState(st) {
   const rs = V.actions.filter(a => a.step === st.id).flatMap(a => a.runs).map(r => r.step_status);

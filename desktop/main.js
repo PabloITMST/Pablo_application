@@ -156,13 +156,13 @@ ipcMain.handle("pablo:state", async e => {
   m.last = d.last;
   return m;
 });
-// A3: a reproduction task starts with the research-integrity criteria (task scope, editable like any other)
-const REPRO = ["평가(test) 데이터는 학습, 튜닝, 모델 선택에 절대 쓰지 마.", "논문에 적힌 설정값은 근거 없이 바꾸지 마.",
-  "결과 수치는 직접 써 넣지 말고 실행한 결과에서만 가져와."];
+// A3: a reproduction task starts with the research-integrity criteria (task scope, editable like any other; Python
+// keeps the list, and removing one of them needs a reason)
 ipcMain.handle("pablo:new-task", async (e, text, opts) => {
   fromWindow(e); if (!str(text, 4000) || !text.trim()) throw new Error("bad task");
-  const lines = [...text.split(/\r?\n/).map(x => x.trim()).filter(Boolean), ...(opts && opts.repro === true ? REPRO : [])];
-  const t = await ctl.py("task", lines[0], "--checks", "[]");  // first line = the goal; no research loop in the app
+  const own = text.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const t = await ctl.py("task", own[0], "--checks", "[]", ...(opts && opts.repro === true ? ["--repro"] : []));  // first line = the goal; no research loop in the app
+  const lines = [...own, ...(t.repro || [])];
   // the other lines are this task's criteria: task scope, so they never reach other tasks. ③ A line the reader could
   // not classify is never dropped without a word: the conversation keeps every line, read or not, for the user to decide.
   const items = [], unread = [], pending = [];
@@ -342,14 +342,14 @@ ipcMain.handle("pablo:intent", async (e, task, id, action) => {
   const r = await ctl.py(...(action === "hard" || action === "soft" ? ["promote", id, "--as", action] : [action, id]));
   return action === "reject" ? null : r.item.statement;
 });
-// ④ the user changes a criterion: 반드시 <-> 가능하면, or removes it (with why). The Guard and the brief read the change
-// at once; the history keeps the old one and says the user did it.
+// ④ the user changes a criterion: 반드시 <-> 가능하면, removes it (with why) or restores a removed one. The Guard and the
+// brief read the change at once; the history keeps the old one and says the user did it.
 ipcMain.handle("pablo:criterion", async (e, task, id, action, reason) => {
   fromWindow(e); known(task);
-  if (!str(id, 20) || !/^[A-Z]\d+$/.test(id) || !["hard", "soft", "drop"].includes(action) || (reason != null && !str(reason, 300)))
+  if (!str(id, 20) || !/^[A-Z]\d+$/.test(id) || !["hard", "soft", "drop", "restore"].includes(action) || (reason != null && !str(reason, 300)))
     throw new Error("bad criterion");
-  const r = await ctl.py(...(action === "drop" ? ["drop", id, "--reason", (reason || "").trim()] : ["strength", id, action]))
-    .catch(err => { throw new Error(/no active/.test(err.message) ? "이미 바뀌었거나 지운 기준입니다." : short(err.message)); });
+  const r = await ctl.py(...(action === "drop" ? ["drop", id, "--reason", (reason || "").trim()] : action === "restore" ? ["restore", id] : ["strength", id, action]))
+    .catch(err => { throw new Error(/no (active|removed) /.test(err.message) ? "이미 바뀌었거나 지운 기준입니다." : short(err.message)); });
   return r.item.statement;
 });
 // A2 the paper's reproduction conditions -> anchored checks; the conversation gets a card (chat.json "spec")

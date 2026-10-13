@@ -97,6 +97,38 @@ def test_edit_criteria():
         assert cli(d, "strength", "C99", "hard")[0] != 0 and cli(d, "strength", cid, "loud")[0] != 0
 
 
+def test_removed_criteria_stay_in_view():
+    """④ review: a removed criterion is listed (when, why) until the user restores it, back as strong as it was; a
+    reproduction task's default criterion is removed only with a reason; the history says the change was made by hand."""
+    from pablo_v2.skill.viewer import model
+    with tempfile.TemporaryDirectory() as d:
+        _, t = cli(d, "task", "LinearRAG 재현", "--checks", "[]", "--repro")
+        assert len(t["repro"]) == 3, t
+        for line in t["repro"] + ["GPU 메모리는 24GB 안에서만 써"]:
+            cli(d, "say", line, "--scope", "task", "--task", "T1")
+        s = load(d)
+        must = {c.statement: c.id for c in s.get_applicable_intent("T1")["constraints"]}
+        leak, gpu = must["평가(test) 데이터는 학습, 튜닝, 모델 선택에 절대 쓰지 마"], must["GPU 메모리는 24GB 안에서만 써"]
+        assert [x["repro"] for x in model(s, "T1")["intent"]["must"]] == [True, True, True, False]
+        code, r = cli(d, "drop", leak)
+        assert code != 0 and "이유" in r["message"], r  # a default criterion: a reason first
+        assert cli(d, "drop", leak, "--reason", "   ")[0] != 0
+        assert cli(d, "drop", leak, "--reason", "test 셋이 없는 데이터셋")[0] == 0
+        assert cli(d, "drop", gpu)[0] == 0  # the user's own criterion: the reason is optional
+        gone = model(load(d), "T1")["intent"]["removed"]
+        assert [(g["id"], g["why"], g["to"]) for g in gone] == [(leak, "test 셋이 없는 데이터셋", None), (gpu, "", None)], gone
+        code, r = cli(d, "restore", leak)
+        assert code == 0 and r["item"]["status"] == "active" and r["item"]["strength"] == "hard", r
+        assert cli(d, "restore", leak)[0] != 0  # not removed any more
+        s = load(d)
+        assert leak in [c.id for c in s.get_applicable_intent("T1")["constraints"]]  # the Guard has it again
+        gone = model(s, "T1")["intent"]["removed"]
+        assert gone[0]["to"] and gone[1]["to"] is None, gone  # the span stays (an earlier audit did not check it)
+        rows = subprocess.run([sys.executable, "-m", "pablo_v2", "history", "--dir", d], capture_output=True, encoding="utf-8",
+                              env={**os.environ, "PYTHONPATH": SRC, "PYTHONIOENCODING": "utf-8"}).stdout.splitlines()
+        assert rows[-1].endswith("| 사용자가 되살림 [user 직접]"), rows[-3:]
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

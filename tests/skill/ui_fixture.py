@@ -104,6 +104,9 @@ def build(d: str) -> str:
     s._find_check(specs[2]).spec["value_in_quote"] = False  # the model's value is not in its own quote
     gap = s.add_check(t.id, "난수 시드가 적혀 있지 않다", "USEFUL")
     gap.spec = {"category": "training", "value": "", "source_id": "SRC1", "missing": True}
+    gone = e.process_message("로그 파일은 지우지 마.")[0]  # ④ removed before the audit: its card says it was not checked
+    e.remove_item(gone.item_id, "로그는 서버에 따로 남김")
+    e.state.history[-1].at = at(56)
     s.save()
     e.save()
     chat = {t.id: [
