@@ -68,7 +68,9 @@ M3.3 PDF Evidence: PDF를 캡처한 대화에서는 composer 질문이 `ask`로 
 
 Packaging (M6, Windows x64, 서명 없음): build venv를 한 번 만든다. `python -m venv build/venv`, `build/venv/Scripts/python -m pip install -r requirements-build.txt`. 그다음 `npm --prefix desktop run backend`(PyInstaller onedir → `build/dist/pablo-backend`), `npm --prefix desktop run package`(→ `desktop/out/Pablo-win32-x64/Pablo.exe`), `npm --prefix desktop run make`(→ `desktop/out/make/squirrel.windows/x64/PabloSetup.exe`). 설치본은 `resources/`의 backend와 고정된 Codex(`@openai/codex@0.152.0-win32-x64`)만 실행한다. 시스템 Python·PATH의 codex·저장소는 쓰지 않는다. 쓰기는 userData(`%APPDATA%/pablo-desktop`)에만 한다. Release check(실제 계정, 수 분, 먼저 앱에서 로그인): `ELECTRON_RUN_AS_NODE=1 desktop/node_modules/electron/dist/electron.exe desktop/rc.js <Pablo.exe> <shot-dir>`. 빈 PATH·임시 userData로 A(WARN/BLOCK/review)·B(PDF p.9 하이라이트)·재시작 복원을 확인한다.
 
-## M7 제품 다듬기 (desktop)
+## M7 제품 다듬기 (desktop, 0.7.0)
+
+릴리스 문서·시연 시나리오·알려진 제한·깨끗한 PC 체크리스트는 `release/0.7.0/`에 있다. 시연용 재현 폴더는 `release/0.7.0/demo-repro/`(일부러 논문과 다른 값: top_k 10, Medical 없음, 2Wiki 61.20).
 
 - 대화 기록: `state/chat.json`(main.js만 쓴다, `viewer.py`가 읽는다)에 사용자 메시지, 에이전트 답(중지/오류 포함), PDF 질문과 답한 check id, 변경/되돌리기가 남는다. 앱을 다시 열면 기록과 Guard 카드가 일어난 순서대로 하나의 대화로 보인다.
 - 중지: 에이전트가 일하는 동안 보내기 버튼이 ■가 된다. `turn/interrupt`로 턴을 끝내고, 열린 WARN 카드는 취소로 답한다. 답 아래에 "중지했습니다."가 남는다.
