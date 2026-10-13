@@ -803,7 +803,12 @@ async function uiCheck() {
       : m.querySelector("[data-intent]") ? "INTENT " + m.querySelector("[data-intent]").textContent.replace(/ 기준 보기$/, "") : "YOU " + m.querySelector("p").textContent; })`);
   assert.deepStrictEqual(order, ["YOU 인사말 파일 정리", "YOU hello.txt에 인사말을 넣어줘. 다른 파일은 건드리지 마.",
     "INTENT 📌 작업 기준에 추가했습니다: 다른 파일은 건드리지 마 (반드시)", "AGENT hello.txt에 줄을 더하겠습니다.", "CARD ACT1",
-    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "ASKS ⚠ 결정이 필요합니다."]);
+    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "AUDIT", "ASKS ⚠ 결정이 필요합니다."]);
+  // ⑤ the second card: the model named the line that reads top-k; Pablo shows the config line that sets it. A log line is
+  // checked in a file, not in code
+  assert.deepStrictEqual(await js(`(b => [...b.querySelectorAll(":scope > ul > li, details li")].map(x => [x.querySelector(".at code").textContent,
+    (x.querySelector(".at [data-check]") || {}).textContent, (x.querySelector("[data-via]") || {}).textContent]))(document.querySelectorAll("[data-audit]")[1])`),
+    [["run.py:3", "✓ Pablo가 코드에서 확인", "↳ 값을 정하는 곳: config.yaml:5 top_k: 10"], ["logs/2wiki.log:1", "✓ Pablo가 파일에서 확인", undefined]]);
   // A2: what Pablo saw at each place: the ones it could not confirm come first, open, whatever the verdict
   const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, checked: b.querySelector("[data-checked]").textContent,
     rows: [...b.querySelectorAll(":scope > ul > li")].map(x => [x.className, x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent,
@@ -887,7 +892,16 @@ async function uiCheck() {
   assert.ok(await js(`!!document.querySelector('[data-id="ACT1"] [data-file="hello.txt"]') && !document.querySelector('[data-id="ACT2"] [data-file]')`),
     "a WARN card's file opens the panel; a command names none");
   await js(`close()`); [shell.openExternal, shell.showItemInFolder] = [ext0, dir0];
-  console.log("ok code panel: config.yaml:5 highlighted, VS Code at :5, moved -> 12, wrong place says so, outside refused");
+  // ⑤ config.yaml changed after the audit (outside any turn: no change record): the panel says the line is not what it saw
+  const cfgText = fs.readFileSync(cfg, "utf8");
+  fs.writeFileSync(cfg, cfgText.replace("top_k: 10", "top_k: 5"));
+  c = await code("verified");
+  assert.strictEqual(await js(`$("panel").dataset.still`), "not_found");
+  assert.match(c.info, /^⚠ 점검 때 이 자리에 있던 "top_k: 10"이\(가\) 지금은 없습니다\. 점검 뒤 파일이 바뀌었습니다\./);
+  fs.writeFileSync(cfg, cfgText);
+  c = await code("verified");
+  assert.ok(await js(`!$("panel").dataset.still`) && !/점검 때/.test(c.info), "as it was: no word");
+  console.log("ok code panel: config.yaml:5 highlighted, VS Code at :5, moved -> 12, wrong place says so, outside refused, changed since the audit -> said");
 
   // D4: a turn's changes (checkpoint before / after, shadow git under the state dir) -> 변경 보기 -> 되돌리기
   const W = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-ui-ws-")), at = f => path.join(W, f);
@@ -905,6 +919,11 @@ async function uiCheck() {
   await js(`refresh().then(() => select("T1"))`);
   const until = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
   assert.match(await until(`(c => c && c.textContent)(document.querySelector(".changes"))`), /파일 3개가 바뀌었습니다/);
+  // ⑤ the audits before this turn are old now: said on each card, with 다시 점검
+  assert.match(await until(`(s => s && s.textContent)(document.querySelector("[data-audit] .stale"))`),
+    /^⚠ 이 점검 뒤 파일 3개가 바뀌었습니다\(.*\)\. 판정이 지금 파일과 다를 수 있습니다\. 다시 점검$/);
+  assert.strictEqual(await js(`document.querySelectorAll("[data-audit] .stale[data-stale='3']").length`), 2);
+  if (shots || view) { await js(`document.querySelectorAll("[data-audit]")[1].scrollIntoView()`); await sleep(200); fs.writeFileSync(path.join(shots || view, "audit-stale.png"), (await win.capturePage()).toPNG()); }
   // A3: a changed file's name opens it as it is now; a deleted one is not a link
   assert.ok(await js(`!document.querySelector('.changes [data-file="keep.txt"]')`), "a deleted file is not a link");
   await js(`document.querySelector('.changes [data-file="train.py"]').click()`);

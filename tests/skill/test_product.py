@@ -32,7 +32,7 @@ def test_chat_log():
     with tempfile.TemporaryDirectory() as d:
         ui_fixture.build(d)
         v = model(load(d), "T1")
-        assert [c["role"] for c in v["chat"]] == ["user", "intent", "agent", "user", "agent", "ask", "spec", "audit"]
+        assert [c["role"] for c in v["chat"]] == ["user", "intent", "agent", "user", "agent", "ask", "spec", "audit", "audit"]
         assert v["chat"][4]["status"] == "interrupted" and v["chat"][5]["check"] in v["checks"]
         assert [a["at"] for a in v["actions"]] == [ui_fixture.at(20), ui_fixture.at(40)]
         with open(os.path.join(d, "chat.json"), "w", encoding="utf-8") as f:
@@ -311,13 +311,47 @@ def test_audit_fixture_is_what_main_stores():
     with tempfile.TemporaryDirectory() as d:
         ui_fixture.build(d)
         s = load(d)
-        audit = json.load(open(os.path.join(d, "chat.json"), encoding="utf-8"))["T1"][-1]
-        values = {c.id: c.spec.get("value", "") for c in s.checks("T1") if c.spec}
-        got = node([["verify", os.path.join(d, "repro"), x, values.get(x["id"], "")] for x in audit["items"]])
-        assert got == [{k: x[k] for k in ("check", "line_found") if k in x} for x in audit["items"]], got
-        assert {x["check"] for x in audit["items"]} == {"unchecked", "verified", "not_found", "value_mismatch", "moved"}
-        got = node([["verify", os.path.join(d, "repro"), x, ""] for x in audit["outside"]])  # no paper value outside the items
-        assert got == [{k: x[k] for k in ("check", "line_found") if k in x} for x in audit["outside"]], got
+        audits = [c for c in json.load(open(os.path.join(d, "chat.json"), encoding="utf-8"))["T1"] if c["role"] == "audit"]
+        values, repro = {c.id: c.spec.get("value", "") for c in s.checks("T1") if c.spec}, os.path.join(d, "repro")
+        items = [x for a in audits for x in a["items"]]
+        got = node([["verify", repro, x, values.get(x["id"], "")] for x in items])
+        assert got == [{k: x[k] for k in ("check", "line_found") if k in x} for x in items], got
+        assert {x["check"] for x in items} == {"unchecked", "verified", "not_found", "value_mismatch", "moved"}
+        got = node([["follow", repro, x, values.get(x["id"], "")] for x in items])  # ⑤ via: what main stores too
+        assert got == [x.get("via") for x in items], got
+        got = node([["verify", repro, x, ""] for x in audits[0]["outside"]])  # no paper value outside the items
+        assert got == [{k: x[k] for k in ("check", "line_found") if k in x} for x in audits[0]["outside"]], got
+
+
+def test_follow_a_setting():
+    """⑤ the line that reads a setting -> the config line that sets it (under its parent key; one place only), so the value
+    check looks where the value is. A line that has the value itself, or a key two config files both set, gets none."""
+    if no_node("test_follow_a_setting"):
+        return
+    with tempfile.TemporaryDirectory() as d:
+        w = os.path.join(d, "work")
+        shutil.copytree(ui_fixture.DEMO, w)
+        os.makedirs(os.path.join(w, "configs"))
+        open(os.path.join(w, "configs", "base.json"), "w").write('{\n  "retrieval": {\n    "top_k": 5\n  },\n  "rerank": {\n    "top_k": 3\n  }\n}\n')
+        open(os.path.join(w, "configs", "train.toml"), "w").write('[optim]\nlr = 0.001  # 1e-3\n[eval]\nlr = 0\n')
+        open(os.path.join(w, ".pablo.yaml"), "w").write("seed: 7\n")
+        os.makedirs(os.path.join(w, "node_modules", "x"))
+        open(os.path.join(w, "node_modules", "x", "c.yaml"), "w").write("damping: 0.5\n")
+        F, D = "followed", "differs"
+        got = node([["follow", w, {"status": s, "found": f}, v] for s, f, v in [
+            (D, "print('top_k', cfg['retrieval']['top_k'])", "5"),    # config.yaml (top_k: 10) and base.json (5): two places
+            (F, "llm = cfg.get('llm')", "GPT-4o-mini"),
+            (F, "lr = cfg['optim']['lr']", "1e-3"),                   # TOML section; the comment's number is not the value
+            (D, "args.damping", "0.85"),                              # node_modules is not the project's config
+            (F, "k = conf['rerank']['top_k']", "3"),
+            (F, "top_k: 10", "10"),                                   # the line has the value itself
+            (F, "cfg['missing_key']", "5"),
+            ("missing", "cfg['llm']", "gpt-4o-mini"),                  # 아직 없음: nothing to hold the value to
+        ]])
+        assert got == [None, {"where": "config.yaml:3", "found": "llm: gpt-4o-mini", "agrees": True},
+                       {"where": "configs/train.toml:2", "found": "lr = 0.001  # 1e-3", "agrees": True},
+                       {"where": "config.yaml:7", "found": "damping: 0.85", "agrees": False},
+                       {"where": "configs/base.json:6", "found": '"top_k": 3', "agrees": True}, None, None, None], got
 
 
 class QuoteJudge:  # one value in its quote, one the model read wrong (70.20 is the paper's other number)

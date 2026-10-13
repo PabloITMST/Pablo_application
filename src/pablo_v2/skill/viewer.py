@@ -386,6 +386,8 @@ pre.diff .del { background:rgba(220,38,38,.13); } pre.diff .hunk { color:var(--m
 .audit li { padding:5px 0; border-top:1px solid var(--line); font-size:14px; } .audit .at { font-size:13px; overflow-wrap:anywhere; }
 .audit .st-differs b { color:var(--bad); } .audit .st-followed b { color:var(--ok); } .audit .st-missing b, .audit .st-unclear b { color:var(--warn); }
 .audit details summary { cursor:pointer; font-size:13px; color:var(--muted); margin-top:6px; }
+.audit .stale { background:var(--warnbg); border:1px solid var(--warnline); border-radius:6px; padding:5px 10px; font-size:13px; margin:4px 0 6px; }
+.audit .via { color:var(--muted); }
 .audit .outside h4 { font-size:12px; color:var(--muted); margin:10px 0 0; } .audit .st-outside b { color:var(--warn); }
 .chk { font-size:12px; color:var(--ok); margin-left:6px; white-space:nowrap; } .chk.moved { color:var(--muted); }
 .chk.warn { color:var(--warn); font-weight:600; }
@@ -615,8 +617,8 @@ const ASKFAIL = "답을 찾지 못했습니다.";
 const CHANGE = { A: "새 파일", M: "수정", D: "삭제" };
 const fail = e => String(e.message || e).replace(/^Error invoking remote method '[^']*': (\w*Error: )?/, "");
 // A3 (desktop): a path in the task's work folder opens the code panel (read-only); the static page shows it as it is
-const fileLink = (label, task, at, line, note) => window.pabloHost && pabloHost.readFile
-  ? h("button", { class: "file", "data-file": at, title: "코드 보기", on: () => show({ mode: "code", task, where: at, line, note }) }, label) : label;
+const fileLink = (label, task, at, line, note, expect) => window.pabloHost && pabloHost.readFile
+  ? h("button", { class: "file", "data-file": at, title: "코드 보기", on: () => show({ mode: "code", task, where: at, line, note, expect }) }, label) : label;
 // a WARN / BLOCK card's files as they are now (a new file is not there yet; a command names none Pablo can trust)
 function current(text, task) {
   const ps = [...new Set([...(text || "").split("\n")[0].matchAll(/(?:파일 삭제|파일 수정|파일 변경): ([^,]+)/g)].map(m => m[1].trim()))];
@@ -669,10 +671,15 @@ function conditions(ids, dropped) {
 // A5/A6 재현 점검: each paper condition / open setting / task criterion against the work folder (code line or log value)
 const AUDIT = { differs: ["✗", "다름"], missing: ["○", "아직 없음"], unclear: ["?", "판단 못 함"], chosen: ["•", "코드가 정함"], followed: ["✓", "따름"] };
 // A2: what Pablo saw at the file:line the model named (main.js -> desktop/where.js verify); nothing for unchecked / 0.7 answers
-const WARNED = new Set(["not_found", "no_file", "value_mismatch"]), warned = x => WARNED.has(x.check);
+// ⑤ via: the model named a line that reads the setting (cfg["retrieval"]["top_k"]); Pablo found the config line that sets
+// it (desktop/where.js follow). Its value agrees with the verdict: the value check's warning was about the reading line.
+const WARNED = new Set(["not_found", "no_file", "value_mismatch"]), eased = x => x.check === "value_mismatch" && !!x.via && x.via.agrees === true;
+const warned = x => (WARNED.has(x.check) && !eased(x)) || (!!x.via && x.via.agrees === false);
+const LOGISH = /\.(log|txt|out|csv|tsv|jsonl?|md)(:|$)|(^|\/)logs?\//i;  // ⑤ a run log or a data file is not code
 function mark(x) {
   const v = ((V.checks[x.id] || {}).spec || {}).value;
-  const t = { verified: "✓ Pablo가 코드에서 확인", moved: `위치 보정: ${x.line_found}줄`, not_found: "⚠ 모델이 댄 위치에서 찾지 못함",
+  if (eased(x)) return h("span", { class: "chk verified", "data-check": "via" }, "✓ 값은 설정 파일에서 확인");
+  const t = { verified: `✓ Pablo가 ${LOGISH.test(String(x.where || "").replace(/\\/g, "/")) ? "파일" : "코드"}에서 확인`, moved: `위치 보정: ${x.line_found}줄`, not_found: "⚠ 모델이 댄 위치에서 찾지 못함",
     no_file: "⚠ 모델이 댄 위치에서 찾지 못함",
     value_mismatch: `⚠ 논문 값(${v})이 이 자리에 ${x.status === "followed" ? "없음" : "그대로 있음"}` }[x.check];
   return t ? h("span", { class: "chk " + (warned(x) ? "warn" : x.check), "data-check": x.check }, t) : null;
@@ -687,6 +694,7 @@ function audited(c) {
   const n = k => c.items.filter(x => x.status === k).length, task = c.task || V.task.id, out = c.outside || [];
   box.append(h("p", { class: "head" }, "🔎 재현 점검: ", [...Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`),
     ...(out.length ? [`조건 밖 ${out.length}`] : [])].join(" · ")));
+  box._c = c; fresh(box);  // ⑤ files changed after it: said at the top (again after every refresh)
   if (c.summary) box.append(h("p", null, rich(c.summary)));
   // ④ criteria the user removed before this audit ran were not checked: said here, with why, never left out silently
   const t = Date.parse(c.at), during = x => Date.parse(x.from) < t && (!x.to || Date.parse(x.to) > t);
@@ -698,19 +706,24 @@ function audited(c) {
   if (outs.length) box.append(h("p", { class: "muted", "data-skipped-spec": String(outs.length) }, `이 점검 전에 뺀 재현 조건 ${outs.length}개는 대조하지 않았습니다: `,
     outs.map(([k, x], i) => [i ? " · " : "", (k.conclusion || k.title).replace(/\s*\[\d+\]/g, ""), ` (이유: ${x.why})`])));
   const placed = c.items.filter(x => x.check && x.check !== "unchecked"), lost = placed.filter(x => x.check === "not_found" || x.check === "no_file").length;
-  const off = placed.filter(x => x.check === "value_mismatch").length;
+  const off = placed.filter(x => (x.check === "value_mismatch" && !eased(x)) || (x.via && x.via.agrees === false)).length;
   if (placed.length) box.append(h("p", { class: "muted", "data-checked": "1" },
     `📍 모델이 댄 위치 ${placed.length}곳 중 ${placed.length - lost}곳을 Pablo가 파일에서 직접 확인했습니다.`,
     lost ? ` ${lost}곳은 그 자리에서 찾지 못했습니다.` : "", off ? ` ${off}곳은 판정과 논문 값이 어긋납니다.` : "",
     lost || off ? " 이 항목은 위에 따로 둡니다." : ""));
-  const what = x => { const k = V.checks[x.id];
-    if (k) return [h("span", { class: "muted" }, (k.spec && k.spec.missing ? "논문에 없는 설정" : SPEC[(k.spec || {}).category] || "근거") + " · "), fact(k)];
+  const what = x => { const k = V.checks[x.id];  // ⑤ [5쪽]: a page in the table, not the chat's running number (rows are sorted)
+    if (k) return [h("span", { class: "muted" }, (k.spec && k.spec.missing ? "논문에 없는 설정" : SPEC[(k.spec || {}).category] || "근거") + " · "),
+      rich((k.conclusion || k.title).replace(/\s*\[\d+\]/g, "")), " ", k.evidence.map(e => cite(e, (M.anchors[e] || {}).page ? `${M.anchors[e].page}쪽` : undefined))];
     const i = [...V.intent.must, ...V.intent.prefer].find(y => y.id === x.id);
     return [h("span", { class: "muted" }, "작업 기준 · "), i ? i.text : x.id]; };
   const moved = x => x.check === "moved" ? `모델이 댄 위치(${x.where})에는 없고 ${x.line_found}줄에 있습니다.` : null;
+  const seen = x => x.check === "verified" || x.check === "moved" ? x.found : null;  // ⑤ the code panel says if it is still there
+  const via = x => { const s = x.via, v = ((V.checks[x.id] || {}).spec || {}).value;
+    return s ? h("div", { class: "at via", "data-via": s.where }, "↳ 값을 정하는 곳: ", fileLink(h("code", null, s.where), task, s.where, null, null, s.found), " ",
+      h("span", null, s.found), s.agrees === false ? h("span", { class: "chk warn", "data-via-warn": "1" }, ` ⚠ 논문 값(${v})이 여기에 ${x.status === "followed" ? "없음" : "그대로 있음"}`) : null) : null; };
   const row = x => h("li", { class: "st-" + x.status, title: x.id, "data-id": x.id }, h("b", null, (AUDIT[x.status] || ["", x.status]).join(" ")), " ", what(x),
-    x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x)) : null,
-      x.found ? [" ", h("span", null, x.found)] : null, mark(x)) : null,
+    x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x), seen(x)) : null,
+      x.found ? [" ", h("span", null, x.found)] : null, mark(x)) : null, via(x),
     x.note ? h("div", { class: "muted" }, x.note) : null);
   const order = Object.keys(AUDIT), xs = [...c.items].sort((a, b) => warned(b) - warned(a) || order.indexOf(a.status) - order.indexOf(b.status));
   // what needs attention stays open (Pablo could not confirm it, 다름, 아직 없음, 코드가 정함); 판단 못 함 and 따름 fold away
@@ -722,7 +735,7 @@ function audited(c) {
   // have fold away. The model wrote them from the code and the items, not from the paper: no page is attached.
   if (out.length) {
     const orow = x => h("li", { class: "st-outside" }, h("b", null, "△"), " ", x.what,
-      x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x)) : null,
+      x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x), seen(x)) : null,
         x.found ? [" ", h("span", null, x.found)] : null, mark(x)) : null);
     const m = out.filter(x => x.kind !== "scope").sort((a, b) => warned(b) - warned(a)), s = out.filter(x => x.kind === "scope");
     box.append(h("div", { class: "outside", "data-outside": "1" }, h("h4", null, `조건 밖에서 본 차이 ${out.length}개`),
@@ -731,6 +744,17 @@ function audited(c) {
       h("p", { class: "muted" }, "재현 조건 목록 밖이라 논문 쪽이 붙지 않습니다. 중요한 차이면 논문에서 확인하고 조건을 다시 뽑아 보세요.")));
   }
   return box;
+}
+// ⑤ an audit card is a moment: the files its rows name may have changed since (an agent turn, an undo). Said at its top.
+let reAudit = null;  // desktop: run 재현 점검 again
+function fresh(box) {
+  const c = box._c, task = c.task || V.task.id, v = M.views[task] || V, t = Date.parse(c.at);
+  const files = [...new Set((v.chat || []).filter(x => (x.role === "changes" || x.role === "undo") && Date.parse(x.at) > t)
+    .flatMap(x => (x.files || []).map(f => typeof f === "string" ? f : f.path)))];
+  const old = box.querySelector(":scope > .stale"), line = files.length ? h("p", { class: "stale", "data-stale": String(files.length) },
+    `⚠ 이 점검 뒤 파일 ${files.length}개가 바뀌었습니다(${files.slice(0, 3).join(", ")}${files.length > 3 ? " 외" : ""}). 판정이 지금 파일과 다를 수 있습니다.`,
+    reAudit && V && V.task.id === task ? [" ", h("button", { class: "link", "data-reaudit": "1", on: () => reAudit(task) }, "다시 점검")] : null) : null;
+  if (old) old.replaceWith(line || ""); else if (line) box.querySelector(".head").after(line);
 }
 // C3 비교표 (chat.json "compare"): the task's papers (rows) by columns. A cell is a value with its place in that paper
 // ([n] -> the PDF on that page), or 근거 없음: Pablo did not find where the paper says it, so nothing is filled in.
@@ -818,7 +842,9 @@ function echo(task, c) {
 }
 // one timeline: the task, its research, the chat log and the Guard cards, in the order they happened
 function conversation() {
-  cites = {};
+  cites = {};  // ⑩ review: [n] by when the evidence was found, so "[16]" is the same live and after a reload
+  [...new Set(Object.values(V.checks).flatMap(c => c.evidence))].filter(e => M.anchors[e])
+    .sort((a, b) => +a.replace(/\D/g, "") - +b.replace(/\D/g, "")).forEach((e, i) => { cites[e] = i + 1; });
   const log = $("log"); log.textContent = "";
   if (busy !== V.task.id) delete lives[V.task.id];  // what was said is in the chat log; only a running turn stays live
   const chat = V.chat || [], asked = new Set(chat.map(c => c.check).filter(Boolean)), research = answer(asked);
@@ -868,7 +894,7 @@ function show(st, push = true) {
   document.body.classList.add("panel"); document.body.classList.remove("pdf", "code", "wide");
   CSS.highlights.clear();
   document.querySelectorAll(".cite").forEach(b => b.classList.toggle("on", st.mode === "source" && b.dataset.e === st.e));
-  const p = $("panel"); p.textContent = ""; delete p.dataset.live;
+  const p = $("panel"); p.textContent = ""; delete p.dataset.live; delete p.dataset.still;
   ({ source, intent, plan, trace, code: codeView, matrix: matrixView, paper })[st.mode](p, st);
   header();
 }
@@ -1030,7 +1056,7 @@ function codeView(p, st) {
       h("button", { class: "link open", "data-open": "vscode", on: () => open("vscode") }, "VS Code에서 열기"),
       h("button", { class: "link open", "data-open": "folder", on: () => open("folder") }, "폴더에서 보기"), xbtn()),
     info, h("div", { id: "pbody", class: "code" }));
-  pabloHost.readFile(st.task, st.where, st.line || null).then(f => {
+  pabloHost.readFile(st.task, st.where, st.line || null, st.expect || null).then(f => {
     if (hist[hi] !== st) return;
     const rs = st.line ? [[st.line, st.line]] : f.ranges || [], box = $("pbody");  // "a.py:6,15" marks both
     name.textContent = f.path + (rs.length ? ":" + rs.map(([a, b]) => b > a ? `${a}-${b}` : a).join(",") : "");
@@ -1040,6 +1066,13 @@ function codeView(p, st) {
     info.textContent = [`작업 폴더 · 읽기 전용 · ${f.total}줄`, rs.length && !on ? `이 파일에는 ${rs[0][0]}줄이 없습니다` : null, st.note,
       f.truncated ? `긴 파일이라 ${f.first}–${f.first + f.lines.length - 1}줄만 보여 줍니다` : null].filter(Boolean).join(" · ");
     if (rs.length && !on) info.className = "info broken";
+    // ⑤ what the audit saw on this line, checked again now: gone or moved since -> said, the row's verdict may be old
+    const was = String(st.expect || "").split("\n")[0].slice(0, 60);
+    if (f.still === "not_found" || f.still === "moved") {
+      info.className = "info broken"; p.dataset.still = f.still;
+      info.prepend(`⚠ 점검 때 이 자리에 있던 "${was}"이(가) 지금은 ${f.still === "moved" ? "다른 줄에 있습니다" : "없습니다"}. 점검 뒤 파일이 바뀌었습니다. `,
+        reAudit && V && V.task.id === st.task ? h("button", { class: "link", "data-reaudit": "1", on: () => reAudit(st.task) }, "다시 점검") : "", " · ");
+    }
     if (on) box.scrollTop += on.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 3;
     p.dataset.live = on ? "FOUND" : "OPEN";
   }, e => { if (hist[hi] !== st) return; p.dataset.live = "ERROR"; info.className = "info broken"; info.textContent = "⚠ " + fail(e); });
@@ -1386,6 +1419,7 @@ if (window.pabloHost && pabloHost.chat) {
     if (to !== undefined || !V || !M.views[V.task.id]) return (select(to || (V && V.task.id)), gate());
     V = M.views[V.task.id]; V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
     sidebar(); header(); tools(); gate(); finish();
+    document.querySelectorAll("#log [data-audit]").forEach(b => b._c && fresh(b));  // ⑤ a turn changed files since an audit
     if (open && !["source", "code", "paper"].includes(open.mode)) show(open, false);  // Intent / Plan / 왜? stay open and show the new state
     Object.values(lives).forEach(l => l.querySelectorAll(".crit:empty").forEach(c => {  // the live card's criteria, once stored
       const v = Object.values(M.views).find(v => v.actions.some(x => x.id === c.closest("[data-act]").dataset.act));
@@ -1552,6 +1586,7 @@ if (window.pabloHost && pabloHost.chat) {
   };
   const clean = e => String(e.message || e).replace(/^Error invoking remote method '[^']*': (\w*Error: )?/, "");
   // A5/A6: 재현 점검 -> one read-only agent turn; its JSON answer comes back as an "audit" event (a table in the conversation)
+  reAudit = t => audit(t);
   function audit(t) {
     if (agentSt === "Thinking") return;
     talk = busy = t; turning = true;

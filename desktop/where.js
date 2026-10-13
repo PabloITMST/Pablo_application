@@ -5,6 +5,8 @@
 //   read(work, rel, around?)    -> {path, first, lines, total, truncated}: only inside work (after symlinks), text, <= 1 MB
 //   verify(work, item, value?)  -> {check, line_found?}: the model says where and what; Pablo looks (guard.py's rule)
 //   hasValue(text, value)       the paper's value in a text: numbers by value ("1,000" = 1000), words case-insensitive
+//   follow(work, item, value?)  ⑤ a line that reads a setting (cfg["retrieval"]["top_k"]) -> {where, found, agrees}: the
+//                               config line that sets it (a field of its own, `via`; the verdict's check is not changed)
 const fs = require("fs");
 const path = require("path");
 
@@ -148,4 +150,61 @@ function verify(work, item, value) {
   return out;
 }
 
-module.exports = { where, read, locate, verify, hasValue, checkable, ReadError, LIMIT, MAX_LINES, FOUND };
+// ---- ⑤ the setting a line reads, in the config file that sets it ----
+// 0.8 hard set: on a clean folder the model named the line that reads a value (cfg["llm"]), not the one that sets it, and
+// the value check warned (value_mismatch) 3 times. follow() finds the setting's own line: the last key of the path
+// (cfg["retrieval"]["top_k"], cfg.get("retrieval").get("top_k"), args.top_k) set in one config file of the folder, under
+// its parent key when the path has one. Two places that both set it, or none: null (Pablo does not guess).
+const CONFIG = /\.(ya?ml|json|toml|ini|cfg|conf)$/i;
+const SKIP = /^(\.git|\.hg|\.svn|node_modules|\.?venv|env|__pycache__|\.pablo|\.idea|\.vscode|site-packages|wandb|outputs?)$/i;
+function keysOf(found) {
+  const s = String(found || "");
+  let m = s.match(/[A-Za-z_]\w*((?:\s*\[\s*["'][\w.-]+["']\s*\])+)/);
+  if (m) return [...m[1].matchAll(/["']([\w.-]+)["']/g)].map(x => x[1]);
+  const gets = [...s.matchAll(/\.get\(\s*["']([\w.-]+)["']/g)].map(x => x[1]);
+  if (gets.length) return gets;
+  m = s.match(/\b(?:cfg|cfgs|config|configs|conf|args|opt|opts|hparams|hp|params|settings)((?:\.[A-Za-z_]\w*)+)/i);
+  return m ? m[1].slice(1).split(".") : [];
+}
+function configs(dir, depth = 0, out = []) {  // the folder's config files (links are not followed: they stay inside)
+  let ents = [];
+  try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  for (const e of ents) {
+    if (out.length >= 200) break;
+    if (e.isDirectory() && depth < 4 && !SKIP.test(e.name)) configs(path.join(dir, e.name), depth + 1, out);
+    else if (e.isFile() && CONFIG.test(e.name)) out.push(path.join(dir, e.name));
+  }
+  return out;
+}
+const indent = l => l.match(/^\s*/)[0].length;
+function parentOf(lines, i) {  // the key line i is under: the nearest line above with less indent, else the [section] above
+  const d = indent(lines[i]);
+  for (let j = i - 1; j >= 0; j--) {
+    const l = lines[j];
+    if (!l.trim() || /^\s*(#|\/\/|;)/.test(l)) continue;
+    if (indent(l) < d) { const m = l.match(/^\s*["']?([\w.-]+)["']?\s*[:=]/); return m ? m[1] : null; }
+    const s = d === 0 && l.match(/^\s*\[\s*([\w.-]+)\s*\]\s*$/);
+    if (s) return s[1].split(".").at(-1);
+  }
+  return null;
+}
+function follow(work, item, value) {
+  try {
+    const s = item && item.status, keys = keysOf(item && item.found);
+    if (!work || !keys.length || !(s === "followed" || s === "differs") || !checkable(value) || hasValue(item.found, value)) return null;
+    const last = keys.at(-1), parent = keys.at(-2), root = fs.realpathSync(work);
+    const set = new RegExp(`^\\s*(?:-\\s+)?["']?${last.replace(/[.-]/g, "\\$&")}["']?\\s*[:=]\\s*(\\S.*)$`), hits = [];
+    for (const f of configs(root)) {
+      let lines;
+      try { if (fs.statSync(f).size > LIMIT) continue; lines = fs.readFileSync(f, "utf8").replace(/^﻿/, "").split(/\r?\n/); } catch { continue; }
+      lines.forEach((l, i) => { const m = l.match(set);  // "retrieval:" / "retrieval": { hold keys, they do not set one
+        if (m && !/^[{[]\s*,?$/.test(m[1].trim())) hits.push({ f, i, line: l, score: parent && parentOf(lines, i) === parent ? 1 : 0 }); });
+    }
+    const top = Math.max(...hits.map(x => x.score)), best = hits.filter(x => x.score === top);
+    if (best.length !== 1) return null;
+    const b = best[0], found = b.line.trim().slice(0, FOUND), bare = found.replace(/\s+(#|\/\/|;).*$/, "");  // a comment's numbers are not the value
+    return { where: `${path.relative(root, b.f).split(path.sep).join("/")}:${b.i + 1}`, found, agrees: hasValue(bare, value) === (s === "followed") };
+  } catch { return null; }
+}
+
+module.exports = { where, read, locate, verify, follow, hasValue, checkable, ReadError, LIMIT, MAX_LINES, FOUND };

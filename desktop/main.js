@@ -480,10 +480,12 @@ const located = (task, raw) => {
   if (!work) throw new Error("작업 폴더가 없습니다.");
   return { w, work };
 };
-ipcMain.handle("pablo:read-file", (e, task, raw, around) => {
-  fromWindow(e); known(task);
-  const { w, work } = located(task, raw);
-  return { ...where.read(work, w.path, Number.isInteger(around) && around > 0 ? around : w.from), ranges: w.ranges };
+// ⑤ expect: what an audit saw there (its found). Is it still at that line now? (the same rule as the audit's check)
+ipcMain.handle("pablo:read-file", (e, task, raw, around, expect) => {
+  fromWindow(e); known(task); if (expect != null && !str(expect, where.FOUND + 10)) throw new Error("bad expect");
+  const { w, work } = located(task, raw), at = Number.isInteger(around) && around > 0 ? around : w.from;
+  const still = expect ? where.verify(work, { where: at ? `${w.path}:${at}` : w.path, found: expect }).check : undefined;
+  return { ...where.read(work, w.path, at), ranges: w.ranges, ...(still ? { still } : {}) };
 });
 // "VS Code에서 열기" (vscode://file/<abs>:<line>; no VS Code -> the file's own app, else its folder) | "폴더에서 보기"
 ipcMain.handle("pablo:open-file", async (e, task, raw, line, how) => {
@@ -522,6 +524,8 @@ function audited(r) {
       where: String(x.where || ""), found: String(x.found || "").slice(0, where.FOUND), note: String(x.note || "").slice(0, 300) }));
     // A2: the model says where and what is there; Pablo opens that file and looks (the line, the text, the paper's value)
     for (const x of items) Object.assign(x, where.verify(r.work, x, (r.values || {})[x.id]));
+    // ⑤ a line that reads the setting (cfg["retrieval"]["top_k"]): the config line that sets it, in a field of its own
+    for (const x of items) { const v = where.follow(r.work, x, (r.values || {})[x.id]); if (v) x.via = v; }
     // what no item covers: kept apart from the verdicts, its place checked the same way (no paper value to hold it to)
     const outside = (Array.isArray(j.outside) ? j.outside : []).filter(x => x && String(x.what || "").trim()).slice(0, 12)
       .map(x => ({ kind: x.kind === "scope" ? "scope" : "method", what: String(x.what).slice(0, 300), where: String(x.where || ""),
@@ -591,7 +595,8 @@ ctl.env = async () => {
   return t ? { PABLO_ACCESS_TOKEN: t, PABLO_MODEL: agent.model } : { PABLO_MODEL: agent.model };
 };
 agent.launch = async () => ({ args: PROVIDER, models: account && account.models.map(m => m.slug),
-  env: { ACCESS_TOKEN: await siwc.token(), CODEX_HOME: path.join(app.getPath("userData"), "codex") } });  // own CODEX_HOME: no codex login, no user config.toml
+  // ⑤ PYTHONUTF8: Python the agent runs prints UTF-8 (Windows: cp949 by default; Codex reads UTF-8, so λ became U+FFFD)
+  env: { ACCESS_TOKEN: await siwc.token(), CODEX_HOME: path.join(app.getPath("userData"), "codex"), PYTHONUTF8: "1" } });  // own CODEX_HOME: no codex login, no user config.toml
 
 ipcMain.handle("pablo:auth-status", e => { fromWindow(e); return auth; });
 ipcMain.handle("pablo:login", async e => {

@@ -144,6 +144,12 @@ def build(d: str) -> str:
              {"kind": "scope", "what": "논문의 baseline 비교 실험이 이 폴더에 없습니다.", "where": "", "found": "", "check": "unchecked"},
              {"kind": "method", "what": "PageRank 대신 차수로 순위를 매깁니다.", "where": "retrieve.py:22",
               "found": "scores = sub.degree()", "check": "no_file"}]},
+        # ⑤ a second audit: the model named the line that reads top-k (the config line that sets it: via), and a log line
+        {"role": "audit", "at": at(58), "status": "completed", "summary": "", "items": [
+            {"id": specs[0], "status": "differs", "where": "run.py:3", "found": "print('top_k', cfg['retrieval']['top_k'])",
+             "note": "", "check": "verified", "via": {"where": "config.yaml:5", "found": "top_k: 10", "agrees": True}},
+            {"id": specs[1], "status": "differs", "where": "logs/2wiki.log:1", "found": "gpt_acc=61.20", "note": "",
+             "check": "verified"}]},
     ]}
     repro = os.path.join(d, "repro")
     shutil.copytree(DEMO, repro, dirs_exist_ok=True)
