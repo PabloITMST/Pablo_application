@@ -101,23 +101,37 @@ async function e2e(base) {
 }
 
 async function chat() {
+  // M5.1: a message goes to the agent when its task has a work folder (here a throwaway one with a README to read)
+  const W = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-agent-ws-"));
+  fs.writeFileSync(path.join(W, "README.md"), "# Greeter\n\nA tiny command-line tool that prints a greeting.\n");
+  process.env.PABLO_WORKSPACE = W;
   await boot();  // the user's userData: credentials from an in-app sign-in, saved thread
   assert.strictEqual(auth().state, "connected", "sign in once with `npm start` first: " + JSON.stringify(auth()));
-  const win = open(view);
+  const win = open(view), errs = [];
+  win.webContents.on("console-message", e => e.level !== "info" && e.level !== "debug" && errs.push(e.message));
   await new Promise(r => win.webContents.once("did-finish-load", r));
   const js = code => win.webContents.executeJavaScript(code);
   const until = async (code, ms = 300000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
   const deltas = []; agent.on("event", ev => ev.type === "delta" && deltas.push(ev));
+  const evlog = []; agent.on("event", ev => ev.type !== "delta" && evlog.push([Date.now() % 100000, ev.type, ev.status || ""]));
   const execs = () => Number(execFileSync("powershell", ["-NoProfile", "-Command",
     "@(Get-CimInstance Win32_Process | ? { $_.CommandLine -match 'codex(\.exe|\.js)?\W+exec' }).Count"]).toString().trim());
   const t0 = Date.now();  // boot() already started app-server with the SIWC token
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`, 60000);
+  await ctl.py("plan", await js("V.task.id"), "--steps", JSON.stringify([{ action: "작업 폴더의 프로젝트를 읽고 설명한다", basis: [] }]));
   console.log("ok ready in", Date.now() - t0, "ms; model", agent.model);
   const turn = async text => {
     const n = deltas.length, ev = new Promise(r => { const f = e => e.type === "done" && (agent.off("event", f), r(e)); agent.on("event", f); });
     await js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
-    assert.strictEqual(await until(`(s => s === "Thinking" && s)($("chat").querySelector(".composer").dataset.agent)`, 5000), "Thinking");
+    const seen = await until(`(s => s === "Thinking" && s)($("chat").querySelector(".composer").dataset.agent)`, 5000).catch(async e => {
+      console.log("   debug", JSON.stringify(await js(`({ agent: $("chat").querySelector(".composer").dataset.agent, title: $("agent").title,
+        disabled: document.querySelector("#chat .composer input").disabled, desk: M.desk, task: V.task.id, live: live().textContent.slice(-120) })`)), errs, JSON.stringify(evlog.slice(-8))); throw e; });
+    assert.strictEqual(seen, "Thinking");
     const mid = execs();
+    let over = false; ev.then(() => { over = true; });
+    while (!over) {  // the folder's reads go through the Guard: a WARN here is answered 진행 (this check is about the runtime)
+      await js(`(b => b && b.click())(document.querySelector("#live [data-answer=proceed]"))`); await sleep(300);
+    }
     const done = await ev;
     await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`, 5000);
     const shown = await js(`[...document.querySelectorAll("#live .stream")].at(-1).textContent`);

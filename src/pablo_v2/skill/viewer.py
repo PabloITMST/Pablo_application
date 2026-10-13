@@ -930,6 +930,8 @@ if (window.pabloHost && pabloHost.chat) {
     if (ev.type === "model") pick.value = ev.model;
     if (ev.type === "status") {
       if (ev.status === "Ready") models().then(gate);  // after a restart or another sign-in the list may change
+      // a message is on its way (Pablo prepares it, or app-server restarts for a fresh token first): stay Thinking until done
+      if (turning && (ev.status === "Ready" || ev.status === "Connecting")) return;
       status(ev.status, ev.error);
       if (ev.status === "Error" && ev.error && authSt.state === "connected") live(talk).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + ev.error)))), scroll();
     } else if (ev.type === "delta" && out) { out.textContent += ev.text; scroll(); }
@@ -975,7 +977,9 @@ if (window.pabloHost && pabloHost.chat) {
   }
   let talk = null;  // the task whose turn is running; its answer stays in that task's chat
   const stream = t => { out = h("p", { class: "stream", style: "white-space:pre-wrap" }); live(t).append(msg("Pablo", null, out)); scroll(); };
-  const chat = (text, t) => { talk = busy = t; turning = true; stream(t); pabloHost.chat(text, t).catch(e => { turning = false; busy = null; status("Error", e.message); out = null; }); };
+  // Thinking (and 중지) from the moment it is sent: Pablo records the message's criteria and the brief before the agent starts
+  const chat = (text, t) => { talk = busy = t; turning = true; stream(t); status("Thinking");
+    pabloHost.chat(text, t).catch(e => { turning = false; busy = null; status("Error", fail(e)); out = null; }); };
   const stop = () => { stopping = true; gate(); pabloHost.stop().then(ok => { if (!ok) { stopping = false; gate(); } }); };
   // M5.1 one input box: the task's material and folder decide where a message goes; both -> the user picks, neither -> say so
   const send = async () => {

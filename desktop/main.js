@@ -83,7 +83,12 @@ ipcMain.handle("pablo:chat", async (e, text, task) => {
   fromWindow(e); if (!str(text, 20000) || !text.trim()) throw new Error("bad message");
   known(task);
   if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
-  if (agent.busy()) throw new Error("이전 요청이 아직 진행 중입니다.");
+  if (agent.busy() || preparing) throw new Error("이전 요청이 아직 진행 중입니다.");
+  const prep = preparing = { task };  // until the agent's turn starts: 중지 now means "do not start it"
+  try { return await chatTurn(text, task, prep); } finally { if (preparing === prep) preparing = null; }
+});
+let preparing = null;
+async function chatTurn(text, task, prep) {
   const at = Date.now();
   logChat(task, { role: "user", text, at: new Date(at).toISOString() });
   reply = { task, at: new Date(at + 2).toISOString(), text: "" };  // the agent's answer sorts right after the message
@@ -113,8 +118,12 @@ ipcMain.handle("pablo:chat", async (e, text, task) => {
   const undone = (d.undone || {})[task];  // the user undid a change since the last message: the agent hears it once
   if (undone) saveDesk(x => { delete x.undone[task]; });
   const note = undone ? `[Pablo] 사용자가 앞선 변경을 되돌렸습니다: ${undone.join(", ")}. 이 파일들은 그 변경 전 상태입니다. 필요하면 다시 확인하세요.` : null;
+  if (prep.stop) {  // 중지 before it started: the same ending as an interrupted turn (log, UI), then the real status again
+    agent.emit("event", { type: "done", status: "interrupted", first: null, total: Date.now() - at });
+    return agent.emit("event", { type: "status", status: agent.status });
+  }
   return agent.send(text, ctl.dir + "#" + task, brief && brief.text ? { text: brief.text, hash: brief.hash } : null, note);  // each task talks on its own thread
-});
+}
 // ---- M5.1 app-first workflow: live state, new task, folder and material per task (userData/state/desktop.json) ----
 let envWorkspace = null;
 const desk = () => { try { return { workspace: {}, pdf: {}, net: {}, ...JSON.parse(fs.readFileSync(path.join(ctl.dir, "desktop.json"), "utf8")) }; }
@@ -229,7 +238,11 @@ ipcMain.handle("pablo:retry", e => {
   if (agent.task()) reply = { task: agent.task().split("#").pop(), at: new Date().toISOString(), text: "" };
   return agent.retry();
 });
-ipcMain.handle("pablo:stop", e => { fromWindow(e); ctl.cancelAll(); return agent.interrupt(); });  // 중지: the running turn; open WARN cards decline
+ipcMain.handle("pablo:stop", e => {  // 중지: the running turn (open WARN cards decline), or the one about to start
+  fromWindow(e); ctl.cancelAll();
+  if (!agent.busy() && preparing) { preparing.stop = true; return true; }
+  return agent.interrupt();
+});
 ipcMain.handle("pablo:agent-status", e => { fromWindow(e); return agent.status; });
 ipcMain.handle("pablo:models", e => { fromWindow(e); // the account's catalog (docs: not app-server's bundled list), shown by display_name
   const name = s => ((account && account.models.find(m => m.slug === s)) || {}).name || s;
