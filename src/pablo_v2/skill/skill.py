@@ -19,6 +19,7 @@ import http.client
 import json
 import os
 import re
+import unicodedata
 
 from pablo_v2.intent.engine import IntentEngine
 from pablo_v2.intent.models import now
@@ -39,6 +40,38 @@ class ResearchRejected(ValueError):
 
 class DecisionRejected(ValueError):
     """decide_action the verdict does not allow (proceed on BLOCK, proceed on WARN without a reason)."""
+
+
+# A2 (0.8): a paper's value in a text, with the same rule as desktop/where.js (tests run both on one table): numbers by
+# value ("1,000" = 1000, "63.70%" = 63.7, never inside "2wiki" or "v2"), words case-insensitive and ignoring spaces.
+_NUM = re.compile(r"(?<![A-Za-z0-9_.])\d+(?:,\d{3})*(?:\.\d+)?(?:e[-+]?\d+)?(?![A-Za-z0-9_])", re.I)
+_ONE_NUM = re.compile(r"^[~≈]?\s*(\d+(?:,\d{3})*(?:\.\d+)?(?:e[-+]?\d+)?)\s*%?$", re.I)
+
+
+def _number(v: str) -> float | None:
+    m = _ONE_NUM.match(str(v).strip())
+    return float(m[1].replace(",", "")) if m else None
+
+
+def _norm(s: str) -> str:
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", str(s or "")).lower()).strip()
+
+
+def checkable(value: str) -> bool:
+    """One value ("5", "1,000", "GPT-4o-mini", "Personalized PageRank"), not a list or a description."""
+    v = str(value or "").strip()
+    return bool(v) and (_number(v) is not None or (not re.search(r"[,;]", v) and len(v) <= 60 and len(v.split()) <= 3))
+
+
+def has_value(text: str, value: str) -> bool:
+    nums = [float(m[0].replace(",", "")) for m in _NUM.finditer(str(text or ""))]
+    same = lambda a, b: abs(a - b) <= 1e-9 * max(1, abs(a))  # noqa: E731
+    flat = _norm(text).replace(" ", "")
+    n = _number(value)
+    if n is not None:
+        return any(same(x, n) for x in nums)
+    ts = [t for t in re.split(r"[\s()\[\]]+", _norm(value)) if t]
+    return bool(ts) and all(any(same(x, _number(t)) for x in nums) if _number(t) is not None else t in flat for t in ts)
 
 
 class PabloSkill:
@@ -378,6 +411,8 @@ class PabloSkill:
                 continue
             sc = self.add_check(task_id, it["statement"], "USEFUL")
             sc.spec = {"category": it["category"], "value": it["value"], "source_id": src.id}
+            if checkable(it["value"]) and not has_value(a.quote["exact"], it["value"]):
+                sc.spec["value_in_quote"] = False  # the quote is anchored, the value the model read from it is not in it
             self.complete_check(sc.id, "VERIFIED", it["statement"] + " [1]",
                                 [{"tier": 4, "type": "pdf", "title": src.title, "url": src.locator, "supports": [a.id]}])
             self.link_evidence(a.id, sc.id, "supports", it["category"])
@@ -723,7 +758,8 @@ def render_audit(s: PabloSkill, task_id: str) -> tuple[str, list[dict]]:
         pages = [a.selector.get("page") for _, a in s.evidence_for(c.id)]
         where = f" (논문 p.{pages[0]})" if pages and pages[0] else ""
         items.append({"id": c.id, "kind": "condition", "label": label,
-                      "text": re.sub(r"\s*\[\d+\]", "", c.conclusion or c.requirement).strip() + where})
+                      "text": re.sub(r"\s*\[\d+\]", "", c.conclusion or c.requirement).strip() + where,
+                      "value": c.spec.get("value", "")})  # the desktop checks the verdict against it (desktop/where.js)
     for i in s.get_applicable_intent(task_id)["constraints"]:
         items.append({"id": i.id, "kind": "criterion", "label": "작업 기준" + (" (반드시)" if i.strength == "hard" else ""),
                       "text": i.statement})

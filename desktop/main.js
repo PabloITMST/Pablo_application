@@ -8,6 +8,7 @@ const agent = require("./agent");
 const ctl = require("./controller");
 const siwc = require("./siwc");
 const checkpoint = require("./checkpoint");
+const where = require("./where");
 
 // M6 Squirrel installer events (Setup.exe runs the app with these): add/remove the shortcuts, then exit at once.
 // The few lines Forge's template gets from electron-squirrel-startup.
@@ -234,7 +235,8 @@ ipcMain.handle("pablo:audit", async (e, task) => {
   const a = await ctl.py("audit", task);
   if (!a.items.length) throw new Error("대조할 논문 조건이나 작업 기준이 없습니다. 먼저 재현 조건을 뽑거나 기준을 적어 주세요.");
   agent.workspace = ctl.root = work; agent.network = false;
-  reply = { task, at: new Date().toISOString(), text: "", audit: a.items.map(x => x.id) };
+  reply = { task, at: new Date().toISOString(), text: "", audit: a.items.map(x => x.id), work,
+    values: Object.fromEntries(a.items.filter(x => x.value).map(x => [x.id, x.value])) };  // A2: the paper's value per condition
   saveDesk(x => { x.last = task; });
   return agent.send(a.prompt, ctl.dir + "#" + task, null, null, { readOnly: true, outputSchema: a.schema });
 });
@@ -289,6 +291,33 @@ ipcMain.handle("pablo:undo", async (e, task, from, to) => {
   saveDesk(x => { x.undone = { ...(x.undone || {}), [task]: [...new Set([...((x.undone || {})[task] || []), ...files.map(f => f.path)])] }; });
   return files.length;
 });
+// A3 code panel: a file of the task's work folder, read-only ("config.yaml:5", a change card's path). where.js keeps it
+// inside the folder after symlinks, text only, <= 1 MB. The page gets the path relative to the folder, never where it is.
+const located = (task, raw) => {
+  if (!str(raw, 1000)) throw new Error("bad path");
+  const w = where.where(raw), work = workOf(task);
+  if (!w) throw new Error("파일 위치를 읽지 못했습니다.");
+  if (!work) throw new Error("작업 폴더가 없습니다.");
+  return { w, work };
+};
+ipcMain.handle("pablo:read-file", (e, task, raw, around) => {
+  fromWindow(e); known(task);
+  const { w, work } = located(task, raw);
+  return { ...where.read(work, w.path, Number.isInteger(around) && around > 0 ? around : w.from), from: w.from, to: w.to };
+});
+// "VS Code에서 열기" (vscode://file/<abs>:<line>; no VS Code -> the file's own app, else its folder) | "폴더에서 보기"
+ipcMain.handle("pablo:open-file", async (e, task, raw, line, how) => {
+  fromWindow(e); known(task); if (!["vscode", "folder"].includes(how)) throw new Error("bad open");
+  const { w, work } = located(task, raw), abs = where.locate(work, w.path).real;
+  if (how === "folder") { shell.showItemInFolder(abs); return "folder"; }
+  const at = Number.isInteger(line) && line > 0 ? line : w.from || 1;
+  const url = "vscode://file/" + encodeURI(abs.replace(/\\/g, "/")).replace(/#/g, "%23").replace(/\?/g, "%3F") + ":" + at;
+  try { await shell.openExternal(url); return "vscode"; }
+  catch {
+    if (!(await shell.openPath(abs))) return "app";
+    shell.showItemInFolder(abs); return "folder";
+  }
+});
 // before the broadcast below: the reply is in chat.json when the window hears "done" and reads the state again
 agent.on("event", ev => {
   if (!reply) return;
@@ -311,6 +340,10 @@ function audited(r) {
     const j = JSON.parse((r.last || r.text).trim().replace(/^```(?:json)?\s*|\s*```$/g, "")), asked = new Set(r.audit);
     const items = (j.items || []).filter(x => x && asked.has(x.id)).map(x => ({ id: x.id, status: String(x.status),
       where: String(x.where || ""), found: String(x.found || "").slice(0, 300), note: String(x.note || "").slice(0, 300) }));
+    // A2: the model says where and what is there; Pablo opens that file and looks (the line, the text, the paper's value)
+    for (const x of items) Object.assign(x, where.verify(r.work, x, (r.values || {})[x.id]));
+    const n = items.reduce((m, x) => ({ ...m, [x.check]: (m[x.check] || 0) + 1 }), {});
+    console.log("[pablo] audit checked:", JSON.stringify(n));
     return { items, summary: String(j.summary || "").slice(0, 1000) };
   } catch { return r.text.trim() ? { items: [], summary: "", unreadable: true } : { items: [], summary: "" }; }
 }

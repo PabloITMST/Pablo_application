@@ -188,11 +188,11 @@ PAGE = r"""<!doctype html>
 <style>
 :root { --bg:#fff; --side:#f7f7f8; --fg:#1f2328; --muted:#6b7280; --faint:#9ca3af; --line:#ececf0; --hover:#f0f0f3;
         --accent:#2563eb; --ok:#16a34a; --warn:#b45309; --warnbg:#fffbeb; --warnline:#f5c46b; --bad:#b91c1c;
-        --badbg:#fef2f2; --badline:#f3a4a4; --hl:#fde68a; --code:#f3f4f6; --shade:rgba(0,0,0,.35); }
+        --badbg:#fef2f2; --badline:#f3a4a4; --hl:#fde68a; --code:#f3f4f6; --shade:rgba(0,0,0,.35); --lineon:#fef3c7; }
 @media (prefers-color-scheme: dark) { :root { --bg:#1e1f22; --side:#18191b; --fg:#e8e8ea; --muted:#9ca3af;
         --faint:#6b7280; --line:#2e3035; --hover:#2a2c30; --accent:#7aa7ff; --ok:#4ade80; --warn:#fbbf24;
         --warnbg:#2d2410; --warnline:#7a5b17; --bad:#f87171; --badbg:#2d1414; --badline:#7f2a2a; --hl:#8a6d10;
-        --code:#2a2c30; --shade:rgba(0,0,0,.6); } }
+        --code:#2a2c30; --shade:rgba(0,0,0,.6); --lineon:#3d3415; } }
 * { box-sizing:border-box; }
 html, body { height:100%; margin:0; }
 body { background:var(--bg); color:var(--fg); font:15px/1.65 system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
@@ -322,6 +322,17 @@ pre.diff .del { background:rgba(220,38,38,.13); } pre.diff .hunk { color:var(--m
 .audit li { padding:5px 0; border-top:1px solid var(--line); font-size:14px; } .audit .at { font-size:13px; overflow-wrap:anywhere; }
 .audit .st-differs b { color:var(--bad); } .audit .st-followed b { color:var(--ok); } .audit .st-missing b, .audit .st-unclear b { color:var(--warn); }
 .audit details summary { cursor:pointer; font-size:13px; color:var(--muted); margin-top:6px; }
+.chk { font-size:12px; color:var(--ok); margin-left:6px; white-space:nowrap; } .chk.moved { color:var(--muted); }
+.chk.warn { color:var(--warn); font-weight:600; }
+/* A3: a work-folder path that opens the code panel (audit where, change and WARN / BLOCK cards) */
+button.file { color:var(--accent); } button.file:hover code, button.file:hover { text-decoration:underline; }
+body.panel.code { grid-template-columns:220px minmax(0, 1fr) min(760px, 48vw); }
+#pbody.code { padding:0; font:12.5px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.src { min-width:max-content; padding:8px 0 24px; }
+.src .ln { display:grid; grid-template-columns:7ch auto; white-space:pre; }
+.src .n { color:var(--faint); text-align:right; padding-right:14px; user-select:none; }
+.src .t { padding-right:16px; } .src .ln.on { background:var(--lineon); } .src .ln.on .n { color:var(--fg); font-weight:700; }
+.phead .open { font-size:12px; white-space:nowrap; }
 .changes { border-left:3px solid var(--line); background:var(--side); border-radius:0 8px 8px 0; padding:8px 14px; margin:8px 0; }
 .changes p { margin:2px 0; font-size:14px; overflow-wrap:anywhere; }
 .empty { max-width:560px; margin:18vh auto 0; text-align:center; color:var(--muted); }
@@ -496,7 +507,7 @@ function action(a) {
   const d = decided(a);
   return h("div", { class: "call" + (block ? " block" : ""), title: a.id, "data-id": a.id },
     h("p", { class: "head" }, block ? "⚠ 이 작업은 현재 기준과 충돌합니다." : "⚠ 이 작업은 확인이 필요합니다."),
-    h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))), preview(a.text),
+    h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))), preview(a.text), current(a.text, V.task.id),
     a.why ? h("p", { class: "muted" }, `제시한 이유: "${a.why}"`) : null,
     a.problems.length ? [reason(a.problems[0], block), [...new Set(ev)].map(cite)] : null,
     a.criteria.length ? h("p", { class: "muted" }, "관련 기준: ", a.criteria.map(c => c.text).join(" · ")) : null,
@@ -509,9 +520,19 @@ function action(a) {
 const ASKFAIL = "답을 찾지 못했습니다.";
 // D4: what one agent turn changed in the work folder (a checkpoint before it, one after); 변경 보기 / 되돌리기 on the desktop
 const CHANGE = { A: "새 파일", M: "수정", D: "삭제" };
-const fail = e => String(e.message || e).replace(/^Error invoking remote method [^:]+: (Error: )?/, "");
+const fail = e => String(e.message || e).replace(/^Error invoking remote method '[^']*': (\w*Error: )?/, "");
+// A3 (desktop): a path in the task's work folder opens the code panel (read-only); the static page shows it as it is
+const fileLink = (label, task, at, line, note) => window.pabloHost && pabloHost.readFile
+  ? h("button", { class: "file", "data-file": at, title: "코드 보기", on: () => show({ mode: "code", task, where: at, line, note }) }, label) : label;
+// a WARN / BLOCK card's files as they are now (a new file is not there yet; a command names none Pablo can trust)
+function current(text, task) {
+  const ps = [...new Set([...(text || "").split("\n")[0].matchAll(/(?:파일 삭제|파일 수정|파일 변경): ([^,]+)/g)].map(m => m[1].trim()))];
+  return ps.length && window.pabloHost && pabloHost.readFile
+    ? h("p", { class: "muted" }, "📄 지금 파일 보기: ", ps.map((p, i) => [i ? " · " : "", fileLink(h("code", null, p), task, p)])) : null;
+}
 function changed(c, task) {
-  const list = c.files.slice(0, 8).map(f => `${f.path} (${CHANGE[f.status] || f.status})`).join(", ") + (c.files.length > 8 ? ` 외 ${c.files.length - 8}개` : "");
+  const list = [c.files.slice(0, 8).map((f, i) => [i ? ", " : "", f.status === "D" ? f.path : fileLink(f.path, task, f.path),
+    ` (${CHANGE[f.status] || f.status})`]), c.files.length > 8 ? ` 외 ${c.files.length - 8}개` : ""];
   const box = h("div", { class: "changes", "data-to": c.to }, h("p", null, `📝 파일 ${c.files.length}개가 바뀌었습니다: `, list));
   if (!window.pabloHost || !pabloHost.undo) return box;
   const v = M.views[task], undone = v && (v.chat || []).some(x => x.role === "undo" && x.of === c.to), row = h("p", null);
@@ -541,7 +562,8 @@ function conditions(ids, dropped) {
   for (const k of Object.keys(SPEC)) {
     const xs = stated.filter(c => c.spec.category === k);
     if (xs.length) box.append(h("h4", null, SPEC[k]), h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id },
-      fact(c)))));
+      fact(c), c.spec.value_in_quote === false ? h("span", { class: "chk warn", "data-vq": "1", title: "모델이 읽은 값이 고정한 인용 문장 안에 없습니다. 원문에서 직접 확인하세요." },
+        `⚠ 값(${c.spec.value})이 인용 안에 없음`) : null))));
   }
   if (open.length) box.append(h("h4", null, "논문에 없는 설정"), h("ul", { class: "open" }, open.map(c => h("li", { title: c.id }, rich(c.title)))),
     h("p", { class: "muted" }, "정할 때는 무엇을 근거로 정했는지 남기세요. 에이전트에게도 그렇게 알립니다."));
@@ -551,6 +573,15 @@ function conditions(ids, dropped) {
 }
 // A5/A6 재현 점검: each paper condition / open setting / task criterion against the work folder (code line or log value)
 const AUDIT = { differs: ["✗", "다름"], missing: ["○", "아직 없음"], unclear: ["?", "판단 못 함"], chosen: ["•", "코드가 정함"], followed: ["✓", "따름"] };
+// A2: what Pablo saw at the file:line the model named (main.js -> desktop/where.js verify); nothing for unchecked / 0.7 answers
+const WARNED = new Set(["not_found", "no_file", "value_mismatch"]), warned = x => WARNED.has(x.check);
+function mark(x) {
+  const v = ((V.checks[x.id] || {}).spec || {}).value;
+  const t = { verified: "✓ Pablo가 코드에서 확인", moved: `위치 보정: ${x.line_found}줄`, not_found: "⚠ 모델이 댄 위치에서 찾지 못함",
+    no_file: "⚠ 모델이 댄 위치에서 찾지 못함",
+    value_mismatch: `⚠ 논문 값(${v})이 이 자리에 ${x.status === "followed" ? "없음" : "그대로 있음"}` }[x.check];
+  return t ? h("span", { class: "chk " + (warned(x) ? "warn" : x.check), "data-check": x.check }, t) : null;
+}
 function audited(c) {
   const box = h("div", { class: "audit", "data-audit": "1" });
   if (c.error || c.status === "interrupted" || c.unreadable || !(c.items || []).length) {
@@ -558,21 +589,29 @@ function audited(c) {
       c.status === "interrupted" ? "중지했습니다." : c.error || (c.unreadable ? "에이전트의 답을 읽지 못했습니다." : "판정된 항목이 없습니다.")));
     return box;
   }
-  const n = k => c.items.filter(x => x.status === k).length;
+  const n = k => c.items.filter(x => x.status === k).length, task = c.task || V.task.id;
   box.append(h("p", { class: "head" }, "🔎 재현 점검: ", Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`).join(" · ")));
   if (c.summary) box.append(h("p", null, rich(c.summary)));
+  const placed = c.items.filter(x => x.check && x.check !== "unchecked"), lost = placed.filter(x => x.check === "not_found" || x.check === "no_file").length;
+  const off = placed.filter(x => x.check === "value_mismatch").length;
+  if (placed.length) box.append(h("p", { class: "muted", "data-checked": "1" },
+    `📍 모델이 댄 위치 ${placed.length}곳 중 ${placed.length - lost}곳을 Pablo가 파일에서 직접 확인했습니다.`,
+    lost ? ` ${lost}곳은 그 자리에서 찾지 못했습니다.` : "", off ? ` ${off}곳은 판정과 논문 값이 어긋납니다.` : "",
+    lost || off ? " 이 항목은 위에 따로 둡니다." : ""));
   const what = x => { const k = V.checks[x.id];
     if (k) return [h("span", { class: "muted" }, (k.spec && k.spec.missing ? "논문에 없는 설정" : SPEC[(k.spec || {}).category] || "근거") + " · "), fact(k)];
     const i = [...V.intent.must, ...V.intent.prefer].find(y => y.id === x.id);
     return [h("span", { class: "muted" }, "작업 기준 · "), i ? i.text : x.id]; };
+  const moved = x => x.check === "moved" ? `모델이 댄 위치(${x.where})에는 없고 ${x.line_found}줄에 있습니다.` : null;
   const row = x => h("li", { class: "st-" + x.status, title: x.id, "data-id": x.id }, h("b", null, (AUDIT[x.status] || ["", x.status]).join(" ")), " ", what(x),
-    x.where || x.found ? h("div", { class: "at" }, x.where ? h("code", null, x.where) : null, x.found ? [" ", h("span", null, x.found)] : null) : null,
+    x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x)) : null,
+      x.found ? [" ", h("span", null, x.found)] : null, mark(x)) : null,
     x.note ? h("div", { class: "muted" }, x.note) : null);
-  const order = Object.keys(AUDIT), xs = [...c.items].sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status));
-  // what needs attention stays open (다름, 아직 없음, 코드가 정함); 판단 못 함 and 따름 fold away
+  const order = Object.keys(AUDIT), xs = [...c.items].sort((a, b) => warned(b) - warned(a) || order.indexOf(a.status) - order.indexOf(b.status));
+  // what needs attention stays open (Pablo could not confirm it, 다름, 아직 없음, 코드가 정함); 판단 못 함 and 따름 fold away
   const fold = { unclear: "판단 못 한 항목", followed: "따르는 항목" };
-  box.append(h("ul", null, xs.filter(x => !fold[x.status]).map(row)));
-  for (const [k, label] of Object.entries(fold)) { const ys = xs.filter(x => x.status === k);
+  box.append(h("ul", null, xs.filter(x => warned(x) || !fold[x.status]).map(row)));
+  for (const [k, label] of Object.entries(fold)) { const ys = xs.filter(x => x.status === k && !warned(x));
     if (ys.length) box.append(h("details", null, h("summary", null, `${label} ${ys.length}개`), h("ul", null, ys.map(row)))); }
   return box;
 }
@@ -656,15 +695,15 @@ let tools = () => {}, newTask = () => {}, refresh = () => Promise.resolve();  //
 function toggle(st) { (hi >= 0 && document.body.classList.contains("panel") && hist[hi].mode === st.mode && !st.e) ? close() : show(st); }
 function show(st, push = true) {
   if (push) { hist = hist.slice(0, hi + 1); hist.push(st); hi = hist.length - 1; }
-  document.body.classList.add("panel"); document.body.classList.remove("pdf");
+  document.body.classList.add("panel"); document.body.classList.remove("pdf", "code");
   CSS.highlights.clear();
   document.querySelectorAll(".cite").forEach(b => b.classList.toggle("on", st.mode === "source" && b.dataset.e === st.e));
   const p = $("panel"); p.textContent = ""; delete p.dataset.live;
-  ({ source, intent, plan, trace })[st.mode](p, st);
+  ({ source, intent, plan, trace, code: codeView })[st.mode](p, st);
   header();
 }
 function close() {
-  document.body.classList.remove("panel", "pdf"); CSS.highlights.clear(); hist = []; hi = -1;
+  document.body.classList.remove("panel", "pdf", "code"); CSS.highlights.clear(); hist = []; hi = -1;
   document.querySelectorAll(".cite.on").forEach(b => b.classList.remove("on"));
   if (V) header();
 }
@@ -729,6 +768,38 @@ function trace(p, st) {
     act.runs.forEach(r => nodes.push(li("", "결과", done(r), r.alignment ? h("div", null, ALIGN[r.alignment] || r.alignment) : null)));
   }
   simple(p, act ? (act.verdict === "BLOCK" ? "이 작업이 막힌 과정" : "이 작업을 판단한 과정") : step ? "이 단계가 계획에 들어간 과정" : "이 판단이 나온 과정", h("ol", { class: "tl" }, nodes));
+}
+
+// ---- A3 code (desktop): a work-folder file, read-only, line numbers, the lines the audit or a card names marked ----------
+// st: {task, where: "config.yaml:5" | a path, line?: the line Pablo found it on (overrides where's), note?}. No editing here:
+// changes go through the agent (Guard) or the user's own editor ("VS Code에서 열기").
+function codeView(p, st) {
+  document.body.classList.add("code");
+  p.dataset.live = "LOADING";
+  const info = h("div", { class: "info" }, "작업 폴더의 파일을 읽는 중…"), name = h("b", null, st.where);
+  const open = how => pabloHost.openFile(st.task, st.where, st.line || null, how).then(r => {
+      if (hist[hi] === st) info.textContent = { vscode: "VS Code로 열었습니다.", app: "기본 프로그램으로 열었습니다.", folder: "파일이 있는 폴더를 열었습니다." }[r] || ""; },
+    e => { if (hist[hi] === st) { info.className = "info broken"; info.textContent = "⚠ " + fail(e); } });
+  p.append(h("div", { class: "phead" },
+      h("button", { class: "nav", title: "뒤로", disabled: hi <= 0, on: () => go(-1) }, "←"),
+      h("button", { class: "nav", title: "앞으로", disabled: hi >= hist.length - 1, on: () => go(1) }, "→"),
+      h("div", { class: "url", title: st.where }, "📄 ", name),
+      h("button", { class: "link open", "data-open": "vscode", on: () => open("vscode") }, "VS Code에서 열기"),
+      h("button", { class: "link open", "data-open": "folder", on: () => open("folder") }, "폴더에서 보기"), xbtn()),
+    info, h("div", { id: "pbody", class: "code" }));
+  pabloHost.readFile(st.task, st.where, st.line || null).then(f => {
+    if (hist[hi] !== st) return;
+    const from = st.line || f.from, to = st.line ? st.line : f.to || from, box = $("pbody");
+    name.textContent = f.path + (from ? `:${from}${to > from ? "-" + to : ""}` : "");
+    const src = box.appendChild(h("div", { class: "src" }, f.lines.map((l, i) => { const n = f.first + i;
+      return h("div", { class: "ln" + (from && n >= from && n <= to ? " on" : ""), "data-n": n }, h("span", { class: "n" }, n), h("span", { class: "t" }, l)); })));
+    const on = src.querySelector(".ln.on");
+    info.textContent = [`작업 폴더 · 읽기 전용 · ${f.total}줄`, from && !on ? `이 파일에는 ${from}줄이 없습니다` : null, st.note,
+      f.truncated ? `긴 파일이라 ${f.first}–${f.first + f.lines.length - 1}줄만 보여 줍니다` : null].filter(Boolean).join(" · ");
+    if (from && !on) info.className = "info broken";
+    if (on) box.scrollTop += on.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 3;
+    p.dataset.live = on ? "FOUND" : "OPEN";
+  }, e => { if (hist[hi] !== st) return; p.dataset.live = "ERROR"; info.className = "info broken"; info.textContent = "⚠ " + fail(e); });
 }
 
 // ---- source: captured snapshot (in panel) + the original page with a text fragment (new tab) ---------------------
@@ -968,7 +1039,7 @@ if (window.pabloHost && pabloHost.chat) {
   function guard(ev) {
     const card = h("div", { class: "call" + (ev.verdict === "WARN" ? "" : " block"), "data-verdict": ev.verdict, "data-act": ev.act || "" },
       h("p", { class: "head" }, HEAD[ev.verdict]), h("p", null, "제안된 작업: ", h("b", null, meaning(ev.text))),
-      ev.verdict === "ERROR" ? null : preview(ev.text, ev.detail),
+      ev.verdict === "ERROR" ? null : preview(ev.text, ev.detail), ev.verdict === "ERROR" ? null : current(ev.text, ev.task),
       reason(ev.reason, ev.verdict === "BLOCK"), h("p", { class: "muted crit" }), tech(ev.text, korean(ev.reason) ? null : ev.reason),
       ev.act ? h("p", null, h("button", { class: "link", on: () => show({ mode: "trace", act: ev.act }) }, "왜 그런가요?")) : null);
     if (ev.verdict !== "WARN") return card;
@@ -1007,7 +1078,7 @@ if (window.pabloHost && pabloHost.chat) {
     if (to !== undefined || !V || !M.views[V.task.id]) return (select(to || (V && V.task.id)), gate());
     V = M.views[V.task.id]; V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
     sidebar(); header(); tools(); gate(); finish();
-    if (open && open.mode !== "source") show(open, false);  // Intent / Plan / 왜? stay open and show the new state
+    if (open && open.mode !== "source" && open.mode !== "code") show(open, false);  // Intent / Plan / 왜? stay open and show the new state
     Object.values(lives).forEach(l => l.querySelectorAll(".crit:empty").forEach(c => {  // the live card's criteria, once stored
       const v = Object.values(M.views).find(v => v.actions.some(x => x.id === c.closest("[data-act]").dataset.act));
       const a = v && v.actions.find(x => x.id === c.closest("[data-act]").dataset.act);
@@ -1057,7 +1128,7 @@ if (window.pabloHost && pabloHost.chat) {
       h("p", null, make), err));
     ta.focus();
   };
-  const clean = e => String(e.message || e).replace(/^Error invoking remote method [^:]+: (Error: )?/, "");
+  const clean = e => String(e.message || e).replace(/^Error invoking remote method '[^']*': (\w*Error: )?/, "");
   // A5/A6: 재현 점검 -> one read-only agent turn; its JSON answer comes back as an "audit" event (a table in the conversation)
   function audit(t) {
     if (agentSt === "Thinking") return;
@@ -1091,7 +1162,7 @@ if (window.pabloHost && pabloHost.chat) {
       box.append(h("p", null, cited(r.check.conclusion, r.check.evidence)));
       if (r.dropped.length) box.append(h("p", { class: "muted" }, `PDF에서 찾지 못한 인용 ${r.dropped.length}개는 뺐습니다.`));
       busy = null; status("Ready"); scroll(); refresh();
-    }, e => { box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + e.message.replace(/^Error invoking remote method [^:]+: (Error: )?/, "")))); busy = null; status("Ready"); });
+    }, e => { box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + e.message.replace(/^Error invoking remote method '[^']*': (\w*Error: )?/, "")))); busy = null; status("Ready"); });
   }
   btn.addEventListener("click", () => box.dataset.running ? stop() : send());
   inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) send(); });

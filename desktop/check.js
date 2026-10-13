@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addSource", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "pickFolder", "retry", "setModel", "setNet", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addSource", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pickFolder", "readFile", "retry", "setModel", "setNet", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -804,15 +804,21 @@ async function uiCheck() {
   assert.deepStrictEqual(order, ["YOU 인사말 파일 정리", "YOU hello.txt에 인사말을 넣어줘. 다른 파일은 건드리지 마.",
     "INTENT 📌 작업 기준에 추가했습니다: 다른 파일은 건드리지 마 (반드시)", "AGENT hello.txt에 줄을 더하겠습니다.", "CARD ACT1",
     "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "ASKS ⚠ 결정이 필요합니다."]);
-  const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, rows: [...b.querySelectorAll(":scope > ul > li")].map(x => x.className + " " + x.querySelector("b").textContent),
-    folded: b.querySelector("details summary").textContent, at: b.querySelector(".st-differs .at").textContent }))(document.querySelector("[data-audit]"))`);
-  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 1 · 코드가 정함 1 · 따름 2", rows: ["st-differs ✗ 다름", "st-chosen • 코드가 정함"],
-    folded: "따르는 항목 2개", at: "config.yaml:5 top_k: 10" });
+  // A2: what Pablo saw at each place: the ones it could not confirm come first, open, whatever the verdict
+  const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, checked: b.querySelector("[data-checked]").textContent,
+    rows: [...b.querySelectorAll(":scope > ul > li")].map(x => [x.className, x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent,
+      (x.querySelector("[data-check]") || {}).textContent]), folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit]"))`);
+  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 코드가 정함 1 · 따름 2", folded: "따르는 항목 1개",
+    checked: "📍 모델이 댄 위치 4곳 중 3곳을 Pablo가 파일에서 직접 확인했습니다. 1곳은 그 자리에서 찾지 못했습니다. 1곳은 판정과 논문 값이 어긋납니다. 이 항목은 위에 따로 둡니다.",
+    rows: [["st-differs", "✗ 다름", "config.yaml:2", "⚠ 논문 값(all-mpnet-base-v2)이 이 자리에 그대로 있음"],
+      ["st-followed", "✓ 따름", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
+      ["st-differs", "✗ 다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-chosen", "• 코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
   const spec = await js(`(b => ({ heads: [...b.querySelectorAll("h4")].map(x => x.textContent), items: [...b.querySelectorAll("li")].map(x => x.textContent.trim()),
     text: b.textContent }))(document.querySelector("[data-spec]"))`);
-  assert.deepStrictEqual(spec.heads, ["하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
-  assert.deepStrictEqual(spec.items, ["검색 단계의 top-k는 5이다", "2Wiki 정확도는 63.70%이다", "난수 시드가 적혀 있지 않다"]);
-  assert.ok(/재현 조건 2개/.test(spec.text) && /위치를 찾지 못한 조건 1개/.test(spec.text), spec.text);
+  assert.deepStrictEqual(spec.heads, ["모델", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
+  assert.deepStrictEqual(spec.items, ["임베딩 모델은 all-mpnet-base-v2이다 ⚠ 값(all-mpnet-base-v2)이 인용 안에 없음", "검색 단계의 top-k는 5이다",
+    "2Wiki 정확도는 63.70%이다", "난수 시드가 적혀 있지 않다"]);
+  assert.ok(/재현 조건 3개/.test(spec.text) && /위치를 찾지 못한 조건 1개/.test(spec.text), spec.text);
   await js(`show({ mode: "intent" })`);
   assert.match(await js(`$("panel").innerText`), /논문 조건[\s\S]*top-k는 5이다/);
   await js(`close()`);
@@ -831,6 +837,42 @@ async function uiCheck() {
   assert.strictEqual(await js(`document.querySelector('[data-id="ACT2"] pre.cmd').textContent`), "Remove-Item keep.txt");
   console.log("ok cards: WARN shows the diff,", JSON.stringify(diff), "| BLOCK shows the command without its shell");
 
+  // A3: the audit's file:line -> the code panel on that line (read-only), VS Code / the folder outside the app; nothing
+  // outside the task's folder crosses the bridge. The fixture's repro/ is the folder its audit was checked against.
+  fs.writeFileSync(path.join(S, "desktop.json"), JSON.stringify({ workspace: { T1: fx.repro } }));
+  const opened = [], folders = [], [ext0, dir0] = [shell.openExternal, shell.showItemInFolder];
+  shell.openExternal = async url => { opened.push(url); };
+  shell.showItemInFolder = p => { folders.push(p); };
+  const until1 = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
+  const code = async check => {
+    await js(`close(); document.querySelector('[data-audit] li:has([data-check=${check}]) button.file').click()`);
+    const live = await until1(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`);
+    return js(`({ live: ${JSON.stringify(live)}, name: $("panel").querySelector(".url b").textContent, info: $("panel").querySelector(".info").textContent,
+      on: [...document.querySelectorAll("#panel .ln.on")].map(x => [+x.dataset.n, x.querySelector(".t").textContent]), wide: document.body.classList.contains("code") })`);
+  };
+  const cfg = fs.realpathSync(path.join(fx.repro, "config.yaml")), vscode = line => "vscode://file/" + encodeURI(cfg.replace(/\\/g, "/")) + ":" + line;
+  let c = await code("verified");
+  assert.deepStrictEqual([c.live, c.name, c.on, c.wide], ["FOUND", "config.yaml:5", [[5, "  top_k: 10"]], true], JSON.stringify(c));
+  if (shots || view) fs.writeFileSync(path.join(shots || view, "audit-code-panel.png"), (await win.capturePage()).toPNG());
+  await js(`document.querySelector('#panel [data-open=vscode]').click()`); await until1(`/VS Code로 열었습니다/.test($("panel").querySelector(".info").textContent)`);
+  await js(`document.querySelector('#panel [data-open=folder]').click()`); await until1(`/폴더를 열었습니다/.test($("panel").querySelector(".info").textContent)`);
+  assert.deepStrictEqual([opened, folders], [[vscode(5)], [cfg]], "VS Code at the line, the folder with the file selected");
+  c = await code("moved");  // the model said line 2; Pablo found it on 12: the panel opens there, and says why
+  assert.deepStrictEqual([c.name, c.on], ["config.yaml:12", [[12, "seed: 42"]]]);
+  assert.match(c.info, /config\.yaml:2\)에는 없고 12줄에 있습니다/);
+  await js(`document.querySelector('#panel [data-open=vscode]').click()`); await until1(`/VS Code로/.test($("panel").querySelector(".info").textContent)`);
+  assert.strictEqual(opened.at(-1), vscode(12));
+  c = await code("not_found");  // the deliberately wrong place: the log has one line
+  assert.deepStrictEqual([c.live, c.on], ["OPEN", []]); assert.match(c.info, /이 파일에는 3줄이 없습니다/);
+  const refused = await js(`Promise.all([pabloHost.readFile("T1", "../skill.json"), pabloHost.readFile("T1", ${JSON.stringify(path.join(S, "intent.json"))}),
+    pabloHost.openFile("T1", "../chat.json", 1, "vscode")].map(p => p.then(() => "allowed", e => fail(e))))`);
+  assert.deepStrictEqual(refused, Array(3).fill("작업 폴더 밖의 파일은 열지 않습니다."), "outside the task's folder: refused in main");
+  assert.strictEqual(opened.length, 2, "nothing outside was opened");
+  assert.ok(await js(`!!document.querySelector('[data-id="ACT1"] [data-file="hello.txt"]') && !document.querySelector('[data-id="ACT2"] [data-file]')`),
+    "a WARN card's file opens the panel; a command names none");
+  await js(`close()`); [shell.openExternal, shell.showItemInFolder] = [ext0, dir0];
+  console.log("ok code panel: config.yaml:5 highlighted, VS Code at :5, moved -> 12, wrong place says so, outside refused");
+
   // D4: a turn's changes (checkpoint before / after, shadow git under the state dir) -> 변경 보기 -> 되돌리기
   const W = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-ui-ws-")), at = f => path.join(W, f);
   fs.writeFileSync(at("train.py"), "lr = 0.01\n"); fs.writeFileSync(at("keep.txt"), "keep\r\n"); fs.writeFileSync(at("model.pt"), "weights");
@@ -847,6 +889,11 @@ async function uiCheck() {
   await js(`refresh().then(() => select("T1"))`);
   const until = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
   assert.match(await until(`(c => c && c.textContent)(document.querySelector(".changes"))`), /파일 3개가 바뀌었습니다/);
+  // A3: a changed file's name opens it as it is now; a deleted one is not a link
+  assert.ok(await js(`!document.querySelector('.changes [data-file="keep.txt"]')`), "a deleted file is not a link");
+  await js(`document.querySelector('.changes [data-file="train.py"]').click()`);
+  assert.match(await until(`(p => p.dataset.live === "OPEN" && p.querySelector(".src").textContent)($("panel"))`), /lr = 0\.003/);
+  await js(`close()`);
   await js(`document.querySelector("[data-look]").click()`);
   const shown = await until(`(p => p && [...p.querySelectorAll("span")].map(x => x.className + ":" + x.textContent).join("|"))(document.querySelector(".changes pre.diff"))`);
   assert.ok(shown.includes("add:+lr = 0.003") && shown.includes("del:-lr = 0.01") && !shown.includes("weights"), shown);
@@ -942,9 +989,18 @@ async function auditCheck() {
   const ms = Date.now() - t0, log = JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8")).T1.at(-1);
   const st = JSON.parse(fs.readFileSync(path.join(S, "skill.json"), "utf8")), text = id => (st.checks.find(c => c.id === id) || {}).requirement || id;
   console.log(`audit: ${log.items.length} items, ${ms} ms; ${log.summary}`);
-  for (const x of log.items) console.log(`  ${x.status.padEnd(8)} ${text(x.id).slice(0, 60)} | ${x.where} | ${x.found.slice(0, 60)}`);
+  for (const x of log.items) console.log(`  ${x.status.padEnd(8)} ${(x.check || "-").padEnd(14)} ${text(x.id).slice(0, 60)} | ${x.where}${x.line_found ? " -> " + x.line_found : ""} | ${x.found.slice(0, 60)}`);
+  const dist = {}; for (const x of log.items) dist[x.check] = (dist[x.check] || 0) + 1;
+  console.log("   Pablo's own check of the model's places (A2):", JSON.stringify(dist));
   const topk = log.items.find(x => /top-?k/i.test(text(x.id)));
   assert.ok(topk && topk.status === "differs" && /config\.yaml/.test(topk.where), "top-k drift found in config.yaml: " + JSON.stringify(topk));
+  assert.strictEqual(topk.check, "verified", "Pablo found top_k: 10 where the model said: " + JSON.stringify(topk));
+  // A3: the top-k row's config.yaml:5 -> the code panel on that line
+  await js(`document.querySelector('#live [data-audit] li[data-id="${topk.id}"] button.file').click()`);
+  assert.strictEqual(await until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`), "FOUND");
+  assert.match(await js(`document.querySelector("#panel .ln.on .t").textContent`), /top_k:\s*10/);
+  if (shots || view) fs.writeFileSync(path.join(shots || view, "audit-code.png"), (await win.capturePage()).toPNG());
+  await js(`close()`);
   assert.deepStrictEqual(Object.fromEntries(Object.entries(FILES).map(([f]) => [f, fs.readFileSync(path.join(W, f), "utf8")])), FILES, "read-only: nothing changed");
   assert.ok(!st.actions.length, "a read-only audit sends no action to the Guard");
   if (shots || view) { await js(`document.querySelector("#live [data-audit]").scrollIntoView()`); fs.writeFileSync(path.join(shots || view, "audit-card.png"), (await win.capturePage()).toPNG()); }

@@ -3,6 +3,7 @@ Stub judges only; no network.
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -15,7 +16,7 @@ sys.path.insert(0, HERE)
 from pablo_v2.__main__ import current_step  # noqa: E402
 from pablo_v2.intent.engine import IntentEngine  # noqa: E402
 from pablo_v2.skill.models import ActionProposal, ExecutionRecord, PostReview  # noqa: E402
-from pablo_v2.skill.skill import AUDIT_SCHEMA, PabloSkill, render_audit, render_brief  # noqa: E402
+from pablo_v2.skill.skill import AUDIT_SCHEMA, PabloSkill, checkable, has_value, render_audit, render_brief  # noqa: E402
 from pablo_v2.skill.viewer import model, workspace  # noqa: E402
 import ui_fixture  # noqa: E402
 
@@ -149,10 +150,163 @@ def test_audit_prompt():
         prompt, items = render_audit(s, "T1")
         kinds = {x["kind"] for x in items}
         assert kinds == {"condition", "open", "criterion"}, items
-        assert [x["label"] for x in items if x["kind"] == "condition"] == ["하이퍼파라미터", "보고된 결과"]
+        assert [x["label"] for x in items if x["kind"] == "condition"] == ["하이퍼파라미터", "보고된 결과", "모델"]
         assert all(f"{x['id']} | " in prompt for x in items) and "읽기만 하세요" in prompt
         assert {x["id"] for x in items if x["kind"] == "criterion"} == {"C1", "C2"}
         assert AUDIT_SCHEMA["properties"]["items"]["items"]["properties"]["status"]["enum"] ==             ["followed", "differs", "missing", "unclear", "chosen"]
+        # the paper's value goes to the desktop with each condition: Pablo checks the verdict against it (desktop/where.js)
+        assert [x["value"] for x in items if x["kind"] == "condition"] == ["5", "63.70%", "all-mpnet-base-v2"]
+
+
+# ---- A1/A2 (0.8): desktop/where.js, run with node on the same tables the Python rule uses ----
+WHERE_JS = os.path.join(HERE, "..", "..", "desktop", "where.js")
+NODE = """const w = require(process.argv[1]);
+const calls = JSON.parse(require("fs").readFileSync(0, "utf8"));
+console.log(JSON.stringify(calls.map(([f, ...a]) => { try { return w[f](...a); } catch (e) { return { error: e.code || e.message }; } })));"""
+
+
+def node(calls):
+    r = subprocess.run(["node", "-e", NODE, WHERE_JS], input=json.dumps(calls), capture_output=True, encoding="utf-8")
+    assert r.returncode == 0, r.stderr[-800:]
+    return json.loads(r.stdout)
+
+
+def no_node(name):
+    if shutil.which("node"):
+        return False
+    print(f"skip {name}: no node")
+    return True
+
+
+WHERE = [  # what models write for a place in the work folder -> (path, from, to)
+    ("config.yaml:5", ("config.yaml", 5, 5)),
+    ("config.yaml:10-11", ("config.yaml", 10, 11)),
+    ("logs\\2wiki.log:1", ("logs/2wiki.log", 1, 1)),                       # Windows separators
+    ("C:\\work\\repro\\config.yaml:5", ("C:/work/repro/config.yaml", 5, 5)),  # absolute (the folder check is read's)
+    ("/home/u/repro/config.yaml:5", ("/home/u/repro/config.yaml", 5, 5)),
+    ("src/run.py#L5", ("src/run.py", 5, 5)),
+    ("src/run.py#L5-L7", ("src/run.py", 5, 7)),
+    ("config.yaml", ("config.yaml", None, None)),                           # no line
+    ("config.yaml:5:3", ("config.yaml", 5, 5)),                             # line:column
+    ("`config.yaml` (line 5)", ("config.yaml", 5, 5)),
+    ("config.yaml, lines 10-11", ("config.yaml", 10, 11)),
+    ("config.yaml 12행", ("config.yaml", 12, 12)),
+    ("./config.yaml:5, run.py:3", ("config.yaml", 5, 5)),                   # several: the first
+    ("config.yaml:5 (top_k)", ("config.yaml", 5, 5)),
+    ("run notes.txt", ("run notes.txt", None, None)),
+    ("", None), ("없음", None), ("(none)", None), ("코드 전체", None),       # no place
+]
+VALUES = [  # (text, the paper's value, is it there) — numbers by value, never inside a word
+    ("top_k: 10", "5", False), ("top_k: 5", "5", True), ("lr: 0.5", "5", False), ("epochs: 15", "5", False),
+    ("questions_per_dataset: 1000", "1,000", True), ("gpt_acc=63.70", "63.70%", True), ("acc 63.7", "63.70%", True),
+    ("dataset=2wikimultihopqa", "2", False), ("embedding_model: all-mpnet-base-v2", "2", False),
+    ("llm: gpt-4o-mini", "GPT-4o-mini", True), ("uses Personalized  PageRank", "personalized pagerank", True),
+    ("lr = 0.0001", "1e-4", True), ("LinearRAG (Ours) 249.78 0.093", "249.78", True), ("split: test", "validation", False),
+]
+CHECKABLE = [("5", True), ("1,000", True), ("63.70%", True), ("GPT-4o-mini", True), ("Personalized PageRank", True),
+             ("HotpotQA; MuSiQue", False), ("entity, sentence, and passage", False),
+             ("NVIDIA GeForce RTX 4090 D (24GB VRAM)", False), ("", False)]
+
+
+def test_where_and_value_rule():
+    """where() takes the forms models write; the value rule is the same in Python (spec) and JS (audit)."""
+    if no_node("test_where_and_value_rule"):
+        return
+    got = node([["where", raw] for raw, _ in WHERE])
+    assert [None if g is None else (g["path"], g["from"], g["to"]) for g in got] == [w for _, w in WHERE], got
+    js = node([["hasValue", t, v] for t, v, _ in VALUES] + [["checkable", v] for v, _ in CHECKABLE])
+    assert js == [x for *_, x in VALUES] + [x for _, x in CHECKABLE], js
+    assert [has_value(t, v) for t, v, _ in VALUES] == [x for *_, x in VALUES]
+    assert [checkable(v) for v, _ in CHECKABLE] == [x for _, x in CHECKABLE]
+
+
+def link_out(link, target):
+    """A directory link inside the work folder to one outside it (Windows without privilege: a junction)."""
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except OSError:
+        subprocess.run(["cmd", "/c", "mklink", "/J", link, target], capture_output=True, check=True)
+
+
+def test_read_and_verify():
+    """read: only text files inside the task's folder (also after links); verify: the six states of the audit check."""
+    if no_node("test_read_and_verify"):
+        return
+    with tempfile.TemporaryDirectory() as d:
+        w, out = os.path.join(d, "work"), os.path.join(d, "outside")
+        shutil.copytree(ui_fixture.DEMO, w)
+        os.makedirs(out)
+        open(os.path.join(out, "secret.txt"), "w").write("token\n")
+        open(os.path.join(w, "model.bin"), "wb").write(b"\x00\x01weights")
+        open(os.path.join(w, "big.log"), "w").write("x" * (1 << 20) + "\n")
+        open(os.path.join(w, "long.py"), "w").write("".join(f"line {i}\n" for i in range(1, 6001)))
+        link = os.path.join(w, "link")
+        link_out(link, out)
+        try:
+            r = node([["read", w, "config.yaml"], ["read", w, "long.py", 5800], ["read", w, "../outside/secret.txt"],
+                      ["read", w, os.path.join(out, "secret.txt")], ["read", w, "link/secret.txt"], ["read", w, "model.bin"],
+                      ["read", w, "big.log"], ["read", w, "nope.txt"], ["read", w, "logs"]])
+            cfg, long = r[0], r[1]
+            assert (cfg["path"], cfg["first"], cfg["total"], cfg["truncated"], cfg["lines"][4]) == ("config.yaml", 1, 12, False, "  top_k: 10")
+            assert (long["first"], len(long["lines"]), long["total"], long["truncated"], long["lines"][0]) == (1001, 5000, 6000, True, "line 1001")
+            assert [x["error"] for x in r[2:]] == ["outside", "outside", "outside", "binary", "large", "missing", "missing"], r[2:]
+            V = lambda status, where, found, value="": ["verify", w, {"status": status, "where": where, "found": found}, value]  # noqa: E731
+            got = node([
+                V("differs", "config.yaml:5", "top_k: 10", "5"),                                       # verified
+                V("followed", "config.yaml:10-11", "split: validation / questions_per_dataset: 1000", "1,000"),
+                V("differs", "logs\\2wiki.log:1", "gpt_acc=61.20", "63.70%"),
+                V("differs", "logs/2wiki.log:1", "dataset=2wikimultihopqa", "2"),                      # not "2" of 2wiki
+                V("chosen", "config.yaml:2", "seed: 42"),                                              # moved
+                V("chosen", "config.yaml", "seed: 42"),                                                # no line: where it is
+                V("followed", "logs/2wiki.log:3", "gpt_acc=63.70", "63.70%"),                          # not_found
+                V("followed", "config.yaml:40", ""),
+                V("followed", "missing.py:1", "x"), V("followed", "../outside/secret.txt:1", "token"),  # no_file
+                V("followed", "link/secret.txt:1", "token"),
+                V("followed", "config.yaml:5", "top_k: 10", "5"),                                      # value_mismatch
+                V("differs", "config.yaml:9", "damping: 0.85", "0.85"),
+                V("missing", "", ""), V("followed", "model.bin:1", "weights"), V("followed", "config.yaml:5", "")])  # unchecked
+            assert got == [{"check": "verified"}] * 4 + [{"check": "moved", "line_found": 12}, {"check": "verified", "line_found": 12}] + \
+                [{"check": "not_found"}] * 2 + [{"check": "no_file"}] * 3 + [{"check": "value_mismatch"}] * 2 + [{"check": "unchecked"}] * 3, got
+        finally:
+            try:
+                os.unlink(link)
+            except OSError:
+                os.rmdir(link)  # a junction: the link only, never what it points to
+
+
+def test_audit_fixture_is_what_main_stores():
+    """The UI fixture's audit checks are exactly what where.verify gives on its repro folder (no hand-made states)."""
+    if no_node("test_audit_fixture_is_what_main_stores"):
+        return
+    with tempfile.TemporaryDirectory() as d:
+        ui_fixture.build(d)
+        s = load(d)
+        audit = json.load(open(os.path.join(d, "chat.json"), encoding="utf-8"))["T1"][-1]
+        values = {c.id: c.spec.get("value", "") for c in s.checks("T1") if c.spec}
+        got = node([["verify", os.path.join(d, "repro"), x, values.get(x["id"], "")] for x in audit["items"]])
+        assert got == [{k: x[k] for k in ("check", "line_found") if k in x} for x in audit["items"]], got
+        assert {x["check"] for x in audit["items"]} == {"unchecked", "verified", "not_found", "value_mismatch", "moved"}
+
+
+class QuoteJudge:  # one value in its quote, one the model read wrong (70.20 is the paper's other number)
+    def extract_spec(self, pages):
+        return {"items": [
+            {"category": "result", "statement": "LinearRAG의 색인 시간은 249.78초이다", "value": "249.78",
+             "quote": "LinearRAG (Ours) 249.78 0.093 0 0 66.95", "page": 9},
+            {"category": "result", "statement": "2Wiki에서 GPT 정확도는 70.20%이다", "value": "70.20%",
+             "quote": "LinearRAG achieves 63.70% GPT-based accuracy on 2Wiki", "page": 8}], "missing": []}
+
+
+def test_spec_value_in_quote():
+    """A condition whose value is not in the quote Pablo anchored is kept, and marked (the card says so)."""
+    if not os.path.exists(PDF):
+        print("skip test_spec_value_in_quote: LinearRAG.pdf not here")
+        return
+    s = PabloSkill(IntentEngine(), QuoteJudge())
+    t = s.start_task("LinearRAG 재현", [])
+    stated, _, dropped = s.spec(t.id, s.capture_pdf(PDF).id)
+    assert not dropped and [c.spec.get("value_in_quote", True) for c in stated] == [True, False]
+    assert model(s, t.id)["checks"][stated[1].id]["spec"]["value_in_quote"] is False
 
 
 def test_page_script_parses():

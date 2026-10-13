@@ -1,9 +1,11 @@
 """Offline UI fixture for `npm --prefix desktop run check -- --ui`: one task whose records and chat log interleave
-(a WARN file change, a BLOCK command, a stopped agent reply, a PDF question) -> <dir>/view-T1.html.
-Run: python tests/skill/ui_fixture.py <state dir>   (prints {"view": path})
+(a WARN file change, a BLOCK command, a stopped agent reply, a PDF question, a 재현 점검 that Pablo checked against
+<dir>/repro, the 0.7.0 demo folder) -> <dir>/view-T1.html.
+Run: python tests/skill/ui_fixture.py <state dir>   (prints {"view": path, "repro": folder})
 """
 import json
 import os
+import shutil
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
@@ -12,6 +14,7 @@ from pablo_v2.intent.engine import IntentEngine  # noqa: E402
 from pablo_v2.skill.skill import PabloSkill  # noqa: E402
 from pablo_v2.skill.viewer import render_html  # noqa: E402
 
+DEMO = os.path.join(os.path.dirname(__file__), "..", "..", "release", "0.7.0", "demo-repro")
 EDIT = "파일 수정: hello.txt\n--- hello.txt\n@@ -1 +1,2 @@\n hello\n+안녕하세요"
 CMD = '명령 실행: "C:\\Program Files\\PowerShell\\7\\pwsh.exe" -NoProfile -Command "Remove-Item keep.txt"'
 CALM = {"source_conflicts": [], "plan_alignment": {"follows_step": True},
@@ -49,12 +52,14 @@ def build(d: str) -> str:
     sc = s.add_check(t.id, "LinearRAG가 더 효율적이라는 근거는?", "USEFUL")
     s.complete_check(sc.id, "VERIFIED", "저자는 색인 시간을 77% 넘게 줄였다고 씁니다.",
                      [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "LinearRAG.pdf", "supports": []}])
-    specs = []  # A2: two stated reproduction conditions and one the paper leaves open (no PDF here: no anchors)
-    for cat, text in [("hyperparameter", "검색 단계의 top-k는 5이다"), ("result", "2Wiki 정확도는 63.70%이다")]:
+    specs = []  # A2: three stated reproduction conditions and one the paper leaves open (no PDF here: no anchors)
+    for cat, text, value in [("hyperparameter", "검색 단계의 top-k는 5이다", "5"), ("result", "2Wiki 정확도는 63.70%이다", "63.70%"),
+                             ("model", "임베딩 모델은 all-mpnet-base-v2이다", "all-mpnet-base-v2")]:
         c = s.add_check(t.id, text, "USEFUL")
-        c.spec = {"category": cat, "value": "", "source_id": "SRC1"}
+        c.spec = {"category": cat, "value": value, "source_id": "SRC1"}
         s.complete_check(c.id, "VERIFIED", text, [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "x", "supports": []}])
         specs.append(c.id)
+    s._find_check(specs[2]).spec["value_in_quote"] = False  # the model's value is not in its own quote
     gap = s.add_check(t.id, "난수 시드가 적혀 있지 않다", "USEFUL")
     gap.spec = {"category": "training", "value": "", "source_id": "SRC1", "missing": True}
     s.save()
@@ -69,12 +74,20 @@ def build(d: str) -> str:
         {"role": "agent", "text": "keep.txt를 지우려", "at": at(31), "status": "interrupted"},
         {"role": "ask", "text": "효율 근거가 어디 있어?", "at": at(50), "check": sc.id},
         {"role": "spec", "at": at(55), "checks": specs, "missing": [gap.id], "dropped": 1},
+        # as main.js stores it: the model's answer + what Pablo saw at each place in repro/ (desktop/where.js verify)
         {"role": "audit", "at": at(58), "status": "completed", "summary": "top-k가 논문과 다릅니다.", "items": [
-            {"id": "C1", "status": "followed", "where": "", "found": "", "note": "keep.txt는 그대로다"},
-            {"id": specs[0], "status": "differs", "where": "config.yaml:5", "found": "top_k: 10", "note": "논문은 5"},
-            {"id": specs[1], "status": "followed", "where": "logs/2wiki.log:1", "found": "acc=63.70", "note": ""},
-            {"id": gap.id, "status": "chosen", "where": "config.yaml:12", "found": "seed: 42", "note": ""}]},
+            {"id": "C1", "status": "followed", "where": "", "found": "", "note": "keep.txt는 그대로다", "check": "unchecked"},
+            {"id": specs[0], "status": "differs", "where": "config.yaml:5", "found": "top_k: 10", "note": "논문은 5",
+             "check": "verified"},
+            {"id": specs[1], "status": "followed", "where": "logs/2wiki.log:3", "found": "gpt_acc=63.70", "note": "",
+             "check": "not_found"},  # a place the model made up: the log has one line, and 61.20 on it
+            {"id": specs[2], "status": "differs", "where": "config.yaml:2", "found": "embedding_model: all-mpnet-base-v2",
+             "note": "", "check": "value_mismatch"},  # says differs, but the paper's value is right there
+            {"id": gap.id, "status": "chosen", "where": "config.yaml:2", "found": "seed: 42", "note": "",
+             "check": "moved", "line_found": 12}]},
     ]}
+    repro = os.path.join(d, "repro")
+    shutil.copytree(DEMO, repro, dirs_exist_ok=True)
     with open(os.path.join(d, "chat.json"), "w", encoding="utf-8") as f:
         json.dump(chat, f, ensure_ascii=False)
     path = os.path.join(d, "view-T1.html")
@@ -84,4 +97,4 @@ def build(d: str) -> str:
 
 
 if __name__ == "__main__":
-    print(json.dumps({"view": os.path.abspath(build(sys.argv[1]))}))
+    print(json.dumps({"view": os.path.abspath(build(sys.argv[1])), "repro": os.path.abspath(os.path.join(sys.argv[1], "repro"))}))
