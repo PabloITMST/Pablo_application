@@ -1052,6 +1052,7 @@ async function specCheck() {
     const l = st.links.find(x => x.target_id === c.id), a = l && st.anchors.find(x => x.id === l.evidence_id);
     console.log(`  [${c.spec.category}] ${a ? "p." + a.selector.page : "논문에 없음"} ${c.requirement}${a ? ` | "${a.quote.exact.slice(0, 70)}"` : ""}`);
   }
+  console.log(`  method steps (how values are used): ${stated.filter(c => c.spec.category === "method").length}; state ${S}`);
   assert.ok(stated.length >= 6, "at least 6 conditions anchored");
   assert.ok(log.dropped <= Math.ceil((stated.length + log.dropped) / 3), "at most a third of the quotes dropped");
   await js(`document.querySelector("#live [data-spec] .cite").click()`);
@@ -1173,16 +1174,20 @@ async function auditBench() {
     const th = JSON.parse(fs.readFileSync(agent.stateFile, "utf8")).threads[S + "#" + st.task];
     assert.ok(th && th.cwd === v.dir && !threads.has(th.threadId), `${v.name}: audited in ${th && th.cwd}, thread ${th && th.threadId}`);
     threads.add(th.threadId);
-    runs.push({ variant: v.name, ms, status: e.status, error: e.error, unreadable: e.unreadable, summary: e.summary, items: e.items });
+    runs.push({ variant: v.name, ms, status: e.status, error: e.error, unreadable: e.unreadable, summary: e.summary, items: e.items,
+                outside: e.outside || [] });
     const by = {}; for (const x of e.items) by[x.status] = (by[x.status] || 0) + 1;
-    console.log(`  ${v.name}: ${e.items.length} items in ${ms} ms ${JSON.stringify(by)}${e.error ? " ⚠ " + e.error : ""}`);
+    console.log(`  ${v.name}: ${e.items.length} items in ${ms} ms ${JSON.stringify(by)}, ${(e.outside || []).length} outside${e.error ? " ⚠ " + e.error : ""}`);
   }
   await agent.stop(); win.destroy();
-  const date = new Date().toISOString().slice(0, 10), dir = path.join(__dirname, "../docs/eval"), prefix = path.join(dir, `audit-bench-${date}`);
+  // --tag=<name>: a second run on the same day keeps the first (audit-bench-<date>-<name>.*); truth and keys go with it
+  const tag = (process.argv.find(a => /^--tag=[\w-]+$/.test(a)) || "").slice(6);
+  const date = new Date().toISOString().slice(0, 10), dir = path.join(__dirname, "../docs/eval"), prefix = path.join(dir, `audit-bench-${date}${tag ? "-" + tag : ""}`);
   fs.mkdirSync(dir, { recursive: true });
   const avg = Math.round(runs.reduce((a, r) => a + r.ms, 0) / runs.length);
-  fs.writeFileSync(prefix + "-results.json", JSON.stringify({ meta: { date, model: agent.model, n, seed, avg_ms: avg }, runs }, null, 1));
-  console.log(bench("score", prefix + "-results.json", vs.truth, path.join(S, "keys.json"), "--out", prefix));
+  fs.writeFileSync(prefix + "-results.json", JSON.stringify({ meta: { date, model: agent.model, n, seed, avg_ms: avg, ...(tag ? { tag } : {}) }, runs }, null, 1));
+  fs.copyFileSync(vs.truth, prefix + "-truth.json"); fs.copyFileSync(path.join(S, "keys.json"), prefix + "-keys.json");
+  console.log(bench("score", prefix + "-results.json", prefix + "-truth.json", prefix + "-keys.json", "--out", prefix));
   const cur = JSON.parse(fs.readFileSync(agent.stateFile, "utf8"));  // leave the user's thread.json as it was
   for (const key of Object.keys(cur.threads)) if (key.startsWith(S + "#")) delete cur.threads[key];
   fs.writeFileSync(agent.stateFile, JSON.stringify(cur));

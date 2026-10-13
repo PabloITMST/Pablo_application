@@ -214,6 +214,7 @@ VALUES = [  # (text, the paper's value, is it there) — numbers by value, never
     ("dataset=2wikimultihopqa", "2", False), ("embedding_model: all-mpnet-base-v2", "2", False),
     ("llm: gpt-4o-mini", "GPT-4o-mini", True), ("uses Personalized  PageRank", "personalized pagerank", True),
     ("lr = 0.0001", "1e-4", True), ("LinearRAG (Ours) 249.78 0.093", "249.78", True), ("split: test", "validation", False),
+    ("model = 'gpt-4o-mini-v2'", '"gpt-4o-mini-v2"', True),  # quote style: the same in both rules
 ]
 CHECKABLE = [("5", True), ("1,000", True), ("63.70%", True), ("GPT-4o-mini", True), ("all-mpnet-base-v2", True),
              ("Personalized PageRank", False), ("punctuation", False), ("GPT-ACC", False), ("SpaCy", False),  # concepts
@@ -281,6 +282,7 @@ def test_read_and_verify():
                 V("followed", "run.py:2", "cfg = yaml.safe_load(open('config.yaml'))", "Personalized PageRank"),  # a concept
                 V("followed", "config.yaml:3", "llm: gpt-4o..."),                                      # cut by the model
                 V("followed", "wide.py:1", wide[:300]), V("followed", "wide.py:1", wide[:10] + "…"),   # cut by main / model
+                V("followed", "run.py:3", 'print("top_k", cfg["retrieval"]["top_k"])'),               # the other quotes
                 V("chosen", "config.yaml:2", "seed: 42"),                                              # moved
                 V("chosen", "config.yaml", "seed: 42"),                                                # no line: where it is
                 V("followed", "logs/2wiki.log:3", "gpt_acc=63.70", "63.70%"),                          # not_found
@@ -293,7 +295,7 @@ def test_read_and_verify():
                 V("differs", "config.yaml:9", "damping: 0.85", "0.85"),
                 V("missing", "", ""), V("followed", "model.bin:1", "weights"), V("followed", "config.yaml:5", "")])  # unchecked
             assert wide[9:11] == "gh" and len(wide) > 300  # wide[:10] stops inside "weight_0"
-            assert got == [{"check": "verified"}] * 10 + [{"check": "moved", "line_found": 12}, {"check": "verified", "line_found": 12}] + \
+            assert got == [{"check": "verified"}] * 11 + [{"check": "moved", "line_found": 12}, {"check": "verified", "line_found": 12}] + \
                 [{"check": "not_found"}] * 6 + [{"check": "no_file"}] * 4 + [{"check": "value_mismatch"}] * 2 + [{"check": "unchecked"}] * 3, got
         finally:
             try:

@@ -58,8 +58,17 @@ def test_variants():
             for p in v["planted"]:
                 assert v["expect"][p["key"]] == p["expect"]
             assert v["expect"]["seed"] == "chosen"
-        clean = t["variants"][0]
-        assert set(clean["expect"].values()) == {"followed", "chosen"}
+        clean, method = t["variants"][0], B.METHOD()
+        assert {e for k, e in clean["expect"].items() if k not in method} == {"followed", "chosen"}
+        # the method steps: the base only sketches the method (its gaps in every variant), a drift may change one
+        base = {c["key"]: c["base"] for c in B.conditions()["conditions"] if c["key"] in method}
+        assert base == {"m_graph": "ambiguous", "m_match": "differs", "m_propagate": "differs", "m_prune": "differs",
+                        "m_seed_ppr": "followed", "m_rank": "followed"}
+        assert {k: clean["expect"][k] for k in method} == base
+        ppr = next(v for v in t["variants"] if any(p["id"] == "ppr_degree" for p in v["planted"]))
+        assert ppr["expect"]["m_seed_ppr"] == ppr["expect"]["m_rank"] == "differs"  # PageRank gone: both steps differ
+        topk = next(v for v in t["variants"] if any(p["id"] == "topk_config" for p in v["planted"]))
+        assert topk["expect"]["m_rank"] == "ambiguous" and clean["expect"]["prompt"] == "chosen"
         again = B.variants(os.path.join(d, "again"), n=8, seed=7, clean=1)  # same seed, same benchmark
         assert [[p["id"] for p in v["planted"]] for v in again["variants"]] == [[p["id"] for p in v["planted"]] for v in t["variants"]]
 
@@ -96,6 +105,15 @@ def test_score():
         s = B.score(_answers(truth, keys, perfect), truth, keys)["summary"]
         assert (s["recall"], s["exact_status"], s["false_alarm_rate"], s["file_accuracy"], s["line_accuracy"], s["open_chosen"]) == \
             (100.0, 100.0, 0.0, 100.0, 100.0, 100.0), s
+        assert (s["method_recall"], s["method_false_alarm_rate"], s["followed_items"]) == (100.0, 0.0, 131), s  # apart
+
+        # value-only (the audit before method steps): every value right, every method step called followed
+        values = B.score(_answers(truth, keys, lambda v, k, exp: perfect(v, k, exp) if k not in B.METHOD() else ("followed", "")),
+                         truth, keys)
+        m = values["method"]
+        assert values["summary"]["recall"] == 100.0 and (m["gap"], m["found"], m["missed_as"]) == (29, 0, {"followed": 29})
+        md = B.markdown(values, {"date": "test", "model": "x", "avg_ms": 1})
+        assert "## 방법 조건" in md and "0/29 짚음" in md
 
         blind = B.score(_answers(truth, keys, lambda v, k, exp: ("followed", "")), truth, keys)
         assert blind["summary"]["recall"] == 0.0 and blind["summary"]["false_alarm_rate"] == 0.0
@@ -178,11 +196,11 @@ def test_state():
         return
     with tempfile.TemporaryDirectory() as d:
         r = B.state(d)
-        assert set(r["keys"]) == {c["key"] for c in B.conditions()["conditions"]} | {"seed"}
+        assert set(r["keys"]) == {c["key"] for c in B.conditions()["conditions"]} | set(B.OPEN_EXPECT)
         assert os.path.exists(r["view"])
         s = json.load(open(os.path.join(d, "skill.json"), encoding="utf-8"))
         specs = [c for c in s["checks"] if c.get("spec")]
-        assert len([c for c in specs if c["outcome"] == "VERIFIED"]) == 17 and len(s["anchors"]) == 17
+        assert len([c for c in specs if c["outcome"] == "VERIFIED"]) == 23 and len(s["anchors"]) == 23  # 17 values, 6 method steps
 
 
 if __name__ == "__main__":

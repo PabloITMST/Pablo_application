@@ -69,7 +69,8 @@ function read(work, rel, around) {
 }
 
 // ---- A2: the audit answer, checked by Pablo ----
-const norm = s => String(s || "").normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+// quote style is not a different code: models write cfg['x'] for cfg["x"] (0.8 bench: 4 of 4 false not_found)
+const norm = s => String(s || "").normalize("NFKC").toLowerCase().replace(/[‘’“”']/g, '"').replace(/\s+/g, " ").trim();
 // found as the model wrote it -> the pieces that must be there in order ("a / b", "a; b", "a ... b", several lines).
 // A piece ends on a token boundary ("llm: gpt-4o" is not in "llm: gpt-4o-mini", "top_k: 1" not in "top_k: 10"), except
 // where the text was cut: before "..." / "…", or at the end of a found that reached FOUND chars (main.js cuts it there).

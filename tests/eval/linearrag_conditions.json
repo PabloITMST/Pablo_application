@@ -1,6 +1,6 @@
 {
   "pdf": "LinearRAG.pdf",
-  "note": "A frozen set of LinearRAG reproduction conditions for the 재현 점검 benchmark (tests/eval/audit_bench.py). Each is a condition a code base can follow or break; statements and quotes come from a real `spec` run (2026-10-13), quotes verbatim from the paper. Not included: what code cannot show (dataset sizes, GPU), what the benchmark folder never implements (baseline runs).",
+  "note": "A frozen set of LinearRAG reproduction conditions for the 재현 점검 benchmark (tests/eval/audit_bench.py). Each is a condition a code base can follow or break; statements and quotes come from a real `spec` run (2026-10-13), quotes verbatim from the paper. Not included: what code cannot show (dataset sizes, GPU), what the benchmark folder never implements (baseline runs). The method conditions (category method, 2026-10-13 spec run with the usage prompt) carry `base`: their status in repro_base, which follows every value but only sketches the method (judged by reading its code; ambiguous = not scored).",
   "conditions": [
     {"key": "datasets", "category": "dataset", "value": "HotpotQA; 2WikiMultiHopQA; MuSiQue; Medical", "page": 7,
      "statement": "주요 실험은 HotpotQA, 2WikiMultiHopQA, MuSiQue, Medical의 네 데이터셋을 사용한다.",
@@ -52,9 +52,28 @@
      "quote": "LinearRAG achieves 63.70% GPT-based accuracy on 2Wiki"},
     {"key": "result_contain", "category": "result", "value": "70.20%", "page": 8,
      "statement": "LinearRAG는 2Wiki에서 Contain 기반 정확도 70.20%를 달성한다.",
-     "quote": "boosts Contain-based accuracy to 70.20%."}
+     "quote": "boosts Contain-based accuracy to 70.20%."},
+    {"key": "m_graph", "category": "method", "value": "", "page": 5, "base": "ambiguous",
+     "statement": "Tri-Graph는 entity, sentence, passage 노드와 entity-문장 및 entity-passage 연결로 구성된다.",
+     "quote": "We construct a hierarchical graph, called Tri-graph, with multiple granularities that is efficient to maintain and update."},
+    {"key": "m_match", "category": "method", "value": "", "page": 5, "base": "differs",
+     "statement": "질문에서 추출한 각 entity는 그래프에서 가장 유사한 entity에 초기 활성화된다.",
+     "quote": "Then for each extracted entity, we find the most similar entity in the knowl- edge graph."},
+    {"key": "m_propagate", "category": "method", "value": "", "page": 5, "base": "differs",
+     "statement": "문장-entity 그래프에서 질문-문장 유사도를 이용해 중간 entity의 활성화 점수를 전파한다.",
+     "quote": "Semantic propagationthat propagates the similarities inσ q through semantic similarity extrac- tion to activate relevant intermediate entities"},
+    {"key": "m_prune", "category": "method", "value": "", "page": 6, "base": "differs",
+     "statement": "각 전파 단계에서 관련성 점수가 임계값을 넘는 새 entity만 다음 반복에 유지한다.",
+     "quote": "A newly activated entity is retained for the next iteration only if its relevance score exceedsδ; otherwise, it is pruned."},
+    {"key": "m_seed_ppr", "category": "method", "value": "", "page": 6, "base": "followed",
+     "statement": "활성화된 entity를 seed로 사용해 entity-passage 그래프에서 Personalized PageRank로 passage 중요도를 집계한다.",
+     "quote": "The second stage performs global impor- tance aggregation with hybrid initialization for passage nodes to retrieve important passages using Personalized PageRank"},
+    {"key": "m_rank", "category": "method", "value": "", "page": 6, "base": "followed",
+     "statement": "최종 검색 결과는 passage의 PageRank 점수가 높은 top-k passage이다.",
+     "quote": "Passages are ranked by their PPR scoresI(v|v∈V p), and the top-kpassages with the highest scores are selected for retrieval."}
   ],
   "open": [
-    {"key": "seed", "category": "training", "statement": "실험에 쓴 난수 시드가 논문에 없다."}
+    {"key": "seed", "category": "training", "statement": "실험에 쓴 난수 시드가 논문에 없다."},
+    {"key": "prompt", "category": "method", "statement": "생성 단계에서 사용할 구체적인 프롬프트 템플릿은 명시되지 않았다."}
   ]
 }

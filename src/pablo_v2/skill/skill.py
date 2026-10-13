@@ -62,8 +62,8 @@ def _number(v: str) -> float | None:
     return float(m[1].replace(",", "")) if m else None
 
 
-def _norm(s: str) -> str:
-    return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", str(s or "")).lower()).strip()
+def _norm(s: str) -> str:  # the twin of desktop/where.js norm(): quote style is not a different text
+    return re.sub(r"\s+", " ", re.sub(r"[‘’“”']", '"', unicodedata.normalize("NFKC", str(s or "")).lower())).strip()
 
 
 def checkable(value: str) -> bool:
@@ -874,12 +874,15 @@ def render_audit(s: PabloSkill, task_id: str) -> tuple[str, list[dict]]:
         "- missing: 아직 구현되거나 실행되지 않았다.",
         "- unclear: 읽은 것만으로는 판단할 수 없다.",
         "- chosen: 논문에 없는 설정에만 쓴다. 코드가 정해 둔 값이 있다.",
-        "where: 근거가 된 파일과 줄(예: configs/base.yaml:12). 없으면 빈 문자열.",
+        "where: 근거가 된 파일과 줄(예: configs/base.yaml:12). 값 항목이면 그 값이 적힌 자리. 없으면 빈 문자열.",
         "found: 그 자리에 실제로 있는 값이나 코드 한 줄(짧게, 바꾸지 말고 그대로).",
         "note: 판단 이유 한 문장. summary: 전체를 두세 문장으로.",
-        "값 항목(하이퍼파라미터, 모델 이름 등)은 값으로 판정하세요. '방법' 항목은 코드가 실제로 그 일을 그렇게 하는지로 "
-        "판정하세요. 값이 맞아도 다른 용도로 쓰거나(예: 임계값을 반복 횟수로 씀) 계산을 줄였으면 differs, 그 단계가 "
-        "없으면 missing입니다.",
+        "값 항목(하이퍼파라미터, 모델 이름, 데이터셋 등)은 실행에서 실제로 쓰이는 값이 논문 값과 같은지로 판정하세요. "
+        "설정에 있어도 코드가 다른 값으로 덮어쓰면 differs입니다. 한 항목에 조건이 여럿이면(예: 검증 세트에서 1,000개) "
+        "모두 맞아야 followed입니다. 값은 같은데 그 값을 다른 일에 쓰는 것(예: 임계값을 반복 횟수로 씀, 모델을 불러 놓고 "
+        "쓰지 않음)은 값 항목에서 followed로 두고, 그 단계의 '방법' 항목이나 outside에 한 번만 쓰세요.",
+        "'방법' 항목은 코드가 실제로 그 일을 그렇게 하는지로 판정하세요. 값이 맞아도 다른 용도로 쓰거나(예: 임계값을 반복 "
+        "횟수로 씀) 계산을 줄였으면 differs, 그 단계가 없으면 missing입니다.",
         "outside: 아래 항목이 다루지 않는데 결과가 달라질 만한 차이. 예: 설정한 값이나 모델을 불러 놓고 실제로 쓰지 않음, "
         "단계 사이에 넘겨야 할 것을 넘기지 않음. kind는 method(구현이 다름) 또는 scope(논문의 실험 가운데 이 폴더에 "
         "없는 것)입니다. what은 한 문장, where와 found는 위와 같습니다. 많아야 8개, 결과에 큰 것부터 쓰세요. 항목과 "

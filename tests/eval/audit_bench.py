@@ -37,11 +37,12 @@ WHERE_JS = os.path.join(ROOT, "desktop", "where.js")
 DETECTED = ("differs", "missing")
 
 # one planted drift: edits (old -> new, each old exactly once in the file); mark = text on the drifted line (None: removed)
+# affects: conditions the drift makes moot (not scored in its variant); sets: method conditions it changes ({key: status})
 CATALOG = [
     dict(id="topk_config", key="topk", region="cfg.topk", file="config.yaml", expect="differs", mark="top_k: 10",
-         edits=[("  top_k: 5\n", "  top_k: 10\n")]),
+         affects=["m_rank"], edits=[("  top_k: 5\n", "  top_k: 10\n")]),
     dict(id="topk_hardcoded", key="topk", region="retrieve.k", file="retrieve.py", expect="differs", mark="k = 10",
-         edits=[('    k = cfg["retrieval"]["top_k"]\n', "    k = 10  # more context helps\n")]),
+         affects=["m_rank"], edits=[('    k = cfg["retrieval"]["top_k"]\n', "    k = 10  # more context helps\n")]),
     dict(id="embedding", key="embedding", region="cfg.embedding", file="config.yaml", expect="differs", mark="all-MiniLM-L6-v2",
          edits=[("embedding_model: all-mpnet-base-v2\n", "embedding_model: all-MiniLM-L6-v2\n")]),
     dict(id="llm", key="llm", region="cfg.llm", file="config.yaml", expect="differs", mark="llm: gpt-4o\n",
@@ -81,7 +82,7 @@ CATALOG = [
                  '            g.add_node(ent, kind="entity")\n'
                  "            g.add_edge(ent, pid)\n")]),
     dict(id="ppr_degree", key="ppr", region="retrieve.rank", file="retrieve.py", expect="differs", mark="sub.degree",
-         affects=["damping"],
+         affects=["damping"], sets={"m_seed_ppr": "differs", "m_rank": "differs"},
          edits=[('    scores = nx.pagerank(sub, alpha=cfg["pagerank"]["damping"], personalization=personalization)\n',
                  "    scores = {n: sub.degree(n) * personalization[n] for n in sub}  # faster than PageRank\n")]),
     dict(id="contain_missing", key="contain_acc", region="eval.contain", file="evaluate.py", expect="missing", mark=None,
@@ -98,7 +99,7 @@ CATALOG = [
     dict(id="result_contain_low", key="result_contain", region="log.contain", file="logs/2wikimultihopqa.log",
          expect="differs", mark="contain_acc=64.35", edits=[("contain_acc=70.20", "contain_acc=64.35")]),
 ]
-OPEN_EXPECT = {"seed": "chosen"}  # the base folder fixes seed: 42; the paper names none
+OPEN_EXPECT = {"seed": "chosen", "prompt": "chosen"}  # the base fixes seed: 42 and a prompt; the paper names neither
 # what a report about the drift says (regex, any case): in the comparison, a report that lands on the drift's line but
 # talks about something else there (e.g. "no retrieval-quality metrics" at evaluate.py:15-18) has not found it
 SAYS = {
@@ -161,7 +162,8 @@ def assign(n: int, seed: int) -> list[list[dict]]:
 
 def variants(out_dir: str, n: int = 8, seed: int = 7, clean: int = 1) -> dict:
     os.makedirs(out_dir, exist_ok=True)
-    keys = [c["key"] for c in conditions()["conditions"]]
+    base = {c["key"]: c.get("base", "followed") for c in conditions()["conditions"]}  # a method step the base only sketches
+    keys = list(base)
     truth = {"seed": seed, "n": n, "clean": clean, "variants": []}
     plans = [[] for _ in range(clean)] + assign(n, seed)
     for i, drifts in enumerate(plans):
@@ -172,7 +174,8 @@ def variants(out_dir: str, n: int = 8, seed: int = 7, clean: int = 1) -> dict:
         planted = [{"id": d["id"], "key": d["key"], "file": d["file"], "line": plant(folder, d), "expect": d["expect"]}
                    for d in drifts]
         moot = {k for d in drifts for k in d.get("affects", [])}
-        expect = {k: next((p["expect"] for p in planted if p["key"] == k), "ambiguous" if k in moot else "followed")
+        sets = {k: st for d in drifts for k, st in d.get("sets", {}).items()}
+        expect = {k: next((p["expect"] for p in planted if p["key"] == k), sets.get(k, "ambiguous" if k in moot else base[k]))
                   for k in keys}
         expect.update(OPEN_EXPECT)
         truth["variants"].append({"name": name, "dir": os.path.abspath(folder), "planted": planted, "expect": expect})
@@ -220,12 +223,12 @@ def where(raw: str) -> tuple[str, int | None, int | None]:
 
 
 def located(item: dict, planted: dict) -> tuple[bool, bool | None]:
-    """(right file, right line) for a detected drift; line is None when the drift removed code (file only)."""
-    path, a, b = where(item.get("where", ""))
-    file_ok = bool(path) and path.lower().endswith(planted["file"].lower())
+    """(right file, right line) for a detected drift; line is None when the drift removed code (file only). A where that
+    names several places ("config.yaml:7; run.py:19") is right when one of them is."""
+    places = [p for p in locs(item.get("where", "")) if p[0].lower().endswith(planted["file"].lower())]
     if planted["line"] is None:
-        return file_ok, None
-    return file_ok, bool(file_ok and a is not None and a - 1 <= planted["line"] <= (b or a) + 1)
+        return bool(places), None
+    return bool(places), any(a is not None and a - 1 <= planted["line"] <= (b or a) + 1 for _, a, b in places)
 
 
 def score(results: list[dict], truth: dict, keys: dict) -> dict:
@@ -234,6 +237,8 @@ def score(results: list[dict], truth: dict, keys: dict) -> dict:
     inj = dict(n=0, detected=0, exact=0, file=0, line=0, line_n=0, missed_as={})
     fol = dict(n=0, followed=0, false_alarm=0, unclear=0, other=0)
     opn = dict(n=0, exact=0)
+    # method steps, apart from the value conditions: a gap the base (or a drift) has, and a step the code does follow
+    meth = dict(gap=0, found=0, missed_as={}, ok=0, false_alarm=0, unclear=0, per={})
     for v in truth["variants"]:
         r = next((x for x in results if x["variant"] == v["name"]), None)
         got = {by_check.get(i["id"]): i for i in (r or {}).get("items", []) if by_check.get(i["id"])}
@@ -262,6 +267,22 @@ def score(results: list[dict], truth: dict, keys: dict) -> dict:
                 opn["n"] += 1
                 opn["exact"] += (got.get(k) or {}).get("status") == exp
                 continue
+            if k in METHOD():
+                st = (got.get(k) or {}).get("status", "absent")
+                p = meth["per"].setdefault(k, dict(gap=0, found=0, ok=0, false_alarm=0))
+                if exp in DETECTED:
+                    meth["gap"] += 1; p["gap"] += 1
+                    if st in DETECTED:
+                        meth["found"] += 1; p["found"] += 1
+                    else:
+                        meth["missed_as"][st] = meth["missed_as"].get(st, 0) + 1
+                elif exp == "followed":
+                    meth["ok"] += 1; p["ok"] += 1
+                    meth["false_alarm"] += st in DETECTED; p["false_alarm"] += st in DETECTED
+                    meth["unclear"] += st == "unclear"
+                    if st in DETECTED:
+                        row["false"].append(f"{k}({st})")
+                continue
             if exp != "followed":
                 continue
             st = (got.get(k) or {}).get("status", "absent")
@@ -284,15 +305,22 @@ def score(results: list[dict], truth: dict, keys: dict) -> dict:
         "unclear_on_followed": pct(fol["unclear"], fol["n"]), "file_accuracy": pct(inj["file"], inj["detected"]),
         "line_accuracy": pct(inj["line"], inj["line_n"]), "open_chosen": pct(opn["exact"], opn["n"]),
         "planted": inj["n"], "followed_items": fol["n"], "variants": len(truth["variants"]),
+        "method_recall": pct(meth["found"], meth["gap"]), "method_false_alarm_rate": pct(meth["false_alarm"], meth["ok"]),
     }
-    return {"summary": summary, "planted": inj, "followed": fol, "open": opn, "per_drift": per_drift,
+    return {"summary": summary, "planted": inj, "followed": fol, "open": opn, "method": meth, "per_drift": per_drift,
             "false_alarms": alarms, "rows": rows, "verify": tally(results, truth, keys)}
 
 
+def METHOD() -> set[str]:
+    """The method steps (spec category method): judged by what the code does, scored apart from the value conditions."""
+    return {c["key"] for c in conditions()["conditions"] if c["category"] == "method"}
+
+
 def tally(results: list[dict], truth: dict, keys: dict) -> dict:
-    """Pablo's own check of each answer (0.8 Phase A, desktop/where.js verify): on the drifts found, on followed items."""
-    by_check = {v: k for k, v in keys.items()}
-    out = {"drift": {}, "followed": {}}
+    """Pablo's own check of each answer (0.8 Phase A, desktop/where.js verify): on the drifts found, on followed items,
+    and on the method steps (any verdict: a place the model names for a step is checked the same way)."""
+    by_check, method = {v: k for k, v in keys.items()}, METHOD()
+    out = {"drift": {}, "followed": {}, "method": {}}
     for v in truth["variants"]:
         r = next((x for x in results if x["variant"] == v["name"]), None) or {}
         got = {by_check.get(i["id"]): i for i in r.get("items", []) if by_check.get(i["id"])}
@@ -300,7 +328,8 @@ def tally(results: list[dict], truth: dict, keys: dict) -> dict:
             it = got.get(k)
             if not it or "check" not in it:
                 continue
-            side = "drift" if exp in DETECTED and it.get("status") in DETECTED else "followed" if exp == "followed" == it.get("status") else None
+            side = "method" if k in method else "drift" if exp in DETECTED and it.get("status") in DETECTED \
+                else "followed" if exp == "followed" == it.get("status") else None
             if side:
                 out[side][it["check"]] = out[side].get(it["check"], 0) + 1
     return out
@@ -390,6 +419,38 @@ def hits(loc: tuple, planted: dict) -> bool:
     return planted["line"] is None or (a is not None and (b or a) - a <= 10 and a - 2 <= planted["line"] <= (b or a) + 2)
 
 
+# the method-level gaps of repro_base the comparison group named (docs/eval/README.md): it follows every value and only
+# sketches the method. A regex over what a report says (not its code quote), per theme; ASCII \b like SAYS.
+THEMES = {
+    "hybrid passage 초기화 없음": r"hybrid|하이브리드|초기화|initiali[sz]",
+    "그래프 구조(희소 행렬·passage-sentence 간선)": r"passage.?sentence|패시지.?문장|sparse|희소|NetworkX|인접 ?행렬|adjacency",
+    "δ를 임계값이 아니라 hop 수로": r"hop|홉|순회 횟수|확장 횟수|반복 횟수|(delta|δ)\S{0,3} ?(횟수|만큼)|고정 반복",
+    "LLM에 passage 본문 대신 ID": r"\bID\b|본문 대신|원문 대신|text 속성|본문이 (없|저장)",
+    "의미 기반 entity 활성화 없음": r"semantic (bridging|propagation)|의미 기반|활성화 점수|activation score|질문-문장|query-sentence|문장 유사도|전파",
+    "질의 entity를 유사 entity에 매칭하지 않음": r"ex\[.entities.\]|가장 유사한|nearest|유사(한)? ?(entity|엔티티)|(entity|엔티티) ?매칭|matching",
+    "임베딩 모델을 쓰지 않음": r"(encoder|SentenceTransformer|임베딩|embedding).{0,40}(쓰지 않|사용하지 않|사용되지 않|쓰이지 않|unused|never|호출.{0,4}않)|encode.{0,10}(없|않)",
+    "생성 프롬프트": r"프롬프트|prompt",
+}
+
+
+def said(run: dict) -> list[str]:
+    """What a run says differs, as text: its reports' what / code prose / note (not the quoted code), outside the items too."""
+    rep = [i for i in run.get("items", []) if i.get("status", "differs") in DETECTED]
+    return [" ".join(str(i.get(f, "")) for f in ("what", "code", "note")) for i in rep] + \
+           [str(o.get("what", "")) for o in run.get("outside", [])]
+
+
+def themes(runs: list[dict], truth: dict) -> dict:
+    """{theme: variants whose run names it}: the base has every one of these gaps in every variant."""
+    out = {t: [] for t in THEMES}
+    for v in truth["variants"]:
+        text = " ".join(said(next((x for x in runs if x["variant"] == v["name"]), None) or {}))
+        for t, rx in THEMES.items():
+            if re.search(rx, text, re.I | re.A):
+                out[t].append(v["name"])
+    return out
+
+
 def about(report: dict, planted: dict) -> bool:
     # what it says the code does (not "paper": the paper's side may name the same thing for another reason)
     text = " ".join(str(report.get(f, "")) for f in ("what", "code", "found", "note"))
@@ -401,14 +462,17 @@ def compare(systems: dict, truth: dict) -> dict:
     A planted drift is found when a location in a report points at its file and line and the report says what changed
     there (SAYS); each location finds at most one drift (a report may list several places). found_loc: by location
     alone. A report about no planted drift is outside the benchmark: often a true gap the conditions do not cover
-    (e.g. baselines not run), so they are kept for reading (one more word on a found drift is not one of them)."""
+    (e.g. baselines not run), so they are kept for reading (one more word on a found drift is not one of them).
+    Pablo's outside list (what no condition covers) is read like reports. themes: of the base's method-level gaps
+    (THEMES), in how many variants a system names each."""
     out = {}
     for name, runs in systems.items():
         found = found_loc = planted_n = clean_extra = reports = 0
         ms, extras, missed = [], [], []
         for v in truth["variants"]:
             r = next((x for x in runs if x["variant"] == v["name"]), None) or {}
-            rep = [i for i in r.get("items", []) if i.get("status", "differs") in DETECTED]
+            rep = [i for i in r.get("items", []) if i.get("status", "differs") in DETECTED] + \
+                [{"what": o.get("what", ""), "where": o.get("where", ""), "found": o.get("found", "")} for o in r.get("outside", [])]
             reports += len(rep)
             ms.append(r.get("ms") or 0)
             places = [(j, loc) for j, i in enumerate(rep) for loc in locs(i.get("where", ""))]
@@ -433,7 +497,8 @@ def compare(systems: dict, truth: dict) -> dict:
         out[name] = {"recall": round(100 * found / planted_n, 1) if planted_n else None, "found": found,
                      "found_loc": found_loc, "planted": planted_n, "missed": missed, "reports": reports,
                      "extra": len(extras), "extra_per_variant": round(len(extras) / len(truth["variants"]), 1),
-                     "clean_extra": clean_extra, "avg_ms": round(sum(ms) / len(ms)) if ms else None, "extras": extras}
+                     "clean_extra": clean_extra, "avg_ms": round(sum(ms) / len(ms)) if ms else None, "extras": extras,
+                     "themes": {t: len(vs) for t, vs in themes(runs, truth).items()}}
     return out
 
 
@@ -448,6 +513,13 @@ def markdown_compare(c: dict, meta: dict) -> str:
     for name, s in c.items():
         rows.append(f"| {name} | {s['found']}/{s['planted']} ({s['recall']}%) | {s['found_loc']}/{s['planted']} | "
                     f"{s['reports']} | {s['extra']} | {s['extra_per_variant']} | {s['clean_extra']} | {s['avg_ms']} ms |")
+    n = meta.get("variants")
+    rows += ["", f"## 방법 수준 차이: 바탕 폴더가 가진 {len(THEMES)}가지를 변형 {n}개에서 몇 번 짚었나", "",
+             "보고가 하는 말(코드 인용은 빼고)에 주제별 표현(`THEMES`)이 나오면 짚은 것으로 셉니다.", "",
+             "| 주제 | " + " | ".join(c) + " |", "|---|" + "---|" * len(c)]
+    for t in THEMES:
+        rows.append(f"| {t} | " + " | ".join(f"{s['themes'][t]}/{n}" for s in c.values()) + " |")
+    rows.append("| 합 | " + " | ".join(f"{sum(s['themes'].values())}/{n * len(THEMES)}" for s in c.values()) + " |")
     for name, s in c.items():
         rows += ["", f"## {name}: 놓친 어긋남 {len(s['missed'])}건", ""] + ([f"- {m}" for m in s["missed"]] or ["- 없음"])
     for name, s in c.items():  # for reading: a true gap outside the benchmark, or noise
@@ -474,12 +546,25 @@ def markdown(s: dict, meta: dict) -> str:
            "## 어긋남별", "", "| 어긋남 | 심은 수 | 탐지 | 상태 일치 | 파일 | 줄 |", "|---|---|---|---|---|---|"]
     for k, d in sorted(s["per_drift"].items()):
         out.append(f"| {k} | {d['n']} | {d['detected']} | {d['exact']} | {d['file']} | {d['line']} |")
+    mt = s.get("method") or {}
+    if mt.get("gap") or mt.get("ok"):
+        said = {c["key"]: c["statement"] for c in conditions()["conditions"]}
+        out += ["", "## 방법 조건 (값이 아니라 코드가 하는 일)", "",
+                f"- 바탕 폴더(또는 어긋남)가 논문과 다르게 하는 단계: {mt['found']}/{mt['gap']} 짚음 ({m['method_recall']}%)"
+                + (f", 놓친 판정 {mt['missed_as']}" if mt["missed_as"] else ""),
+                f"- 논문대로 하는 단계를 다르다고 함: {mt['false_alarm']}/{mt['ok']} ({m['method_false_alarm_rate']}%), "
+                f"판단 못 함 {mt['unclear']}", "",
+                "| 조건 | 다른 단계 짚음 | 따르는 단계 오탐 |", "|---|---|---|"]
+        for k, d in mt["per"].items():
+            out.append(f"| {said.get(k, k)} | {d['found']}/{d['gap']} | {d['false_alarm']}/{d['ok']} |")
     if s["verify"]["drift"] or s["verify"]["followed"]:
         fmt = lambda d: ", ".join(f"{k} {n}" for k, n in sorted(d.items(), key=lambda x: -x[1])) or "-"  # noqa: E731
         out += ["", "## Pablo 확인 (점검 답의 파일:줄을 Pablo가 직접 읽은 결과)", "",
                 f"- 규칙: {s['verify'].get('rule', '답을 받을 때 저장한 값')}",
                 f"- 짚은 어긋남: {fmt(s['verify']['drift'])}",
                 f"- 따르는 조건: {fmt(s['verify']['followed'])} (verified 외에는 Pablo 쪽의 거짓 경고)"]
+        if s["verify"].get("method"):
+            out.append(f"- 방법 조건(판정 무관): {fmt(s['verify']['method'])}")
         if s["verify"].get("control"):
             out.append(f"- 대조 (각 답을 다음 변형의 폴더에서 확인): 짚은 어긋남 {fmt(s['verify']['control'])}. "
                        "verified 외에는 옛 폴더·지어낸 위치를 잡은 것")
@@ -520,11 +605,18 @@ def main(argv: list[str]) -> None:
         print(md)
     elif cmd == "baseline-prompt":
         print(json.dumps({"prompt": baseline_prompt(), "schema": BASELINE_SCHEMA}, ensure_ascii=False))
-    elif cmd == "compare":  # compare <pablo results> <plain results> <truth> [--out prefix]
-        pablo, plain = (json.load(open(p, encoding="utf-8")) for p in argv[1:3])
-        truth = json.load(open(argv[3], encoding="utf-8"))
-        c = compare({"Pablo 재현 점검": pablo["runs"], "그냥 묻기": plain["runs"]}, truth)
-        md = markdown_compare(c, {**plain.get("meta", {}), "seed": truth.get("seed"), "variants": len(truth["variants"])})
+    elif cmd == "compare":  # compare <pablo results> <plain results> <truth> | <truth> <label>=<results>... [--out prefix]
+        args = [a for a in argv[1:] if a != "--out" and a != opt("--out", None)]
+        if any("=" in a for a in args):  # labelled: as many systems as given, in order
+            truth = json.load(open(args[0], encoding="utf-8"))
+            runs = {a.split("=", 1)[0]: json.load(open(a.split("=", 1)[1], encoding="utf-8")) for a in args[1:]}
+        else:
+            truth = json.load(open(args[2], encoding="utf-8"))
+            runs = {"Pablo 재현 점검": json.load(open(args[0], encoding="utf-8")),
+                    "그냥 묻기": json.load(open(args[1], encoding="utf-8"))}
+        c = compare({k: r["runs"] for k, r in runs.items()}, truth)
+        last = list(runs.values())[-1]
+        md = markdown_compare(c, {**last.get("meta", {}), "seed": truth.get("seed"), "variants": len(truth["variants"])})
         prefix = opt("--out", None)
         if prefix:
             open(prefix + ".md", "w", encoding="utf-8").write(md)
