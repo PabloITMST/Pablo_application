@@ -597,7 +597,9 @@ def rows(results: list[dict], truth: dict, labels: dict, keys: dict) -> dict:
     for v in truth["variants"]:
         r = next((x for x in results if x["variant"] == v["name"]), None) or {}
         items, outs = r.get("items", []), r.get("outside", [])
-        shown = [i for i in items if i.get("status") in ("differs", "missing", "chosen") or i.get("check") in WARNED] + \
+        # a value warning Pablo resolved through the config line that sets it (main.js via.agrees, 9fa4139) is not shown
+        warned = lambda i: i.get("check") in WARNED and not (i.get("check") == "value_mismatch" and (i.get("via") or {}).get("agrees"))  # noqa: E731
+        shown = [i for i in items if i.get("status") in ("differs", "missing", "chosen") or warned(i)] + \
                 [dict(o, status="outside", note=o.get("what", "")) for o in outs if o.get("kind") != "scope"]
         c = dict(variant=v["name"], items=len(items), outside=len(outs), open=len(shown), **{k: 0 for k in ROW_KINDS})
         for i in shown:

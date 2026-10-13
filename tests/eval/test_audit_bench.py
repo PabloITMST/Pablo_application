@@ -234,18 +234,20 @@ def test_rows():
             {"id": "SC1", "status": "missing", "where": "", "found": "", "note": "데이터셋 크기를 확인할 코드가 없다", "check": "unchecked"},
             {"id": "SC2", "status": "differs", "where": "retrieve.py:8", "found": "", "note": "delta를 hop 수로 쓴다", "check": "verified"},
             {"id": "SC3", "status": "chosen", "where": "config.yaml:15", "found": "seed: 42", "note": "", "check": "verified"},
-            {"id": "SC1", "status": "followed", "where": "run.py:19", "found": "", "note": "", "check": "value_mismatch"}]
+            {"id": "SC1", "status": "followed", "where": "run.py:19", "found": "", "note": "", "check": "value_mismatch"},
+            {"id": "SC1", "status": "followed", "where": "run.py:16", "found": "", "note": "", "check": "value_mismatch",
+             "via": {"where": "config.yaml:2", "found": "embedding_model: all-mpnet-base-v2", "agrees": True}}]  # not shown
             + ([{"id": "SC2", "status": "differs", "where": f"{p['file']}:{p['line']}", "found": line, "note": p["id"].replace("_", " ")}]
                if v is v1 else []),
             "outside": [{"kind": "method", "what": "임베딩 모델을 불러 놓고 쓰지 않는다", "where": "run.py:16", "found": ""},
                         {"kind": "scope", "what": "baseline 비교가 없다", "where": "", "found": ""}]} for v in t["variants"]]
         r = B.rows(runs, t, labels, keys)
         c0, c1 = r["per_variant"][0], r["per_variant"][1]
-        assert (c0["items"], c0["open"], c0["other"], c0["method"], c0["chosen"], c0["warn"], c0["planted"]) == (4, 5, 1, 2, 1, 1, 0), c0
+        assert (c0["items"], c0["open"], c0["other"], c0["method"], c0["chosen"], c0["warn"], c0["planted"]) == (5, 5, 1, 2, 1, 1, 0), c0
         assert c1["planted"] == 1 and c1["open"] == 6
-        assert r["other"][0]["condition"] == "HotpotQA는 97k" and r["conditions"]["r01"] == {"missing": 9, "followed": 9}
+        assert r["other"][0]["condition"] == "HotpotQA는 97k" and r["conditions"]["r01"] == {"missing": 9, "followed": 18}
         md = B.markdown_rows(r, {"date": "test", "model": "x", "avg_ms": 1})
-        assert "| 그 밖 (손으로 읽음) | 9 | 1.0 |" in md and "HotpotQA는 97k | dataset | missing 9, followed 9" in md
+        assert "| 그 밖 (손으로 읽음) | 9 | 1.0 |" in md and "HotpotQA는 97k | dataset | followed 18, missing 9" in md
 
 
 def test_state_real():
