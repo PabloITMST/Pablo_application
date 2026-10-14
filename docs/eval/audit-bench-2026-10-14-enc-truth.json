@@ -1,0 +1,127 @@
+{
+ "seed": 7,
+ "n": 2,
+ "clean": 1,
+ "set": "enc",
+ "variants": [
+  {
+   "name": "v00-clean",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-Za5zDG\\variants\\v00-clean",
+   "planted": [],
+   "expect": {
+    "datasets": "followed",
+    "questions": "followed",
+    "segment": "followed",
+    "ner": "followed",
+    "graph": "followed",
+    "ppr": "followed",
+    "damping": "followed",
+    "delta": "followed",
+    "lambda": "followed",
+    "topk": "followed",
+    "embedding": "followed",
+    "llm": "followed",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "followed",
+    "result_gpt": "followed",
+    "result_contain": "followed",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "followed",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  },
+  {
+   "name": "v01",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-Za5zDG\\variants\\v01",
+   "planted": [
+    {
+     "id": "enc_damping",
+     "key": "damping",
+     "file": "config.yaml",
+     "line": 14,
+     "expect": "differs"
+    },
+    {
+     "id": "enc_topk",
+     "key": "topk",
+     "file": "retrieve.py",
+     "line": 16,
+     "expect": "differs"
+    }
+   ],
+   "expect": {
+    "datasets": "followed",
+    "questions": "followed",
+    "segment": "followed",
+    "ner": "followed",
+    "graph": "followed",
+    "ppr": "followed",
+    "damping": "differs",
+    "delta": "followed",
+    "lambda": "followed",
+    "topk": "differs",
+    "embedding": "followed",
+    "llm": "followed",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "followed",
+    "result_gpt": "followed",
+    "result_contain": "followed",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "ambiguous",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  },
+  {
+   "name": "v02",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-Za5zDG\\variants\\v02",
+   "planted": [
+    {
+     "id": "enc_lambda",
+     "key": "lambda",
+     "file": "config.yaml",
+     "line": 10,
+     "expect": "differs"
+    }
+   ],
+   "expect": {
+    "datasets": "followed",
+    "questions": "followed",
+    "segment": "followed",
+    "ner": "followed",
+    "graph": "followed",
+    "ppr": "followed",
+    "damping": "followed",
+    "delta": "followed",
+    "lambda": "differs",
+    "topk": "followed",
+    "embedding": "followed",
+    "llm": "followed",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "followed",
+    "result_gpt": "followed",
+    "result_contain": "followed",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "followed",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  }
+ ]
+}
