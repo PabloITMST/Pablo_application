@@ -155,6 +155,7 @@ ipcMain.handle("pablo:state", async e => {
         arxiv: x.arxiv || null, primary: !!p && x.id === p.id })),  // arxiv: a search result already here says so
       route: (d.route || {})[t.id] === "ask" ? "ask" : "agent", archived: !!(d.archived || {})[t.id] }]; }));  // names only, no paths
   m.last = d.last;
+  m.host = { shell: agent.shell(), noticed: !!(d.noticed || {}).shell };  // ⑤ 5.1: the notice, once
   return m;
 });
 // A3: a reproduction task starts with the research-integrity criteria (task scope, editable like any other; Python
@@ -349,6 +350,11 @@ ipcMain.handle("pablo:remove-source", (e, task, id) => {
   saveDesk(d => { d.pdf[task] = papers.list(d, task).filter(p => p.id !== id); if ((d.primary || {})[task] === id) delete d.primary[task]; });
   return true;
 });
+// ⑤ a notice the user has read (the PowerShell 7 one): not shown again
+ipcMain.handle("pablo:notice-seen", (e, what) => {
+  fromWindow(e); if (what !== "shell") throw new Error("bad notice");
+  saveDesk(d => { d.noticed = { ...(d.noticed || {}), [what]: true }; });
+});
 // ⑭ a task's own name (the list, the header; its text stays the goal) and 보관 (folded at the list's bottom, kept whole)
 ipcMain.handle("pablo:rename-task", async (e, task, name) => {
   fromWindow(e); known(task); if (!str(name, 80)) throw new Error("작업 이름은 80자까지입니다.");
@@ -531,10 +537,10 @@ ipcMain.handle("pablo:audit", async (e, task) => {
   agent.workspace = ctl.root = work; agent.network = false;
   // ⑫ review: which code the verdicts are about — the folder's snapshot (shadow git tree) and, when it is a git repo, its HEAD
   const tree = await checkpoint.snapshot(ctl.dir, task, work).catch(() => null), git = gitState(work);
-  reply = { task, at: new Date().toISOString(), text: "", audit: a.items.map(x => x.id), work, tree, git,
+  reply = { task, at: new Date().toISOString(), text: "", audit: a.items.map(x => x.id), work, tree, git, shell: agent.shell(),
     values: Object.fromEntries(a.items.filter(x => x.value).map(x => [x.id, x.value])) };  // A2: the paper's value per condition
   saveDesk(x => { x.last = task; });
-  return agent.send(a.prompt, ctl.dir + "#" + task, null, null, { readOnly: true, outputSchema: a.schema });
+  return agent.send(forShell(a.prompt), ctl.dir + "#" + task, null, null, { readOnly: true, outputSchema: a.schema });
 });
 // M4.2 the user's answers: WARN [진행]/[취소], and "다른 모델로 다시 시도" after a capacity failure
 ipcMain.handle("pablo:decide", (e, id, proceed) => { fromWindow(e); if (!str(id, 20)) throw new Error("bad id"); ctl.decide(id, proceed === true); });
@@ -634,7 +640,7 @@ agent.on("event", ev => {
   const r = reply; reply = null;
   try {
     if (r.audit) {  // 재현 점검: the answer is JSON (outputSchema); only the asked ids are kept
-      const entry = { role: "audit", at: r.at, status: ev.status, ...(r.tree ? { tree: r.tree } : {}), ...(r.git ? { git: r.git } : {}), ...audited(r) };
+      const entry = { role: "audit", at: r.at, status: ev.status, ...(r.tree ? { tree: r.tree } : {}), ...(r.git ? { git: r.git } : {}), ...(r.shell ? { shell: r.shell } : {}), ...audited(r) };
       if (ev.error) entry.error = short(ev.error);
       logChat(r.task, entry);
       broadcast("pablo:agent", { type: "audit", task: r.task, ...entry });
@@ -758,6 +764,25 @@ function workspace(dir) {
   return w;
 }
 
+// ⑤ a PC without PowerShell 7 (Codex then runs the agent's commands in Windows PowerShell 5.1): the agent is told to read
+// files as UTF-8. Pablo's own CODEX_HOME, so its global AGENTS.md reaches the threads Pablo starts and nothing of the
+// user's changes; with pwsh 7 there is no such file. A 재현 점검 turn says it again (a thread may predate the file).
+const RULE_51 = `# Pablo: 이 PC의 PowerShell
+
+이 PC에는 PowerShell 7이 없어, 명령이 Windows PowerShell 5.1에서 실행됩니다. 5.1의 Get-Content와 Import-Csv는 BOM 없는 UTF-8 파일을 ANSI 코드 페이지로 읽어서, 한글 주석과 λ 같은 기호가 깨집니다.
+
+- 파일을 읽는 PowerShell 명령은 맨 앞에 \`$PSDefaultParameterValues['Get-Content:Encoding']='UTF8';\`를 두거나, Get-Content와 Import-Csv에 \`-Encoding UTF8\`을 붙이세요.
+- rg와 Select-String은 그대로 써도 됩니다.
+- 깨진 글자(�, 엉뚱한 한자)가 보이면 그 파일을 UTF-8로 다시 읽은 뒤에 판단하세요.
+`;
+const READ_51 = "이 PC는 Windows PowerShell 5.1입니다. 파일은 Get-Content -Encoding UTF8로 읽거나 명령 앞에 "
+  + "$PSDefaultParameterValues['Get-Content:Encoding']='UTF8'; 를 두세요(그냥 읽으면 한글과 기호가 깨집니다). rg는 그대로 써도 됩니다.";
+function agentRules(home) {
+  const f = path.join(home, "AGENTS.md");
+  if (agent.shell() === "powershell") fs.writeFileSync(f, RULE_51); else fs.rmSync(f, { force: true });
+}
+const forShell = prompt => agent.shell() === "powershell" ? prompt + "\n" + READ_51 : prompt;
+
 function boot() {
   const data = app.getPath("userData");
   siwc.init(data, safeStorage);
@@ -765,6 +790,7 @@ function boot() {
   // Pablo's own CODEX_HOME config. Windows: without a sandbox mode every shell command is "blocked by policy" (agent can't read files).
   // unelevated = restricted-token sandbox, no admin setup; read-only still blocks writes. (-c windows.sandbox did not take effect.)
   if (process.platform === "win32") fs.writeFileSync(path.join(data, "codex", "config.toml"), '[windows]\nsandbox = "unelevated"\n');
+  agentRules(path.join(data, "codex"));
   agent.stateFile = path.join(data, "thread.json");
   agent.workspace = ctl.root = envWorkspace = workspace(process.env.PABLO_WORKSPACE);
   return siwc.has() ? connect() : setAuth("signed_out");
@@ -791,4 +817,4 @@ async function launch(dir = path.join(app.getPath("userData"), "state")) {
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => { clearTimeout(timer); agent.stop(); });
 
-module.exports = { open, boot, launch, auth: () => auth, arxiv, openreview, crossref };
+module.exports = { open, boot, launch, auth: () => auth, arxiv, openreview, crossref, agentRules, forShell };

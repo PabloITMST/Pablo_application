@@ -139,6 +139,17 @@ function spawnUtf8(bin, args, opts) {
   return spawn(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/v:off", "/c", `"chcp 65001 >nul & ${line}"`], { ...opts, windowsVerbatimArguments: true });
 }
 
+// ⑤ which PowerShell Codex runs the agent's commands in: pwsh 7 where it is installed (the path Codex itself looks at, or
+// on PATH), else Windows PowerShell 5.1, which every Windows 10/11 has (pwsh 7 is a separate install). 5.1's Get-Content
+// reads a BOM-less UTF-8 file as the ANSI code page: a UTF-8 console cannot fix that, a session default can (main.js).
+const PWSH7 = path.join(process.env.ProgramFiles || "C:\\Program Files", "PowerShell", "7", "pwsh.exe");
+function shell() {
+  if (process.platform !== "win32") return null;
+  if (["pwsh", "powershell"].includes(process.env.PABLO_SHELL)) return process.env.PABLO_SHELL;  // check.js: a PC without pwsh 7
+  const onPath = (process.env.PATH || "").split(path.delimiter).some(d => d && fs.existsSync(path.join(d, "pwsh.exe")));
+  return fs.existsSync(PWSH7) || onPath ? "pwsh" : "powershell";
+}
+
 function start() {
   if (ready) return ready;
   set("Connecting"); agent.spawns++;
@@ -229,5 +240,5 @@ function stop() {
 const restart = () => stop().then(start);
 
 agent.models = [];
-Object.assign(agent, { start, send, retry, interrupt, stop, restart, forget, setModel, spawnUtf8, busy: () => !!turn, thread: () => threadId, task: () => key, pid: () => proc && proc.pid });
+Object.assign(agent, { start, send, retry, interrupt, stop, restart, forget, setModel, spawnUtf8, shell, busy: () => !!turn, thread: () => threadId, task: () => key, pid: () => proc && proc.pid });
 module.exports = agent;

@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -342,12 +342,29 @@ async function consoleCheck() {
   fs.writeFileSync(path.join(home, "config.toml"), '[windows]\nsandbox = "unelevated"\n');
   fs.writeFileSync(path.join(w, "cfg.yaml"), "lam: 0.5  # the paper's \u03bb\n# 한글 주석\n");
   const pwsh = ["PowerShell\\7\\pwsh.exe"].map(x => path.join(process.env.ProgramFiles || "C:\\Program Files", x)).find(x => fs.existsSync(x));
-  if (!pwsh) console.log("skip console: no pwsh 7 (Codex then uses Windows PowerShell 5.1, whose Get-Content reads the ANSI code page)");
+  const codex = path.join(__dirname, "node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe");
+  const sandboxed = (sh, cmd) => run(codex, ["sandbox", sh, "-Command", cmd], { cwd: w, env: { ...process.env, CODEX_HOME: home } });
+  const intact = "lam: 0.5  # the paper's \u03bb\r\n# 한글 주석\r\n";
+  assert.strictEqual(agent.shell(), pwsh ? "pwsh" : "powershell", "the shell Codex will use");
+  if (!pwsh) console.log("skip console pwsh 7: not installed");
   else {
-    const codex = path.join(__dirname, "node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe");
-    const r = await run(codex, ["sandbox", pwsh, "-Command", "Get-Content -LiteralPath cfg.yaml"], { cwd: w, env: { ...process.env, CODEX_HOME: home } });
-    assert.strictEqual(r.out, "lam: 0.5  # the paper's \u03bb\r\n# 한글 주석\r\n", "the sandboxed shell's output: " + JSON.stringify(r.out));
+    const r = await sandboxed(pwsh, "Get-Content -LiteralPath cfg.yaml");
+    assert.strictEqual(r.out, intact, "the sandboxed shell's output: " + JSON.stringify(r.out));
   }
+  // ⑤ Windows PowerShell 5.1 (a PC without pwsh 7): its Get-Content reads the ANSI code page even in a UTF-8 console; the
+  // rule Pablo gives the agent there (a session default, which the sandbox does not refuse) reads it right
+  const ps51 = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+  assert.notStrictEqual((await sandboxed(ps51, "Get-Content -LiteralPath cfg.yaml")).out, intact, "5.1 alone misreads");
+  assert.strictEqual((await sandboxed(ps51, "$PSDefaultParameterValues['Get-Content:Encoding']='UTF8'; Get-Content -LiteralPath cfg.yaml")).out, intact);
+  // the rule is in Pablo's CODEX_HOME only without pwsh 7 (removed with it); a 재현 점검 says it again in its prompt
+  const { agentRules, forShell } = require("./main");
+  for (const [sh, has] of [["powershell", true], ["pwsh", false]]) {
+    process.env.PABLO_SHELL = sh; agentRules(home);
+    const f = path.join(home, "AGENTS.md");
+    assert.strictEqual(fs.existsSync(f) && fs.readFileSync(f, "utf8").includes("$PSDefaultParameterValues['Get-Content:Encoding']='UTF8';"), has, sh);
+    assert.strictEqual(/Get-Content -Encoding UTF8/.test(forShell("P")), has, sh);
+  }
+  delete process.env.PABLO_SHELL;
   // stop(): the end of stdin ends codex, then cmd; taskkill /T takes cmd and what it runs
   const waits = "process.stdin.resume(); process.stdin.on('end', function () { process.exit(7) })";  // no > (cmd would read it)
   assert.strictEqual((await run(process.execPath, ["-e", waits], node)).code, 7);
@@ -358,7 +375,7 @@ async function consoleCheck() {
   await held; await sleep(300);
   assert.throws(() => process.kill(child, 0), /ESRCH/, "the process cmd ran is gone too");
   fs.rmSync(dir, { recursive: true, force: true });
-  console.log("ok console: app-server's console is UTF-8 -> the sandboxed pwsh hands back λ and 한글 intact; -c quotes kept through cmd; stdin end and taskkill /T stop both");
+  console.log("ok console: app-server's console is UTF-8 -> the sandboxed pwsh hands back λ and 한글 intact; 5.1 misreads unless told (AGENTS.md only then, and the audit prompt); -c quotes kept through cmd; stdin end and taskkill /T stop both");
 }
 
 async function guardCheck() {
@@ -871,6 +888,9 @@ async function uiCheck() {
     li.querySelector(".at code").textContent, !li.querySelector("[data-hm]")])(document.querySelectorAll("[data-audit]")[1].querySelector("li.st-pairing"))`),
     ["? 열 짝 확인 필요", "논문 표 행 (LinearRAG p.2): “LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72”판단 못 함: 열 이름이 PDF 글자에서 떨어져 있어, 어느 숫자가 이 조건의 값인지 확인되지 않았습니다. 에이전트 판정(✗ 다름)은 그 짝을 믿은 것입니다. 표에서 열을 확인하고 아래 자리의 값과 대조하세요.", "logs/2wiki.log:1", true]);
   assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8")).T1.filter(x => x.role === "audit")[1].items[1].status, "differs");
+  // ⑤ the second audit ran in Windows PowerShell 5.1 (no pwsh 7): its card says so, the first one's does not
+  assert.strictEqual(await js(`(b => b && b.textContent)(document.querySelectorAll("[data-audit]")[1].querySelector("[data-shell]"))`), "⚠ 이 점검은 Windows PowerShell 5.1에서 했습니다. 에이전트가 한글 주석이나 λ 같은 기호를 깨진 채 읽었다면 그 줄의 판정이 틀릴 수 있습니다. PowerShell 7을 설치하면 정확히 읽습니다.");
+  assert.ok(await js(`!document.querySelectorAll("[data-audit]")[0].querySelector("[data-shell]")`));
   assert.ok(await js(`!document.querySelectorAll("[data-audit]")[0].querySelector(".st-intended")`));
   // A2: what Pablo saw at each place: the ones it could not confirm come first, open, whatever the verdict
   const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, checked: b.querySelector("[data-checked]").textContent,
@@ -1094,7 +1114,22 @@ async function uiCheck() {
   assert.ok(md.includes("이 점검은 작업 폴더의 판을 기록하기 전(0.8 이전)에 했습니다."), "an audit from before 0.8 says it has no folder version");
   assert.ok(md.includes("| ? 열 짝 확인 필요 (판단 못 함. 에이전트 판정: ✗ 다름; 논문 표 행: “LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72”) | `logs/2wiki.log:1` gpt_acc=61.20 |")
     && md.includes("열 짝 확인 필요: 논문 표의 한 행에서 열 이름 없이 읽은 값이라"), "the report: the same rule as the card");
+  assert.ok(md.includes("이 점검은 Windows PowerShell 5.1에서 했습니다(PowerShell 7 없음)."), "the report says the audit ran in 5.1");
   console.log("ok report: saved as Markdown with the fixed sections (의도한 차이, 뺀 조건과 지운 기준, 점검, 앱과 같은 재대조, 분 단위 시각)");
+  // ⑤ a PC without PowerShell 7: said once above the account line, with how to install; 알겠습니다 -> not again
+  assert.ok(await js(`!document.querySelector("#shell-note [data-shell]")`), "pwsh 7 here: no notice");
+  process.env.PABLO_SHELL = "powershell";
+  await js(`refresh()`);
+  assert.match(await until(`(b => b && b.textContent)(document.querySelector("#shell-note [data-shell]"))`),
+    /^한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다이 PC에는 Windows PowerShell 5\.1만 있어.*winget install Microsoft\.PowerShell · 설치 방법 ↗\. 설치한 뒤 Pablo를 다시 시작하세요\.알겠습니다$/);
+  if (shots || view) fs.writeFileSync(path.join(shots || view, "shell-note.png"), (await win.capturePage()).toPNG());
+  await js(`[...document.querySelectorAll("#shell-note button")].find(b => b.textContent === "알겠습니다").click()`);
+  await until(`!document.querySelector("#shell-note [data-shell]")`);
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")).noticed.shell, true);
+  await js(`refresh()`); await sleep(300);
+  assert.ok(await js(`!document.querySelector("#shell-note [data-shell]")`), "said once");
+  delete process.env.PABLO_SHELL;
+  console.log("ok PowerShell 5.1: the notice once (winget, 다시 시작) -> 알겠습니다 -> not again; an audit run in 5.1 says so on its card and in the report");
   // ③ a new task's criterion lines (the review's own): the ones read become criteria, the ones the reader could not
   // classify wait in the conversation for 반드시 / 가능하면 / 괜찮음; nothing is dropped without a word
   const lines3 = ["재현 작업", "test 셋은 튜닝에 쓰면 안 됨", "결과는 3번 돌려서 평균 내", "GPU 메모리는 24GB 안에서만 써",

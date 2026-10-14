@@ -191,7 +191,7 @@ def build(d: str) -> str:
              {"kind": "method", "what": "PageRank 대신 차수로 순위를 매깁니다.", "where": "retrieve.py:22",
               "found": "scores = sub.degree()", "check": "no_file"}]},
         # ⑤ a second audit: the model named the line that reads top-k (the config line that sets it: via), and a log line
-        {"role": "audit", "at": "2026-10-13T01:00:58.500+00:00", "status": "completed", "summary": "", "items": [
+        {"role": "audit", "at": "2026-10-13T01:00:58.500+00:00", "status": "completed", "summary": "", "shell": "powershell", "items": [
             {"id": specs[0], "status": "differs", "where": "run.py:3", "found": "print('top_k', cfg['retrieval']['top_k'])",
              "note": "", "check": "verified", "via": {"where": "config.yaml:5", "found": "top_k: 10", "agrees": True}},
             {"id": specs[1], "status": "differs", "where": "logs/2wiki.log:1", "found": "gpt_acc=61.20", "note": "",

@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   addOpenreview: (task, text) => ipcRenderer.invoke("pablo:add-openreview", task, text),  // ⑬ a paper from OpenReview
   renameTask: (task, name) => ipcRenderer.invoke("pablo:rename-task", task, name),  // ⑭ the task's own name ("" = its goal)
   archiveTask: (task, on) => ipcRenderer.invoke("pablo:archive-task", task, on),  // ⑭ 보관 / 보관 풀기
+  noticeSeen: what => ipcRenderer.invoke("pablo:notice-seen", what),  // ⑤ the PowerShell 7 notice, read
   lookupDoi: text => ipcRenderer.invoke("pablo:lookup-doi", text),  // ⑬ a DOI's title, looked up on arXiv
   setPrimary: (task, id) => ipcRenderer.invoke("pablo:set-primary", task, id),  // C1: the 주 논문 (재현 조건)
   compare: (task, columns) => ipcRenderer.invoke("pablo:compare", task, columns),  // C3: 비교표

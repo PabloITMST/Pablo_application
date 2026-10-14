@@ -309,6 +309,9 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
             code.append("보고서를 만든 지금도 같은 폴더 상태입니다." if now["tree"] == last["tree"] else f"지금 폴더는 그 뒤 바뀌었습니다(스냅숏 `{now['tree'][:12]}`).")
         elif not last.get("tree"):
             code.append("이 점검은 작업 폴더의 판을 기록하기 전(0.8 이전)에 했습니다.")
+        if last.get("shell") == "powershell":  # ⑤ no pwsh 7: the agent may have read 한글 and symbols wrongly
+            code.append("이 점검은 Windows PowerShell 5.1에서 했습니다(PowerShell 7 없음). 에이전트가 한글 주석이나 기호를 깨진 채 "
+                        "읽었다면 그 줄의 판정이 틀릴 수 있습니다.")
         out += [" ".join(code)] if code else []
         if last.get("summary"):
             out += ["", last["summary"]]
@@ -590,6 +593,9 @@ pre.diff .del { background:rgba(220,38,38,.13); } pre.diff .hunk { color:var(--m
 .audit details summary { cursor:pointer; font-size:13px; color:var(--muted); margin-top:6px; }
 .audit .stale { background:var(--warnbg); border:1px solid var(--warnline); border-radius:6px; padding:5px 10px; font-size:13px; margin:4px 0 6px; }
 .audit .stale.same { background:none; border-color:var(--line); }
+.audit .ps51 { background:var(--warnbg); border:1px solid var(--warnline); border-radius:6px; padding:5px 10px; font-size:13px; margin:4px 0 6px; }
+#shell-note { max-width:760px; width:calc(100% - 40px); margin:0 auto; font-size:13px; } #shell-note:empty { display:none; }
+#shell-note p { margin:2px 0; } #shell-note .call { margin:0 0 8px; } #shell-note code { font-size:12px; }
 .audit .via { color:var(--muted); }
 .audit .outside h4 { font-size:12px; color:var(--muted); margin:10px 0 0; } .audit .st-outside b { color:var(--warn); }
 .chk { font-size:12px; color:var(--ok); margin-left:6px; white-space:nowrap; } .chk.moved { color:var(--muted); }
@@ -976,6 +982,8 @@ function audited(c) {
   box.append(h("p", { class: "head" }, "🔎 재현 점검: ", [...Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`),
     ...(out.length ? [`조건 밖 ${out.length}`] : [])].join(" · ")));
   box._c = c; aged(box);  // ⑤ files changed after it: said at the top (again after every refresh)
+  if (c.shell === "powershell") box.append(h("p", { class: "ps51", "data-shell": "5.1" }, "⚠ 이 점검은 Windows PowerShell 5.1에서 했습니다. "
+    + "에이전트가 한글 주석이나 λ 같은 기호를 깨진 채 읽었다면 그 줄의 판정이 틀릴 수 있습니다. PowerShell 7을 설치하면 정확히 읽습니다."));
   if (c.summary) box.append(h("p", null, rich(c.summary)));
   // ④ criteria the user removed before this audit ran were not checked: said here, with why, never left out silently
   const t = Date.parse(c.at), during = x => Date.parse(x.from) < t && (!x.to || Date.parse(x.to) > t);
@@ -1723,6 +1731,18 @@ if (window.pabloHost && pabloHost.chat) {
   };
   const status = (s, err) => { agentSt = s; st.title = err || ""; gate(); };
   const link = (text, on) => h("button", { class: "link", on }, text);
+  // ⑤ a PC without PowerShell 7: Codex runs the agent's commands in Windows PowerShell 5.1, which reads 한글 and symbols
+  // in a BOM-less UTF-8 file wrongly. Pablo tells the agent to read as UTF-8; this says so once, with how to install
+  const shellBox = $("chat").insertBefore(h("div", { id: "shell-note" }), acct);
+  const shellNote = () => { const host = M.host || {}; shellBox.textContent = "";
+    if (host.shell !== "powershell" || host.noticed) return;
+    shellBox.append(h("div", { class: "call", "data-shell": "5.1" }, h("p", { class: "head" }, "한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다"),
+      h("p", null, "이 PC에는 Windows PowerShell 5.1만 있어, 에이전트가 한글 주석이나 λ 같은 기호를 깨진 채 읽을 수 있습니다. "
+        + "Pablo가 에이전트에게 UTF-8로 읽으라고 일러 두었지만, 지키지 않으면 재현 점검의 판정이 틀릴 수 있습니다."),
+      h("p", null, "설치: 명령 프롬프트에서 ", h("code", null, "winget install Microsoft.PowerShell"), " · ",
+        h("a", { href: "https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows", target: "_blank", rel: "noopener noreferrer" }, "설치 방법 ↗"),
+        ". 설치한 뒤 Pablo를 다시 시작하세요."),
+      pabloHost.noticeSeen ? h("p", null, link("알겠습니다", () => pabloHost.noticeSeen("shell").then(() => refresh()))) : null)); };
   function account(a) {
     const hello = a.state === "connected" && (authSt.state === "signing_in" || authSt.state === "verifying");  // just signed in
     authSt = a; acct.dataset.state = a.state; acct.textContent = "";
@@ -1811,7 +1831,7 @@ if (window.pabloHost && pabloHost.chat) {
   let q = Promise.resolve();
   refresh = to => (q = q.then(() => pabloHost.state()).then(m => {
     const open = hi >= 0 && document.body.classList.contains("panel") ? hist[hi] : null;
-    M = m;
+    M = m; shellNote();
     if (to === undefined && !V && $("goal")) return sidebar();  // the new task form stays
     if (to !== undefined || !V || !M.views[V.task.id]) return (select(to || (V && V.task.id)), gate());
     V = M.views[V.task.id]; V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
