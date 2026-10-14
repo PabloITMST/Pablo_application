@@ -323,7 +323,8 @@ class PabloSkill:
         self.save()
         return src
 
-    def capture_pdf(self, path: str, title: str = "", arxiv: str | None = None, openreview: str | None = None) -> EvidenceSource:
+    def capture_pdf(self, path: str, title: str = "", arxiv: str | None = None, openreview: str | None = None,
+                    doi: str | None = None) -> EvidenceSource:
         """M3.3: a local PDF. The bytes are copied into the state dir (the version the anchors point at); the
         snapshot is its pypdf page text joined by \f. Same path + same bytes -> same SRC.
         C2 arxiv (the id it was downloaded as): the title comes from the PDF itself, the version from arXiv's stamp
@@ -340,6 +341,8 @@ class PabloSkill:
             m = pdf.meta(data, ps)
             title = title or m["short"] or f"arXiv {arxiv}"
             version.update(arxiv=m["arxiv"] or arxiv, arxiv_version=m["version"])
+            if doi:  # ⑬ review: found by a publisher DOI: the arXiv version, which may differ from the published one
+                version.update(doi=doi)
         elif openreview:  # ⑬ downloaded from OpenReview: the title from the PDF itself, the forum id kept
             title = title or pdf.meta(data, ps)["short"] or f"OpenReview {openreview}"
             version.update(openreview=openreview)

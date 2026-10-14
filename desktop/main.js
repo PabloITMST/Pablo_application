@@ -247,8 +247,9 @@ ipcMain.handle("pablo:add-files", async (e, task, files) => {
 // whether the evidence moved. The version and the bytes' sha256 stay with the paper.
 const arxiv = { base: "https://arxiv.org/pdf/", api: "https://export.arxiv.org/api/query", max: 50 << 20, ms: 60000 };
 const openreview = { base: "https://openreview.net/", max: 50 << 20, ms: 60000 }, crossref = { api: "https://api.crossref.org/" };  // ⑬  // check.js points both at a local server
-ipcMain.handle("pablo:add-arxiv", async (e, task, text) => {
+ipcMain.handle("pablo:add-arxiv", async (e, task, text, via) => {
   fromWindow(e); known(task); if (!str(text, 300)) throw new Error("bad arXiv id");
+  const byDoi = via && str(via.doi, 300) && papers.doi(via.doi) ? papers.doi(via.doi).doi : null;  // ⑬ found by a publisher DOI
   const a = papers.arxiv(text);
   if (!a) throw new Error("arXiv 번호나 링크를 읽지 못했습니다. 예: arXiv:2510.10114, https://arxiv.org/abs/2510.10114v4");
   const data = await papers.fetchPdf(arxiv.base + a.id + (a.version || ""), { origin: new URL(arxiv.base).origin, max: arxiv.max, ms: arxiv.ms })
@@ -258,14 +259,14 @@ ipcMain.handle("pablo:add-arxiv", async (e, task, text) => {
   const before = papers.list(desk(), task).find(p => p.arxiv === a.id);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, data);
-  const x = (await ctl.py("source", file, "--arxiv", a.id)).source;
+  const x = (await ctl.py("source", file, "--arxiv", a.id, ...(byDoi ? ["--doi", byDoi] : []))).source;
   let moved = null;
   if (before && before.id !== x.id) {  // another version of a paper already here: did its evidence move?
     const r = await ctl.py("resolve", "--source", before.id);
     moved = r.anchors.reduce((m, y) => ({ ...m, [y.status]: (m[y.status] || 0) + 1 }), {});
   }
   const version = x.version.arxiv_version || a.version || null;
-  join(task, { id: x.id, title: x.title, arxiv: a.id, version, sha256: x.version.content_hash }, before && before.id);
+  join(task, { id: x.id, title: x.title, arxiv: a.id, version, sha256: x.version.content_hash, ...(byDoi ? { doi: byDoi } : {}) }, before && before.id);
   return { title: x.title, version, same: !!before && before.id === x.id, moved };
 });
 // C1: a paper leaves the task's list; what was located in it (answers, conditions, table cells) stays in the records

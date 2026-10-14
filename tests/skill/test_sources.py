@@ -261,6 +261,20 @@ def test_openreview_capture():
         assert (src.title, src.version["openreview"]) == ("OpenRAG", "Open123"), (src.title, src.version)
 
 
+def test_arxiv_found_by_doi():
+    """⑬ review: an arXiv version found by a publisher DOI keeps the DOI; the report says it may differ from the published one."""
+    from pablo_v2.skill.viewer import render_report
+    with tempfile.TemporaryDirectory() as d:
+        s = PabloSkill(IntentEngine(), None)
+        t = s.start_task("TinyRAG 재현", [])
+        pa = os.path.join(d, "a.pdf")
+        open(pa, "wb").write(tiny_pdf(TINY_A, "TinyRAG: A Tiny Graph RAG"))
+        src = s.capture_pdf(pa, arxiv="2501.00001", doi="10.1234/tinyrag.2025")
+        assert src.version["doi"] == "10.1234/tinyrag.2025"
+        s.add_spec(t.id, src.id, "TinyRAG reaches 61.5 accuracy on HotpotQA", 2, "result", "HotpotQA 정확도는 61.5", "61.5")
+        assert "DOI 10.1234/tinyrag.2025로 찾은 arXiv 판 (출판본과 다를 수 있음)" in render_report(s, t.id)
+
+
 def test_links_people_paste():
     """⑬ what the add box reads: arXiv's own DOI is an arXiv id; an OpenReview forum or pdf link is a paper; another DOI
     is a DOI (looked up); an OpenReview page that is no paper, or any other address, is a web page."""

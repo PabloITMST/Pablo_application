@@ -239,6 +239,7 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
         ver = src.version or {}
         bits = [f"**{src.title}**" + (f" {ver['arxiv_version']}" if ver.get("arxiv_version") else ""),
                 f"arXiv {ver['arxiv']}" if ver.get("arxiv") else None, f"OpenReview {ver['openreview']}" if ver.get("openreview") else None,
+                f"DOI {ver['doi']}로 찾은 arXiv 판 (출판본과 다를 수 있음)" if ver.get("doi") else None,
                 f"파일 해시 `{ver.get('content_hash', '')}`"]  # whole: a reader checks the PDF outside the app with it
         code = next((x for x in s.code_links(src) if x["official"]), None)
         if code:
@@ -1840,18 +1841,18 @@ if (window.pabloHost && pabloHost.chat) {
   // ⑬ an OpenReview link is a paper (its PDF); a DOI is looked up (arXiv's own DOI is an arXiv id: ARXIV takes it)
   const OPENREVIEW = /^(?:https?:\/\/)?(?:www\.)?openreview\.net\/(?:forum|pdf)\?/i, DOI = /^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?10\.\d{4,9}\//i;
   const item = v => ARXIV.test(v) || /^https?:\/\//i.test(v) || OPENREVIEW.test(v);
-  const one = v => (ARXIV.test(v) ? pabloHost.addArxiv : OPENREVIEW.test(v) && pabloHost.addOpenreview ? pabloHost.addOpenreview : pabloHost.addWeb)(V.task.id, v);
+  const one = (v, doi) => (ARXIV.test(v) ? pabloHost.addArxiv : OPENREVIEW.test(v) && pabloHost.addOpenreview ? pabloHost.addOpenreview : pabloHost.addWeb)(V.task.id, v, doi ? { doi } : undefined);
   const label = r => `${r.title}${r.version ? " " + r.version : ""}`;
-  async function batch(vs) {
+  async function batch(vs, doi) {
     hold(true); fresh(); const rows = [];
     for (const [i, v] of vs.entries()) {
       note.textContent = `${vs.length}개 중 ${i + 1}번째를 가져오는 중…`;
-      try { const r = await one(v); rows.push([r.same ? "same" : "ok", `✓ ${label(r)}${r.same ? " (이미 있음)" : ""}${r.moved ? " ·" + moved(r.moved) : ""}`]); }
+      try { const r = await one(v, doi); rows.push([r.same ? "same" : "ok", `✓ ${label(r)}${r.same ? " (이미 있음)" : ""}${r.moved ? " ·" + moved(r.moved) : ""}`]); }
       catch (e) { rows.push(["bad", `⚠ ${v}: ${fail(e)}`]); }
     }
     hold(false); arx.value = ""; report(rows, "자료"); refresh();
   }
-  const fetchArxiv = (v = arx.value.trim()) => {
+  const fetchArxiv = (v = arx.value.trim(), foundBy) => {
     if (!v || get.disabled) return;
     const parts = v.replace(/arxiv:\s+/gi, "arxiv:").split(/[\s,;]+/).filter(Boolean);
     if (parts.length > 1 && parts.every(item)) return batch(parts);  // ② several ids / links / addresses
@@ -1859,7 +1860,7 @@ if (window.pabloHost && pabloHost.chat) {
     const or = !ARXIV.test(v) && OPENREVIEW.test(v) && !!pabloHost.addOpenreview, web = !ARXIV.test(v) && !or && /^https?:\/\//i.test(v);
     if (!web && !or && !ARXIV.test(v)) return search();  // words: find the paper first
     hold(true); fresh(); note.textContent = or ? "OpenReview에서 받는 중…" : web ? "웹 문서를 가져오는 중…" : "arXiv에서 받는 중…";
-    (or ? pabloHost.addOpenreview : web ? pabloHost.addWeb : pabloHost.addArxiv)(V.task.id, v).then(r => {
+    (or ? pabloHost.addOpenreview : web ? pabloHost.addWeb : pabloHost.addArxiv)(V.task.id, v, foundBy ? { doi: foundBy } : undefined).then(r => {
       hold(false); arx.value = "";
       note.textContent = `${r.same ? "이미 있는 자료입니다" : "추가했습니다"}: ${r.title}${r.version ? " " + r.version : ""}.` + (r.moved ? moved(r.moved) : "");
       refresh();
@@ -1869,8 +1870,9 @@ if (window.pabloHost && pabloHost.chat) {
   const doi = v => {
     hold(true); fresh(); note.textContent = "DOI의 제목을 찾고, 같은 제목을 arXiv에서 찾는 중…";
     pabloHost.lookupDoi(v).then(r => { hold(false);
-      if (!r.hits.length) { note.textContent = `DOI ${r.doi}: "${r.title}". 출판사의 PDF는 바로 받을 수 없고, arXiv에서 같은 제목을 찾지 못했습니다. PDF를 받아 "📄 PDF 파일 고르기"로 추가하세요.`; return; }
-      show_(r.hits, `DOI ${r.doi}: "${r.title}"${r.year ? ` (${r.year})` : ""}. 출판사의 PDF는 바로 받을 수 없어 arXiv에서 같은 제목을 찾았습니다. 맞는 판을 가져오세요.`);
+      if (!r.hits.length) { note.textContent = `DOI ${r.doi}: "${r.title}". 출판사의 PDF는 바로 받을 수 없고, arXiv에서 같은 제목을 찾지 못했습니다. PDF를 받아 "📄 PDF 파일 고르기"로 추가하세요. (DOI를 Crossref로, 그 제목을 arXiv로 보냈습니다.)`; return; }
+      show_(r.hits, `DOI ${r.doi}: "${r.title}"${r.year ? ` (${r.year})` : ""}. 출판사의 PDF는 바로 받을 수 없어 arXiv에서 같은 제목을 찾았습니다. 맞는 판을 가져오세요.`,
+        r.doi, "DOI를 Crossref(api.crossref.org)로, 그 제목을 arXiv(export.arxiv.org)로 보냈습니다. arXiv 판은 출판본과 다를 수 있습니다(표의 숫자 포함). 재현 대상이 출판본이면 그 PDF를 파일로 넣으세요.");
     }, e => { hold(false); note.textContent = "⚠ " + fail(e); });
   };
   const search = () => {
@@ -1878,18 +1880,18 @@ if (window.pabloHost && pabloHost.chat) {
     hold(true); fresh(); note.textContent = "arXiv에서 찾는 중…";
     pabloHost.searchArxiv(v).then(rs => show_(rs), e => { hold(false); note.textContent = "⚠ " + fail(e); });
   };
-  const show_ = (rs, intro) => {
+  const show_ = (rs, intro, doi, sent) => {
     {
       hold(false); note.textContent = rs.length ? (intro || "") : "arXiv에서 찾은 논문이 없습니다."; hits.textContent = ""; hits.hidden = !rs.length;
       const picked = () => [...hits.querySelectorAll("[data-pick]:checked")].map(c => c.dataset.pick);
-      const many = h("button", { class: "pill", id: "arxiv-many", disabled: true, on: () => picked().length && batch(picked()) }, "고른 논문 가져오기");
+      const many = h("button", { class: "pill", id: "arxiv-many", disabled: true, on: () => picked().length && batch(picked(), doi) }, "고른 논문 가져오기");
       const have = new Set((((M.desk || {})[V.task.id] || {}).papers || []).map(p => p.arxiv).filter(Boolean));  // already a source here
-      hits.append(h("p", { class: "muted" }, "검색어를 arXiv(export.arxiv.org)로 보냈습니다. arXiv의 요청 제한 때문에 3초에 한 번까지 찾습니다."),
+      hits.append(h("p", { class: "muted", "data-sent": "1" }, sent || "검색어를 arXiv(export.arxiv.org)로 보냈습니다. arXiv의 요청 제한 때문에 3초에 한 번까지 찾습니다."),
         ...rs.map(x => h("div", { class: "hit", "data-hit": x.id, title: x.summary || null },
           have.has(x.id) ? null : [h("input", { type: "checkbox", "data-pick": x.id, title: "여러 개 골라 한 번에 가져오기" }), " "],
           h("b", null, x.title), " ", h("small", { class: "muted" }, `${x.authors} · ${x.year} · arXiv ${x.id}${x.version || ""}`), " ",
           have.has(x.id) ? h("small", { class: "have", "data-have": "1" }, "✓ 자료에 있음")
-            : h("button", { class: "link", "data-import": x.id, on: () => fetchArxiv(x.id) }, "가져오기"),
+            : h("button", { class: "link", "data-import": x.id, on: () => fetchArxiv(x.id, doi) }, "가져오기"),
           x.summary ? h("div", { class: "sum" }, x.summary) : null)), h("p", null, many));
       hits.addEventListener("change", () => { const n = picked().length; many.disabled = !n; many.textContent = n ? `고른 ${n}개 가져오기` : "고른 논문 가져오기"; });
     }

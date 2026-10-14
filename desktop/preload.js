@@ -22,7 +22,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   pickPdfs: task => ipcRenderer.invoke("pablo:pick-pdfs", task),  // the dialog, several PDFs at once -> their paths
   addFiles: (task, files) => ipcRenderer.invoke("pablo:add-files", task, files),  // picked or dropped PDFs (main checks each)
   pathOf: file => webUtils.getPathForFile(file),  // a dropped File -> its path ("" for one that is not a file on disk)
-  addArxiv: (task, text) => ipcRenderer.invoke("pablo:add-arxiv", task, text),  // C2: main downloads arxiv.org/pdf/<id>
+  addArxiv: (task, text, via) => ipcRenderer.invoke("pablo:add-arxiv", task, text, via),  // C2: main downloads arxiv.org/pdf/<id>
   addWeb: (task, url) => ipcRenderer.invoke("pablo:add-web", task, url),  // D1: Pablo fetches the page and keeps its snapshot
   searchArxiv: text => ipcRenderer.invoke("pablo:search-arxiv", text),  // D2: the words go to the arXiv API (no key)
   removeSource: (task, id) => ipcRenderer.invoke("pablo:remove-source", task, id),  // C1: the records stay

@@ -1420,6 +1420,8 @@ async function papersUi() {
   assert.strictEqual(await add("https://doi.org/10.48550/arXiv.2501.00001"), "이미 있는 자료입니다: TinyRAG v3.");
   assert.match(await add("doi:10.1234/tinyrag.2025"), /^DOI 10\.1234\/tinyrag\.2025: "TinyRAG: A Tiny Graph RAG" \(2025\)\. 출판사의 PDF는 바로 받을 수 없어 arXiv에서 같은 제목을 찾았습니다/);
   assert.ok(await js(`!$("arxiv-hits").hidden && !!document.querySelector('#arxiv-hits [data-hit="2501.00001"] [data-have]')`), "the arXiv version is listed (here: already a source)");
+  assert.match(await js(`document.querySelector("#arxiv-hits [data-sent]").textContent`), /^DOI를 Crossref\(api\.crossref\.org\)로, 그 제목을 arXiv\(export\.arxiv\.org\)로 보냈습니다\. arXiv 판은 출판본과 다를 수 있습니다/);
+  await js(`document.querySelector('#arxiv-hits [data-import="2502.00002"]') || true`);  // ThirdRAG is a source already; GoneRAG is missing upstream
   assert.match(await add("10.9999/unknown"), /^⚠ 그 DOI를 Crossref에서 찾지 못했습니다\.$/);
   console.log("ok OpenReview + DOI: forum link -> its PDF, missing -> said; arXiv DOI -> the arXiv paper; another DOI -> its title on arXiv; unknown DOI -> said");
   assert.deepStrictEqual(errors, [], "no script errors");
