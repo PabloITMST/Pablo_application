@@ -55,7 +55,7 @@ from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor, reads_like
 from pablo_v2.intent.render import render_candidates, render_history, render_intent
 from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
-from pablo_v2.skill.viewer import model, render_html, workspace
+from pablo_v2.skill.viewer import model, render_html, render_report, workspace
 from pablo_v2.skill.evidence import AnchorRejected
 from pablo_v2.skill.skill import (AUDIT_SCHEMA, REPRO_CRITERIA, SPEC_LABEL, DecisionRejected, PabloSkill,
                                   ResearchIncomplete, ResearchRejected, render_audit, render_brief, render_evidence, render_task)
@@ -141,6 +141,7 @@ def _parser() -> argparse.ArgumentParser:
     add("state")  # the desktop's live workspace model (read-only)
     add("brief").add_argument("task_id")
     add("audit").add_argument("task_id")
+    add("report").add_argument("task_id")  # ⑫ the reproduction report (Markdown)
 
     s = add("task")
     s.add_argument("text")
@@ -418,6 +419,9 @@ def _run(a, out) -> int:
     elif a.cmd == "audit":
         prompt, items = render_audit(s, a.task_id)
         out({"prompt": prompt, "schema": AUDIT_SCHEMA, "items": items}, prompt)
+    elif a.cmd == "report":
+        md = render_report(s, a.task_id)
+        out({"text": md, "title": s.get_task(a.task_id).text}, md)
     elif a.cmd == "brief":
         text, basis = render_brief(s, a.task_id)
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16] if text else ""

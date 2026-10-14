@@ -4,6 +4,7 @@ why and put back. Small generated PDFs (ui_fixture.tiny_pdf), stub judges, no ne
 """
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -228,6 +229,23 @@ def test_extract_again_keeps_the_users_work():
         assert sorted(live) == sorted([r.id, u.id, n.id]), live
         s.restore_spec(i.id)  # the one this extraction missed, back, and kept from now on
         assert i.research_state == "completed" and i.spec["kept"] is True
+
+
+def test_report():
+    """⑫ the report: papers with their official code, conditions with their pages, the fixed sections (what differs on
+    purpose, what was taken out and why) and the criteria; [n] never appears (a report is read apart from the app)."""
+    from pablo_v2.skill.viewer import render_report
+    with tempfile.TemporaryDirectory() as d:
+        s, t, a, _ = two(d)
+        (res,), (seed,), _ = s.spec(t.id, a.id)
+        s.deviate_spec(res.id, "ablation: 다른 모델로 비교")
+        s.drop_spec(seed.id, "학습하지 않는 방법")
+        md = render_report(s, t.id)
+        assert md.startswith("# 재현 보고서: TinyRAG 재현\n") and "**TinyRAG** v2 · arXiv 2501.00001" in md, md[:400]
+        assert "- HotpotQA 정확도 — TinyRAG p.2" in md
+        assert "## 논문과 다르게 한 것 (의도한 차이)\n\n- HotpotQA 정확도 — 이유: ablation: 다른 모델로 비교 · 범위: 별도 실행에서만" in md
+        assert "- 뺀 조건: 시드가 없다 — 이유: 학습하지 않는 방법" in md and "아직 재현 점검을 하지 않았습니다." in md
+        assert not re.search(r"\[\d+\]", md)
 
 
 def test_reads_are_not_departures():

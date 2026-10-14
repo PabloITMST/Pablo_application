@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -1023,6 +1023,17 @@ async function uiCheck() {
     /^📋 재현 조건을 다시 뽑을까요\?Pablo가 뽑은 조건은 새로 뽑은 목록으로 바뀝니다\..* 직접 더하거나 되살린 조건 1개와 의도한 차이로 둔 조건 0개는 그대로 둡니다\. 이전에 뺀 조건 1개는 다시 넣지 않습니다\.다시 뽑기 취소$/);
   await js(`[...document.querySelectorAll("[data-redo-ask] button")].find(b => b.textContent === "취소").click()`);
   assert.ok(await js(`!document.querySelector("[data-redo-ask]")`));
+  // ⑫ the report: saved where the user picks (the dialog stubbed here), with the fixed sections a reviewer reads first
+  const { dialog } = require("electron"), save0 = dialog.showSaveDialog, saved = path.join(S, "report.md");
+  dialog.showSaveDialog = async (w, o) => { assert.match(o.defaultPath, /^인사말 파일 정리 재현 보고서\.md$/); return { canceled: false, filePath: saved }; };
+  await js(`document.querySelector("#reports .link").click()`);
+  assert.match(await until(`(x => x && x.textContent)(document.querySelector("[data-report]"))`), /^📄 보고서를 저장했습니다: report\.md \(\d+줄\)/);
+  dialog.showSaveDialog = save0;
+  const md = fs.readFileSync(saved, "utf8");
+  for (const h of ["# 재현 보고서: 인사말 파일 정리", "## 재현 조건 (", "## 논문과 다르게 한 것 (의도한 차이)", "## 뺀 조건과 지운 기준", "## 작업 기준",
+                   "## 재현 점검", "## Pablo가 막거나 확인을 받은 작업", "## 바뀐 파일"]) assert.ok(md.includes(h), h);
+  assert.ok(md.includes("- 뺀 조건: 비교 대상은 HippoRAG2이다 — 이유: 이 재현의 범위 밖") && md.includes("- 지운 기준: 로그 파일은 지우지 마 — 이유: 로그는 서버에 따로 남김"));
+  console.log("ok report: saved as Markdown with the fixed sections (의도한 차이, 뺀 조건과 지운 기준, 점검)");
   // ③ a new task's criterion lines (the review's own): the ones read become criteria, the ones the reader could not
   // classify wait in the conversation for 반드시 / 가능하면 / 괜찮음; nothing is dropped without a word
   const lines3 = ["재현 작업", "test 셋은 튜닝에 쓰면 안 됨", "결과는 3번 돌려서 평균 내", "GPU 메모리는 24GB 안에서만 써",

@@ -435,6 +435,17 @@ ipcMain.handle("pablo:compare-column", async (e, task, mid, column) => {
   fs.writeFileSync(f, JSON.stringify(now, null, 1));
   return { ...r, entry: x };
 });
+// ⑫ the reproduction report: Markdown, saved where the user picks (nothing leaves the computer)
+ipcMain.handle("pablo:report", async (e, task) => {
+  fromWindow(e); known(task);
+  const r = await ctl.py("report", task);
+  const name = (r.title || task).replace(/[\\/:*?"<>|\r\n]+/g, " ").trim().slice(0, 60) + " 재현 보고서.md";
+  const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: "재현 보고서 저장", defaultPath: name,
+    filters: [{ name: "Markdown", extensions: ["md"] }] });
+  if (res.canceled || !res.filePath) return null;
+  fs.writeFileSync(res.filePath, r.text, "utf8");
+  return { name: path.basename(res.filePath), lines: r.text.split("\n").length };
+});
 // A5/A6 재현 점검: the agent reads the work folder (read-only sandbox, nothing can change, so no Guard per read) and
 // judges every paper condition, open setting and task criterion against the code, configs and run logs -> a table
 ipcMain.handle("pablo:audit", async (e, task) => {
