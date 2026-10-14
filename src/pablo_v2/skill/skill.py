@@ -210,8 +210,10 @@ class PabloSkill:
         constraints = {i.id: (i.strength or "soft", i.statement) for i in self.get_applicable_intent(task_id)["constraints"]}
         constraints |= {k: (v, guard.SYSTEM_POLICIES[k]) for k, v in guard.JUDGED_POLICIES.items()}
         basis = set(step["basis"]) if step else set()
-        # a comparison table compares, it does not bind; ⑦ nor does a condition the user differs from on purpose
-        sources = {c.id: c for c in self.checks(task_id) if not c.matrix and not deviation(c)}
+        # a comparison table compares, it does not bind; ⑦ nor does a condition the whole task differs from on purpose.
+        # One differed from in separate runs only stays a fact: the Guard decides by what the action touches.
+        sources = {c.id: c for c in self.checks(task_id) if not c.matrix and scope_of(c) != "task"}
+        runs = [c.id for c in sources.values() if scope_of(c) == "runs"]
         sources |= {c.id: c for c in map(self._find_check, basis) if c}
         done = [c for c in sources.values() if c.research_state == "completed"]
         said = (description, justification, step and step["action"],
@@ -230,7 +232,7 @@ class PabloSkill:
             constraints={k: st for k, (st, _) in constraints.items()},
             sources={c.id: c.outcome for c in sources.values()},
             valid_support=[c.id for c in done if c.id in cited and c.outcome in guard.SUPPORTING_OUTCOMES],
-            rewrites=list(rewrites))
+            rewrites=list(rewrites), separate=runs, edits_existing=edits_existing(description))
         act = ActionProposal(self._next_id("ACT"), task_id, description, step and step["id"], justification,
                              analysis, verdict, reasons, analysis_key=key, analysis_from=prev and prev.id)
         self.state.actions.append(act)
@@ -553,10 +555,15 @@ class PabloSkill:
         return sc
 
     # --- 0.8 ⑦ an intended deviation: the user differs from the paper on purpose (ablation, hardware), with why -------
-    def deviate_spec(self, sc_id: str, reason: str) -> SourceCheck:
-        """The paper's condition stays a fact (VERIFIED, cited); the Guard stops holding the work to it, the brief tells
-        the agent it differs on purpose and why, and 재현 점검 shows a difference as 의도한 차이. One span per decision
-        (spec["deviations"]: from, to, why), so a report says when it held."""
+    def deviate_spec(self, sc_id: str, reason: str, scope: str = "runs") -> SourceCheck:
+        """The paper's condition stays a fact (VERIFIED, cited) and the brief tells the agent it differs on purpose and
+        why. One span per decision (spec["deviations"]: from, to, why, scope), so a report says when it held.
+        scope (user decision, 10/14): "runs" (default) = an ablation: the base run stays as the paper says; a new file or
+        a command may differ, an edit of an existing file is asked about (S07 WARN), and 재현 점검 still calls a
+        different base run 다름. "task" = the whole task differs: the Guard no longer holds the work to it, and 재현 점검
+        shows a difference as 의도한 차이. A span without scope (before 10/14) is "task"."""
+        if scope not in ("runs", "task"):
+            raise ValueError(f"scope is runs or task, not {scope}")
         sc = self._find_check(sc_id)
         if not sc or not sc.spec or sc.spec.get("missing") or sc.research_state != "completed":
             raise KeyError(f"no live condition {sc_id} to differ from")
@@ -564,7 +571,7 @@ class PabloSkill:
             raise ValueError("이미 의도한 차이로 둔 조건입니다.")
         if not reason.strip():
             raise ValueError("의도한 차이로 두려면 이유를 적어야 합니다.")
-        sc.spec["deviations"] = sc.spec.get("deviations", []) + [{"from": now(), "to": None, "why": reason.strip()}]
+        sc.spec["deviations"] = sc.spec.get("deviations", []) + [{"from": now(), "to": None, "why": reason.strip(), "scope": scope}]
         self.save()
         return sc
 
@@ -577,7 +584,7 @@ class PabloSkill:
         self.save()
         return sc
 
-    def compare(self, task_id: str, src_ids: list[str], columns: list[str] | None = None
+    def compare(self, task_id: str, src_ids: list[str], columns: list[str] | None = None, into: str | None = None
                 ) -> tuple[str, list[SourceCheck], list[dict]]:
         """C3: a table of the task's papers (rows) by columns (default COLUMNS). The judge fills one paper's row per
         call, the same columns each time and no other paper in view (no value crosses between rows, no paper is cut to
@@ -592,7 +599,14 @@ class PabloSkill:
         columns = list(dict.fromkeys(c.strip() for c in (columns or COLUMNS) if c and c.strip()))[:8]
         if not columns:
             raise ValueError("a comparison table needs at least one column")
-        mid, cells, empty = self._next_id("M"), [], []
+        if into:  # ⑧ review: one more column of a table that is there (one judge call per paper for that column only)
+            have = {(c.matrix["source_id"], c.matrix["column"]) for c in self.checks(task_id) if c.matrix and c.matrix["id"] == into}
+            if not any(c.matrix and c.matrix["id"] == into for c in self.checks(task_id)):
+                raise KeyError(f"no table {into} in {task_id}")
+            columns = [c for c in columns if not any(col == c for _, col in have)]
+            if not columns:
+                raise ValueError("그 열은 이미 표에 있습니다.")
+        mid, cells, empty = into or self._next_id("M"), [], []
         for src in srcs:
             r = self.judge.compare_paper(columns, src.title, self.snapshot_text(src).split("\f")[:COMPARE_PAGES])
             row = {}
@@ -883,6 +897,18 @@ def deviation(c) -> dict | None:
     return d if d and d.get("to") is None else None
 
 
+def scope_of(c) -> str | None:
+    """⑦ "runs" | "task" while an intended deviation holds, else None (a span from before 10/14 has no scope: task)."""
+    d = deviation(c)
+    return (d.get("scope") or "task") if d else None
+
+
+def edits_existing(description: str) -> bool:
+    """⑦ does the action change or delete a file that is there (desktop: "파일 수정: x, 파일 삭제: y")? Creating a file or
+    running a command leaves the base run as it is."""
+    return bool(re.search(r"(파일 수정|파일 삭제|파일 변경):", description.split("\n")[0]))
+
+
 def _pdf_path(src: EvidenceSource) -> str:
     return src.snapshot.removesuffix(".txt") + ".pdf"
 
@@ -965,7 +991,9 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
             text += f" ({', '.join(dict.fromkeys(where))})"
         text = text if len(text) <= BRIEF_FACT_CHARS else text[:BRIEF_FACT_CHARS] + "…"
         if c.spec and deviation(c):  # ⑦ the user differs from it on purpose: not a rule for the agent, said with why
-            differ.append(f"- [{SPEC_LABEL.get(c.spec['category'], c.spec['category'])}] {text} → 이유: {deviation(c)['why']}")
+            differ.append(f"- [{SPEC_LABEL.get(c.spec['category'], c.spec['category'])}] {text} → 이유: {deviation(c)['why']}"
+                          + (" (기본 실행은 논문대로 두고, 새 파일이나 실행 옵션으로 따로 돌릴 때만 다르게)" if scope_of(c) == "runs"
+                             else " (이 작업 전체에서 다르게)"))
             continue
         if c.spec:  # a paper's reproduction condition: the statement is the fact
             paper = True

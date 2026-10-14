@@ -194,6 +194,24 @@ def test_compare_table():
                 raise AssertionError("a name is 1-120 characters")
             except ValueError:
                 pass
+        # ⑧ review: one more column of this table, asked alone (one call per paper, that column only), same table id
+        asked = []
+
+        class OneColumn:
+            def compare_paper(self, columns, title, pages):
+                asked.append(columns)
+                q = "TinyRAG reaches 61.5 accuracy on HotpotQA" if title == "TinyRAG" else "OtherRAG reaches 58.2 accuracy on HotpotQA"
+                return {"cells": [{"column": columns[0], "value": q.split()[2], "metric": "accuracy", "quote": q, "page": 2}]}
+        s.judge = OneColumn()
+        mid2, more, none = s.compare(t.id, [a.id, b.id], ["HotpotQA 결과"], into="M1")
+        assert mid2 == "M1" and asked == [["HotpotQA 결과"], ["HotpotQA 결과"]] and none == []
+        assert [(c.matrix["id"], c.matrix["column"], c.conclusion) for c in more] == [("M1", "HotpotQA 결과", "61.5 [1]"), ("M1", "HotpotQA 결과", "58.2 [1]")]
+        for bad, err in ((["HotpotQA 결과"], ValueError), (["x"], KeyError)):  # already there; no such table
+            try:
+                s.compare(t.id, [a.id, b.id], bad, into="M1" if err is ValueError else "M9")
+                raise AssertionError(f"{bad} refused")
+            except err:
+                pass
 
 
 class SpecJudge:  # each paper's conditions, quotes from that paper

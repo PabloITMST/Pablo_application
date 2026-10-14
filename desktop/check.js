@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -857,6 +857,9 @@ async function uiCheck() {
   const diff = await js(`[...document.querySelectorAll('[data-id="ACT1"] pre.diff span')].map(x => x.className + ":" + x.textContent)`);
   assert.deepStrictEqual(diff, ["file:--- hello.txt", "hunk:@@ -1 +1,2 @@", ": hello", "add:+안녕하세요"]);
   assert.strictEqual(await js(`document.querySelector('[data-id="ACT2"] pre.cmd').textContent`), "Remove-Item keep.txt");
+  // review: a BLOCK is Pablo's decision, not the user's ("사용자가 취소했습니다" under it was wrong); no "Guard" in the words
+  assert.deepStrictEqual(await js(`(c => [c.querySelector("[data-blocked]").textContent, /사용자가 취소|Guard/.test(c.textContent)])(document.querySelector('[data-id="ACT2"]'))`),
+    ["Pablo가 막아 실행하지 않았습니다. ", false]);
   console.log("ok cards: WARN shows the diff,", JSON.stringify(diff), "| BLOCK shows the command without its shell");
 
   // A3: the audit's file:line -> the code panel on that line (read-only), VS Code / the folder outside the app; nothing
@@ -929,21 +932,22 @@ async function uiCheck() {
   await js(`${card}.querySelector("[data-dev-why-in]").value = "ablation: 임베딩 모델 비교"; ${card}.querySelector("[data-deviate-ok]").click()`);
   await until1(`!!${card}.querySelector("[data-deviated]")`);
   assert.match(await until1(`(x => x && x.textContent)(document.querySelector('#live [data-spec-edit="deviate"]'))`),
-    /^◇ 논문 조건을 의도한 차이로 두었습니다: 모델 · 임베딩 모델은 all-mpnet-base-v2이다 \(이유: ablation: 임베딩 모델 비교\)\. Pablo는/);
-  const b2 = swap();
-  assert.ok(b2.verdict !== "BLOCK" && !b2.rules.includes("S01"), JSON.stringify(b2));
+    /^◇ 논문 조건을 의도한 차이\(별도 실행에서만\)로 두었습니다: 모델 · 임베딩 모델은 all-mpnet-base-v2이다 \(이유: ablation: 임베딩 모델 비교\)\. 기본 실행은 논문대로/);
+  assert.strictEqual(await js(`${card}.querySelector("[data-deviated]") && 1`), 1);
+  const b2 = swap();  // the default scope (separate runs only): editing config.yaml, the base run's file, is asked about
+  assert.ok(b2.verdict === "WARN" && b2.rules.includes("S07") && !b2.rules.includes("S01"), JSON.stringify(b2));
   const brief = JSON.parse(execFileSync("python", ["-m", "pablo_v2", "brief", "T1", "--json", "--dir", S],
     { encoding: "utf8", env: { ...process.env, PYTHONPATH: path.join(__dirname, "../src"), PYTHONIOENCODING: "utf-8" } })).text;
-  assert.match(brief, /일부러 논문과 다르게 두는 조건[^\n]*\n- \[모델\] 임베딩 모델은 all-mpnet-base-v2이다 → 이유: ablation: 임베딩 모델 비교/);
+  assert.match(brief, /일부러 논문과 다르게 두는 조건[^\n]*\n- \[모델\] 임베딩 모델은 all-mpnet-base-v2이다 → 이유: ablation: 임베딩 모델 비교 \(기본 실행은 논문대로/);
   await js(`show({ mode: "intent" })`);
-  assert.match(await until1(`(x => x && x.textContent)(document.querySelector('#panel [data-dev]'))`), /^◇ 의도한 차이: ablation: 임베딩 모델 비교$/);
+  assert.match(await until1(`(x => x && x.textContent)(document.querySelector('#panel [data-dev]'))`), /^◇ 의도한 차이\(별도 실행에서만\): ablation: 임베딩 모델 비교$/);
   if (shots || view) { await sleep(200); fs.writeFileSync(path.join(shots || view, "intended-deviation.png"), (await win.capturePage()).toPNG()); }
   await js(`document.querySelector('#panel [data-undeviate]').click()`);
   await until1(`!document.querySelector('#panel [data-dev]') && !!document.querySelector('#live [data-spec-edit="undeviate"]')`);
   const b3 = swap();
   assert.ok(b3.verdict === "BLOCK" && b3.rules.includes("S01"), JSON.stringify(b3));
   await js(`close()`);
-  console.log("ok intended deviation: BLOCK on the embedding model -> 의도한 차이로 두기 (why first) -> not blocked, the brief says why -> 논문대로 되돌리기 -> blocked again");
+  console.log("ok intended deviation: BLOCK on the embedding model -> 의도한 차이로 두기 (why first; separate runs by default) -> the base file's edit is asked (S07), the brief says why -> 논문대로 되돌리기 -> blocked again");
 
   // D4: a turn's changes (checkpoint before / after, shadow git under the state dir) -> 변경 보기 -> 되돌리기
   const W = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-ui-ws-")), at = f => path.join(W, f);
@@ -1129,9 +1133,10 @@ async function papersUi() {
   // ⑧ the datasets both papers use -> a column of their results, side by side (the 비교표 form, these columns + it)
   assert.strictEqual(await js(`document.querySelector("#log [data-common]").dataset.common`), "HotpotQA|MuSiQue");
   await js(`document.querySelector("#log [data-matrix]").scrollIntoView()`); await sleep(200); await shot("compare-table.png");
+  // that column only, into this table (one call per paper; needs the account): not the whole table again
   await js(`document.querySelector('#log [data-add-column="HotpotQA"]').click()`);
-  assert.strictEqual(await until(`(i => i && i.value)($("columns"))`), "데이터셋, 주요 결과, 효율, 한계, HotpotQA 결과");
-  await js(`document.querySelector("[data-compare-form]").closest(".msg").remove()`);
+  assert.match(await until(`(x => x && x.textContent)(document.querySelector("#log [data-matrix] [data-add-error]"))`), /ChatGPT에 먼저 연결하세요/);
+  assert.ok(await js(`!document.querySelector("[data-compare-form]")`), "not the 비교표 form for the whole table");
   // ⑧ ✎ on a row: the name the user knows the paper by, in the table, the source list and Pablo's records; then back
   const named = (id, name, via) => js(`document.querySelector('${via} [data-rename="${id}"]').click();
     (i => { i.value = ${JSON.stringify(name)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector('[data-rename-in="${id}"]'))`);
@@ -1140,6 +1145,10 @@ async function papersUi() {
   assert.match(await until(`(t => /^Tiny RAG/.test(t || "") && t)(${head(fx.a)})`), /^Tiny RAG v2✎$/);
   assert.ok(await js(`[...document.querySelectorAll("#src .paper b")].some(b => b.textContent === "Tiny RAG") && M.papers["${fx.a}"].title === "Tiny RAG"`));
   assert.strictEqual(deskJson().pdf.T1.find(p => p.id === fx.a).title, "Tiny RAG");
+  await js(`close(); document.querySelector('#log [data-matrix] tr[data-paper="${fx.a}"] .cite').click()`);
+  assert.strictEqual(await settled(), "FOUND");
+  assert.match(await js(`$("panel").querySelector(".url").textContent`), /^📄 Tiny RAG · PDF$/, "its [n] opens the panel under the new name");
+  await js(`close()`);
   await named(fx.a, "TinyRAG", "#src");
   await until(`/^TinyRAG v2/.test(${head(fx.a)} || "")`);
   const page = () => js(`[$("panel").querySelector(".url").textContent, $("panel").querySelector(".pnum").textContent]`);

@@ -36,8 +36,8 @@ def block_spec(d: str) -> dict:
     e = IntentEngine.load(os.path.join(d, "intent.json"))
     s = PabloSkill.load(os.path.join(d, "skill.json"), e, SwapJudge())
     act = s.propose_action("T1", SWAP)
-    if act.verdict == "BLOCK":
-        s.decide_action(act.id, "reject", "Guard BLOCK: 실행하지 않았습니다.")
+    if act.verdict != "ALLOW":
+        s.decide_action(act.id, "reject", "Guard BLOCK: 실행하지 않았습니다." if act.verdict == "BLOCK" else "사용자가 대화에서 취소했습니다.")
     return {"act": act.id, "verdict": act.verdict, "rules": [r["rule"] for r in act.reasons]}
 
 

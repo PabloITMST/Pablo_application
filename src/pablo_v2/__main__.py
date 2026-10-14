@@ -31,7 +31,7 @@ Evidence  source <url> [--title T]                Pablo fetches + snapshots the 
                                                   task's conditions from any paper: one paper is reproduced)
           add-spec T1 --source SRC1 --quote Q --page N --category C --statement S [--value V]   one condition by hand
           drop-spec SC5 --reason R | restore-spec SC5   take a condition out (kept, with why) / back
-          deviate SC5 --reason R | undeviate SC5   ⑦ differ from it on purpose (the Guard stops holding to it) / back
+          deviate SC5 --reason R [--scope runs|task] | undeviate SC5   ⑦ differ from it on purpose / back
           rename-source SRC2 --title "HippoRAG 2"  ⑧ the name the user knows a paper by
           compare T1 --source SRC1 --source SRC2 [--columns JSON]   C3: a table, one judge call per paper, each cell
                                                   anchored or left empty -> M1 + cells
@@ -130,8 +130,10 @@ def _parser() -> argparse.ArgumentParser:
     add("restore-spec").add_argument("check_id")
     s = add("rename-source")  # ⑧ the name the user knows a paper by
     s.add_argument("source_id"), s.add_argument("--title", required=True)
-    s = add("deviate")  # ⑦ differ from a paper condition on purpose (why required): the Guard stops holding the work to it
+    s = add("deviate")  # ⑦ differ from a paper condition on purpose (why required)
     s.add_argument("check_id"), s.add_argument("--reason", required=True)
+    s.add_argument("--scope", choices=["runs", "task"], default="runs",
+                   help="runs (default): separate runs only, the base run stays as the paper says; task: the whole task")
     add("undeviate").add_argument("check_id")  # ⑦ back to the paper's condition
     s = add("view")
     s.add_argument("id", nargs="?", help="task to show first (--html: default the latest)")
@@ -206,6 +208,7 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("task_id")
     s.add_argument("--source", action="append", required=True, help="PDF source id, two or more")
     s.add_argument("--columns", type=_json_arg, help='["데이터셋", "평가 지표", ...] (default: skill.COLUMNS)')
+    s.add_argument("--into", help="⑧ a table that is there (M1): its new columns only, the same matrix id")
     return p
 
 
@@ -365,7 +368,7 @@ def _run(a, out) -> int:
             "\n".join([sc.conclusion, *(render_evidence(s, e) for e in ids),
                        *(f"dropped p.{d['page']}: {d['quote']} ({d['why']})" for d in dropped)]))
     elif a.cmd == "compare":
-        mid, cells, empty = s.compare(a.task_id, a.source, a.columns)
+        mid, cells, empty = s.compare(a.task_id, a.source, a.columns, a.into)
         v = model(s, a.task_id)  # the desktop shows the table without a reload
         ids = [e for c in cells for e in v["checks"][c.id]["evidence"]]
         out({"matrix": mid, "cells": [v["checks"][c.id] for c in cells], "empty": empty,
@@ -398,7 +401,7 @@ def _run(a, out) -> int:
         src = s.rename_source(a.source_id, a.title)
         out({"source": asdict(src)}, f"{src.id} -> {src.title}")
     elif a.cmd in ("deviate", "undeviate"):
-        sc = s.deviate_spec(a.check_id, a.reason) if a.cmd == "deviate" else s.undeviate_spec(a.check_id)
+        sc = s.deviate_spec(a.check_id, a.reason, a.scope) if a.cmd == "deviate" else s.undeviate_spec(a.check_id)
         out({"check": asdict(sc)}, f"{sc.id} {'differs on purpose' if a.cmd == 'deviate' else 'back to the paper'}")
     elif a.cmd == "view" and a.html:
         path = os.path.abspath(os.path.join(a.dir, f"view-{a.id}.html" if a.id else "pablo.html"))

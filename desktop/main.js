@@ -380,13 +380,14 @@ ipcMain.handle("pablo:condition", async (e, task, action, o) => {
     return r;
   }
   // ⑦ deviate (why required) / undeviate: the user differs from the condition on purpose, or goes back to the paper
-  const why = ["drop", "deviate"].includes(action);
-  if (!["drop", "restore", "deviate", "undeviate"].includes(action) || !str(o.id, 20) || !/^SC\d+$/.test(o.id) || (why && (!str(o.reason, 300) || !o.reason.trim())))
-    throw new Error("bad condition");
+  const why = ["drop", "deviate"].includes(action), scope = o.scope == null ? "runs" : o.scope;  // ⑦ runs: separate runs only (default)
+  if (!["drop", "restore", "deviate", "undeviate"].includes(action) || !str(o.id, 20) || !/^SC\d+$/.test(o.id) || (why && (!str(o.reason, 300) || !o.reason.trim()))
+    || !["runs", "task"].includes(scope)) throw new Error("bad condition");
   const cmd = { drop: "drop-spec", restore: "restore-spec", deviate: "deviate", undeviate: "undeviate" }[action];
-  const r = await ctl.py(cmd, o.id, ...(why ? ["--reason", o.reason.trim()] : []))
+  const r = await ctl.py(cmd, o.id, ...(why ? ["--reason", o.reason.trim()] : []), ...(action === "deviate" ? ["--scope", scope] : []))
     .catch(err => { throw new Error(/^no (live condition|condition|intended deviation)/.test(err.message) ? "이미 빠졌거나 바뀐 조건입니다." : short(err.message)); });
-  logChat(task, { role: "spec-" + action, at: new Date().toISOString(), check: o.id, ...(why ? { reason: o.reason.trim() } : {}) });
+  logChat(task, { role: "spec-" + action, at: new Date().toISOString(), check: o.id, ...(why ? { reason: o.reason.trim() } : {}),
+    ...(action === "deviate" ? { scope } : {}) });
   return r.check.id;
 });
 // A2 the paper's reproduction conditions -> anchored checks; the conversation gets a card (chat.json "spec")
@@ -414,6 +415,24 @@ ipcMain.handle("pablo:compare", async (e, task, columns) => {
     cells: r.cells.map(c => c.id), empty: r.empty.map(x => ({ source: x.source_id, column: x.column, ...(x.value ? { value: x.value } : {}) })) };
   logChat(task, entry);
   return { ...r, entry };
+});
+// ⑧ review: one column added to a table that is there (a dataset both papers use): only that column is asked of each of the
+// table's papers, and the table's entry in the conversation grows by it (not the whole table again: 1-2 minutes, usage)
+ipcMain.handle("pablo:compare-column", async (e, task, mid, column) => {
+  fromWindow(e); known(task);
+  if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
+  if (!str(mid, 20) || !/^M\d+$/.test(mid) || !str(column, 40) || !column.trim()) throw new Error("bad column");
+  const f = path.join(ctl.dir, "chat.json"), log = JSON.parse(fs.readFileSync(f, "utf8"));
+  const entry = (log[task] || []).find(x => x.role === "compare" && x.matrix === mid);
+  if (!entry) throw new Error("그 비교표를 찾지 못했습니다.");
+  if (entry.columns.length >= 8) throw new Error("비교표의 열은 8개까지입니다.");
+  const col = column.trim(), r = await ctl.py("compare", task, ...entry.papers.flatMap(p => ["--source", p.id]), "--columns", JSON.stringify([col]), "--into", mid)
+    .catch(err => { console.error("[pablo] compare-column", err.message); throw new Error(short(err.message)); });
+  const now = JSON.parse(fs.readFileSync(f, "utf8")), x = now[task].find(y => y.role === "compare" && y.matrix === mid);  // read again: a turn may have logged meanwhile
+  x.columns = [...x.columns, col]; x.cells = [...x.cells, ...r.cells.map(c => c.id)];
+  x.empty = [...(x.empty || []), ...r.empty.map(y => ({ source: y.source_id, column: y.column, ...(y.value ? { value: y.value } : {}) }))];
+  fs.writeFileSync(f, JSON.stringify(now, null, 1));
+  return { ...r, entry: x };
 });
 // A5/A6 재현 점검: the agent reads the work folder (read-only sandbox, nothing can change, so no Guard per read) and
 // judges every paper condition, open setting and task criterion against the code, configs and run logs -> a table

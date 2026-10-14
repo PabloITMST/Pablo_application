@@ -115,21 +115,28 @@ def test_intended_deviation():
         s, t, a, _ = two(d)
         s.judge = GuardJudge()
         (res,), (seed,), _ = s.spec(t.id, a.id)
-        rules = lambda: [r["rule"] for r in s.propose_action(t.id, "평가 정확도를 70으로 맞춘다").reasons]  # noqa: E731
+        rules = lambda d="평가 정확도를 70으로 맞춘다": [  # noqa: E731 (G02: no plan in this test)
+            r["rule"] for r in s.propose_action(t.id, d).reasons if r["rule"] != "G02"]
         assert "S01" in rules()
         refused(lambda: s.deviate_spec(res.id, "  "), ValueError, "이유")
         refused(lambda: s.deviate_spec(seed.id, "x"), KeyError)  # what the paper does not state: nothing to differ from
-        s.deviate_spec(res.id, "ablation: 다른 모델로 비교")
+        s.deviate_spec(res.id, "ablation: 다른 모델로 비교")  # the user's default (10/14): in separate runs only
         refused(lambda: s.deviate_spec(res.id, "again"), ValueError, "이미")
-        assert "S01" not in rules() and res.outcome == "VERIFIED"
+        assert rules() == ["S06"] and res.outcome == "VERIFIED"  # a command / a new file: the separate run is allowed
+        edit = rules("파일 수정: config.yaml\n-acc: 61.5\n+acc: 70")
+        assert edit == ["S07"], edit  # the base run's file: asked about (WARN), not blocked, not let through
         brief = render_brief(s, t.id)[0]
-        assert "일부러 논문과 다르게 두는 조건" in brief and "이유: ablation: 다른 모델로 비교" in brief, brief
+        assert "일부러 논문과 다르게 두는 조건" in brief and "이유: ablation: 다른 모델로 비교 (기본 실행은 논문대로" in brief, brief
         assert "확인된 근거:" not in brief  # its only fact is the one differed from
         assert held(s, t.id)[1] == ["61.5"]  # 재현 점검 still compares it (the card shows the difference as intended)
         s.undeviate_spec(res.id)
         assert "S01" in rules() and "일부러" not in render_brief(s, t.id)[0]
         assert [x["why"] for x in res.spec["deviations"]] == ["ablation: 다른 모델로 비교"] and res.spec["deviations"][0]["to"]
         refused(lambda: s.undeviate_spec(res.id), KeyError)
+        s.deviate_spec(res.id, "GPU가 달라 이 작업 전체를 다르게", "task")  # the whole task: the Guard is not given it at all
+        assert rules() == [] and rules("파일 수정: config.yaml") == []
+        assert "(이 작업 전체에서 다르게)" in render_brief(s, t.id)[0]
+        refused(lambda: s.undeviate_spec(res.id) and s.deviate_spec(res.id, "x", "everywhere"), ValueError)
 
 
 def cli(d, *args):

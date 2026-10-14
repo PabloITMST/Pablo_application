@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   renameSource: (task, id, title) => ipcRenderer.invoke("pablo:rename-source", task, id, title),  // ⑧ ✎ the name the user knows it by
   setPrimary: (task, id) => ipcRenderer.invoke("pablo:set-primary", task, id),  // C1: the 주 논문 (재현 조건)
   compare: (task, columns) => ipcRenderer.invoke("pablo:compare", task, columns),  // C3: 비교표
+  compareColumn: (task, matrix, column) => ipcRenderer.invoke("pablo:compare-column", task, matrix, column),  // ⑧ one more column
   condition: (task, action, o) => ipcRenderer.invoke("pablo:condition", task, action, o),  // ⑩ add (a picked sentence) | drop (why) | restore; ⑦ deviate (why) | undeviate
   setNet: (task, on) => ipcRenderer.invoke("pablo:set-net", task, on),
   setRoute: (task, route) => ipcRenderer.invoke("pablo:set-route", task, route),  // paper + folder: agent | ask  // D1: 인터넷 for this task's commands
