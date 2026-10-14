@@ -70,6 +70,22 @@ def test_score():
         assert "재현율 67%" in md and "정밀도 67%" in md and "개체 연결은 동의어를 무시한다 (p.2)" in md, md
 
 
+def test_review_rules():
+    """review: a result quoted at the gold's place but with another value is no match (listed place_only for a person);
+    a fact or scope extraction is outside the precision denominator, and one at a gold condition's place is a kind miss."""
+    pages = pdf.pages(tiny_pdf(TINY_A, "TinyRAG: A Tiny Graph RAG"))
+    at = {g["id"]: g["at"] for g in score.gold_spans(GOLD, pages)}
+    ex = [{"id": "SC1", "category": "result", "kind": "result", "statement": "HotpotQA는 58.2", "value": "58.2", "at": at["G1"]},
+          {"id": "SC2", "category": "dataset", "kind": "fact", "statement": "HotpotQA로 평가", "value": "", "at": at["G2"]},
+          {"id": "SC3", "category": "protocol", "kind": "setting", "statement": "동의어 무시", "value": "", "at": at["G3"]}]
+    r = score.score(GOLD, pages, ex)
+    assert (r["extracted"], r["aside"], r["recall"], r["precision"]) == (2, 1, 0.333, 0.5), r
+    assert [(x["gold"], x["check"]) for x in r["place_only"]] == [("G1", "SC1")]
+    assert [(x["check"], x["gold"]) for x in r["kind_misses"]] == [("SC2", "G2")]
+    md = score.markdown("TinyRAG", r)
+    assert "값이 다른 결과" in md and "(값 58.2, 정답 61.5)" in md and "정밀도 분모 밖" in md, md
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

@@ -2,6 +2,7 @@
  "paper": "Sample-specific Masks for Visual Reprogramming-based Prompting",
  "arxiv": "2406.03150",
  "version": "v1",
+ "pdf": "../../../.pablo/gold/papers/arxiv-2406.03150v1.pdf",
  "sha256": "96f158a34d6e9e6d63b8731a25e4241b8184c19cc730a1b73b01cfa322d327e1",
  "conditions": [
   {

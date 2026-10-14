@@ -2,6 +2,7 @@
  "paper": "Batch and Match: Black-Box Variational Inference with a Score-Based Divergence",
  "arxiv": "2402.14758",
  "version": "v2",
+ "pdf": "../../../.pablo/gold/papers/arxiv-2402.14758v2.pdf",
  "sha256": "cec53d0301973a3ed82ceb16c7165e6c298d4871fb9883d523bfc711d434ad99",
  "conditions": [
   {

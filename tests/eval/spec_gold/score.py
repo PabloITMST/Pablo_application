@@ -10,9 +10,13 @@
 
 A match is deterministic, never a model's judgement:
   1. place: the extraction's anchor and the gold quote (anchored now in the same PDF, pdf.anchor) overlap on one page;
+     a result must also agree on its value (review: a table row quoted right with its numbers paired wrong overlaps
+     the gold too); a result that only overlaps is listed under place_only, for a person to read;
   2. value: same category, and each value is in the other (skill.has_value: numbers by value, words case-insensitive),
      for values that code has to spell out (skill.checkable).
 An extraction that matches nothing is not wrong by definition: it is listed for review (the gold may miss it).
+Precision counts what a reproduction is held to (setting, result, no kind); a fact or scope extraction is apart (⑥):
+one that overlaps a gold condition is a kind miss (the gold holds only settings and results).
 """
 from __future__ import annotations
 
@@ -54,29 +58,45 @@ def extracted(state_dir: str, task: str) -> list[dict]:
             continue
         link = next((x for x in st.get("links", []) if x["target_id"] == c["id"]), None)
         a = anchors.get(link["evidence_id"]) if link else None
-        out.append({"id": c["id"], "category": c["spec"]["category"], "statement": c["requirement"],
+        out.append({"id": c["id"], "category": c["spec"]["category"], "kind": c["spec"].get("kind"), "statement": c["requirement"],
                     "value": c["spec"].get("value", ""), "quote": a["quote"]["exact"] if a else "",
                     "at": (a["selector"]["page"], a["selector"]["start"], a["selector"]["end"]) if a else None})
     return out
 
 
+def overlaps(e: dict, g: dict) -> bool:
+    return bool(e["at"] and g["at"] and e["at"][0] == g["at"][0] and e["at"][1] < g["at"][2] and g["at"][1] < e["at"][2])
+
+
+def agree(e: dict, g: dict) -> bool:
+    return checkable(g["value"]) and checkable(e["value"]) and has_value(e["value"], g["value"]) and has_value(g["value"], e["value"])
+
+
 def matches(e: dict, g: dict) -> str | None:
     """-> "place" | "value" | None."""
-    if e["at"] and g["at"] and e["at"][0] == g["at"][0] and e["at"][1] < g["at"][2] and g["at"][1] < e["at"][2]:
-        return "place"
-    if e["category"] == g["category"] and checkable(g["value"]) and checkable(e["value"]) \
-            and has_value(e["value"], g["value"]) and has_value(g["value"], e["value"]):
+    if overlaps(e, g):
+        result = g["category"] == "result" or g.get("kind") == "result" or e["category"] == "result"
+        if not result or agree(e, g):
+            return "place"
+    if e["category"] == g["category"] and agree(e, g):
         return "value"
     return None
 
 
 def score(gold: dict, pages: list[str], ex: list[dict], everything: bool = False) -> dict:
     gs = gold_spans(gold, pages, everything)
+    aside = [e for e in ex if e.get("kind") in ("fact", "scope")]
+    ex = [e for e in ex if e not in aside]
     pairs = [(e, g, how) for e in ex for g in gs if (how := matches(e, g))]
     hit_g = {g["id"] for _, g, _ in pairs}
     hit_e = {e["id"] for e, _, _ in pairs}
     return {
         "gold": len(gs), "extracted": len(ex),
+        "place_only": [{"gold": g["id"], "check": e["id"], "gold_value": g["value"], "value": e["value"], "statement": e["statement"]}
+                       for e in ex for g in gs if overlaps(e, g) and not matches(e, g)],
+        "aside": len(aside),
+        "kind_misses": [{"check": e["id"], "kind": e["kind"], "gold": g["id"], "statement": e["statement"]}
+                        for e in aside for g in gs if overlaps(e, g)],
         "recall": round(len(hit_g) / len(gs), 3) if gs else None,
         "precision": round(len(hit_e) / len(ex), 3) if ex else None,
         "matched": [{"gold": g["id"], "check": e["id"], "how": how, "statement": g["statement"]} for e, g, how in pairs],
@@ -98,6 +118,12 @@ def markdown(name: str, r: dict) -> str:
     if r["unmatched"]:
         out += ["정답에 없는 추출 (틀린 것인지, 정답이 빠뜨린 것인지 사람이 볼 것):", ""] + \
                [f"- [{x['category']}] {x['statement']} (p.{x['page']})" for x in r["unmatched"]] + [""]
+    if r["place_only"]:
+        out += ["정답과 같은 자리를 인용했지만 값이 다른 결과 (숫자와 열의 짝을 사람이 볼 것):", ""] + \
+               [f"- {x['statement']} (값 {x['value']}, 정답 {x['gold_value']})" for x in r["place_only"]] + [""]
+    if r["kind_misses"]:
+        out += [f"서술·실험 범위로 분류했지만 정답은 따를 조건인 것 {len(r['kind_misses'])}개 (정밀도 분모 밖, 따로 셈):", ""] + \
+               [f"- [{x['kind']}] {x['statement']} (정답 {x['gold']})" for x in r["kind_misses"]] + [""]
     return "\n".join(out)
 
 
@@ -106,7 +132,7 @@ def main(argv: list[str]) -> int:
     task = argv[argv.index("--task") + 1] if "--task" in argv else "T1"
     with open(gold_path, encoding="utf-8") as f:
         gold = json.load(f)
-    pdf_path = os.path.join(os.path.dirname(os.path.abspath(gold_path)), gold["pdf"])
+    pdf_path = argv[argv.index("--pdf") + 1] if "--pdf" in argv else os.path.join(os.path.dirname(os.path.abspath(gold_path)), gold["pdf"])
     with open(pdf_path, "rb") as f:
         data = f.read()
     if gold.get("sha256") and pdf.content_hash(data) != gold["sha256"]:

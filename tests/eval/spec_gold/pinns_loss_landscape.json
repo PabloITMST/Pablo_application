@@ -2,6 +2,7 @@
  "paper": "Challenges in Training PINNs: A Loss Landscape Perspective",
  "arxiv": "2402.01868",
  "version": "v2",
+ "pdf": "../../../.pablo/gold/papers/arxiv-2402.01868v2.pdf",
  "sha256": "2f94074f9451b22a6141478b4d25a01a57614e3e0231cac9412dbbc545244722",
  "conditions": [
   {
