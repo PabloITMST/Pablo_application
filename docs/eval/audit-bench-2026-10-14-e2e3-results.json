@@ -1,0 +1,2050 @@
+{
+ "meta": {
+  "date": "2026-10-14",
+  "model": "gpt-5.6-luna",
+  "n": 8,
+  "seed": 7,
+  "set": "base",
+  "conditions": "real_kind",
+  "avg_ms": 90681,
+  "tag": "e2e3"
+ },
+ "runs": [
+  {
+   "variant": "v00-clean",
+   "ms": 76148,
+   "status": "completed",
+   "summary": "설정에는 논문의 주요 값이 대부분 반영되어 있으나, 실제 로그는 2Wiki 한 데이터셋만 기록되어 있습니다. 검색 1단계의 semantic bridging/propagation과 pruning threshold 사용 방식은 논문과 다르고, 전체 파이프라인 정확도는 확인되지 않습니다.",
+   "items": [
+    {
+     "id": "SC1",
+     "status": "missing",
+     "where": "config.yaml:4",
+     "found": "datasets: [hotpotqa, 2wikimultihopqa, musique, medical]",
+     "note": "네 데이터셋이 설정되어 있지만 실행 로그에는 2Wiki 결과만 있어 네 데이터셋 모두 수행된 상태는 확인되지 않습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC6",
+     "status": "missing",
+     "where": "config.yaml:6-7",
+     "found": "split: validation\n  questions_per_dataset: 1000",
+     "note": "설정과 2Wiki 로그는 맞지만 각 데이터셋의 실행 결과가 모두 없어 전체 조건의 실행 여부는 확인되지 않습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC7",
+     "status": "followed",
+     "where": "preprocess.py:11",
+     "found": "return [s.strip() for s in re.split(r\"(?<=[.!?])\\s+\", passage) if s.strip()]",
+     "note": "마침표·느낌표·물음표 뒤에서 passage를 문장으로 분할합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC8",
+     "status": "followed",
+     "where": "preprocess.py:6,14-15",
+     "found": "NLP = spacy.load(\"en_core_web_sm\")\n    return [ent.text for ent in NLP(sentence).ents]",
+     "note": "spaCy NER로 문장 내 명명 개체를 추출하며 corpus 문장에 적용됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC9",
+     "status": "followed",
+     "where": "config.yaml:2; run.py:16",
+     "found": "embedding_model: all-mpnet-base-v2",
+     "note": "설정된 all-mpnet-base-v2를 SentenceTransformer로 로드합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC10",
+     "status": "followed",
+     "where": "config.yaml:3; run.py:25; evaluate.py:11",
+     "found": "llm: gpt-4o-mini",
+     "note": "생성과 GPT 평가 호출 모두 설정의 gpt-4o-mini를 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC11",
+     "status": "followed",
+     "where": "config.yaml:9; retrieve.py:16,23",
+     "found": "top_k: 5",
+     "note": "검색 결과를 5개로 잘라 반환합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC12",
+     "status": "followed",
+     "where": "graph.py:10-18",
+     "found": "g.add_node(pid, kind=\"passage\") ... g.add_node(ent, kind=\"entity\") ... g.add_edge(sid, ent) ... g.add_edge(ent, pid)",
+     "note": "passage·sentence·entity 노드와 entity-sentence 및 entity-passage 엣지를 구성합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC13",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "frontier = {m for n in frontier for m in graph.neighbors(n) if graph.nodes[m][\"kind\"] == \"entity\"} - seen",
+     "note": "고정 passage와 semantic bridging을 사용하지 않고 entity 노드 간 직접 이웃만 delta회 탐색합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC14",
+     "status": "differs",
+     "where": "retrieve.py:7-12",
+     "found": "seen, frontier = set(query_entities), set(query_entities)",
+     "note": "질의-문장 유사도를 계산하거나 문장-entity 그래프로 semantic propagation을 하지 않습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC15",
+     "status": "differs",
+     "where": "retrieve.py:8-10",
+     "found": "for _ in range(delta):",
+     "note": "relevance score가 임계값보다 큰 entity를 유지하지 않고 delta를 반복 홉 수로 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC16",
+     "status": "followed",
+     "where": "retrieve.py:20-22",
+     "found": "scores = nx.pagerank(sub, alpha=cfg[\"pagerank\"][\"damping\"], personalization=personalization)",
+     "note": "활성 entity와 passage 초기값을 personalization으로 사용해 entity-passage subgraph에서 Personalized PageRank를 계산합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC17",
+     "status": "followed",
+     "where": "retrieve.py:23",
+     "found": "return sorted(passages, key=lambda p: scores.get(p, 0.0), reverse=True)[:k]",
+     "note": "PPR 점수 내림차순으로 passage를 정렬하고 top-k를 선택합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC18",
+     "status": "followed",
+     "where": "config.yaml:12; retrieve.py:18",
+     "found": "delta: 4",
+     "note": "동적 pruning 설정값 자체는 4입니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC19",
+     "status": "followed",
+     "where": "config.yaml:10; retrieve.py:17,21",
+     "found": "lam: 0.05",
+     "note": "passage personalization에 lambda 0.05를 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC20",
+     "status": "followed",
+     "where": "evaluate.py:5-6,18",
+     "found": "return float(gold.lower() in pred.lower())",
+     "note": "생성 응답에 정답 문자열이 포함되는지로 Contain-Accuracy를 계산합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC21",
+     "status": "followed",
+     "where": "evaluate.py:9-12,16",
+     "found": "return float(r.choices[0].message.content.strip().lower().startswith(\"yes\"))",
+     "note": "LLM에게 예측 답변과 정답의 일치 여부를 묻고 GPT accuracy를 계산합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC22",
+     "status": "followed",
+     "where": "evaluate.py:17-18",
+     "found": "if dataset != \"medical\":  # Medical answers are long descriptions: GPT-ACC only",
+     "note": "Medical에서는 contain_acc를 계산하지 않고 GPT-ACC만 출력합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC26",
+     "status": "differs",
+     "where": "logs/2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=70.20",
+     "note": "2Wiki 로그는 논문 행의 2Wiki 값 66.50과 다르며, 63.70·70.20은 논문 표 행에서 데이터셋 또는 지표 짝이 뒤바뀌었을 가능성이 있습니다; 나머지 데이터셋 로그도 없습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC27",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "전체 파이프라인 정확도 66.95를 기록하거나 계산하는 코드와 로그가 없습니다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC28",
+     "status": "chosen",
+     "where": "config.yaml:15; run.py:15",
+     "found": "seed: 42\nrandom.seed(cfg[\"seed\"])",
+     "note": "논문에 명시되지 않은 난수 시드 42를 코드가 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC29",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "반복 실행 횟수와 결과 집계 방식을 정하는 설정이나 구현이 없습니다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC30",
+     "status": "chosen",
+     "where": "run.py:25; evaluate.py:10-11",
+     "found": "messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}]",
+     "note": "논문에 없는 생성·평가 프롬프트 템플릿을 코드가 직접 정해 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC31",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "decoding parameter를 지정하는 코드가 없어 구체적인 decoding 설정은 확인되지 않습니다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC32",
+     "status": "chosen",
+     "where": "preprocess.py:6",
+     "found": "NLP = spacy.load(\"en_core_web_sm\")",
+     "note": "논문에 없는 spaCy 모델명 en_core_web_sm을 코드가 정하지만 버전은 지정하지 않습니다.",
+     "check": "verified"
+    }
+   ],
+   "outside": [
+    {
+     "kind": "method",
+     "what": "질의의 명명 개체를 실행 시 spaCy로 추출하지 않고 입력 예제의 entities 필드를 직접 사용합니다.",
+     "where": "run.py:23",
+     "found": "top = retrieve(graph, ex[\"entities\"], cfg)",
+     "check": "verified"
+    },
+    {
+     "kind": "scope",
+     "what": "현재 폴더에는 2WikiMultiHopQA 실행 로그만 있고 HotpotQA·MuSiQue·Medical 로그가 없습니다.",
+     "where": "logs/2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=70.20",
+     "check": "verified"
+    }
+   ]
+  },
+  {
+   "variant": "v01",
+   "ms": 90040,
+   "status": "completed",
+   "summary": "설정상 데이터셋·모델·주요 값은 대체로 논문과 같지만, 문장 분할·semantic propagation·PPR·Contain-Match 구현은 다릅니다. 실행 로그는 2Wiki 한 건만 존재하며 보고된 결과의 데이터셋·지표 짝도 논문 값과 맞지 않습니다.",
+   "items": [
+    {
+     "id": "SC1",
+     "status": "followed",
+     "where": "config.yaml:4; run.py:18",
+     "found": "datasets: [hotpotqa, 2wikimultihopqa, musique, medical]",
+     "note": "네 데이터셋이 설정되어 순회 실행되도록 되어 있다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC6",
+     "status": "followed",
+     "where": "config.yaml:6-7; run.py:19",
+     "found": "split: validation\n  questions_per_dataset: 1000",
+     "note": "검증 세트를 사용하고 각 데이터셋에서 앞의 1,000개를 선택한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC7",
+     "status": "differs",
+     "where": "preprocess.py:9-11",
+     "found": "return [\" \".join(words[i:i + 50]) for i in range(0, len(words), 50)]",
+     "note": "구두점 기준이 아니라 50단어 단위로 분할한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC8",
+     "status": "differs",
+     "where": "preprocess.py:14-15; run.py:23",
+     "found": "return [ent.text for ent in NLP(sentence).ents]",
+     "note": "코퍼스 문장에는 spaCy를 쓰지만 질의는 ex[\"entities\"]를 그대로 사용해 질의에서 spaCy 추출을 수행하지 않는다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC9",
+     "status": "followed",
+     "where": "config.yaml:2; run.py:16",
+     "found": "embedding_model: all-mpnet-base-v2",
+     "note": "all-mpnet-base-v2를 생성하지만 실제 검색 계산에는 사용되지 않는다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC10",
+     "status": "followed",
+     "where": "config.yaml:3; run.py:25; evaluate.py:7",
+     "found": "llm: gpt-4o-mini",
+     "note": "생성과 GPT 평가 호출 모두 설정된 GPT-4o-mini를 사용한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC11",
+     "status": "followed",
+     "where": "config.yaml:9; retrieve.py:16,23",
+     "found": "top_k: 5",
+     "note": "검색 결과를 5개로 자른다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC12",
+     "status": "followed",
+     "where": "graph.py:10-18",
+     "found": "g.add_node(sid, kind=\"sentence\")",
+     "note": "entity·sentence·passage 노드와 entity-문장·entity-passage 엣지를 구축한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC13",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "frontier = {m for n in frontier for m in graph.neighbors(n) if graph.nodes[m][\"kind\"] == \"entity\"} - seen",
+     "note": "고정 passage와 semantic bridging 없이 query entity에서 entity 이웃만 hop 확장한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC14",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "seen, frontier = set(query_entities), set(query_entities)",
+     "note": "질의-문장 유사도 계산이나 문장-entity 그래프를 통한 semantic propagation이 없다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC15",
+     "status": "differs",
+     "where": "retrieve.py:8-11",
+     "found": "for _ in range(delta):",
+     "note": "relevance score 임계값이 아니라 고정 hop 수 delta로 반복한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC16",
+     "status": "differs",
+     "where": "retrieve.py:20-22",
+     "found": "scores = {n: sub.degree(n) * personalization[n] for n in sub}  # faster than PageRank",
+     "note": "활성 entity를 personalization에 넣지만 Personalized PageRank 대신 degree 점수를 계산한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC17",
+     "status": "differs",
+     "where": "retrieve.py:22-23",
+     "found": "return sorted(passages, key=lambda p: scores.get(p, 0.0), reverse=True)[:k]",
+     "note": "PPR 점수가 아니라 degree 기반 점수로 passage를 순위화한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC18",
+     "status": "followed",
+     "where": "config.yaml:12; retrieve.py:18",
+     "found": "delta: 4",
+     "note": "동적 pruning 값 4가 실제 activate 호출에 전달된다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC19",
+     "status": "followed",
+     "where": "config.yaml:10; retrieve.py:17,21",
+     "found": "lam: 0.05",
+     "note": "lambda 값 0.05가 실제 personalization 계산에 사용된다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC20",
+     "status": "missing",
+     "where": "evaluate.py:11-13",
+     "found": "out = {\"gpt_acc\": 100 * mean(gpt_acc(p, g, client, cfg[\"llm\"]) for p, g in zip(preds, golds))}",
+     "note": "정답 문자열 포함 여부를 계산하는 Contain-Match 구현이 없으며 로그의 contain_acc도 이 코드에서 생성되지 않는다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC21",
+     "status": "followed",
+     "where": "evaluate.py:5-8,11-12",
+     "found": "out = {\"gpt_acc\": 100 * mean(gpt_acc(p, g, client, cfg[\"llm\"]) for p, g in zip(preds, golds))}",
+     "note": "LLM에 예측과 정답의 일치 여부를 묻고 yes 비율을 계산한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC22",
+     "status": "followed",
+     "where": "evaluate.py:11-13",
+     "found": "out = {\"gpt_acc\": 100 * mean(gpt_acc(p, g, client, cfg[\"llm\"]) for p, g in zip(preds, golds))}",
+     "note": "데이터셋별로 GPT-ACC만 반환하므로 Medical도 GPT-ACC만 평가한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC26",
+     "status": "differs",
+     "where": "logs\\2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=70.20",
+     "note": "2Wiki 로그만 있고 GPT-ACC는 논문의 2Wiki 66.50이 아닌 63.70이며 70.20도 논문 표의 다른 데이터셋·지표와 짝이 어긋났을 가능성이 있다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC27",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "전체 파이프라인 정확도 66.95를 기록하거나 계산한 근거가 없다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC28",
+     "status": "chosen",
+     "where": "config.yaml:15; run.py:15",
+     "found": "seed: 42",
+     "note": "논문에 없는 난수 시드 42를 코드가 정해 사용한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC29",
+     "status": "chosen",
+     "where": "run.py:18-30; evaluate.py:12",
+     "found": "for name in cfg[\"datasets\"]:",
+     "note": "반복 실행 루프나 결과 집계 설정은 없고, 한 번 실행해 질문별 평균을 계산하도록 코드가 정해져 있다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC30",
+     "status": "chosen",
+     "where": "run.py:25; evaluate.py:6-7",
+     "found": "messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}]",
+     "note": "논문에 없는 생성·평가 프롬프트 템플릿을 코드가 정해 사용한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC31",
+     "status": "unclear",
+     "where": "",
+     "found": "",
+     "note": "논문뿐 아니라 코드에도 temperature·top_p 등 decoding 값을 명시적으로 정한 부분이 없다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC32",
+     "status": "chosen",
+     "where": "preprocess.py:6",
+     "found": "NLP = spacy.load(\"en_core_web_sm\")",
+     "note": "논문에 없는 spaCy 모델명을 코드가 정하지만 패키지 모델 버전은 고정하지 않는다.",
+     "check": "verified"
+    }
+   ],
+   "outside": [
+    {
+     "kind": "method",
+     "what": "임베딩 모델을 로드하지만 검색·생성 파이프라인에서 encoder를 사용하지 않는다.",
+     "where": "run.py:16",
+     "found": "client, encoder = OpenAI(), SentenceTransformer(cfg[\"embedding_model\"])",
+     "check": "verified"
+    },
+    {
+     "kind": "method",
+     "what": "검색 문맥으로 passage 본문이 아니라 passage ID가 전달된다.",
+     "where": "graph.py:10; run.py:24",
+     "found": "g.add_node(pid, kind=\"passage\"); ctx = \"\\n\".join(graph.nodes[p].get(\"text\", p) for p in top)",
+     "check": "verified"
+    },
+    {
+     "kind": "scope",
+     "what": "실행 로그가 네 데이터셋 전체가 아니라 2WikiMultiHopQA 한 데이터셋만 포함한다.",
+     "where": "logs\\2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa",
+     "check": "verified"
+    }
+   ]
+  },
+  {
+   "variant": "v02",
+   "ms": 89404,
+   "status": "completed",
+   "summary": "설정과 코드는 네 데이터셋·검증 1,000개·top-k 5·GPT-4o-mini를 지정하지만, 실제 로그는 2Wiki 한 건만 있습니다. 임베딩 모델, pruning threshold, Tri-Graph의 핵심 전파 방식은 논문 기준과 다르며, 일부 논문 미기재 설정은 코드에서 선택되어 있습니다.",
+   "items": [
+    {
+     "id": "SC1",
+     "status": "unclear",
+     "where": "config.yaml:4; run.py:18",
+     "found": "datasets: [hotpotqa, 2wikimultihopqa, musique, medical]",
+     "note": "코드는 네 데이터셋을 순회하도록 되어 있지만 실행 로그는 2Wiki 한 건뿐이어서 네 데이터셋 모두 실제 수행됐는지는 확인할 수 없다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC6",
+     "status": "unclear",
+     "where": "config.yaml:7; logs/2wikimultihopqa.log:1",
+     "found": "questions_per_dataset: 1000",
+     "note": "설정과 2Wiki 로그는 1,000개이지만 나머지 데이터셋의 실행 결과가 없어 각 데이터셋에서 모두 1,000개를 사용했는지는 확인할 수 없다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC7",
+     "status": "followed",
+     "where": "preprocess.py:11",
+     "found": "return [s.strip() for s in re.split(r\"(?<=[.!?])\\s+\", passage) if s.strip()]",
+     "note": "마침표·느낌표·물음표 뒤에서 passage를 문장으로 분할한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC8",
+     "status": "differs",
+     "where": "preprocess.py:6; run.py:23",
+     "found": "NLP = spacy.load(\"en_core_web_sm\")",
+     "note": "코퍼스 문장에서는 spaCy를 사용하지만 질의는 ex['entities']를 입력으로 받아 질의에서 spaCy 개체를 추출하지 않는다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC9",
+     "status": "differs",
+     "where": "config.yaml:2; run.py:16",
+     "found": "embedding_model: all-MiniLM-L6-v2",
+     "note": "실제로 로드하는 임베딩 모델은 all-mpnet-base-v2가 아니라 all-MiniLM-L6-v2이다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC10",
+     "status": "followed",
+     "where": "config.yaml:3; run.py:25; evaluate.py:11",
+     "found": "llm: gpt-4o-mini",
+     "note": "생성과 GPT 평가 호출 모두 설정된 gpt-4o-mini를 사용한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC11",
+     "status": "followed",
+     "where": "config.yaml:9; retrieve.py:16",
+     "found": "top_k: 5",
+     "note": "검색 결과를 5개로 제한한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC12",
+     "status": "followed",
+     "where": "graph.py:10-17",
+     "found": "g.add_node(sid, kind=\"sentence\")",
+     "note": "passage·sentence·entity 노드와 sentence-passage, sentence-entity, entity-passage 연결을 그래프로 만든다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC13",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "# spread from the query's entities, pruned at delta hops",
+     "note": "passage를 고정한 semantic bridging이 아니라 질의 entity에서 그래프 hop을 수행하며 semantic similarity를 계산하지 않는다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC14",
+     "status": "differs",
+     "where": "retrieve.py:7-12",
+     "found": "frontier = {m for n in frontier for m in graph.neighbors(n)",
+     "note": "질의-문장 유사도를 문장-entity 그래프로 전파하지 않고 entity 이웃을 hop 수만큼 확장한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC15",
+     "status": "differs",
+     "where": "retrieve.py:9-11",
+     "found": "if graph.nodes[m][\"kind\"] == \"entity\"} - seen",
+     "note": "relevance score와 임계값 비교가 없고 delta hop 기준으로 새 entity를 유지한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC16",
+     "status": "followed",
+     "where": "retrieve.py:18-22",
+     "found": "scores = nx.pagerank(sub, alpha=cfg[\"pagerank\"][\"damping\"], personalization=personalization)",
+     "note": "활성 entity와 passage로 구성한 passage-entity 부분 그래프에서 Personalized PageRank를 계산한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC17",
+     "status": "followed",
+     "where": "retrieve.py:23",
+     "found": "return sorted(passages, key=lambda p: scores.get(p, 0.0), reverse=True)[:k]",
+     "note": "PPR 점수 내림차순으로 passage를 정렬하고 top-k를 선택한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC18",
+     "status": "differs",
+     "where": "config.yaml:12; retrieve.py:18",
+     "found": "delta: 2",
+     "note": "동적 pruning threshold가 4가 아니라 2이며 실제 activation hop 수로 사용된다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC19",
+     "status": "followed",
+     "where": "config.yaml:10; retrieve.py:17,21",
+     "found": "lam: 0.05",
+     "note": "실제로 사용하는 lam 값은 0.05이다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC20",
+     "status": "followed",
+     "where": "evaluate.py:5-6,18",
+     "found": "return float(gold.lower() in pred.lower())",
+     "note": "생성 응답에 정답 문자열이 포함되는지를 계산한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC21",
+     "status": "followed",
+     "where": "evaluate.py:9-12,16",
+     "found": "return float(r.choices[0].message.content.strip().lower().startswith(\"yes\"))",
+     "note": "LLM에 예측 답변과 정답의 일치 여부를 묻고 yes 응답을 정답으로 집계한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC22",
+     "status": "followed",
+     "where": "evaluate.py:17-18",
+     "found": "if dataset != \"medical\":  # Medical answers are long descriptions: GPT-ACC only",
+     "note": "Medical에서는 contain_acc를 계산하지 않고 gpt_acc만 출력한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC26",
+     "status": "differs",
+     "where": "logs/2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=70.20",
+     "note": "로그의 2Wiki 값은 제시된 66.50과 다르고, 63.70·70.20은 제시된 다른 데이터셋 값과도 짝이 어긋나므로 논문 표 행의 데이터셋·지표 매칭 오류 가능성이 있다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC27",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "전체 파이프라인 정확도 66.95를 보고한 실행 로그나 코드 집계가 없다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC28",
+     "status": "chosen",
+     "where": "config.yaml:15; run.py:15",
+     "found": "seed: 42",
+     "note": "논문에 명시되지 않은 난수 시드를 코드가 42로 선택했다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC29",
+     "status": "chosen",
+     "where": "run.py:18; evaluate.py:16",
+     "found": "for name in cfg[\"datasets\"]:",
+     "note": "반복 실행 설정은 없고 한 번 실행하며 질문별 평균을 집계하는 구현을 선택했다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC30",
+     "status": "chosen",
+     "where": "run.py:25; evaluate.py:10",
+     "found": "messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}]",
+     "note": "논문에 없는 생성·평가 프롬프트 템플릿을 코드가 구체적으로 선택했다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC31",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "논문과 코드 모두 temperature·top_p·max_tokens 등 decoding 설정을 명시하지 않는다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC32",
+     "status": "chosen",
+     "where": "preprocess.py:6",
+     "found": "NLP = spacy.load(\"en_core_web_sm\")",
+     "note": "논문에 없는 spaCy 모델명을 코드가 en_core_web_sm으로 선택했지만 버전은 고정하지 않았다.",
+     "check": "verified"
+    }
+   ],
+   "outside": [
+    {
+     "kind": "method",
+     "what": "로드한 임베딩 encoder가 retrieval 계산에 사용되지 않는다.",
+     "where": "run.py:16; retrieve.py:15-23",
+     "found": "client, encoder = OpenAI(), SentenceTransformer(cfg[\"embedding_model\"])",
+     "check": "verified"
+    },
+    {
+     "kind": "method",
+     "what": "검색된 passage의 원문이 그래프 노드에 저장되지 않아 생성 컨텍스트에는 passage ID가 들어간다.",
+     "where": "run.py:20,24",
+     "found": "ctx = \"\\n\".join(graph.nodes[p].get(\"text\", p) for p in top)",
+     "check": "verified"
+    },
+    {
+     "kind": "scope",
+     "what": "실행 로그에는 네 데이터셋 중 2Wiki 결과만 존재한다.",
+     "where": "logs/2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=70.20",
+     "check": "verified"
+    }
+   ]
+  },
+  {
+   "variant": "v03",
+   "ms": 92559,
+   "status": "completed",
+   "summary": "구현과 설정은 일부 논문 기준을 따르지만, 검증 분할·질의 개체 추출·semantic propagation·Medical 평가에서 차이가 있습니다. 로그는 2Wiki 한 건만 있으며 논문 수치와도 일치하지 않습니다.",
+   "items": [
+    {
+     "id": "SC1",
+     "status": "followed",
+     "where": "config.yaml:4",
+     "found": "datasets: [hotpotqa, 2wikimultihopqa, musique, medical]",
+     "note": "네 데이터셋이 설정되고 run.py에서 모두 순회됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC6",
+     "status": "differs",
+     "where": "config.yaml:6-7",
+     "found": "split: test",
+     "note": "논문은 검증 세트인데 설정은 test이며, 로그에는 validation이 기록되어 설정과도 불일치합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC7",
+     "status": "followed",
+     "where": "preprocess.py:11",
+     "found": "return [s.strip() for s in re.split(r\"(?<=[.!?])\\s+\", passage) if s.strip()]",
+     "note": "마침표·느낌표·물음표 뒤에서 passage를 문장 분할합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC8",
+     "status": "differs",
+     "where": "preprocess.py:14-15",
+     "found": "return [ent.text for ent in NLP(sentence).ents]",
+     "note": "spaCy는 코퍼스 문장에만 적용되고 질의는 ex[\"entities\"]를 직접 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC9",
+     "status": "followed",
+     "where": "config.yaml:2",
+     "found": "embedding_model: all-mpnet-base-v2",
+     "note": "임베딩 모델 값은 논문과 같게 설정되어 있습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC10",
+     "status": "followed",
+     "where": "config.yaml:3",
+     "found": "llm: gpt-4o-mini",
+     "note": "생성과 GPT 평가 모두 cfg[\"llm\"]을 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC11",
+     "status": "followed",
+     "where": "config.yaml:9",
+     "found": "top_k: 5",
+     "note": "검색 결과를 실제로 5개로 자릅니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC12",
+     "status": "followed",
+     "where": "graph.py:10-18",
+     "found": "g.add_edge(ent, pid)",
+     "note": "passage·sentence·entity 노드와 entity-sentence·entity-passage 엣지를 구축합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC13",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "for _ in range(delta):",
+     "note": "개체 그래프를 hop으로 확장할 뿐 semantic bridging이나 의미 유사도 계산을 하지 않습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC14",
+     "status": "differs",
+     "where": "retrieve.py:7-10",
+     "found": "frontier = {m for n in frontier for m in graph.neighbors(n)",
+     "note": "질의-문장 유사도를 전파하지 않고 단순 그래프 이웃만 확장합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC15",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "for _ in range(delta):",
+     "note": "relevance score와 임계값 비교 없이 delta 횟수로 개체를 확장합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC16",
+     "status": "followed",
+     "where": "retrieve.py:18-22",
+     "found": "scores = nx.pagerank(sub, alpha=cfg[\"pagerank\"][\"damping\"], personalization=personalization)",
+     "note": "활성 개체를 personalization 초기값으로 사용해 passage-entity 부분 그래프에서 PPR을 계산합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC17",
+     "status": "followed",
+     "where": "retrieve.py:23",
+     "found": "return sorted(passages, key=lambda p: scores.get(p, 0.0), reverse=True)[:k]",
+     "note": "PPR 점수 내림차순으로 정렬하고 top-k를 선택합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC18",
+     "status": "followed",
+     "where": "config.yaml:12",
+     "found": "delta: 4",
+     "note": "delta가 4이고 activate의 반복 횟수로 사용됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC19",
+     "status": "followed",
+     "where": "config.yaml:10",
+     "found": "lam: 0.05",
+     "note": "lambda 값 0.05가 passage personalization에 실제 사용됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC20",
+     "status": "followed",
+     "where": "evaluate.py:5-6",
+     "found": "return float(gold.lower() in pred.lower())",
+     "note": "생성 응답에 정답 문자열이 포함되는지 평가합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC21",
+     "status": "followed",
+     "where": "evaluate.py:9-12",
+     "found": "return float(r.choices[0].message.content.strip().lower().startswith(\"yes\"))",
+     "note": "LLM에게 예측 답변과 정답의 일치 여부를 묻습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC22",
+     "status": "differs",
+     "where": "evaluate.py:16-17",
+     "found": "out[\"contain_acc\"] = 100 * mean(contain_acc(p, g) for p, g in zip(preds, golds))",
+     "note": "Medical을 포함한 모든 데이터셋에서 GPT-ACC와 Contain-ACC를 모두 계산합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC26",
+     "status": "differs",
+     "where": "logs\\2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=70.20",
+     "note": "2Wiki 로그는 논문 값 66.50과 다르며 63.70·70.20은 다른 데이터셋 행의 값일 가능성이 있습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC27",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "전체 파이프라인 정확도 66.95를 기록하거나 계산하는 코드와 로그가 없습니다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC28",
+     "status": "chosen",
+     "where": "config.yaml:15",
+     "found": "seed: 42",
+     "note": "논문에 없는 난수 시드를 코드가 42로 정했습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC29",
+     "status": "chosen",
+     "where": "run.py:18-30",
+     "found": "for name in cfg[\"datasets\"]:",
+     "note": "반복 실행이나 집계 없이 한 번의 실행 결과를 데이터셋별로 바로 기록합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC30",
+     "status": "chosen",
+     "where": "run.py:25",
+     "found": "messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}]",
+     "note": "논문에 없는 생성 프롬프트 템플릿을 코드가 정했습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC31",
+     "status": "unclear",
+     "where": "run.py:25",
+     "found": "r = client.chat.completions.create(model=cfg[\"llm\"], messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}])",
+     "note": "temperature·top_p 등 decoding 값을 명시하지 않아 실제 API 기본값은 코드만으로 확정할 수 없습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC32",
+     "status": "chosen",
+     "where": "preprocess.py:6",
+     "found": "NLP = spacy.load(\"en_core_web_sm\")",
+     "note": "구체 모델명은 코드가 정했지만 spaCy 버전은 확인되지 않습니다.",
+     "check": "verified"
+    }
+   ],
+   "outside": [
+    {
+     "kind": "method",
+     "what": "임베딩 모델을 로드하지만 검색이나 평가에 사용하지 않습니다.",
+     "where": "run.py:16",
+     "found": "client, encoder = OpenAI(), SentenceTransformer(cfg[\"embedding_model\"])",
+     "check": "verified"
+    },
+    {
+     "kind": "method",
+     "what": "검색 컨텍스트에 passage 본문 대신 passage ID를 전달합니다.",
+     "where": "run.py:24",
+     "found": "ctx = \"\\n\".join(graph.nodes[p].get(\"text\", p) for p in top)",
+     "check": "verified"
+    },
+    {
+     "kind": "scope",
+     "what": "로그에는 네 데이터셋 중 2Wiki 결과만 있어 나머지 주요 실험의 실행 결과가 없습니다.",
+     "where": "logs\\2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=70.20",
+     "check": "verified"
+    }
+   ]
+  },
+  {
+   "variant": "v04",
+   "ms": 74611,
+   "status": "completed",
+   "summary": "핵심 모델·데이터셋 목록·top-k·δ·λ와 평가 방식은 코드에 반영되어 있습니다. 다만 검증 질문 수는 코드상 500개이고 로그는 1,000개로 불일치하며, semantic bridging·유사도 전파·임계값 pruning은 구현되지 않았습니다. 결과 로그는 2Wiki 한 건만 있어 논문의 LinearRAG 결과를 확인할 수 없습니다.",
+   "items": [
+    {
+     "id": "SC1",
+     "status": "followed",
+     "where": "config.yaml:4",
+     "found": "datasets: [hotpotqa, 2wikimultihopqa, musique, medical]",
+     "note": "네 데이터셋이 설정되고 run.py에서 순회되지만 현재 폴더의 로그에는 2Wiki 결과만 있습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC6",
+     "status": "differs",
+     "where": "config.yaml:7",
+     "found": "questions_per_dataset: 500",
+     "note": "코드는 데이터셋별 500개를 선택하도록 되어 있어 논문의 1,000개와 다르며, 로그의 questions=1000과도 불일치합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC7",
+     "status": "followed",
+     "where": "preprocess.py:11",
+     "found": "return [s.strip() for s in re.split(r\"(?<=[.!?])\\s+\", passage) if s.strip()]",
+     "note": "마침표·느낌표·물음표 뒤에서 passage를 문장으로 분할합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC8",
+     "status": "differs",
+     "where": "preprocess.py:14-15; run.py:23",
+     "found": "def entities(sentence: str) -> list[str]:",
+     "note": "spaCy는 passage 문장에는 적용되지만 질의는 ex[\"entities\"]를 그대로 사용하므로 질의에서 명명 개체를 추출하지 않습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC9",
+     "status": "followed",
+     "where": "config.yaml:2",
+     "found": "embedding_model: all-mpnet-base-v2",
+     "note": "설정과 SentenceTransformer 생성에 논문의 임베딩 모델명이 사용됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC10",
+     "status": "followed",
+     "where": "config.yaml:3; run.py:25; evaluate.py:11",
+     "found": "llm: gpt-4o-mini",
+     "note": "생성과 GPT 평가 API 호출 모두 cfg[\"llm\"]을 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC11",
+     "status": "followed",
+     "where": "config.yaml:9; retrieve.py:16,23",
+     "found": "top_k: 5",
+     "note": "top_k=5가 검색 결과 slicing에 실제 사용됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC12",
+     "status": "followed",
+     "where": "graph.py:10-17",
+     "found": "g.add_node(sid, kind=\"sentence\")",
+     "note": "passage·sentence·entity 노드와 entity-sentence 및 entity-passage 엣지를 구축합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC13",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "# spread from the query's entities, pruned at delta hops",
+     "note": "passage를 고정한 semantic bridging이 아니라 질의 entity에서 고정 hop 그래프 탐색을 수행합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC14",
+     "status": "differs",
+     "where": "retrieve.py:7-12",
+     "found": "frontier = {m for n in frontier for m in graph.neighbors(n) if graph.nodes[m][\"kind\"] == \"entity\"} - seen",
+     "note": "질의-문장 유사도나 sentence-entity 기반 relevance 전파 없이 entity 이웃을 hop으로 확장합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC15",
+     "status": "differs",
+     "where": "retrieve.py:8-12",
+     "found": "for _ in range(delta):",
+     "note": "relevance score가 임계값보다 큰 entity를 유지하지 않고 delta회의 hop만 수행합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC16",
+     "status": "followed",
+     "where": "retrieve.py:18-22",
+     "found": "scores = nx.pagerank(sub, alpha=cfg[\"pagerank\"][\"damping\"], personalization=personalization)",
+     "note": "활성 entity를 personalization seed로 삼아 entity-passage subgraph에서 PageRank를 계산합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC17",
+     "status": "followed",
+     "where": "retrieve.py:23",
+     "found": "return sorted(passages, key=lambda p: scores.get(p, 0.0), reverse=True)[:k]",
+     "note": "passage를 PageRank 점수 내림차순으로 정렬하고 top-k를 선택합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC18",
+     "status": "followed",
+     "where": "config.yaml:12; retrieve.py:18",
+     "found": "delta: 4",
+     "note": "동적 pruning 설정값 4가 activate의 반복 횟수로 사용됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC19",
+     "status": "followed",
+     "where": "config.yaml:10; retrieve.py:17,21",
+     "found": "lam: 0.05",
+     "note": "λ=0.05가 passage personalization 값으로 실제 사용됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC20",
+     "status": "followed",
+     "where": "evaluate.py:5-6",
+     "found": "return float(gold.lower() in pred.lower())",
+     "note": "생성 응답에 정답 문자열이 포함되는지를 평가합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC21",
+     "status": "followed",
+     "where": "evaluate.py:9-12",
+     "found": "Does the answer match the ground truth?",
+     "note": "LLM에 예측 답변과 정답의 일치 여부를 질문해 GPT accuracy를 계산합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC22",
+     "status": "followed",
+     "where": "evaluate.py:17-18",
+     "found": "if dataset != \"medical\":",
+     "note": "Medical에는 contain_acc를 추가하지 않고 GPT accuracy만 산출합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC26",
+     "status": "missing",
+     "where": "logs/2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=58.10 contain_acc=70.20",
+     "note": "네 데이터셋의 LinearRAG 결과가 보고되지 않았고, 유일한 로그도 논문의 수치와 일치하지 않습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC27",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "전체 파이프라인 정확도 66.95를 기록한 실행 결과가 없습니다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC28",
+     "status": "chosen",
+     "where": "config.yaml:15; run.py:15",
+     "found": "seed: 42",
+     "note": "논문에 명시되지 않은 난수 시드 42를 코드가 설정합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC29",
+     "status": "chosen",
+     "where": "run.py:18-30",
+     "found": "for name in cfg[\"datasets\"]:",
+     "note": "논문에 없는 반복 실행·집계 방식에 대해 데이터셋별 단일 실행만 수행하고 별도 집계는 하지 않습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC30",
+     "status": "chosen",
+     "where": "run.py:25; evaluate.py:10",
+     "found": "messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}]",
+     "note": "논문에 없는 생성 및 평가 프롬프트 템플릿을 코드가 직접 정합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC31",
+     "status": "unclear",
+     "where": "run.py:25; evaluate.py:11",
+     "found": "client.chat.completions.create(model=cfg[\"llm\"], messages=[...])",
+     "note": "temperature·top_p·max_tokens 등 decoding 값을 명시하지 않아 구체 설정을 확인할 수 없습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC32",
+     "status": "chosen",
+     "where": "preprocess.py:6",
+     "found": "NLP = spacy.load(\"en_core_web_sm\")",
+     "note": "논문에 없는 spaCy 모델명을 코드가 en_core_web_sm으로 정하지만 버전은 고정하지 않습니다.",
+     "check": "verified"
+    }
+   ],
+   "outside": [
+    {
+     "kind": "method",
+     "what": "임베딩 모델을 생성하지만 검색 점수나 그래프 구축에 사용하지 않습니다.",
+     "where": "run.py:16",
+     "found": "client, encoder = OpenAI(), SentenceTransformer(cfg[\"embedding_model\"])",
+     "check": "verified"
+    },
+    {
+     "kind": "method",
+     "what": "검색 문맥으로 passage 텍스트가 전달되지 않고 passage ID가 전달됩니다.",
+     "where": "run.py:24",
+     "found": "ctx = \"\\n\".join(graph.nodes[p].get(\"text\", p) for p in top)",
+     "check": "verified"
+    },
+    {
+     "kind": "scope",
+     "what": "현재 폴더에는 네 데이터셋 중 2WikiMultiHopQA 실행 로그만 있습니다.",
+     "where": "logs/2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=58.10 contain_acc=70.20",
+     "check": "verified"
+    }
+   ]
+  },
+  {
+   "variant": "v05",
+   "ms": 143086,
+   "status": "completed",
+   "summary": "코드·설정·로그를 읽은 결과, 핵심 검색 단계와 일부 실험 설정이 논문 기준과 다릅니다. 실행 로그는 2WikiMultiHopQA 한 건만 있어 전체 결과는 확인되지 않습니다.",
+   "items": [
+    {
+     "id": "SC1",
+     "status": "missing",
+     "where": "config.yaml:3",
+     "found": "datasets: [hotpotqa, 2wikimultihopqa, musique]",
+     "note": "Medical이 목록과 실행 루프에서 빠졌습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC6",
+     "status": "followed",
+     "where": "run.py:19",
+     "found": "...[: cfg['eval']['questions_per_dataset']]",
+     "note": "validation에서 데이터셋별 1,000개를 선택합니다.",
+     "check": "value_mismatch",
+     "via": {
+      "where": "config.yaml:7",
+      "found": "questions_per_dataset: 1000",
+      "agrees": true
+     }
+    },
+    {
+     "id": "SC7",
+     "status": "followed",
+     "where": "preprocess.py:11",
+     "found": "return [s.strip() for s in re.split(r\"(?<=[.!?])\\s+\", passage) if s.strip()]",
+     "note": "구두점 기준으로 passage를 문장 분할합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC8",
+     "status": "differs",
+     "where": "run.py:22",
+     "found": "top = retrieve(graph, ex[\"entities\"], cfg)",
+     "note": "질의에서 spaCy로 개체를 추출하지 않고 입력 entities를 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC9",
+     "status": "followed",
+     "where": "run.py:16",
+     "found": "client, encoder = OpenAI(), SentenceTransformer(cfg[\"embedding_model\"])",
+     "note": "all-mpnet-base-v2가 설정되어 있습니다.",
+     "check": "value_mismatch",
+     "via": {
+      "where": "config.yaml:2",
+      "found": "embedding_model: all-mpnet-base-v2",
+      "agrees": true
+     }
+    },
+    {
+     "id": "SC10",
+     "status": "followed",
+     "where": "run.py:25",
+     "found": "r = client.chat.completions.create(model=cfg[\"llm\"], messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}])",
+     "note": "생성과 평가에 gpt-4o-mini 설정값을 사용합니다.",
+     "check": "value_mismatch",
+     "via": {
+      "where": "config.yaml:3",
+      "found": "llm: gpt-4o-mini",
+      "agrees": true
+     }
+    },
+    {
+     "id": "SC11",
+     "status": "differs",
+     "where": "retrieve.py:13",
+     "found": "k = 10  # more context helps",
+     "note": "설정값 5가 아니라 코드의 10이 실제 top-k입니다.",
+     "check": "moved",
+     "line_found": 16
+    },
+    {
+     "id": "SC12",
+     "status": "followed",
+     "where": "graph.py:10",
+     "found": "g.add_node(sid, kind=\"sentence\")",
+     "note": "passage·sentence·entity 노드와 관련 엣지를 구성합니다.",
+     "check": "moved",
+     "line_found": 13
+    },
+    {
+     "id": "SC13",
+     "status": "differs",
+     "where": "retrieve.py:7",
+     "found": "# spread from the query's entities, pruned at delta hops",
+     "note": "semantic bridging이 아니라 query entity에서 단순 hop 확산을 합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC14",
+     "status": "differs",
+     "where": "retrieve.py:7",
+     "found": "# spread from the query's entities, pruned at delta hops",
+     "note": "질의-문장 유사도와 semantic propagation이 없습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC15",
+     "status": "differs",
+     "where": "retrieve.py:9",
+     "found": "for _ in range(delta):",
+     "note": "relevance score 임계값이 아니라 반복 횟수로 pruning합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC16",
+     "status": "followed",
+     "where": "retrieve.py:20",
+     "found": "scores = nx.pagerank(sub, alpha=cfg[\"pagerank\"][\"damping\"], personalization=personalization)",
+     "note": "활성 entity를 seed로 passage-entity 그래프에서 PageRank를 계산합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC17",
+     "status": "followed",
+     "where": "retrieve.py:21",
+     "found": "return sorted(passages, key=lambda p: scores.get(p, 0.0), reverse=True)[:k]",
+     "note": "PPR 점수 순으로 passage를 선택합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC18",
+     "status": "followed",
+     "where": "config.yaml:9",
+     "found": "delta: 4",
+     "note": "delta가 4로 설정되고 activate에 전달됩니다.",
+     "check": "moved",
+     "line_found": 12
+    },
+    {
+     "id": "SC19",
+     "status": "followed",
+     "where": "config.yaml:7",
+     "found": "lam: 0.05",
+     "note": "lambda가 0.05로 설정되고 실제 personalization에 사용됩니다.",
+     "check": "moved",
+     "line_found": 10
+    },
+    {
+     "id": "SC20",
+     "status": "followed",
+     "where": "evaluate.py:6",
+     "found": "return float(gold.lower() in pred.lower())",
+     "note": "생성 응답에 정답이 포함되는지 평가합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC21",
+     "status": "followed",
+     "where": "evaluate.py:11",
+     "found": "r = client.chat.completions.create(model=model, messages=[{\"role\": \"user\", \"content\": q}])",
+     "note": "LLM에 예측 답변과 정답의 일치 여부를 평가시킵니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC22",
+     "status": "followed",
+     "where": "evaluate.py:17",
+     "found": "if dataset != \"medical\":  # Medical answers are long descriptions: GPT-ACC only",
+     "note": "Medical에서는 contain_acc를 계산하지 않습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC26",
+     "status": "missing",
+     "where": "logs\\2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=70.20",
+     "note": "네 데이터셋 결과가 모두 보고되지 않았고, 2Wiki 로그 값도 제시된 66.50과 다릅니다. 논문 표의 값-데이터셋·지표 짝이 잘못되었을 가능성도 있습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC27",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "전체 파이프라인 정확도 66.95를 확인할 로그가 없습니다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC28",
+     "status": "chosen",
+     "where": "config.yaml:11",
+     "found": "seed: 42",
+     "note": "논문에 없는 난수 시드 42를 코드가 설정했습니다.",
+     "check": "moved",
+     "line_found": 15
+    },
+    {
+     "id": "SC29",
+     "status": "chosen",
+     "where": "run.py:18",
+     "found": "for name in cfg[\"datasets\"]:",
+     "note": "반복 실행과 집계 없이 단일 실행 결과를 기록합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC30",
+     "status": "chosen",
+     "where": "run.py:25",
+     "found": "r = client.chat.completions.create(model=cfg[\"llm\"], messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}])",
+     "note": "논문에 없는 생성 프롬프트 템플릿을 코드가 정했습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC31",
+     "status": "unclear",
+     "where": "run.py:25",
+     "found": "client.chat.completions.create(model=cfg[\"llm\"], messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}])",
+     "note": "구체적인 decoding 설정값이 호출부에 없습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC32",
+     "status": "chosen",
+     "where": "preprocess.py:7",
+     "found": "NLP = spacy.load(\"en_core_web_sm\")",
+     "note": "spaCy 모델명은 코드가 정했지만 버전은 고정하지 않았습니다.",
+     "check": "verified"
+    }
+   ],
+   "outside": [
+    {
+     "kind": "method",
+     "what": "임베딩 모델을 생성하지만 검색 계산에는 사용하지 않습니다.",
+     "where": "run.py:16",
+     "found": "client, encoder = OpenAI(), SentenceTransformer(cfg[\"embedding_model\"])",
+     "check": "verified"
+    }
+   ]
+  },
+  {
+   "variant": "v06",
+   "ms": 76534,
+   "status": "completed",
+   "summary": "네 데이터셋과 검증 1,000개 설정, 임베딩·LLM·그래프 구성·평가 방식 일부는 기준을 따릅니다. 그러나 top-k, λ, semantic propagation/pruning 구현은 기준과 다르며, 로그에는 2Wiki 결과만 기록되어 전체 보고 결과는 확인되지 않습니다.",
+   "items": [
+    {
+     "id": "SC1",
+     "status": "followed",
+     "where": "config.yaml:4",
+     "found": "datasets: [hotpotqa, 2wikimultihopqa, musique, medical]",
+     "note": "설정과 실행 루프가 네 데이터셋을 대상으로 한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC6",
+     "status": "followed",
+     "where": "config.yaml:6-7",
+     "found": "questions_per_dataset: 1000",
+     "note": "validation split에서 데이터셋별 1,000개를 선택한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC7",
+     "status": "followed",
+     "where": "preprocess.py:11",
+     "found": "return [s.strip() for s in re.split(r\"(?<=[.!?])\\s+\", passage) if s.strip()]",
+     "note": "마침표·느낌표·물음표 뒤에서 passage를 문장 분할한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC8",
+     "status": "differs",
+     "where": "preprocess.py:14-15",
+     "found": "def entities(sentence: str) -> list[str]:",
+     "note": "spaCy는 코퍼스 문장에만 적용되고 질의 엔티티는 입력 필드에서 직접 받는다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC9",
+     "status": "followed",
+     "where": "config.yaml:2",
+     "found": "embedding_model: all-mpnet-base-v2",
+     "note": "지정된 임베딩 모델 값은 논문과 같다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC10",
+     "status": "followed",
+     "where": "config.yaml:3",
+     "found": "llm: gpt-4o-mini",
+     "note": "생성과 GPT 평가 모두 설정된 gpt-4o-mini를 사용한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC11",
+     "status": "differs",
+     "where": "config.yaml:9",
+     "found": "top_k: 10",
+     "note": "실제 검색 top-k가 10으로 논문 기준 5와 다르다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC12",
+     "status": "followed",
+     "where": "graph.py:10-17",
+     "found": "g.add_edge(ent, pid)",
+     "note": "passage·sentence·entity 노드와 entity-sentence 및 entity-passage 엣지를 구성한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC13",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "# spread from the query's entities, pruned at delta hops",
+     "note": "고정 passage와 semantic bridging 구조는 있으나 entity-sentence 기반 중간 entity 활성화 방식으로 구현되지 않았다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC14",
+     "status": "differs",
+     "where": "retrieve.py:7-12",
+     "found": "for _ in range(delta):",
+     "note": "질의-문장 유사도 계산과 문장-entity 그래프를 통한 semantic propagation이 없다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC15",
+     "status": "differs",
+     "where": "retrieve.py:8-12",
+     "found": "frontier = {m for n in frontier for m in graph.neighbors(n)",
+     "note": "relevance score 임계값 비교 대신 고정 hop 횟수로 entity를 확장한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC16",
+     "status": "followed",
+     "where": "retrieve.py:18-22",
+     "found": "scores = nx.pagerank(sub, alpha=cfg[\"pagerank\"][\"damping\"], personalization=personalization)",
+     "note": "활성화 entity를 personalization 초기값으로 사용해 passage-entity 부분 그래프에서 PPR을 계산한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC17",
+     "status": "followed",
+     "where": "retrieve.py:23",
+     "found": "return sorted(passages, key=lambda p: scores.get(p, 0.0), reverse=True)[:k]",
+     "note": "PPR 점수 내림차순으로 정렬해 top-k passage를 선택한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC18",
+     "status": "followed",
+     "where": "config.yaml:12",
+     "found": "delta: 4",
+     "note": "동적 pruning 관련 delta 값이 4로 설정되어 실제 activate에 전달된다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC19",
+     "status": "differs",
+     "where": "config.yaml:10",
+     "found": "lam: 0.5",
+     "note": "실제 λ가 0.5로 논문 기준 0.05와 다르다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC20",
+     "status": "followed",
+     "where": "evaluate.py:5-6",
+     "found": "return float(gold.lower() in pred.lower())",
+     "note": "생성 응답에 정답 문자열이 포함되는지 평가한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC21",
+     "status": "followed",
+     "where": "evaluate.py:9-12",
+     "found": "return float(r.choices[0].message.content.strip().lower().startswith(\"yes\"))",
+     "note": "LLM에게 예측 답변과 정답의 일치 여부를 질의해 평가한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC22",
+     "status": "followed",
+     "where": "evaluate.py:17-18",
+     "found": "if dataset != \"medical\":",
+     "note": "Medical에서는 contain_acc를 계산하지 않고 GPT-ACC만 산출한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC26",
+     "status": "differs",
+     "where": "logs/2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=70.20",
+     "note": "2Wiki 로그는 제시된 66.50과 다르며 63.70·70.20이 다른 지표/데이터셋 짝에서 옮겨졌을 가능성도 있다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC27",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "전체 파이프라인 정확도 66.95를 보고한 로그나 코드 결과가 없다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC28",
+     "status": "chosen",
+     "where": "config.yaml:15",
+     "found": "seed: 42",
+     "note": "논문에 명시되지 않은 난수 시드로 42를 코드가 선택했다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC29",
+     "status": "chosen",
+     "where": "run.py:18-30",
+     "found": "for name in cfg[\"datasets\"]:",
+     "note": "반복 실행 설정은 없고 단일 실행 결과를 데이터셋별로 기록한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC30",
+     "status": "chosen",
+     "where": "run.py:25",
+     "found": "r = client.chat.completions.create(model=cfg[\"llm\"], messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}])",
+     "note": "논문에 없는 생성 프롬프트 템플릿을 코드가 직접 정했다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC31",
+     "status": "chosen",
+     "where": "run.py:25",
+     "found": "client.chat.completions.create(model=cfg[\"llm\"], messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}])",
+     "note": "temperature·top_p 등 decoding 값을 지정하지 않고 API 기본값을 사용하도록 코드가 정했다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC32",
+     "status": "chosen",
+     "where": "preprocess.py:6",
+     "found": "NLP = spacy.load(\"en_core_web_sm\")",
+     "note": "논문에 구체 모델명·버전이 없지만 코드가 en_core_web_sm을 선택했고 버전은 고정하지 않았다.",
+     "check": "verified"
+    }
+   ],
+   "outside": [
+    {
+     "kind": "method",
+     "what": "임베딩 모델을 로드하지만 검색이나 그래프 계산에 사용하지 않는다.",
+     "where": "run.py:16",
+     "found": "client, encoder = OpenAI(), SentenceTransformer(cfg[\"embedding_model\"])",
+     "check": "verified"
+    }
+   ]
+  },
+  {
+   "variant": "v07",
+   "ms": 82553,
+   "status": "completed",
+   "summary": "코드와 설정은 네 데이터셋·검증 1,000개·주요 모델 및 검색값을 설정했지만, spaCy 기반 개체 추출과 논문의 semantic bridging/propagation은 구현되지 않았습니다. 로그는 2Wiki 결과만 있으며 논문 수치와 일치하지 않고, 전체 파이프라인 정확도 로그는 없습니다.",
+   "items": [
+    {
+     "id": "SC1",
+     "status": "followed",
+     "where": "config.yaml:4",
+     "found": "datasets: [hotpotqa, 2wikimultihopqa, musique, medical]",
+     "note": "네 데이터셋이 설정되고 run.py에서 모두 순회됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC6",
+     "status": "followed",
+     "where": "config.yaml:6-7",
+     "found": "split: validation\n  questions_per_dataset: 1000",
+     "note": "검증 세트에서 데이터셋별 최대 1,000개를 읽습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC7",
+     "status": "followed",
+     "where": "preprocess.py:7",
+     "found": "return [s.strip() for s in re.split(r\"(?<=[.!?])\\s+\", passage) if s.strip()]",
+     "note": "마침표·느낌표·물음표 뒤를 기준으로 passage를 문장 분할합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC8",
+     "status": "differs",
+     "where": "preprocess.py:10-11",
+     "found": "return re.findall(r\"\\b[A-Z][a-z]+(?: [A-Z][a-z]+)*\\b\", sentence)",
+     "note": "spaCy가 아니라 정규식으로 개체를 추출합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC9",
+     "status": "followed",
+     "where": "config.yaml:2",
+     "found": "embedding_model: all-mpnet-base-v2",
+     "note": "설정된 임베딩 모델 이름은 논문과 같지만 실제 검색 계산에는 사용되지 않습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC10",
+     "status": "followed",
+     "where": "config.yaml:3",
+     "found": "llm: gpt-4o-mini",
+     "note": "생성과 GPT 평가 모두 cfg의 gpt-4o-mini를 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC11",
+     "status": "followed",
+     "where": "config.yaml:9",
+     "found": "top_k: 5",
+     "note": "검색 함수가 설정된 top_k=5를 실제로 적용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC12",
+     "status": "followed",
+     "where": "graph.py:10-17",
+     "found": "g.add_node(pid, kind=\"passage\")\n        ...\n                g.add_node(ent, kind=\"entity\")\n                g.add_edge(sid, ent)\n                g.add_edge(ent, pid)",
+     "note": "passage·sentence·entity 노드와 entity-문장·entity-passage 관계를 그래프에 추가합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC13",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "# spread from the query's entities, pruned at delta hops",
+     "note": "고정 passage와 semantic bridging 대신 query entity에서 그래프 홉을 확장합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC14",
+     "status": "differs",
+     "where": "retrieve.py:7-12",
+     "found": "frontier = {m for n in frontier for m in graph.neighbors(n)\n                    if graph.nodes[m][\"kind\"] == \"entity\"} - seen",
+     "note": "질의-문장 유사도 점수를 전파하지 않고 entity 이웃을 홉으로 확장합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC15",
+     "status": "differs",
+     "where": "retrieve.py:8-12",
+     "found": "for _ in range(delta):\n        frontier = {m for n in frontier for m in graph.neighbors(n)\n                    if graph.nodes[m][\"kind\"] == \"entity\"} - seen",
+     "note": "relevance score 임계값 대신 delta 홉 수로 새 entity를 유지합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC16",
+     "status": "followed",
+     "where": "retrieve.py:20-22",
+     "found": "sub = graph.subgraph([n for n, d in graph.nodes(data=True) if d[\"kind\"] in (\"entity\", \"passage\")])\n    personalization = {n: 1.0 if n in seeds else (lam if n in passages else 0.0) for n in sub}\n    scores = nx.pagerank(sub, alpha=cfg[\"pagerank\"][\"damping\"], personalization=personalization)",
+     "note": "활성 entity를 personalization 초기값으로 사용해 entity-passage 부분 그래프에서 PPR을 계산합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC17",
+     "status": "followed",
+     "where": "retrieve.py:23",
+     "found": "return sorted(passages, key=lambda p: scores.get(p, 0.0), reverse=True)[:k]",
+     "note": "PPR 점수 내림차순으로 passage를 정렬하고 top-k를 선택합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC18",
+     "status": "followed",
+     "where": "config.yaml:12",
+     "found": "delta: 4",
+     "note": "delta=4가 activate의 반복 횟수로 실제 사용됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC19",
+     "status": "followed",
+     "where": "config.yaml:10",
+     "found": "lam: 0.05",
+     "note": "lambda=0.05가 passage personalization 값으로 실제 사용됩니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC20",
+     "status": "followed",
+     "where": "evaluate.py:5-7",
+     "found": "return float(gold.lower() in pred.lower())",
+     "note": "생성 응답에 정답 문자열이 포함되는지로 contain accuracy를 계산합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC21",
+     "status": "followed",
+     "where": "evaluate.py:9-12",
+     "found": "r = client.chat.completions.create(model=model, messages=[{\"role\": \"user\", \"content\": q}])",
+     "note": "LLM에게 예측 답변과 정답의 일치 여부를 묻고 응답을 정확도로 변환합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC22",
+     "status": "followed",
+     "where": "evaluate.py:16-18",
+     "found": "if dataset != \"medical\":  # Medical answers are long descriptions: GPT-ACC only",
+     "note": "Medical에서는 contain_acc를 계산하지 않고 GPT-ACC만 출력합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC26",
+     "status": "differs",
+     "where": "logs/2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=64.35",
+     "note": "확인 가능한 2Wiki 로그는 논문의 2Wiki 값 66.50과 다르며, 논문 행의 데이터셋·지표 짝이 잘못 읽혔을 가능성도 있습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC27",
+     "status": "missing",
+     "where": "",
+     "found": "",
+     "note": "전체 파이프라인 정확도 66.95를 기록한 로그나 코드가 없습니다.",
+     "check": "unchecked"
+    },
+    {
+     "id": "SC28",
+     "status": "chosen",
+     "where": "config.yaml:15",
+     "found": "seed: 42",
+     "note": "논문에 시드가 없지만 코드가 주요 실행 시드를 42로 정했습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC29",
+     "status": "chosen",
+     "where": "evaluate.py:16",
+     "found": "out = {\"gpt_acc\": 100 * mean(gpt_acc(p, g, client, cfg[\"llm\"]) for p, g in zip(preds, golds))}",
+     "note": "논문에 반복 실행 규정은 없고, 코드는 한 번 실행해 질문별 평균을 집계합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC30",
+     "status": "chosen",
+     "where": "run.py:25",
+     "found": "r = client.chat.completions.create(model=cfg[\"llm\"], messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}])",
+     "note": "논문에 구체적 템플릿은 없으며 코드가 context와 Q를 결합한 프롬프트를 정했습니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC31",
+     "status": "chosen",
+     "where": "run.py:25",
+     "found": "client.chat.completions.create(model=cfg[\"llm\"], messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}])",
+     "note": "논문에 decoding 설정은 없고 API 호출에도 temperature 등 명시값이 없어 기본값을 사용합니다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC32",
+     "status": "chosen",
+     "where": "preprocess.py:11",
+     "found": "return re.findall(r\"\\b[A-Z][a-z]+(?: [A-Z][a-z]+)*\\b\", sentence)",
+     "note": "논문에 spaCy 모델명·버전은 없으며 구현은 spaCy 대신 정규식을 선택했습니다.",
+     "check": "verified"
+    }
+   ],
+   "outside": [
+    {
+     "kind": "method",
+     "what": "임베딩 모델을 생성하지만 retrieval 또는 graph 계산에 전달하지 않습니다.",
+     "where": "run.py:16",
+     "found": "client, encoder = OpenAI(), SentenceTransformer(cfg[\"embedding_model\"])",
+     "check": "verified"
+    }
+   ]
+  },
+  {
+   "variant": "v08",
+   "ms": 91192,
+   "status": "completed",
+   "summary": "설정에는 네 데이터셋과 일부 하이퍼파라미터가 있으나, 로그는 2Wiki의 1,000개 실행만 확인됩니다. Tri-Graph의 문장 노드·semantic propagation은 구현되지 않았고, GPT 모델도 논문과 다릅니다.",
+   "items": [
+    {
+     "id": "SC1",
+     "status": "missing",
+     "where": "config.yaml:4",
+     "found": "datasets: [hotpotqa, 2wikimultihopqa, musique, medical]",
+     "note": "네 데이터셋은 설정되어 있지만 실행 로그에는 2Wiki만 있어 주요 실험 전체 실행을 확인할 수 없다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC6",
+     "status": "missing",
+     "where": "config.yaml:6-7",
+     "found": "split: validation\n  questions_per_dataset: 1000",
+     "note": "설정과 2Wiki 로그는 맞지만 네 데이터셋 모두에서 실행된 근거가 없다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC7",
+     "status": "missing",
+     "where": "preprocess.py:9-11",
+     "found": "return [s.strip() for s in re.split(r\"(?<=[.!?])\\s+\", passage) if s.strip()]",
+     "note": "구두점 문장 분할 함수는 있으나 실제 그래프 구축에서 호출되지 않는다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC8",
+     "status": "differs",
+     "where": "run.py:23; preprocess.py:14-15",
+     "found": "top = retrieve(graph, ex[\"entities\"], cfg)",
+     "note": "코퍼스 passage에는 spaCy NER를 적용하지만 질의에서는 미리 제공된 entities를 사용한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC9",
+     "status": "followed",
+     "where": "config.yaml:2",
+     "found": "embedding_model: all-mpnet-base-v2",
+     "note": "설정값 자체는 논문과 같지만 임베딩 모델은 실제 검색 계산에 사용되지 않는다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC10",
+     "status": "differs",
+     "where": "config.yaml:3",
+     "found": "llm: gpt-4o",
+     "note": "실제 생성과 평가에 gpt-4o가 사용되어 논문의 gpt-4o-mini와 다르다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC11",
+     "status": "followed",
+     "where": "config.yaml:9; retrieve.py:16,23",
+     "found": "top_k: 5",
+     "note": "top-k가 5로 설정되고 실제 반환에도 사용된다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC12",
+     "status": "differs",
+     "where": "graph.py:10-13",
+     "found": "g.add_node(pid, kind=\"passage\")",
+     "note": "entity와 passage 노드 및 entity-passage 엣지만 만들고 sentence 노드와 entity-sentence 엣지는 만들지 않는다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC13",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "# spread from the query's entities, pruned at delta hops",
+     "note": "고정 passage 기반 semantic bridging이 아니라 질의 entity에서 단순 hop 확산을 수행한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC14",
+     "status": "differs",
+     "where": "retrieve.py:5-12",
+     "found": "for _ in range(delta):",
+     "note": "질의-문장 유사도를 문장-entity 그래프로 전파하지 않고 그래프 이웃을 반복 탐색한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC15",
+     "status": "differs",
+     "where": "retrieve.py:9-11",
+     "found": "if graph.nodes[m][\"kind\"] == \"entity\"} - seen",
+     "note": "relevance score 임계값 비교가 없고 delta hop과 중복 제거로 entity를 유지한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC16",
+     "status": "followed",
+     "where": "retrieve.py:18-22",
+     "found": "scores = nx.pagerank(sub, alpha=cfg[\"pagerank\"][\"damping\"], personalization=personalization)",
+     "note": "활성 entity를 personalization seed로 하여 entity-passage 부분 그래프에 Personalized PageRank를 계산한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC17",
+     "status": "followed",
+     "where": "retrieve.py:23",
+     "found": "return sorted(passages, key=lambda p: scores.get(p, 0.0), reverse=True)[:k]",
+     "note": "PPR 점수 내림차순으로 정렬하고 상위 k개 passage를 선택한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC18",
+     "status": "followed",
+     "where": "config.yaml:12; retrieve.py:18",
+     "found": "delta: 4",
+     "note": "동적 pruning 값 4가 실제 activate 반복 횟수로 사용된다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC19",
+     "status": "followed",
+     "where": "config.yaml:10; retrieve.py:17,21",
+     "found": "lam: 0.05",
+     "note": "lambda 값 0.05가 실제 personalization에 사용된다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC20",
+     "status": "followed",
+     "where": "evaluate.py:5-6",
+     "found": "return float(gold.lower() in pred.lower())",
+     "note": "생성 응답에 정답 문자열이 포함되는지로 Contain-Match를 계산한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC21",
+     "status": "followed",
+     "where": "evaluate.py:9-12",
+     "found": "Does the answer match the ground truth?",
+     "note": "LLM에 예측 답변과 정답을 함께 보내 일치 여부를 평가한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC22",
+     "status": "followed",
+     "where": "evaluate.py:17-18",
+     "found": "if dataset != \"medical\":",
+     "note": "Medical에서는 contain_acc를 계산하지 않고 GPT-ACC만 계산한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC26",
+     "status": "missing",
+     "where": "logs/2wikimultihopqa.log:1",
+     "found": "dataset=2wikimultihopqa split=validation questions=1000 gpt_acc=63.70 contain_acc=70.20",
+     "note": "네 데이터셋 결과가 모두 없고, 2Wiki 로그도 제시된 2Wiki 66.50과 다르며 63.70/70.20은 다른 데이터셋·지표 행과 뒤섞였을 가능성이 있다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC27",
+     "status": "missing",
+     "where": "logs/2wikimultihopqa.log:1",
+     "found": "gpt_acc=63.70 contain_acc=70.20",
+     "note": "전체 파이프라인 정확도 66.95를 보고한 로그가 없다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC28",
+     "status": "chosen",
+     "where": "config.yaml:15",
+     "found": "seed: 42",
+     "note": "논문에 명시되지 않은 난수 시드를 코드가 42로 정했다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC29",
+     "status": "chosen",
+     "where": "run.py:18-30",
+     "found": "for name in cfg[\"datasets\"]:",
+     "note": "반복 실행 설정은 없고 한 번 실행하며, 결과는 examples에 대한 mean으로 집계한다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC30",
+     "status": "chosen",
+     "where": "run.py:25; evaluate.py:10",
+     "found": "messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}]",
+     "note": "논문에 없는 생성·평가 프롬프트 템플릿을 코드가 구체적으로 정했다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC31",
+     "status": "unclear",
+     "where": "run.py:25",
+     "found": "client.chat.completions.create(model=cfg[\"llm\"], messages=[{\"role\": \"user\", \"content\": f\"{ctx}\\n\\nQ: {ex['question']}\"}])",
+     "note": "decoding 인자를 명시하지 않아 어떤 API 기본값이 적용됐는지 코드만으로는 확정할 수 없다.",
+     "check": "verified"
+    },
+    {
+     "id": "SC32",
+     "status": "chosen",
+     "where": "preprocess.py:6",
+     "found": "NLP = spacy.load(\"en_core_web_sm\")",
+     "note": "논문에 없는 spaCy 모델명을 코드가 en_core_web_sm으로 정했지만 버전은 고정하지 않았다.",
+     "check": "verified"
+    }
+   ],
+   "outside": [
+    {
+     "kind": "method",
+     "what": "all-mpnet-base-v2 임베딩 모델을 불러오지만 검색 점수 계산에는 사용하지 않는다.",
+     "where": "run.py:16",
+     "found": "client, encoder = OpenAI(), SentenceTransformer(cfg[\"embedding_model\"])",
+     "check": "verified"
+    }
+   ]
+  }
+ ]
+}

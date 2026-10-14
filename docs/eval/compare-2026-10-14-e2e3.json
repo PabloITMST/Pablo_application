@@ -1,0 +1,840 @@
+{
+ "e2e2": {
+  "recall": 94.4,
+  "found": 17,
+  "found_loc": 17,
+  "planted": 18,
+  "missed": [
+   "v02 damping"
+  ],
+  "reports": 101,
+  "extra": 81,
+  "extra_per_variant": 9.0,
+  "clean_extra": 10,
+  "avg_ms": 91741,
+  "extras": [
+   {
+    "variant": "v00-clean",
+    "where": "run.py:23",
+    "what": "코퍼스에는 spaCy NER를 적용하지만 질의는 spaCy로 추출하지 않고 입력 entities를 그대로 사용한다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "retrieve.py:5-12",
+    "what": "고정 passage 기반 semantic bridging이나 유사도 계산 없이 query entity에서 hop 전파만 수행한다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "retrieve.py:8-12",
+    "what": "질의-문장 유사도를 계산해 전파하지 않고 그래프 이웃을 반복 탐색한다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "retrieve.py:8-11",
+    "what": "relevance score 임계값으로 pruning하지 않고 delta 횟수만큼 hop을 반복한다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "",
+    "what": "Vanilla RAG baseline의 1·3·5 passage 설정이나 실행 코드가 없다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "기록된 2Wiki 결과가 논문의 LinearRAG 값 66.50과 일치하지 않으며 나머지 데이터셋 로그도 없다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 산출하거나 보고한 로그가 없다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "run.py:16",
+    "what": "임베딩 모델을 생성하지만 검색 계산에는 사용하지 않는다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "run.py:24",
+    "what": "검색 문맥으로 passage 원문이 아니라 그래프 노드 ID를 전달한다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "논문의 주요 실험 결과 중 2Wiki 이외 데이터셋 실행 로그가 이 폴더에 없다."
+   },
+   {
+    "variant": "v01",
+    "where": "run.py:23",
+    "what": "코퍼스 문장은 spaCy로 처리하지만 질의에서는 추출하지 않고 사전 제공된 entities를 사용합니다."
+   },
+   {
+    "variant": "v01",
+    "where": "retrieve.py:5-12",
+    "what": "passage를 고정한 semantic bridging이 아니라 entity 이웃만 반복 탐색합니다."
+   },
+   {
+    "variant": "v01",
+    "where": "retrieve.py:7-10",
+    "what": "질의-문장 유사도 점수를 전파하지 않고 질의 entity에서 그래프 이웃을 탐색합니다."
+   },
+   {
+    "variant": "v01",
+    "where": "retrieve.py:8-12",
+    "what": "relevance score 임계값 비교가 아니라 delta만큼 반복하고 새 entity를 유지합니다."
+   },
+   {
+    "variant": "v01",
+    "where": "retrieve.py:22-23",
+    "what": "PPR 점수가 아닌 휴리스틱 scores로 passage를 정렬합니다."
+   },
+   {
+    "variant": "v01",
+    "where": "",
+    "what": "1·3·5 passage Vanilla RAG baseline을 구현하거나 실행한 흔적이 없습니다."
+   },
+   {
+    "variant": "v01",
+    "where": "logs\\2wikimultihopqa.log:1",
+    "what": "2Wiki 로그 값이 논문의 66.50과 다르고 나머지 세 데이터셋 결과도 없습니다."
+   },
+   {
+    "variant": "v01",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 계산하거나 보고한 로그가 없습니다."
+   },
+   {
+    "variant": "v01",
+    "where": "",
+    "what": "temperature, max_tokens 등 decoding 설정을 명시하지 않습니다."
+   },
+   {
+    "variant": "v01",
+    "where": "run.py:16; retrieve.py:20-22",
+    "what": "임베딩 모델을 로드하지만 retrieval이나 passage 점수 계산에 사용하지 않습니다."
+   },
+   {
+    "variant": "v01",
+    "where": "run.py:24; graph.py:10",
+    "what": "그래프 passage 노드에 text를 저장하지 않아 생성 context가 passage 원문 대신 ID가 될 수 있습니다."
+   },
+   {
+    "variant": "v01",
+    "where": "run.py:19-20",
+    "what": "실험 데이터 파일은 폴더에 없고 코드에서만 data 경로를 참조합니다."
+   },
+   {
+    "variant": "v02",
+    "where": "preprocess.py:15; run.py:20",
+    "what": "corpus 문장에는 spaCy를 적용하지만 질의는 ex[\"entities\"]를 사용하므로 질의에서 직접 개체를 추출하지 않는다."
+   },
+   {
+    "variant": "v02",
+    "where": "retrieve.py:5-10",
+    "what": "passage 고정 및 semantic bridging/유사도 계산 없이 단순 hop 전파를 수행하며 현재 그래프에서는 entity에서 entity로 전파되지 않는다."
+   },
+   {
+    "variant": "v02",
+    "where": "retrieve.py:5-10",
+    "what": "질의-문장 유사도를 계산하거나 문장-entity 그래프로 semantic propagation하는 단계가 없다."
+   },
+   {
+    "variant": "v02",
+    "where": "retrieve.py:7-10",
+    "what": "relevance score 임계값으로 새 entity를 선별하지 않고 delta를 반복 횟수로 사용한다."
+   },
+   {
+    "variant": "v02",
+    "where": "",
+    "what": "1·3·5 passage Vanilla RAG baseline을 구현하거나 실행한 근거가 없다."
+   },
+   {
+    "variant": "v02",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "네 데이터셋의 논문 보고값 전체가 없고, 기록된 2Wiki GPT-ACC 63.70도 논문값 66.50과 다르다."
+   },
+   {
+    "variant": "v02",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 기록한 로그나 계산 코드가 없다."
+   },
+   {
+    "variant": "v02",
+    "where": "run.py:14; retrieve.py:12-21",
+    "what": "설정한 임베딩 encoder를 생성하지만 retrieval에서 호출하지 않아 검색 결과에 임베딩이 반영되지 않는다."
+   },
+   {
+    "variant": "v03",
+    "where": "retrieve.py:5-12",
+    "what": "passage 고정과 semantic bridging 대신 query entity에서 entity 이웃을 hop 수로 확장한다."
+   },
+   {
+    "variant": "v03",
+    "where": "retrieve.py:7-12",
+    "what": "질의-문장 유사도를 계산하거나 문장-entity 그래프로 전파하지 않는다."
+   },
+   {
+    "variant": "v03",
+    "where": "retrieve.py:8-11",
+    "what": "relevance score 임계값으로 새 entity를 선별하지 않고 delta를 반복 횟수로 사용한다."
+   },
+   {
+    "variant": "v03",
+    "where": "",
+    "what": "Vanilla RAG baseline의 1·3·5 passage 비교 구현이나 로그가 없다."
+   },
+   {
+    "variant": "v03",
+    "where": "logs\\2wikimultihopqa.log:1",
+    "what": "2Wiki 로그 값이 논문 기준 66.50과 다르고 나머지 세 데이터셋 결과도 보고되지 않았다."
+   },
+   {
+    "variant": "v03",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 기록하거나 계산한 결과가 없다."
+   },
+   {
+    "variant": "v03",
+    "where": "run.py:16",
+    "what": "임베딩 모델을 로드하지만 검색이나 그래프 계산에 사용하지 않는다."
+   },
+   {
+    "variant": "v03",
+    "where": "run.py:24",
+    "what": "그래프에 passage 노드의 원문 text를 저장하지 않아 생성 컨텍스트에 passage 내용 대신 passage ID가 전달된다."
+   },
+   {
+    "variant": "v03",
+    "where": "logs\\2wikimultihopqa.log:1",
+    "what": "실행 로그와 설정 파일의 데이터 split이 서로 다르다."
+   },
+   {
+    "variant": "v04",
+    "where": "retrieve.py:5-12",
+    "what": "고정 passage와 semantic bridging을 사용하지 않고 query entity에서 단순 hop 전파를 수행한다."
+   },
+   {
+    "variant": "v04",
+    "where": "retrieve.py:5-12",
+    "what": "질의-문장 유사도를 문장-entity 그래프로 전파하는 계산이 없다."
+   },
+   {
+    "variant": "v04",
+    "where": "retrieve.py:6,9",
+    "what": "relevance score 임계값이 아니라 delta hop 수로 entity를 유지한다."
+   },
+   {
+    "variant": "v04",
+    "where": "",
+    "what": "Vanilla RAG baseline과 1·3·5 passage 설정 구현이나 로그가 없다."
+   },
+   {
+    "variant": "v04",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 계산하거나 보고한 코드·로그가 없다."
+   },
+   {
+    "variant": "v04",
+    "where": "run.py:16; retrieve.py:15-23",
+    "what": "임베딩 모델을 로드하지만 검색 계산에는 사용하지 않는다."
+   },
+   {
+    "variant": "v05",
+    "where": "preprocess.py:14-15",
+    "what": "spaCy는 문장에서만 호출되고 질의의 명명 개체는 spaCy로 추출하지 않는다."
+   },
+   {
+    "variant": "v05",
+    "where": "retrieve.py:7-10",
+    "what": "passage를 고정한 semantic bridging이 아니라 전체 그래프의 이웃을 hop으로 확장한다."
+   },
+   {
+    "variant": "v05",
+    "where": "retrieve.py:5-12",
+    "what": "질의-문장 유사도나 유사도 전파 없이 그래프 이웃 탐색만 수행한다."
+   },
+   {
+    "variant": "v05",
+    "where": "retrieve.py:9-12",
+    "what": "relevance score와 임계값 비교가 없고 delta hop만큼 entity를 유지한다."
+   },
+   {
+    "variant": "v05",
+    "where": "",
+    "what": "1·3·5 passage Vanilla RAG baseline 구현이나 실행 흔적이 없다."
+   },
+   {
+    "variant": "v05",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "네 데이터셋 결과가 모두 보고되지 않았고 2Wiki의 보고값도 논문의 66.50과 다르다."
+   },
+   {
+    "variant": "v05",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 기록한 로그나 코드가 없다."
+   },
+   {
+    "variant": "v05",
+    "where": "run.py:16",
+    "what": "설정한 all-mpnet-base-v2 임베더를 실제 검색 계산에 사용하지 않는다."
+   },
+   {
+    "variant": "v06",
+    "where": "run.py:23",
+    "what": "코퍼스 문장에서는 spaCy 개체를 추출하지만 질의에서는 미리 제공된 entities를 사용한다."
+   },
+   {
+    "variant": "v06",
+    "where": "retrieve.py:5-12",
+    "what": "고정 passage 기반 semantic bridging이 아니라 질의 entity에서 hop 전파를 수행한다."
+   },
+   {
+    "variant": "v06",
+    "where": "retrieve.py:5-12",
+    "what": "질의-문장 유사도 전파나 semantic score 계산이 구현되어 있지 않다."
+   },
+   {
+    "variant": "v06",
+    "where": "retrieve.py:8-11",
+    "what": "relevance score 임계값 비교가 아니라 delta 횟수와 hop으로 entity를 확장한다."
+   },
+   {
+    "variant": "v06",
+    "where": "",
+    "what": "1·3·5 passage Vanilla RAG baseline 구현이나 실행 설정이 없다."
+   },
+   {
+    "variant": "v06",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "네 데이터셋 결과가 모두 보고되지 않았고, 보고된 2Wiki 값도 논문의 66.50과 다르다."
+   },
+   {
+    "variant": "v06",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 산출하거나 기록한 로그가 없다."
+   },
+   {
+    "variant": "v06",
+    "where": "run.py:16",
+    "what": "all-mpnet-base-v2 encoder를 생성하지만 검색이나 생성 계산에는 사용하지 않는다."
+   },
+   {
+    "variant": "v06",
+    "where": "run.py:24",
+    "what": "그래프에 passage 텍스트를 저장하지 않아 생성 컨텍스트에는 passage 내용 대신 passage ID가 전달된다."
+   },
+   {
+    "variant": "v06",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "실행 로그가 네 주요 데이터셋 중 2WikiMultiHopQA 하나만 포함한다."
+   },
+   {
+    "variant": "v07",
+    "where": "config.yaml:4; logs/2wikimultihopqa.log:1",
+    "what": "설정에는 네 데이터셋이 있으나 실행 로그는 2Wiki 하나만 존재한다."
+   },
+   {
+    "variant": "v07",
+    "where": "retrieve.py:5-12",
+    "what": "passage 고정과 semantic bridging 대신 query entity에서 단순 hop 전파를 수행한다."
+   },
+   {
+    "variant": "v07",
+    "where": "retrieve.py:7-12",
+    "what": "query-sentence 유사도나 sentence-entity 기반 semantic propagation을 계산하지 않는다."
+   },
+   {
+    "variant": "v07",
+    "where": "retrieve.py:9-11",
+    "what": "relevance score 임계값이 아니라 delta hop 수로 entity를 유지한다."
+   },
+   {
+    "variant": "v07",
+    "where": "",
+    "what": "1·3·5 passage Vanilla RAG baseline 구현이나 실행 로그가 없다."
+   },
+   {
+    "variant": "v07",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 계산하거나 기록하는 코드와 로그가 없다."
+   },
+   {
+    "variant": "v07",
+    "where": "run.py:16",
+    "what": "임베딩 모델을 로드하지만 검색이나 평가 계산에는 사용하지 않는다."
+   },
+   {
+    "variant": "v07",
+    "where": "run.py:24; graph.py:10",
+    "what": "그래프에 passage 텍스트를 저장하지 않아 생성 단계에서 실제 passage 내용 대신 passage ID를 context로 전달한다."
+   },
+   {
+    "variant": "v08",
+    "where": "run.py:23",
+    "what": "코퍼스에는 spaCy를 적용하지만 질의에서는 미리 제공된 entities를 사용하고 spaCy로 추출하지 않습니다."
+   },
+   {
+    "variant": "v08",
+    "where": "retrieve.py:7-11",
+    "what": "passage 고정이나 entity-문장 semantic bridging 없이 단순 이웃 확장을 수행합니다."
+   },
+   {
+    "variant": "v08",
+    "where": "retrieve.py:7-12",
+    "what": "질의-문장 유사도를 문장-entity 그래프로 전파하지 않고 hop 기반으로 entity를 확장합니다."
+   },
+   {
+    "variant": "v08",
+    "where": "retrieve.py:7-12",
+    "what": "relevance score 임계값으로 새 entity를 선별하지 않고 반복 횟수 delta로 확장합니다."
+   },
+   {
+    "variant": "v08",
+    "where": "",
+    "what": "Vanilla RAG의 1·3·5 passage 비교 baseline 코드나 로그가 없습니다."
+   },
+   {
+    "variant": "v08",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "2Wiki 로그값이 논문의 66.50과 다르고 나머지 세 데이터셋 결과도 보고되지 않았습니다."
+   },
+   {
+    "variant": "v08",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 계산하거나 기록하는 코드와 로그가 없습니다."
+   },
+   {
+    "variant": "v08",
+    "where": "run.py:24",
+    "what": "생성 모델에 passage 본문 대신 passage ID가 컨텍스트로 전달됩니다."
+   },
+   {
+    "variant": "v08",
+    "where": "run.py:19-20",
+    "what": "전체 데이터셋 실행에 필요한 data 디렉터리와 corpus/question 파일이 작업 폴더에 없습니다."
+   },
+   {
+    "variant": "v08",
+    "where": "config.yaml:13-14",
+    "what": "PPR의 damping 계수 0.85가 별도 설정으로 사용됩니다."
+   }
+  ],
+  "themes": {
+   "hybrid passage 초기화 없음": 0,
+   "그래프 구조(희소 행렬·passage-sentence 간선)": 0,
+   "δ를 임계값이 아니라 hop 수로": 9,
+   "LLM에 passage 본문 대신 ID": 6,
+   "의미 기반 entity 활성화 없음": 9,
+   "질의 entity를 유사 entity에 매칭하지 않음": 1,
+   "임베딩 모델을 쓰지 않음": 7,
+   "생성 프롬프트": 0
+  }
+ },
+ "e2e3": {
+  "recall": 88.9,
+  "found": 16,
+  "found_loc": 16,
+  "planted": 18,
+  "missed": [
+   "v02 damping",
+   "v05 topk_hardcoded"
+  ],
+  "reports": 94,
+  "extra": 76,
+  "extra_per_variant": 8.4,
+  "clean_extra": 11,
+  "avg_ms": 90681,
+  "extras": [
+   {
+    "variant": "v00-clean",
+    "where": "config.yaml:4",
+    "what": "네 데이터셋이 설정되어 있지만 실행 로그에는 2Wiki 결과만 있어 네 데이터셋 모두 수행된 상태는 확인되지 않습니다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "config.yaml:6-7",
+    "what": "설정과 2Wiki 로그는 맞지만 각 데이터셋의 실행 결과가 모두 없어 전체 조건의 실행 여부는 확인되지 않습니다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "retrieve.py:5-12",
+    "what": "고정 passage와 semantic bridging을 사용하지 않고 entity 노드 간 직접 이웃만 delta회 탐색합니다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "retrieve.py:7-12",
+    "what": "질의-문장 유사도를 계산하거나 문장-entity 그래프로 semantic propagation을 하지 않습니다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "retrieve.py:8-10",
+    "what": "relevance score가 임계값보다 큰 entity를 유지하지 않고 delta를 반복 홉 수로 사용합니다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "2Wiki 로그는 논문 행의 2Wiki 값 66.50과 다르며, 63.70·70.20은 논문 표 행에서 데이터셋 또는 지표 짝이 뒤바뀌었을 가능성이 있습니다; 나머지 데이터셋 로그도 없습니다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 기록하거나 계산하는 코드와 로그가 없습니다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "",
+    "what": "반복 실행 횟수와 결과 집계 방식을 정하는 설정이나 구현이 없습니다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "",
+    "what": "decoding parameter를 지정하는 코드가 없어 구체적인 decoding 설정은 확인되지 않습니다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "run.py:23",
+    "what": "질의의 명명 개체를 실행 시 spaCy로 추출하지 않고 입력 예제의 entities 필드를 직접 사용합니다."
+   },
+   {
+    "variant": "v00-clean",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "현재 폴더에는 2WikiMultiHopQA 실행 로그만 있고 HotpotQA·MuSiQue·Medical 로그가 없습니다."
+   },
+   {
+    "variant": "v01",
+    "where": "preprocess.py:14-15; run.py:23",
+    "what": "코퍼스 문장에는 spaCy를 쓰지만 질의는 ex[\"entities\"]를 그대로 사용해 질의에서 spaCy 추출을 수행하지 않는다."
+   },
+   {
+    "variant": "v01",
+    "where": "retrieve.py:5-12",
+    "what": "고정 passage와 semantic bridging 없이 query entity에서 entity 이웃만 hop 확장한다."
+   },
+   {
+    "variant": "v01",
+    "where": "retrieve.py:5-12",
+    "what": "질의-문장 유사도 계산이나 문장-entity 그래프를 통한 semantic propagation이 없다."
+   },
+   {
+    "variant": "v01",
+    "where": "retrieve.py:8-11",
+    "what": "relevance score 임계값이 아니라 고정 hop 수 delta로 반복한다."
+   },
+   {
+    "variant": "v01",
+    "where": "logs\\2wikimultihopqa.log:1",
+    "what": "2Wiki 로그만 있고 GPT-ACC는 논문의 2Wiki 66.50이 아닌 63.70이며 70.20도 논문 표의 다른 데이터셋·지표와 짝이 어긋났을 가능성이 있다."
+   },
+   {
+    "variant": "v01",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 기록하거나 계산한 근거가 없다."
+   },
+   {
+    "variant": "v01",
+    "where": "run.py:16",
+    "what": "임베딩 모델을 로드하지만 검색·생성 파이프라인에서 encoder를 사용하지 않는다."
+   },
+   {
+    "variant": "v01",
+    "where": "graph.py:10; run.py:24",
+    "what": "검색 문맥으로 passage 본문이 아니라 passage ID가 전달된다."
+   },
+   {
+    "variant": "v01",
+    "where": "logs\\2wikimultihopqa.log:1",
+    "what": "실행 로그가 네 데이터셋 전체가 아니라 2WikiMultiHopQA 한 데이터셋만 포함한다."
+   },
+   {
+    "variant": "v02",
+    "where": "preprocess.py:6; run.py:23",
+    "what": "코퍼스 문장에서는 spaCy를 사용하지만 질의는 ex['entities']를 입력으로 받아 질의에서 spaCy 개체를 추출하지 않는다."
+   },
+   {
+    "variant": "v02",
+    "where": "retrieve.py:5-12",
+    "what": "passage를 고정한 semantic bridging이 아니라 질의 entity에서 그래프 hop을 수행하며 semantic similarity를 계산하지 않는다."
+   },
+   {
+    "variant": "v02",
+    "where": "retrieve.py:7-12",
+    "what": "질의-문장 유사도를 문장-entity 그래프로 전파하지 않고 entity 이웃을 hop 수만큼 확장한다."
+   },
+   {
+    "variant": "v02",
+    "where": "retrieve.py:9-11",
+    "what": "relevance score와 임계값 비교가 없고 delta hop 기준으로 새 entity를 유지한다."
+   },
+   {
+    "variant": "v02",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "로그의 2Wiki 값은 제시된 66.50과 다르고, 63.70·70.20은 제시된 다른 데이터셋 값과도 짝이 어긋나므로 논문 표 행의 데이터셋·지표 매칭 오류 가능성이 있다."
+   },
+   {
+    "variant": "v02",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 보고한 실행 로그나 코드 집계가 없다."
+   },
+   {
+    "variant": "v02",
+    "where": "",
+    "what": "논문과 코드 모두 temperature·top_p·max_tokens 등 decoding 설정을 명시하지 않는다."
+   },
+   {
+    "variant": "v02",
+    "where": "run.py:16; retrieve.py:15-23",
+    "what": "로드한 임베딩 encoder가 retrieval 계산에 사용되지 않는다."
+   },
+   {
+    "variant": "v02",
+    "where": "run.py:20,24",
+    "what": "검색된 passage의 원문이 그래프 노드에 저장되지 않아 생성 컨텍스트에는 passage ID가 들어간다."
+   },
+   {
+    "variant": "v02",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "실행 로그에는 네 데이터셋 중 2Wiki 결과만 존재한다."
+   },
+   {
+    "variant": "v03",
+    "where": "preprocess.py:14-15",
+    "what": "spaCy는 코퍼스 문장에만 적용되고 질의는 ex[\"entities\"]를 직접 사용합니다."
+   },
+   {
+    "variant": "v03",
+    "where": "retrieve.py:5-12",
+    "what": "개체 그래프를 hop으로 확장할 뿐 semantic bridging이나 의미 유사도 계산을 하지 않습니다."
+   },
+   {
+    "variant": "v03",
+    "where": "retrieve.py:7-10",
+    "what": "질의-문장 유사도를 전파하지 않고 단순 그래프 이웃만 확장합니다."
+   },
+   {
+    "variant": "v03",
+    "where": "retrieve.py:5-12",
+    "what": "relevance score와 임계값 비교 없이 delta 횟수로 개체를 확장합니다."
+   },
+   {
+    "variant": "v03",
+    "where": "logs\\2wikimultihopqa.log:1",
+    "what": "2Wiki 로그는 논문 값 66.50과 다르며 63.70·70.20은 다른 데이터셋 행의 값일 가능성이 있습니다."
+   },
+   {
+    "variant": "v03",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 기록하거나 계산하는 코드와 로그가 없습니다."
+   },
+   {
+    "variant": "v03",
+    "where": "run.py:16",
+    "what": "임베딩 모델을 로드하지만 검색이나 평가에 사용하지 않습니다."
+   },
+   {
+    "variant": "v03",
+    "where": "run.py:24",
+    "what": "검색 컨텍스트에 passage 본문 대신 passage ID를 전달합니다."
+   },
+   {
+    "variant": "v03",
+    "where": "logs\\2wikimultihopqa.log:1",
+    "what": "로그에는 네 데이터셋 중 2Wiki 결과만 있어 나머지 주요 실험의 실행 결과가 없습니다."
+   },
+   {
+    "variant": "v04",
+    "where": "preprocess.py:14-15; run.py:23",
+    "what": "spaCy는 passage 문장에는 적용되지만 질의는 ex[\"entities\"]를 그대로 사용하므로 질의에서 명명 개체를 추출하지 않습니다."
+   },
+   {
+    "variant": "v04",
+    "where": "retrieve.py:5-12",
+    "what": "passage를 고정한 semantic bridging이 아니라 질의 entity에서 고정 hop 그래프 탐색을 수행합니다."
+   },
+   {
+    "variant": "v04",
+    "where": "retrieve.py:7-12",
+    "what": "질의-문장 유사도나 sentence-entity 기반 relevance 전파 없이 entity 이웃을 hop으로 확장합니다."
+   },
+   {
+    "variant": "v04",
+    "where": "retrieve.py:8-12",
+    "what": "relevance score가 임계값보다 큰 entity를 유지하지 않고 delta회의 hop만 수행합니다."
+   },
+   {
+    "variant": "v04",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 기록한 실행 결과가 없습니다."
+   },
+   {
+    "variant": "v04",
+    "where": "run.py:16",
+    "what": "임베딩 모델을 생성하지만 검색 점수나 그래프 구축에 사용하지 않습니다."
+   },
+   {
+    "variant": "v04",
+    "where": "run.py:24",
+    "what": "검색 문맥으로 passage 텍스트가 전달되지 않고 passage ID가 전달됩니다."
+   },
+   {
+    "variant": "v05",
+    "where": "run.py:22",
+    "what": "질의에서 spaCy로 개체를 추출하지 않고 입력 entities를 사용합니다."
+   },
+   {
+    "variant": "v05",
+    "where": "retrieve.py:13",
+    "what": "설정값 5가 아니라 코드의 10이 실제 top-k입니다."
+   },
+   {
+    "variant": "v05",
+    "where": "retrieve.py:7",
+    "what": "semantic bridging이 아니라 query entity에서 단순 hop 확산을 합니다."
+   },
+   {
+    "variant": "v05",
+    "where": "retrieve.py:7",
+    "what": "질의-문장 유사도와 semantic propagation이 없습니다."
+   },
+   {
+    "variant": "v05",
+    "where": "retrieve.py:9",
+    "what": "relevance score 임계값이 아니라 반복 횟수로 pruning합니다."
+   },
+   {
+    "variant": "v05",
+    "where": "logs\\2wikimultihopqa.log:1",
+    "what": "네 데이터셋 결과가 모두 보고되지 않았고, 2Wiki 로그 값도 제시된 66.50과 다릅니다. 논문 표의 값-데이터셋·지표 짝이 잘못되었을 가능성도 있습니다."
+   },
+   {
+    "variant": "v05",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 확인할 로그가 없습니다."
+   },
+   {
+    "variant": "v05",
+    "where": "run.py:16",
+    "what": "임베딩 모델을 생성하지만 검색 계산에는 사용하지 않습니다."
+   },
+   {
+    "variant": "v06",
+    "where": "preprocess.py:14-15",
+    "what": "spaCy는 코퍼스 문장에만 적용되고 질의 엔티티는 입력 필드에서 직접 받는다."
+   },
+   {
+    "variant": "v06",
+    "where": "retrieve.py:5-12",
+    "what": "고정 passage와 semantic bridging 구조는 있으나 entity-sentence 기반 중간 entity 활성화 방식으로 구현되지 않았다."
+   },
+   {
+    "variant": "v06",
+    "where": "retrieve.py:7-12",
+    "what": "질의-문장 유사도 계산과 문장-entity 그래프를 통한 semantic propagation이 없다."
+   },
+   {
+    "variant": "v06",
+    "where": "retrieve.py:8-12",
+    "what": "relevance score 임계값 비교 대신 고정 hop 횟수로 entity를 확장한다."
+   },
+   {
+    "variant": "v06",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "2Wiki 로그는 제시된 66.50과 다르며 63.70·70.20이 다른 지표/데이터셋 짝에서 옮겨졌을 가능성도 있다."
+   },
+   {
+    "variant": "v06",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 보고한 로그나 코드 결과가 없다."
+   },
+   {
+    "variant": "v06",
+    "where": "run.py:16",
+    "what": "임베딩 모델을 로드하지만 검색이나 그래프 계산에 사용하지 않는다."
+   },
+   {
+    "variant": "v07",
+    "where": "retrieve.py:5-12",
+    "what": "고정 passage와 semantic bridging 대신 query entity에서 그래프 홉을 확장합니다."
+   },
+   {
+    "variant": "v07",
+    "where": "retrieve.py:7-12",
+    "what": "질의-문장 유사도 점수를 전파하지 않고 entity 이웃을 홉으로 확장합니다."
+   },
+   {
+    "variant": "v07",
+    "where": "retrieve.py:8-12",
+    "what": "relevance score 임계값 대신 delta 홉 수로 새 entity를 유지합니다."
+   },
+   {
+    "variant": "v07",
+    "where": "",
+    "what": "전체 파이프라인 정확도 66.95를 기록한 로그나 코드가 없습니다."
+   },
+   {
+    "variant": "v07",
+    "where": "run.py:16",
+    "what": "임베딩 모델을 생성하지만 retrieval 또는 graph 계산에 전달하지 않습니다."
+   },
+   {
+    "variant": "v08",
+    "where": "config.yaml:4",
+    "what": "네 데이터셋은 설정되어 있지만 실행 로그에는 2Wiki만 있어 주요 실험 전체 실행을 확인할 수 없다."
+   },
+   {
+    "variant": "v08",
+    "where": "config.yaml:6-7",
+    "what": "설정과 2Wiki 로그는 맞지만 네 데이터셋 모두에서 실행된 근거가 없다."
+   },
+   {
+    "variant": "v08",
+    "where": "preprocess.py:9-11",
+    "what": "구두점 문장 분할 함수는 있으나 실제 그래프 구축에서 호출되지 않는다."
+   },
+   {
+    "variant": "v08",
+    "where": "run.py:23; preprocess.py:14-15",
+    "what": "코퍼스 passage에는 spaCy NER를 적용하지만 질의에서는 미리 제공된 entities를 사용한다."
+   },
+   {
+    "variant": "v08",
+    "where": "retrieve.py:5-12",
+    "what": "고정 passage 기반 semantic bridging이 아니라 질의 entity에서 단순 hop 확산을 수행한다."
+   },
+   {
+    "variant": "v08",
+    "where": "retrieve.py:5-12",
+    "what": "질의-문장 유사도를 문장-entity 그래프로 전파하지 않고 그래프 이웃을 반복 탐색한다."
+   },
+   {
+    "variant": "v08",
+    "where": "retrieve.py:9-11",
+    "what": "relevance score 임계값 비교가 없고 delta hop과 중복 제거로 entity를 유지한다."
+   },
+   {
+    "variant": "v08",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "네 데이터셋 결과가 모두 없고, 2Wiki 로그도 제시된 2Wiki 66.50과 다르며 63.70/70.20은 다른 데이터셋·지표 행과 뒤섞였을 가능성이 있다."
+   },
+   {
+    "variant": "v08",
+    "where": "logs/2wikimultihopqa.log:1",
+    "what": "전체 파이프라인 정확도 66.95를 보고한 로그가 없다."
+   },
+   {
+    "variant": "v08",
+    "where": "run.py:16",
+    "what": "all-mpnet-base-v2 임베딩 모델을 불러오지만 검색 점수 계산에는 사용하지 않는다."
+   }
+  ],
+  "themes": {
+   "hybrid passage 초기화 없음": 0,
+   "그래프 구조(희소 행렬·passage-sentence 간선)": 0,
+   "δ를 임계값이 아니라 hop 수로": 9,
+   "LLM에 passage 본문 대신 ID": 4,
+   "의미 기반 entity 활성화 없음": 9,
+   "질의 entity를 유사 entity에 매칭하지 않음": 4,
+   "임베딩 모델을 쓰지 않음": 7,
+   "생성 프롬프트": 0
+  }
+ }
+}
