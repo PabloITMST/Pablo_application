@@ -245,7 +245,9 @@ def test_reads_are_not_departures():
     for read in ['"Get-Content -LiteralPath .\\hello.txt -Tail 5"', "'git diff -- hello.txt; git status --short'",
                  '"Get-Item -LiteralPath .\\keep.txt | Select-Object FullName,Length"']:
         assert verdict(pwsh + read) == ("ALLOW", []), read
-    for change in ['"Remove-Item keep.txt"', '"Get-Content a.txt > b.txt"', '"python run.py"', '"git checkout -- hello.txt"']:
+    assert verdict(pwsh + '"git branch -a"') == ("ALLOW", [])
+    for change in ['"Remove-Item keep.txt"', '"Get-Content a.txt > b.txt"', '"python run.py"', '"git checkout -- hello.txt"',
+                   '"git branch exp"', '"git branch --set-upstream-to=origin/main"', '"git diff --output=d.patch"']:
         assert verdict(pwsh + change) == ("WARN", ["D01"]), change
     assert verdict("파일 수정: hello.txt") == ("WARN", ["D01"])
 

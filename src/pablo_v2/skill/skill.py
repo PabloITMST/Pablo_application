@@ -973,6 +973,7 @@ _READ_CMDS = {"get-content", "gc", "cat", "type", "get-item", "gi", "get-childit
               "format-list", "fl", "measure-object", "measure", "sort-object", "sort", "where-object", "where", "?",
               "test-path", "resolve-path", "get-location", "pwd", "get-filehash", "out-string", "more"}
 _READ_GIT = {"diff", "status", "log", "show", "ls-files", "grep", "blame", "rev-parse", "branch"}
+_LIST_BRANCH = {"--list", "-l", "-a", "--all", "-r", "--remotes", "-v", "-vv", "--verbose", "--show-current"}  # review: only listing
 
 
 def reads_only(description: str) -> bool:
@@ -984,7 +985,7 @@ def reads_only(description: str) -> bool:
         return False
     m = re.search(r"-Command\s+(['\"])(.*)\1\s*$", head)  # pwsh -Command "…" / '…': the command inside the wrapper
     cmd = m.group(2) if m else head.split(":", 1)[1].strip()
-    if re.search(r">|\{|\$\(|`|Set-|Out-File|Add-Content|Remove-|New-|Move-|Copy-|Rename-|Invoke-|Start-", cmd, re.I):
+    if re.search(r">|\{|\$\(|`|Set-|Out-File|Add-Content|Remove-|New-|Move-|Copy-|Rename-|Invoke-|Start-|--output", cmd, re.I):
         return False
     for part in re.split(r"\s*(?:;|\|\||&&|\|)\s*", cmd.strip()):
         words = part.strip().strip("&").split()
@@ -993,8 +994,8 @@ def reads_only(description: str) -> bool:
         name = words[0].strip("'\"").lower()
         if name == "git":
             sub = next((w for w in words[1:] if not w.startswith("-")), "")
-            if sub not in _READ_GIT or (sub == "branch" and any(w in ("-d", "-D", "-m", "-M", "--delete") for w in words)):
-                return False
+            if sub not in _READ_GIT or (sub == "branch" and not all(w in _LIST_BRANCH for w in words[words.index(sub) + 1:])):
+                return False  # review: `git branch name` makes one; only listing reads
         elif name not in _READ_CMDS:
             return False
     return True
