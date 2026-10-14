@@ -191,12 +191,21 @@ def _day(iso: str | None) -> str:
     return (iso or "")[:10]
 
 
+def _when(iso: str | None) -> str:
+    """review: to the minute, in the reader's local time (several things happen on one day)."""
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        return _day(iso)
+
+
 def _span(spans: list, at: str):
     """The deviation / removal span holding at `at` (ISO strings sort in time order)."""
     return next((d for d in spans or [] if d.get("from", "") < at and (not d.get("to") or d["to"] > at)), None)
 
 
-def render_report(s, task_id: str) -> str:
+def render_report(s, task_id: str, now: dict | None = None) -> str:
     """⑫ Markdown: the task's papers, conditions (with pages), what differs on purpose, what was taken out and why, the
     criteria, the last audit, what Pablo stopped or asked about, and what changed. Pages instead of [n]: a report is
     read apart from the app."""
@@ -217,7 +226,7 @@ def render_report(s, task_id: str) -> str:
     text = lambda c: re.sub(r"\s*\[\d+\]", "", c.conclusion or c.requirement).strip()  # noqa: E731
     audits = [c for c in v["chat"] if c.get("role") == "audit" and c.get("items")]
     last = audits[-1] if audits else None
-    out = [f"# 재현 보고서: {t.text}", "", f"Pablo가 {_day(now_iso())}에 만든 보고서입니다. 조건마다 논문의 쪽을 적었습니다.", ""]
+    out = [f"# 재현 보고서: {t.text}", "", f"Pablo가 {_when(now_iso())}에 만든 보고서입니다. 조건마다 논문의 쪽을 적었습니다. 시각은 이 컴퓨터의 시간대입니다.", ""]
     # papers
     srcs = list(dict.fromkeys(c.spec["source_id"] for c in spec))
     out += ["## 논문", ""]
@@ -229,7 +238,8 @@ def render_report(s, task_id: str) -> str:
         named += 1
         ver = src.version or {}
         bits = [f"**{src.title}**" + (f" {ver['arxiv_version']}" if ver.get("arxiv_version") else ""),
-                f"arXiv {ver['arxiv']}" if ver.get("arxiv") else None, f"파일 해시 {ver.get('content_hash', '')[:19]}"]
+                f"arXiv {ver['arxiv']}" if ver.get("arxiv") else None, f"OpenReview {ver['openreview']}" if ver.get("openreview") else None,
+                f"파일 해시 `{ver.get('content_hash', '')}`"]  # whole: a reader checks the PDF outside the app with it
         code = next((x for x in s.code_links(src) if x["official"]), None)
         if code:
             bits.append(f"공식 코드 {code['url']} (p.{code['page']})")
@@ -260,14 +270,14 @@ def render_report(s, task_id: str) -> str:
     out += ["## 논문과 다르게 한 것 (의도한 차이)", ""]
     devs = [(c, d) for c in spec for d in c.spec.get("deviations", [])]
     out += [f"- {text(c)} — 이유: {d['why']} · 범위: {'별도 실행에서만' if (d.get('scope') or 'task') == 'runs' else '작업 전체'}"
-            f" · {_day(d['from'])}부터" + (f" {_day(d['to'])}까지 (되돌림)" if d.get("to") else " (지금도)") for c, d in devs] or ["- 없음"]
+            f" · {_when(d['from'])}부터" + (f" {_when(d['to'])}까지 (되돌림)" if d.get("to") else " (지금도)") for c, d in devs] or ["- 없음"]
     # what was taken out (fixed section)
     out += ["", "## 뺀 조건과 지운 기준", ""]
     outs = [(c, d) for c in spec for d in c.spec.get("dropped", [])]
     gone = [g for g in v["intent"].get("removed", [])]
-    out += [f"- 뺀 조건: {text(c)} — 이유: {d['why']} · {_day(d['from'])}" + (f" (되살림 {_day(d['to'])})" if d.get("to") else "") for c, d in outs]
-    out += [f"- 지운 기준: {g['text']} — " + (f"이유: {g['why']}" if g.get("why") else "이유를 적지 않음") + f" · {_day(g['from'])}"
-            + (f" (되살림 {_day(g['to'])})" if g.get("to") else "") for g in gone]
+    out += [f"- 뺀 조건: {text(c)} — 이유: {d['why']} · {_when(d['from'])}" + (f" (되살림 {_when(d['to'])})" if d.get("to") else "") for c, d in outs]
+    out += [f"- 지운 기준: {g['text']} — " + (f"이유: {g['why']}" if g.get("why") else "이유를 적지 않음") + f" · {_when(g['from'])}"
+            + (f" (되살림 {_when(g['to'])})" if g.get("to") else "") for g in gone]
     if not outs and not gone:
         out.append("- 없음")
     # criteria
@@ -281,13 +291,33 @@ def render_report(s, task_id: str) -> str:
         out.append("아직 재현 점검을 하지 않았습니다.")
     else:
         changed = [x for x in v["chat"] if x.get("role") in ("changes", "undo") and x.get("at", "") > last["at"]]
-        out.append(f"마지막 점검: {_day(last['at'])}." + (f" 그 뒤 파일이 바뀐 기록이 {len(changed)}번 있어, 지금 파일과 다를 수 있습니다." if changed else ""))
+        rc = (now or {}).get("recheck") if ((now or {}).get("recheck") or {}).get("at") == last["at"] else None
+        line = f"마지막 점검: {_when(last['at'])}."
+        if rc and rc.get("gone"):  # the app's card says the same (its confirmed places checked again)
+            line += f" 점검 때 Pablo가 확인한 {rc['placed']}곳 중 {len(rc['gone'])}곳이 지금은 그대로가 아닙니다({', '.join(rc['gone'][:3])}). 판정이 지금 파일과 다를 수 있습니다."
+        elif rc and changed:
+            line += f" 그 뒤 파일이 바뀐 기록이 {len(changed)}번 있지만, 점검 때 Pablo가 확인한 {rc['placed']}곳은 지금도 그대로입니다."
+        elif changed:
+            line += f" 그 뒤 파일이 바뀐 기록이 {len(changed)}번 있어, 지금 파일과 다를 수 있습니다."
+        out.append(line)
+        # which code the verdicts are about (review): the folder's snapshot at the audit, and now
+        code = []
+        if last.get("tree"):
+            code.append(f"점검한 작업 폴더: 스냅숏 `{last['tree'][:12]}`" + (f", git HEAD `{last['git']['head'][:12]}`" + (f" (커밋 안 한 변경 {last['git']['dirty']}개)" if last['git'].get('dirty') else "") if last.get("git") else ""))
+        if (now or {}).get("tree") and last.get("tree"):
+            code.append("보고서를 만든 지금도 같은 폴더 상태입니다." if now["tree"] == last["tree"] else f"지금 폴더는 그 뒤 바뀌었습니다(스냅숏 `{now['tree'][:12]}`).")
+        elif not last.get("tree"):
+            code.append("이 점검은 작업 폴더의 판을 기록하기 전(0.8 이전)에 했습니다.")
+        out += [" ".join(code)] if code else []
         if last.get("summary"):
             out += ["", last["summary"]]
         out += ["", "| 항목 | 판정 | 자리 | Pablo 확인 |", "|---|---|---|---|"]
+        later = lambda spans, what: [f"이 점검 뒤 {what}, {_when(z['from'])}" for z in spans or [] if z.get("from", "") > last["at"]]  # noqa: E731
         for x in last["items"]:
             c = checks.get(x.get("id"))
             d = _span(c.spec.get("deviations"), last["at"]) if c and c.spec else None
+            after = (later(c.spec.get("deviations"), "의도한 차이로 둠") + later(c.spec.get("dropped"), "뺌")) if c and c.spec else \
+                later([g for g in gone if g["id"] == x.get("id")], "지움")  # review: a row changed since says so (the order of events)
             st = "intended" if x.get("status") == "differs" and d and (d.get("scope") or "task") == "task" else x.get("status")
             what = text(c) if c else next((i["text"] for i in v["intent"]["must"] + v["intent"]["prefer"] if i["id"] == x.get("id")), x.get("id", ""))
             mark = "값은 설정 파일에서 확인" if x.get("check") == "value_mismatch" and (x.get("via") or {}).get("agrees") else CHECKED.get(x.get("check"), "")
@@ -295,8 +325,8 @@ def render_report(s, task_id: str) -> str:
             if x.get("seen"):
                 place += f" (모델은 없다고 했지만 `{x['seen']['where']}`에 있음)"
             cell = lambda s_: str(s_).replace("|", "\\|").replace("\n", " ")  # noqa: E731
-            out.append(f"| {cell(what)}{' — ' + cell(where[c.id]) if c and c.id in where else ''} | {VERDICT.get(st, st)}"
-                       f"{' (이유: ' + cell(d['why']) + ')' if st == 'intended' else ''} | {cell(place)} | {cell(mark)} |")
+            out.append(f"| {cell(what)}{' — ' + cell(where[c.id]) if c and c.id in where else ''}{' (' + '; '.join(after) + ')' if after else ''}"
+                       f" | {VERDICT.get(st, st)}{' (이유: ' + cell(d['why']) + ')' if st == 'intended' else ''} | {cell(place)} | {cell(mark)} |")
         if last.get("outside"):
             out += ["", "조건 밖에서 본 차이:", ""] + [f"- {x['what']}" + (f" (`{x['where']}`)" if x.get("where") else "") for x in last["outside"]]
         skipped = [g for g in gone if _span([g], last["at"])] + [c for c in spec if _span(c.spec.get("dropped"), last["at"])]
@@ -316,7 +346,7 @@ def render_report(s, task_id: str) -> str:
     ch = [x for x in v["chat"] if x.get("role") == "changes"]
     undone = {x.get("of") for x in v["chat"] if x.get("role") == "undo"}
     out += ["", "## 바뀐 파일", ""]
-    out += [f"- {_day(x['at'])} 파일 {len(x.get('files', []))}개: " + ", ".join(f"{f['path']}" for f in x.get("files", [])[:12])
+    out += [f"- {_when(x['at'])} 파일 {len(x.get('files', []))}개: " + ", ".join(f"{f['path']}" for f in x.get("files", [])[:12])
             + (" (되돌림)" if x.get("to") in undone else "") for x in ch] or ["- 에이전트가 바꾼 파일이 없습니다."]
     if aside:
         out += ["", "## 참고 (따를 조건이 아닌 논문의 서술과 실험 범위)", ""]

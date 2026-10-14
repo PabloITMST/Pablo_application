@@ -2,6 +2,7 @@
 // Usage: npm start (the app's own state in userData/state) | npm start -- <path/to/view-T1.html>[#E1] (export/debug snapshot)
 const { app, BrowserWindow, dialog, ipcMain, protocol, safeStorage, session, shell, webContents } = require("electron");
 const fs = require("fs");
+const { execFileSync } = require("child_process");
 const path = require("path");
 const { run } = require("./locate");
 const agent = require("./agent");
@@ -474,15 +475,36 @@ ipcMain.handle("pablo:compare-column", async (e, task, mid, column) => {
   fs.writeFileSync(f, JSON.stringify(now, null, 1));
   return { ...r, entry: x };
 });
+// ⑫ the work folder's version: HEAD and uncommitted changes when it is a git repo (fsmonitor off: reading runs nothing)
+function gitState(work) {
+  if (!work || !fs.existsSync(path.join(work, ".git"))) return null;
+  const git = (...a) => execFileSync("git", ["-c", "core.fsmonitor=false", "-c", "core.untrackedCache=false", "-C", work, ...a],
+    { encoding: "utf8", timeout: 5000, windowsHide: true }).trim();
+  try { return { head: git("rev-parse", "HEAD"), dirty: git("status", "--porcelain", "--untracked-files=no").split("\n").filter(Boolean).length }; }
+  catch { return null; }
+}
 // ⑫ the reproduction report: Markdown, saved where the user picks (nothing leaves the computer)
 ipcMain.handle("pablo:report", async (e, task) => {
   fromWindow(e); known(task);
-  const r = await ctl.py("report", task);
+  // the folder now, and the last audit's confirmed places checked again (the card's rule), so the report says what the app says
+  const work = workOf(task), log = (() => { try { return JSON.parse(fs.readFileSync(path.join(ctl.dir, "chat.json"), "utf8"))[task] || []; } catch { return []; } })();
+  const last = log.filter(x => x.role === "audit" && (x.items || []).length).at(-1);
+  const placed = last ? [...last.items, ...(last.outside || [])].filter(x => ["verified", "moved", "value_mismatch"].includes(x.check) && x.where && x.found) : [];
+  const gone = work ? placed.filter(x => { const w = where.where(x.where); if (!w) return false;
+    const c = where.verify(work, { where: x.line_found ? `${w.path}:${x.line_found}` : x.where, found: x.found }).check;
+    return c === "not_found" || c === "no_file"; }).map(x => x.line_found ? `${where.where(x.where).path}:${x.line_found}` : x.where) : [];
+  const now = { tree: work ? await checkpoint.snapshot(ctl.dir, task, work).catch(() => null) : null, git: gitState(work),
+    recheck: last && work ? { at: last.at, placed: placed.length, gone } : null };
+  const r = await ctl.py("report", task, "--now", JSON.stringify(now));
   const name = (r.title || task).replace(/[\\/:*?"<>|\r\n]+/g, " ").trim().slice(0, 60) + " 재현 보고서.md";
   const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: "재현 보고서 저장", defaultPath: name,
     filters: [{ name: "Markdown", extensions: ["md"] }] });
   if (res.canceled || !res.filePath) return null;
-  fs.writeFileSync(res.filePath, r.text, "utf8");
+  try { fs.writeFileSync(res.filePath, r.text, "utf8"); }
+  catch (err) {  // review: OneDrive folders answer EBUSY; say it in the user's words
+    const why = { ENOENT: "폴더가 없습니다", EACCES: "쓰기 권한이 없습니다", EPERM: "쓰기 권한이 없습니다", EBUSY: "다른 프로그램(동기화 등)이 쓰고 있습니다", EROFS: "읽기 전용입니다" }[err.code];
+    throw new Error(`그 폴더에 저장하지 못했습니다(${why || err.code || "알 수 없는 이유"}). 다른 폴더를 골라 주세요.`);
+  }
   return { name: path.basename(res.filePath), lines: r.text.split("\n").length };
 });
 // A5/A6 재현 점검: the agent reads the work folder (read-only sandbox, nothing can change, so no Guard per read) and
@@ -496,7 +518,9 @@ ipcMain.handle("pablo:audit", async (e, task) => {
   const a = await ctl.py("audit", task);
   if (!a.items.length) throw new Error("대조할 논문 조건이나 작업 기준이 없습니다. 먼저 재현 조건을 뽑거나 기준을 적어 주세요.");
   agent.workspace = ctl.root = work; agent.network = false;
-  reply = { task, at: new Date().toISOString(), text: "", audit: a.items.map(x => x.id), work,
+  // ⑫ review: which code the verdicts are about — the folder's snapshot (shadow git tree) and, when it is a git repo, its HEAD
+  const tree = await checkpoint.snapshot(ctl.dir, task, work).catch(() => null), git = gitState(work);
+  reply = { task, at: new Date().toISOString(), text: "", audit: a.items.map(x => x.id), work, tree, git,
     values: Object.fromEntries(a.items.filter(x => x.value).map(x => [x.id, x.value])) };  // A2: the paper's value per condition
   saveDesk(x => { x.last = task; });
   return agent.send(a.prompt, ctl.dir + "#" + task, null, null, { readOnly: true, outputSchema: a.schema });
@@ -599,7 +623,7 @@ agent.on("event", ev => {
   const r = reply; reply = null;
   try {
     if (r.audit) {  // 재현 점검: the answer is JSON (outputSchema); only the asked ids are kept
-      const entry = { role: "audit", at: r.at, status: ev.status, ...audited(r) };
+      const entry = { role: "audit", at: r.at, status: ev.status, ...(r.tree ? { tree: r.tree } : {}), ...(r.git ? { git: r.git } : {}), ...audited(r) };
       if (ev.error) entry.error = short(ev.error);
       logChat(r.task, entry);
       broadcast("pablo:agent", { type: "audit", task: r.task, ...entry });

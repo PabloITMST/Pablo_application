@@ -246,6 +246,8 @@ def test_report():
         assert "## 논문과 다르게 한 것 (의도한 차이)\n\n- HotpotQA 정확도 — 이유: ablation: 다른 모델로 비교 · 범위: 별도 실행에서만" in md
         assert "- 뺀 조건: 시드가 없다 — 이유: 학습하지 않는 방법" in md and "아직 재현 점검을 하지 않았습니다." in md
         assert not re.search(r"\[\d+\]", md)
+        assert re.search(r"범위: 별도 실행에서만 · \d{4}-\d\d-\d\d \d\d:\d\d부터 \(지금도\)", md), md  # to the minute
+        assert re.search(r"파일 해시 `sha256:[0-9a-f]{64}`", md), md  # the whole hash
 
 
 def test_reads_are_not_departures():

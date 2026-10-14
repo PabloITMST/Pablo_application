@@ -141,7 +141,9 @@ def _parser() -> argparse.ArgumentParser:
     add("state")  # the desktop's live workspace model (read-only)
     add("brief").add_argument("task_id")
     add("audit").add_argument("task_id")
-    add("report").add_argument("task_id")  # ⑫ the reproduction report (Markdown)
+    s = add("report")  # ⑫ the reproduction report (Markdown)
+    s.add_argument("task_id")
+    s.add_argument("--now", type=_json_arg, default=None, help='desktop: {"tree", "git": {head, dirty}, "recheck": {at, placed, gone}}')
 
     s = add("task")
     s.add_argument("text")
@@ -421,7 +423,7 @@ def _run(a, out) -> int:
         prompt, items = render_audit(s, a.task_id)
         out({"prompt": prompt, "schema": AUDIT_SCHEMA, "items": items}, prompt)
     elif a.cmd == "report":
-        md = render_report(s, a.task_id)
+        md = render_report(s, a.task_id, a.now)
         out({"text": md, "title": s.get_task(a.task_id).text}, md)
     elif a.cmd == "brief":
         text, basis = render_brief(s, a.task_id)

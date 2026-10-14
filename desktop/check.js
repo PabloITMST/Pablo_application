@@ -1033,7 +1033,10 @@ async function uiCheck() {
   for (const h of ["# 재현 보고서: 인사말 파일 정리", "## 재현 조건 (", "## 논문과 다르게 한 것 (의도한 차이)", "## 뺀 조건과 지운 기준", "## 작업 기준",
                    "## 재현 점검", "## Pablo가 막거나 확인을 받은 작업", "## 바뀐 파일"]) assert.ok(md.includes(h), h);
   assert.ok(md.includes("- 뺀 조건: 비교 대상은 HippoRAG2이다 — 이유: 이 재현의 범위 밖") && md.includes("- 지운 기준: 로그 파일은 지우지 마 — 이유: 로그는 서버에 따로 남김"));
-  console.log("ok report: saved as Markdown with the fixed sections (의도한 차이, 뺀 조건과 지운 기준, 점검)");
+  // review: the same words as the app card (its confirmed places checked again), to the minute, and which code was audited
+  assert.match(md, /마지막 점검: \d{4}-\d\d-\d\d \d\d:\d\d\. 그 뒤 파일이 바뀐 기록이 \d+번 있지만, 점검 때 Pablo가 확인한 2곳은 지금도 그대로입니다\./);
+  assert.ok(md.includes("이 점검은 작업 폴더의 판을 기록하기 전(0.8 이전)에 했습니다."), "an audit from before 0.8 says it has no folder version");
+  console.log("ok report: saved as Markdown with the fixed sections (의도한 차이, 뺀 조건과 지운 기준, 점검, 앱과 같은 재대조, 분 단위 시각)");
   // ③ a new task's criterion lines (the review's own): the ones read become criteria, the ones the reader could not
   // classify wait in the conversation for 반드시 / 가능하면 / 괜찮음; nothing is dropped without a word
   const lines3 = ["재현 작업", "test 셋은 튜닝에 쓰면 안 됨", "결과는 3번 돌려서 평균 내", "GPU 메모리는 24GB 안에서만 써",
