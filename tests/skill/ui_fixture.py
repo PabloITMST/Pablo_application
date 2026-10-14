@@ -90,6 +90,9 @@ TINY_B = ["OtherRAG: retrieval with dense passages. We evaluate on HotpotQA and 
           "beyond indexing time."]
 
 
+ROW = "LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72"  # e2e3: a table row as the PDF's text has it
+
+
 def at(sec: int) -> str:
     return f"2026-10-13T01:00:{sec:02d}+00:00"
 
@@ -124,6 +127,16 @@ def build(d: str) -> str:
         s.complete_check(c.id, "VERIFIED", text, [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "x", "supports": []}])
         specs.append(c.id)
     s._find_check(specs[2]).spec["value_in_quote"] = False  # the model's value is not in its own quote
+    # e2e3 (c86a409): the 2Wiki result read from Table 1's row, its column names apart from it (header_missing). The paper
+    # is SRC1, as desktop.json names it in the scenes below; the row anchored the way spec() anchors a quote
+    paper = os.path.join(d, "LinearRAG.pdf")
+    with open(paper, "wb") as f:
+        f.write(tiny_pdf(["LinearRAG: relation-free graph construction for retrieval.",
+                          "Table 1: GPT-Acc and Contain-Acc on HotpotQA, 2Wiki, MuSiQue and Medical. " + ROW], "LinearRAG"))
+    src = s.capture_pdf(paper)
+    assert src.id == "SRC1", src.id
+    s.link_evidence(s.add_anchor(src.id, ROW, page=2).id, specs[1], "supports", "result")
+    s._find_check(specs[1]).spec["header_missing"] = True
     lost = s.add_check(t.id, "검색 결과는 passage 단위로 돌려준다", "USEFUL")  # review: the last extraction had it, this one not
     lost.spec = {"category": "method", "value": "", "source_id": "SRC1"}
     s.complete_check(lost.id, "VERIFIED", lost.requirement, [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "x", "supports": []}])

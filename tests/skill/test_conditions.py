@@ -250,6 +250,44 @@ def test_report():
         assert re.search(r"파일 해시 `sha256:[0-9a-f]{64}`", md), md  # the whole hash
 
 
+def test_table_row_verdict_waits_for_its_columns():
+    """e2e3 (c86a409): a result read from a table row without its column names was judged 다름 in 6 of 9 runs, the clean
+    folder included, while the agent's note said the pairing may be wrong. Its 따름 / 다름 rests on that guess: the report
+    (as the app's card) shows 열 짝 확인 필요 with the paper's row and the agent's own verdict; a result read from a
+    sentence that names its dataset is judged as before; 아직 없음 needs no pairing."""
+    from pablo_v2.skill.skill import unpaired
+    from pablo_v2.skill.viewer import render_report
+    from ui_fixture import ROW
+
+    class Rows(SpecJudge):
+        def extract_spec(self, pages):
+            return {"items": [
+                {"category": "result", "kind": "result", "statement": "2Wiki 정확도는 63.70이다", "value": "63.70", "quote": ROW, "page": 2},
+                {"category": "result", "kind": "result", "statement": "HotpotQA 정확도는 61.5", "value": "61.5",
+                 "quote": "LinearRAG reaches 61.5 accuracy on HotpotQA", "page": 2}], "missing": []}
+    with tempfile.TemporaryDirectory() as d:
+        s = PabloSkill.load(os.path.join(d, "skill.json"), IntentEngine(), Rows())
+        t = s.start_task("LinearRAG 재현", [])
+        p = os.path.join(d, "LinearRAG.pdf")
+        open(p, "wb").write(tiny_pdf(["LinearRAG: relation-free graph construction.",
+                                      f"Table 1 below. {ROW} In text, LinearRAG reaches 61.5 accuracy on HotpotQA."], "LinearRAG"))
+        src = s.capture_pdf(p)
+        (row, said), _, _ = s.spec(t.id, src.id)
+        assert row.spec.get("header_missing") and not said.spec.get("header_missing")
+        assert unpaired(row.spec, "differs") and unpaired(row.spec, "followed") and not unpaired(row.spec, "missing")
+        assert not unpaired(said.spec, "differs")
+        audit = {"role": "audit", "at": "2026-10-14T01:00:00+00:00", "status": "completed", "summary": "", "items": [
+            {"id": row.id, "status": "differs", "where": "logs/2wiki.log:1", "found": "gpt_acc=58.10", "note": "", "check": "verified"},
+            {"id": said.id, "status": "differs", "where": "logs/hotpot.log:1", "found": "acc=55.0", "note": "", "check": "verified"}]}
+        with open(os.path.join(d, "chat.json"), "w", encoding="utf-8") as f:
+            json.dump({t.id: [audit]}, f, ensure_ascii=False)
+        md = render_report(s, t.id)
+        assert (f"| 2Wiki 정확도는 63.70이다 — LinearRAG p.2 | ? 열 짝 확인 필요 (판단 못 함. 에이전트 판정: ✗ 다름; 논문 표 행: “{ROW}”)"
+                " | `logs/2wiki.log:1` gpt_acc=58.10 | Pablo가 파일에서 확인 |") in md, md
+        assert "| HotpotQA 정확도는 61.5 — LinearRAG p.2 | ✗ 다름 | `logs/hotpot.log:1` acc=55.0 |" in md, md
+        assert "열 짝 확인 필요: 논문 표의 한 행에서 열 이름 없이 읽은 값이라" in md
+
+
 def test_task_name():
     """⑭ a task's own name for the list; its text stays the goal the judge reads; an empty name goes back to the text."""
     from pablo_v2.skill.viewer import workspace

@@ -824,17 +824,23 @@ async function uiCheck() {
   // ⑦ top-k was an intended deviation when the second audit ran: its 다름 is 의도한 차이, with why; the first audit's is not
   assert.deepStrictEqual(await js(`(b => [b.querySelector(".head").textContent, b.querySelector("li.st-intended b").textContent,
     b.querySelector("[data-dev-why]").textContent])(document.querySelectorAll("[data-audit]")[1])`),
-    ["🔎 재현 점검: 다름 1 · 의도한 차이 1 · 아직 없음 1", "◇ 의도한 차이", "이유: ablation: top-k 10으로 비교"]);
+    ["🔎 재현 점검: 열 짝 확인 필요 1 · 의도한 차이 1 · 아직 없음 1", "◇ 의도한 차이", "이유: ablation: top-k 10으로 비교"]);
+  // e2e3 (c86a409): the 2Wiki result was read from Table 1's row without its column names. Its 다름 is not counted as a
+  // verdict: the paper's row and the agent's verdict sit beside the log line it named; chat.json keeps "differs"
+  assert.deepStrictEqual(await js(`(li => [li.querySelector("b").textContent, li.querySelector("[data-pairing]").textContent,
+    li.querySelector(".at code").textContent, !li.querySelector("[data-hm]")])(document.querySelectorAll("[data-audit]")[1].querySelector("li.st-pairing"))`),
+    ["? 열 짝 확인 필요", "논문 표 행 (LinearRAG p.2): “LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72”판단 못 함: 열 이름이 PDF 글자에서 떨어져 있어, 어느 숫자가 이 조건의 값인지 확인되지 않았습니다. 에이전트 판정(✗ 다름)은 그 짝을 믿은 것입니다. 표에서 열을 확인하고 아래 자리의 값과 대조하세요.", "logs/2wiki.log:1", true]);
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8")).T1.filter(x => x.role === "audit")[1].items[1].status, "differs");
   assert.ok(await js(`!document.querySelectorAll("[data-audit]")[0].querySelector(".st-intended")`));
   // A2: what Pablo saw at each place: the ones it could not confirm come first, open, whatever the verdict
   const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, checked: b.querySelector("[data-checked]").textContent,
     rows: [...b.querySelectorAll(":scope > ul > li")].map(x => [x.className, x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent,
       (x.querySelector("[data-check]") || {}).textContent]), folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit]"))`);
   // ⑥ 코드가 정함 right after 다름 (a report needs it); an 아직 없음 of a condition from before kinds folds, named on its line
-  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 코드가 정함 1 · 아직 없음 1 · 따름 2 · 조건 밖 3", folded: "아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…",
+  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 열 짝 확인 필요 1 · 코드가 정함 1 · 아직 없음 1 · 따름 1 · 조건 밖 3", folded: "아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…",
     checked: "📍 모델이 댄 위치 5곳 중 4곳을 Pablo가 파일에서 직접 확인했습니다. 1곳은 그 자리에서 찾지 못했습니다. 1곳은 판정과 논문 값이 어긋납니다. 이 항목은 위에 따로 둡니다.",
     rows: [["st-differs", "✗ 다름", "config.yaml:2", "⚠ 논문 값(all-mpnet-base-v2)이 이 자리에 그대로 있음"],
-      ["st-followed", "✓ 따름", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
+      ["st-pairing", "? 열 짝 확인 필요", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
       ["st-differs", "✗ 다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-chosen", "• 코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
   assert.deepStrictEqual(await js(`[...document.querySelector("[data-audit]").querySelectorAll(":scope > details > summary")].map(x => x.textContent)`),
     ["아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…", "따르는 항목 1개"]);
@@ -853,7 +859,8 @@ async function uiCheck() {
     text: b.textContent }))(document.querySelector("[data-spec]"))`);
   assert.deepStrictEqual(spec.heads, ["모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
   assert.deepStrictEqual(spec.items, ["방법 · 검색 결과는 passage 단위로 돌려준다 · 되살리기", "임베딩 모델은 all-mpnet-base-v2이다 ⚠ 값(all-mpnet-base-v2)이 인용 안에 없음",
-    "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", "검색 단계의 top-k는 5이다", "2Wiki 정확도는 63.70%이다",
+    "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", "검색 단계의 top-k는 5이다",
+    "2Wiki 정확도는 63.70%이다 [1] ⚠ 인용에 표의 열 이름이 없습니다. 숫자와 데이터셋 짝을 원문 표에서 확인하세요",
     "데이터셋 · HotpotQA는 약 97,000개 질문-답 쌍이다", "난수 시드가 적혀 있지 않다"]);
   // review: a re-extraction says what changed; the one it did not find again comes back with 되살리기, kept from then on
   assert.strictEqual(await js(`document.querySelector("[data-spec] [data-redo] p").textContent`),
@@ -1045,6 +1052,8 @@ async function uiCheck() {
   // review: the same words as the app card (its confirmed places checked again), to the minute, and which code was audited
   assert.match(md, /마지막 점검: \d{4}-\d\d-\d\d \d\d:\d\d\. 그 뒤 파일이 바뀐 기록이 \d+번 있지만, 점검 때 Pablo가 확인한 2곳은 지금도 그대로입니다\./);
   assert.ok(md.includes("이 점검은 작업 폴더의 판을 기록하기 전(0.8 이전)에 했습니다."), "an audit from before 0.8 says it has no folder version");
+  assert.ok(md.includes("| ? 열 짝 확인 필요 (판단 못 함. 에이전트 판정: ✗ 다름; 논문 표 행: “LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72”) | `logs/2wiki.log:1` gpt_acc=61.20 |")
+    && md.includes("열 짝 확인 필요: 논문 표의 한 행에서 열 이름 없이 읽은 값이라"), "the report: the same rule as the card");
   console.log("ok report: saved as Markdown with the fixed sections (의도한 차이, 뺀 조건과 지운 기준, 점검, 앱과 같은 재대조, 분 단위 시각)");
   // ③ a new task's criterion lines (the review's own): the ones read become criteria, the ones the reader could not
   // classify wait in the conversation for 반드시 / 가능하면 / 괜찮음; nothing is dropped without a word

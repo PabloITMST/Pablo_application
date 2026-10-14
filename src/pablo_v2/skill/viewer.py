@@ -181,7 +181,7 @@ def model(s, task_id: str) -> dict:
 
 # ---- ⑫ the reproduction report: what a supervisor or a reviewer reads, with every condition's page in the paper ------
 REPORT_KIND = {"fact": "논문의 서술", "scope": "실험 범위"}
-VERDICT = {"differs": "✗ 다름", "chosen": "• 코드가 정함", "intended": "◇ 의도한 차이", "missing": "○ 아직 없음",
+VERDICT = {"differs": "✗ 다름", "pairing": "? 열 짝 확인 필요", "chosen": "• 코드가 정함", "intended": "◇ 의도한 차이", "missing": "○ 아직 없음",
            "unclear": "? 판단 못 함", "followed": "✓ 따름"}
 CHECKED = {"verified": "Pablo가 파일에서 확인", "moved": "다른 줄에서 확인", "not_found": "⚠ 그 자리에 없음",
            "no_file": "⚠ 파일 없음", "value_mismatch": "⚠ 판정과 논문 값이 어긋남"}
@@ -209,7 +209,7 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
     """⑫ Markdown: the task's papers, conditions (with pages), what differs on purpose, what was taken out and why, the
     criteria, the last audit, what Pablo stopped or asked about, and what changed. Pages instead of [n]: a report is
     read apart from the app."""
-    from .skill import SPEC_LABEL, deviation
+    from .skill import SPEC_LABEL, deviation, unpaired
     v, t = model(s, task_id), s.get_task(task_id)
     checks = {c.id: c for c in s.checks(task_id)}
     where = {}  # check id -> "LinearRAG p.5"
@@ -313,6 +313,7 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
         if last.get("summary"):
             out += ["", last["summary"]]
         out += ["", "| 항목 | 판정 | 자리 | Pablo 확인 |", "|---|---|---|---|"]
+        paired = 0
         later = lambda spans, what: [f"이 점검 뒤 {what}, {_when(z['from'])}" for z in spans or [] if z.get("from", "") > last["at"]]  # noqa: E731
         for x in last["items"]:
             c = checks.get(x.get("id"))
@@ -320,6 +321,10 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
             after = (later(c.spec.get("deviations"), "의도한 차이로 둠") + later(c.spec.get("dropped"), "뺌")) if c and c.spec else \
                 later([g for g in gone if g["id"] == x.get("id")], "지움")  # review: a row changed since says so (the order of events)
             st = "intended" if x.get("status") == "differs" and d and (d.get("scope") or "task") == "task" else x.get("status")
+            row = None
+            if st != "intended" and c and unpaired(c.spec, x.get("status")):  # e2e3: not a verdict until the columns are checked
+                st, paired = "pairing", paired + 1
+                row = next((v["anchors"][e]["exact"] for e in v["checks"][c.id]["evidence"] if e in v["anchors"]), "")
             what = text(c) if c else next((i["text"] for i in v["intent"]["must"] + v["intent"]["prefer"] if i["id"] == x.get("id")), x.get("id", ""))
             mark = "값은 설정 파일에서 확인" if x.get("check") == "value_mismatch" and (x.get("via") or {}).get("agrees") else CHECKED.get(x.get("check"), "")
             place = f"`{x['where']}` {x.get('found', '')}".strip() if x.get("where") else ""
@@ -327,7 +332,12 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
                 place += f" (모델은 없다고 했지만 `{x['seen']['where']}`에 있음)"
             cell = lambda s_: str(s_).replace("|", "\\|").replace("\n", " ")  # noqa: E731
             out.append(f"| {cell(what)}{' — ' + cell(where[c.id]) if c and c.id in where else ''}{' (' + '; '.join(after) + ')' if after else ''}"
-                       f" | {VERDICT.get(st, st)}{' (이유: ' + cell(d['why']) + ')' if st == 'intended' else ''} | {cell(place)} | {cell(mark)} |")
+                       f" | {VERDICT.get(st, st)}{' (이유: ' + cell(d['why']) + ')' if st == 'intended' else ''}"
+                       + (f" (판단 못 함. 에이전트 판정: {VERDICT.get(x.get('status'))}" + (f"; 논문 표 행: “{cell(row)}”" if row else "") + ")" if st == "pairing" else "")
+                       + f" | {cell(place)} | {cell(mark)} |")
+        if paired:
+            out += ["", "열 짝 확인 필요: 논문 표의 한 행에서 열 이름 없이 읽은 값이라, 어느 숫자가 이 조건의 데이터셋·지표인지 확인되지 "
+                    "않았습니다. 에이전트의 판정은 그 짝을 믿은 것이어서 판정으로 세지 않았습니다. 논문 표에서 열을 확인하고 '자리'의 값과 대조하세요."]
         if last.get("outside"):
             out += ["", "조건 밖에서 본 차이:", ""] + [f"- {x['what']}" + (f" (`{x['where']}`)" if x.get("where") else "") for x in last["outside"]]
         skipped = [g for g in gone if _span([g], last["at"])] + [c for c in spec if _span(c.spec.get("dropped"), last["at"])]
@@ -575,7 +585,8 @@ pre.diff .del { background:rgba(220,38,38,.13); } pre.diff .hunk { color:var(--m
 .audit .head { font-weight:700; margin:0 0 4px; } .audit ul { list-style:none; margin:4px 0; padding:0; }
 .audit li { padding:5px 0; border-top:1px solid var(--line); font-size:14px; } .audit .at { font-size:13px; overflow-wrap:anywhere; }
 .audit .st-intended b, .chk.dev { color:var(--accent); } .call .offer { margin-top:6px; } .call .offer ul { margin:2px 0; }
-.audit .st-differs b { color:var(--bad); } .audit .st-followed b { color:var(--ok); } .audit .st-missing b, .audit .st-unclear b { color:var(--warn); }
+.audit .st-differs b { color:var(--bad); } .audit .st-followed b { color:var(--ok); } .audit .st-missing b, .audit .st-unclear b, .audit .st-pairing b { color:var(--warn); }
+.audit .pair { font-size:13px; margin:2px 0; overflow-wrap:anywhere; }
 .audit details summary { cursor:pointer; font-size:13px; color:var(--muted); margin-top:6px; }
 .audit .stale { background:var(--warnbg); border:1px solid var(--warnline); border-radius:6px; padding:5px 10px; font-size:13px; margin:4px 0 6px; }
 .audit .stale.same { background:none; border-color:var(--line); }
@@ -925,7 +936,7 @@ function conditions(ids, dropped, diff) {
   return box;
 }
 // A5/A6 재현 점검: each paper condition / open setting / task criterion against the work folder (code line or log value)
-const AUDIT = { differs: ["✗", "다름"], chosen: ["•", "코드가 정함"], intended: ["◇", "의도한 차이"], missing: ["○", "아직 없음"],
+const AUDIT = { differs: ["✗", "다름"], pairing: ["?", "열 짝 확인 필요"], chosen: ["•", "코드가 정함"], intended: ["◇", "의도한 차이"], missing: ["○", "아직 없음"],
                 unclear: ["?", "판단 못 함"], followed: ["✓", "따름"] };
 // ⑦ the user's intended deviation from a paper condition: the one holding now, or the one that held at a time (an audit's)
 const WHERE_DEV = { runs: "별도 실행에서만", task: "작업 전체" }, scopeOf = d => (d && d.scope) || "task";  // a span before 10/14: task
@@ -956,7 +967,11 @@ function audited(c) {
       c.status === "interrupted" ? "중지했습니다." : c.error || (c.unreadable ? "에이전트의 답을 읽지 못했습니다." : "판정된 항목이 없습니다.")));
     return box;
   }
-  const dev = x => devOf(V.checks[x.id], c.at), st = x => x.status === "differs" && dev(x) && scopeOf(dev(x)) === "task" ? "intended" : x.status;
+  // e2e3 (c86a409): a value read from a table row without its column names: the agent's 따름 / 다름 rests on which number
+  // it took for this condition, so it is not counted as a verdict (열 짝 확인 필요, open); chat.json keeps the agent's status
+  const unpaired = x => !!((V.checks[x.id] || {}).spec || {}).header_missing && (x.status === "followed" || x.status === "differs");
+  const dev = x => devOf(V.checks[x.id], c.at), st = x => x.status === "differs" && dev(x) && scopeOf(dev(x)) === "task" ? "intended"
+    : unpaired(x) ? "pairing" : x.status;
   const n = k => c.items.filter(x => st(x) === k).length, task = c.task || V.task.id, out = c.outside || [];
   box.append(h("p", { class: "head" }, "🔎 재현 점검: ", [...Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`),
     ...(out.length ? [`조건 밖 ${out.length}`] : [])].join(" · ")));
@@ -980,15 +995,22 @@ function audited(c) {
   const what = x => { const k = V.checks[x.id];  // ⑤ [5쪽]: a page in the table, not the chat's running number (rows are sorted)
     if (k) return [h("span", { class: "muted" }, (k.spec && k.spec.missing ? "논문에 없는 설정" : SPEC[(k.spec || {}).category] || "근거") + " · "),
       rich((k.conclusion || k.title).replace(/\s*\[\d+\]/g, "")), " ", k.evidence.map(e => cite(e, (M.anchors[e] || {}).page ? `${M.anchors[e].page}쪽` : undefined)),
-      (k.spec || {}).header_missing ? h("span", { class: "chk warn", "data-hm": "1" }, " ⚠ 논문 값의 열 짝 확인 필요") : null];
+      (k.spec || {}).header_missing && st(x) !== "pairing" ? h("span", { class: "chk warn", "data-hm": "1" }, " ⚠ 논문 값의 열 짝 확인 필요") : null];
     const i = [...V.intent.must, ...V.intent.prefer].find(y => y.id === x.id);
     return [h("span", { class: "muted" }, "작업 기준 · "), i ? i.text : x.id]; };
   const moved = x => x.check === "moved" ? `모델이 댄 위치(${x.where})에는 없고 ${x.line_found}줄에 있습니다.` : null;
+  // the paper's row (where the number was read) and the agent's own verdict, beside the place it named: the user compares
+  const paired = x => { const a = (V.checks[x.id].evidence || []).map(e => M.anchors[e]).find(Boolean), src = a && M.sources[a.source];
+    return h("div", { class: "pair", "data-pairing": x.status },
+      a ? h("div", null, `논문 표 행 (${[src && src.title, a.page && "p." + a.page].filter(Boolean).join(" ")}): `, h("span", null, `“${a.exact}”`)) : null,
+      h("div", { class: "muted" }, `판단 못 함: 열 이름이 PDF 글자에서 떨어져 있어, 어느 숫자가 이 조건의 값인지 확인되지 않았습니다. `
+        + `에이전트 판정(${AUDIT[x.status].join(" ")})은 그 짝을 믿은 것입니다. 표에서 열을 확인하고 아래 자리의 값과 대조하세요.`)); };
   const seen = x => x.check === "verified" || x.check === "moved" ? x.found : null;  // ⑤ the code panel says if it is still there
   const via = x => { const s = x.via, v = ((V.checks[x.id] || {}).spec || {}).value;
     return s ? h("div", { class: "at via", "data-via": s.where }, "↳ 값을 정하는 곳: ", fileLink(h("code", null, s.where), task, s.where, null, null, s.found), " ",
       h("span", null, s.found), s.agrees === false ? h("span", { class: "chk warn", "data-via-warn": "1" }, ` ⚠ 논문 값(${v})이 여기에 ${x.status === "followed" ? "없음" : "그대로 있음"}`) : null) : null; };
   const row = x => h("li", { class: "st-" + st(x), title: x.id, "data-id": x.id }, h("b", null, (AUDIT[st(x)] || ["", x.status]).join(" ")), " ", what(x),
+    st(x) === "pairing" ? paired(x) : null,
     dev(x) ? h("div", { class: "muted", "data-dev-why": x.id }, st(x) === "intended" ? `이유: ${dev(x).why}`
       : x.status === "differs" ? `의도한 차이는 별도 실행에서만 두기로 했는데(이유: ${dev(x).why}), 기본 실행이 논문과 다릅니다.`
       : `의도한 차이로 두었지만(이유: ${dev(x).why}) 이 점검에서는 다르지 않았습니다.`) : null,

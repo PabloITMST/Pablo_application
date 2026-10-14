@@ -996,6 +996,14 @@ def header_missing(statement: str, quote: str, kind: str | None) -> bool:
     return not any(n.lower() in rest for n in names)
 
 
+def unpaired(spec: dict | None, status: str | None) -> bool:
+    """e2e3 (c86a409): a result read from a table row without its column names (header_missing) was judged 다름 in 6 of 9
+    runs, the clean folder included, while the agent's own note said the pairing may be wrong. A verdict that compares the
+    number (followed / differs) rests on that guess: the card and the report show it as 열 짝 확인 필요 beside the paper's
+    row, not as a verdict. What the agent said stays in chat.json as it said it (the bench scores it, like via and seen)."""
+    return bool((spec or {}).get("header_missing")) and status in ("followed", "differs")
+
+
 def aside(c) -> bool:
     """⑥ a paper condition kept for the reader, not held to: a fact (dataset size, the authors' GPU) or the paper's
     scope (a baseline's settings, an ablation). 재현 점검, the Guard and the brief's rules leave it out."""
