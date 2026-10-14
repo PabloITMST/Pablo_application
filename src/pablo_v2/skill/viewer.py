@@ -755,7 +755,7 @@ function sidebar() {
   const box = h("div", { id: "task-list" });
   side.append(h("div", { class: "brand" }, h("b", null, art("head", "ico"), "Pablo"),
       h("button", { class: "new", id: "new", disabled: !(window.pabloHost && pabloHost.newTask), on: () => newTask() }, "+ 새 작업")),
-    M.tasks.length > 1 ? q : null, box);
+    ...[M.tasks.length > 1 ? q : null, box].filter(Boolean));  // append(null) prints "null"
   const row = t => h("button", { class: "t" + (V && t.id === V.task.id ? " on" : ""), title: t.name ? t.text : t.id, "data-task": t.id,
     on: () => { select(t.id); document.body.classList.remove("side"); } }, nameOf(t), h("small", null, time(t.at)));
   function list() {
@@ -763,10 +763,10 @@ function sidebar() {
     const hit = t => !words.length || words.every(w => [t.name, t.text, t.id, ...((d[t.id] || {}).papers || []).map(p => p.title)]
       .some(x => String(x || "").toLowerCase().includes(w)));
     const ts = [...M.tasks].reverse().filter(hit), kept = ts.filter(t => !(d[t.id] || {}).archived), away = ts.filter(t => (d[t.id] || {}).archived);
-    box.replaceChildren(h("h4", null, words.length ? `찾은 작업 ${ts.length}개` : "작업"), ...kept.map(row),
+    box.replaceChildren(...[h("h4", null, words.length ? `찾은 작업 ${ts.length}개` : "작업"), ...kept.map(row),
       away.length ? h("details", { class: "away", "data-archived": String(away.length), open: words.length ? true : null },
         h("summary", null, `보관한 작업 ${away.length}개`), ...away.map(row)) : null,
-      words.length && !ts.length ? h("p", { class: "muted", style: "padding:0 8px;font-size:13px" }, "맞는 작업이 없습니다.") : null);
+      words.length && !ts.length ? h("p", { class: "muted", style: "padding:0 8px;font-size:13px" }, "맞는 작업이 없습니다.") : null].filter(Boolean));
   }
   list();
   if (had) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }

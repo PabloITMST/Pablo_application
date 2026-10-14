@@ -784,6 +784,15 @@ async function appCheck() {
   win.destroy();
 }
 
+// what a page shows when a missing value reaches the DOM: el.append(null) / replaceChildren(0) put "null" / "0" on screen
+// ("null0" at the end of the task list had no \b for a word-bounded regex). "" when clean, else the text around it.
+const LEAKED = `(() => {
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), bad = [];
+  for (let n; (n = w.nextNode());) if (/^(null|undefined|false|NaN)$/.test(n.data.trim()) && !n.parentElement.closest("script,style,pre,code")) bad.push(n.data.trim());
+  const m = document.body.innerText.match(/.{0,40}(?<![A-Za-z])(?:null|undefined)+(?![a-z]).{0,20}/);
+  return bad.length ? "text nodes: " + bad.join(", ") : m ? m[0] : "";
+})()`;
+
 // 9) --ui (offline): one timeline from the records and the chat log (a reopened app shows what was said, in order), the
 //    change itself on WARN / BLOCK cards (diff lines, the command without its shell), a stopped reply says so.
 async function uiCheck() {
@@ -1120,6 +1129,8 @@ async function uiCheck() {
   await until(`(d => d && d.dataset.archived === "1" && !!d.querySelector('[data-task="T1"]'))(document.querySelector("#task-list details.away"))`);
   await js(`document.querySelector('[data-archive="off"]').click()`);
   await until(`!document.querySelector("#task-list details.away") && !!document.querySelector('#task-list > [data-task="T1"]')`);
+  // review: nothing on screen reads "null" or "undefined" (append(null) prints "null")
+  assert.strictEqual(await js(LEAKED), "", "no null / undefined on screen");
   console.log("ok tasks: search '인사말' -> T1 only; renamed (the goal stays); 보관 -> folded at the bottom -> 보관 풀기");
   assert.deepStrictEqual(errors, [], "no script errors");
   win.destroy();
@@ -1424,6 +1435,7 @@ async function papersUi() {
   await js(`document.querySelector('#arxiv-hits [data-import="2502.00002"]') || true`);  // ThirdRAG is a source already; GoneRAG is missing upstream
   assert.match(await add("10.9999/unknown"), /^⚠ 그 DOI를 Crossref에서 찾지 못했습니다\.$/);
   console.log("ok OpenReview + DOI: forum link -> its PDF, missing -> said; arXiv DOI -> the arXiv paper; another DOI -> its title on arXiv; unknown DOI -> said");
+  assert.strictEqual(await js(LEAKED), "", "no null / undefined on screen");
   assert.deepStrictEqual(errors, [], "no script errors");
   arxiv.base = base0; arxiv.api = api0; openreview.base = or0; crossref.api = cr0; srv.close(); win.destroy();
 }
