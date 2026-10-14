@@ -713,6 +713,24 @@ class PabloSkill:
         self.save()
         return a
 
+    def code_links(self, src: EvidenceSource) -> list[dict]:
+        """⑪ the paper's code repositories (pdf.code_links), kept beside its snapshot once read (sources/SRCn.code.json)."""
+        if src.kind != "pdf":
+            return []
+        cache = os.path.join(os.path.dirname(self.path), _pdf_path(src).removesuffix(".pdf") + ".code.json") if self.path else None
+        if cache and os.path.exists(cache):
+            with open(cache, encoding="utf-8") as f:
+                return json.load(f)
+        try:
+            data = self.snapshot_pdf(src)
+        except (OSError, KeyError):
+            return []
+        links = pdf.code_links(data, self.snapshot_text(src).split("\f"))
+        if cache:
+            with open(cache, "w", encoding="utf-8") as f:
+                json.dump(links, f)
+        return links
+
     def rename_source(self, src_id: str, title: str) -> EvidenceSource:
         """⑧ the name the user knows a paper by ("HippoRAG 2", not its long title): every card, the brief and the panels
         use it from now on; its file, anchors and evidence stay as they are."""
@@ -1111,6 +1129,12 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
         out += ["확인된 근거:"] + facts
     if paper:
         out.append("논문에 적힌 조건은 근거 없이 바꾸지 마세요. 결과를 맞추려고 바꾸면 재현이 아닙니다.")
+    repos = []  # ⑪ the reproduced paper's own code: where a setting the paper does not state is looked up first
+    for sid in dict.fromkeys(c.spec["source_id"] for c in s.checks(task_id) if c.spec and c.research_state != "waived"):
+        src = next((x for x in s.state.sources if x.id == sid), None)  # a record whose paper is gone: no link
+        repos += [f"{x['url']} ({src.title} p.{x['page']})" for x in (s.code_links(src) if src else []) if x["official"]]
+    if repos:
+        out.append("논문의 공식 코드 저장소: " + ", ".join(repos) + ". 논문에 없는 설정은 먼저 여기서 확인하고, 가져왔다면 그렇다고 밝히세요.")
     if open_:
         out += ["논문에 없는 설정 (정하면 무엇을 근거로 정했는지 밝히세요):"] + open_
     if differ:

@@ -1270,6 +1270,9 @@ async function papersUi() {
   assert.ok(await until(`!document.querySelector("#src .plist").hidden && $("src-toggle").textContent.endsWith("▴")`));
   await sleep(200); await shot("papers-many.png");
   assert.deepStrictEqual(await titles(), ["TinyRAG", "OtherRAG", "🌐 TinyRAG notes", "ThirdRAG", "🌐 Notes two", "FourthRAG"]);
+  // ⑪ ThirdRAG links its own code ("Our code is available at …"): 코드 ↗ beside its name, opening outside the app
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("#src [data-code]")].map(a => [a.closest(".paper").querySelector("b").textContent, a.href, a.target])`),
+    [["ThirdRAG", "https://github.com/third/thirdrag", "_blank"]]);
   console.log("ok search + several: 2 picked -> 1 added + 1 missing; 3 in the box -> 2; 2 PDFs -> 1 (1 damaged); drop: only real PDFs; 6 sources fold");
   const refused = [], third = () => served.filter(x => x === "2502.00002").length, third0 = third();
   for (const x of ["https://arxiv.org/abs/not-a-paper", "2501.00404", "2501.00009", "2501.00008"]) refused.push(await fetchArxiv(x));

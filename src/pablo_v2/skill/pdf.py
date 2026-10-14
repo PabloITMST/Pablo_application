@@ -37,6 +37,45 @@ def pages(data: bytes) -> list[str]:
 ARXIV_STAMP = re.compile(r"arXiv:(\d{4}\.\d{4,5})(v\d+)")
 
 
+CODE_HOSTS = re.compile(r"^https?://(?:www\.)?(github\.com|gitlab\.com|huggingface\.co|bitbucket\.org|codeberg\.org)/[^\s]+$", re.I)
+OURS = re.compile(r"\b(our|the)\s+(code|implementation|source)|implementation\s+of|code\s+(is|are|and\s+\w+\s+are)\s+(publicly\s+)?available"
+                  r"|available\s+at|code\s+for\s+our|we\s+(release|open-source|provide)|open[- ]?source", re.I)
+
+
+def code_links(data: bytes, ps: list[str]) -> list[dict]:
+    """⑪ the code repositories a paper links (its PDF link annotations; the text breaks URLs, "opt for pinns"), each with
+    the page and whether the text around it says it is the paper's own code ("Our code is available at …") — the first
+    such link is official. -> [{url, page, official}]"""
+    import pypdf
+    seen, out = set(), []
+    try:
+        for n, pg in enumerate(pypdf.PdfReader(io.BytesIO(data)).pages, 1):
+            for a in pg.get("/Annots") or []:
+                act = a.get_object().get("/A")
+                uri = str(act.get_object().get("/URI") or "") if act else ""
+                if not CODE_HOSTS.match(uri):
+                    continue
+                url = re.sub(r"(\.git)?/*[.,;:)]*$", "", uri.strip())
+                if url.lower() in seen:
+                    continue
+                seen.add(url.lower())
+                tail = re.sub(r"[^a-z0-9]", "", url.lower().split("://", 1)[-1])
+                flat = re.sub(r"[^a-z0-9]", "", (ps[n - 1] if n <= len(ps) else "").lower())
+                at, around = flat.find(tail[len("githubcom"):] if tail.startswith("githubcom") else tail), ""
+                if at >= 0:  # the words before the link in the page text (the text index maps back roughly)
+                    raw = ps[n - 1]
+                    i = max(0, int(at * len(raw) / max(1, len(flat))) - 240)
+                    around = raw[i:i + 320]
+                out.append({"url": url, "page": n, "official": False, "_ours": bool(OURS.search(around))})
+    except Exception:  # a PDF pypdf cannot walk: no links rather than no paper
+        return []
+    first = next((x for x in sorted(out, key=lambda x: x["page"]) if x["_ours"]), None)
+    for x in out:
+        x["official"] = x is first
+        del x["_ours"]
+    return out
+
+
 def meta(data: bytes, ps: list[str]) -> dict:
     """C2: what the file says about itself -> {title (the PDF's /Title, "" if none), short (the name before ":" in it,
     "LinearRAG" for "LinearRAG: Linear Graph ..."), arxiv, version} (arXiv stamps "arXiv:2510.10114v4 [cs.CL]" on p.1)."""

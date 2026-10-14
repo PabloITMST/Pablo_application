@@ -252,6 +252,27 @@ def test_new_version_resolves():
         assert got == {keep.id: "VALID", gone.id: "UNRESOLVED"}, got
 
 
+def test_code_links():
+    """⑪ the code a paper links (its PDF's link annotations): the one the text calls its own ("Our code is available at")
+    is official, a tool it cites is not; read once, kept beside the snapshot; the brief points the agent to it."""
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "t.pdf")
+        open(p, "wb").write(tiny_pdf(["TinyRAG: a tiny graph retrieval method. Our code is available at github.com/tiny/tinyrag.",
+                                      "We use posteriordb for the targets, https://github.com/stan-dev/posteriordb, 2022."], "TinyRAG",
+                                     {1: ["https://github.com/tiny/tinyrag.git"], 2: ["https://github.com/stan-dev/posteriordb/"]}))
+        s = PabloSkill.load(os.path.join(d, "state", "skill.json"), IntentEngine(), None)
+        src = s.capture_pdf(p)
+        links = s.code_links(src)
+        assert links == [{"url": "https://github.com/tiny/tinyrag", "page": 1, "official": True},
+                         {"url": "https://github.com/stan-dev/posteriordb", "page": 2, "official": False}], links
+        assert os.path.exists(os.path.join(d, "state", "sources", f"{src.id}.code.json"))
+        from pablo_v2.skill.viewer import workspace
+        assert workspace(s)["papers"][src.id]["code"] == links
+        t = s.start_task("TinyRAG 재현", [])
+        s.add_spec(t.id, src.id, "a tiny graph retrieval method", 1, "method", "TinyRAG는 작은 그래프 검색 방법")
+        assert "논문의 공식 코드 저장소: https://github.com/tiny/tinyrag (t p.1)." in render_brief(s, t.id)[0]
+
+
 def node(calls):
     r = subprocess.run(["node", "-e", """const p = require(process.argv[1]);
 const calls = JSON.parse(require("fs").readFileSync(0, "utf8"));

@@ -201,6 +201,9 @@ def workspace(s, current: str | None = None) -> dict:
     # ⑩ every captured PDF, so one opens without a citation (to pick a sentence as a condition): what the PDF panel needs
     papers = {x.id: {k: sources[x.id][k] for k in ("title", "url", "captured_at", "hash", "kind", "file", "pages", "intact")}
               if x.id in sources else paper_entry(s, x) for x in s.state.sources if x.kind == "pdf"}
+    for x in s.state.sources:  # ⑪ the code each paper links, its own first
+        if x.kind == "pdf":
+            papers[x.id]["code"] = s.code_links(x)
     return {"current": current or (s.state.tasks[-1].id if s.state.tasks else None),
             "tasks": [{"id": t.id, "text": t.text, "at": t.created_at} for t in s.state.tasks],
             "views": views, "anchors": anchors, "sources": sources, "papers": papers,
@@ -695,8 +698,10 @@ function conditions(ids, dropped, diff) {
     if (xs.length) box.append(h("details", { "data-aside": k }, h("summary", null, `${label} ${xs.length}개 · 재현 점검에서 대조하지 않음`),
       h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id }, h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), fact(c))))));
   }
+  const own = codeOf((cs.find(c => c.spec.source_id) || { spec: {} }).spec.source_id).find(x => x.official);  // ⑪
   if (open.length) box.append(h("h4", null, "논문에 없는 설정"), h("ul", { class: "open" }, open.map(c => h("li", { title: c.id }, rich(c.title)))),
-    h("p", { class: "muted" }, "정할 때는 무엇을 근거로 정했는지 남기세요. 에이전트에게도 그렇게 알립니다."));
+    h("p", { class: "muted" }, "정할 때는 무엇을 근거로 정했는지 남기세요. 에이전트에게도 그렇게 알립니다.",
+      own ? [" 논문의 공식 코드(", h("a", { href: own.url, target: "_blank", rel: "noopener noreferrer", "data-code-hint": "1" }, short_(own.url) + " ↗"), ")에서 먼저 찾아보세요."] : null));
   if (dropped) box.append(h("p", { class: "muted" }, `원문에서 위치를 찾지 못한 조건 ${dropped}개는 뺐습니다.`));
   box.append(h("p", { class: "muted" }, "에이전트는 이 조건을 알고 작업하고, 바꾸려 하면 Pablo가 근거와 함께 막습니다."));
   return box;
@@ -827,6 +832,16 @@ function aged(box) {  // (not fresh(): the desktop's add box has its own)
 const where0 = w => String(w).split(/[;,]\s/)[0].replace(/(:\d+(?:[-,]\d+)*)+$/, "");  // "config.yaml:2" -> "config.yaml"
 // C3 비교표 (chat.json "compare"): the task's papers (rows) by columns. A cell is a value with its place in that paper
 // ([n] -> the PDF on that page), or 근거 없음: Pablo did not find where the paper says it, so nothing is filled in.
+// ⑪ the code repositories a paper links (its PDF's links), the paper's own first ("Our code is available at …")
+const codeOf = id => ((M.papers || {})[id] || {}).code || [];
+const short_ = u => u.replace(/^https?:\/\/(www\.)?/, "");
+function codeLine(id, task) {
+  const cs = codeOf(id), own = cs.find(x => x.official), more = cs.filter(x => !x.official);
+  if (!cs.length) return null;
+  const at = x => h("button", { class: "link", title: "논문의 그 쪽 열기", on: () => show({ mode: "paper", src: id, page: x.page }) }, `논문 p.${x.page}`);
+  return h("p", { class: "muted", "data-code-line": id }, own ? ["📦 공식 코드: ", h("a", { href: own.url, target: "_blank", rel: "noopener noreferrer" }, short_(own.url) + " ↗"), " (", at(own), ")"] : null,
+    more.length ? [own ? " · " : "", `논문이 링크한 다른 저장소 ${more.length}개: `, more.map((x, i) => [i ? ", " : "", h("a", { href: x.url, target: "_blank", rel: "noopener noreferrer" }, short_(x.url))])] : null);
+}
 // ⑧ a paper's name as the user calls it now (✎ renames it everywhere); the table keeps its rows' ids
 const titleOf = p => ((M.papers || {})[p.id] || {}).title || p.title;
 let compareAgain = null, renameHook = null;  // desktop: the 비교표 form with these columns; ✎
@@ -1098,6 +1113,7 @@ function intent(p) {
   const d = (M.desk || {})[V.task.id] || {}, main = (d.papers || []).find(x => x.primary), canEdit = window.pabloHost && pabloHost.condition;
   const pick = canEdit && main && (M.papers || {})[main.id] ? h("p", { class: "muted" }, h("button", { class: "link", "data-open-paper": main.id,
     on: () => show({ mode: "paper", src: main.id }) }, `📄 ${main.title} 열기`), " · 빠진 조건은 문장을 골라 더합니다.") : null;
+  const code = main ? codeLine(main.id, V.task.id) : null;
   const row = c => h("li", { title: c.id, "data-id": c.id }, fact(c),
     c.spec.by === "user" ? h("small", { class: "muted", "data-by-user": "1" }, " 직접 더함") : null,
     ASIDE[c.spec.kind] ? h("small", { class: "muted", "data-aside": c.spec.kind }, c.spec.kind === "fact" ? " 서술 · 점검 안 함" : " 실험 범위 · 점검 안 함") : null,
@@ -1108,7 +1124,7 @@ function intent(p) {
       return xs.length ? [h("h4", { class: "kind" }, SPEC[k] || k), h("ul", { class: "ck must" }, xs.map(row))] : []; }),
     out.length ? h("details", { class: "gone", "data-spec-out": String(out.length) }, h("summary", null, `뺀 조건 ${out.length}개`),
       h("ul", { class: "ck" }, out.map(c => h("li", { title: c.id, "data-id": c.id }, h("s", null, (SPEC[c.spec.category] || c.spec.category) + " · " + (c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")),
-        h("div", { class: "muted" }, `${day(((c.spec.dropped || []).at(-1) || {}).from)} 뺌 · 이유: ${c.waive_reason}`, canEdit ? [" · ", putBack(c)] : null))))) : null, pick] : null;
+        h("div", { class: "muted" }, `${day(((c.spec.dropped || []).at(-1) || {}).from)} 뺌 · 이유: ${c.waive_reason}`, canEdit ? [" · ", putBack(c)] : null))))) : null, pick, code] : null;
   const body = [g("목표", "", I.goals, "goal"), g("반드시 지킬 것", "must", I.must, "must"), paper, g("선호", "", I.prefer, "prefer"),
     g("성공 조건", "q", I.success, "other"), g("결정", "", I.decisions, "other"), g("확인 필요", "q", I.questions)];
   const how = window.pabloHost && pabloHost.criterion
@@ -1694,6 +1710,8 @@ if (window.pabloHost && pabloHost.chat) {
           title: "PDF 열기 (문장을 골라 재현 조건으로 더할 수 있습니다)", on: () => show({ mode: "paper", src: p.id }) }, name)] : name)(
           [h("b", null, p.title), p.version ? h("small", null, " " + p.version) : null]),
         p.kind !== "web" ? renamer(p.id, p.title, V.task.id) : null,
+        ...codeOf(p.id).filter(x => x.official).map(x => [" ", h("a", { class: "code", href: x.url, target: "_blank", rel: "noopener noreferrer",
+          "data-code": p.id, title: `논문의 공식 코드 (논문 p.${x.page}): ${x.url}` }, "코드 ↗")]),
         several && p.kind !== "web" ? (p.primary ? h("small", { class: "muted", "data-primary": "1" }, " (주 논문)")
           : [" ", h("button", { class: "link", title: "이 논문을 재현 대상으로 (재현 조건은 주 논문에서 뽑습니다)", "data-make-primary": p.id,
               on: () => pabloHost.setPrimary(V.task.id, p.id).then(() => refresh()) }, "주 논문으로")]) : null,

@@ -47,9 +47,9 @@ class Judge:  # C2 soft clear conflict without a reason -> WARN; C1 hard clear c
         return {**CALM, "intent_conflicts": [{"intent_id": cid, "level": "clear", "note": note}]}
 
 
-def tiny_pdf(pages: list[str], title: str = "") -> bytes:
+def tiny_pdf(pages: list[str], title: str = "", links: dict | None = None) -> bytes:
     """A small real PDF (Helvetica, about 80 characters a line) that pypdf and pdf.js both read: offline papers for the
-    C1-C3 tests. ASCII text only."""
+    C1-C3 tests. ASCII text only. links: {page number: [url, ...]} as link annotations (⑪)."""
     esc = lambda s: s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")  # noqa: E731
     objs, kids, n = {1: "<< /Type /Catalog /Pages 2 0 R >>", 3: "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"}, [], 4
     for text in pages:
@@ -62,8 +62,10 @@ def tiny_pdf(pages: list[str], title: str = "") -> bytes:
                 line = f"{line} {w}" if line else w
         lines.append(line)
         stream = "BT /F1 11 Tf 50 750 Td 14 TL " + " ".join(f"({esc(x)}) Tj T*" for x in lines) + " ET"
+        annots = "".join(f"<< /Type /Annot /Subtype /Link /Rect [50 50 300 70] /A << /S /URI /URI ({esc(u)}) >> >>"
+                         for u in (links or {}).get(len(kids) + 1, []))
         objs[n] = (f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> "
-                   f"/Contents {n + 1} 0 R >>")
+                   f"/Contents {n + 1} 0 R" + (f" /Annots [{annots}]" if annots else "") + " >>")
         objs[n + 1] = f"<< /Length {len(stream)} >>\nstream\n{stream}\nendstream"
         kids.append(n)
         n += 2
@@ -237,7 +239,8 @@ class PapersJudge:  # C1/C3 stubs: one answer over both papers, each paper's row
         return {"cells": [{"column": c, "value": v, "metric": metric.get(c, ""), "quote": q, "page": p} for c, (v, q, p) in zip(columns, rows)]}
 
 
-THIRD = ["arXiv:2502.00002v1 [cs.IR] 2 Feb 2025. ThirdRAG: hypergraph retrieval for long documents.",
+THIRD = ["arXiv:2502.00002v1 [cs.IR] 2 Feb 2025. ThirdRAG: hypergraph retrieval for long documents. "
+         "Our code is available at github.com/third/thirdrag.",  # ⑪ its own code, linked
          "ThirdRAG reaches 63.0 accuracy on HotpotQA."]
 
 
@@ -289,7 +292,7 @@ def build_papers(d: str, web: str | None = None) -> dict:
         json.dump({"pdf": {t.id: papers}}, f, ensure_ascii=False)
     v3 = [TINY_A[0].replace("v2", "v3"), TINY_A[1].replace("ignores synonyms", "ignores aliases")]
     for name, data in [("2501.00001", tiny_pdf([TINY_A[0].replace("v2", "v3"), v3[1]], "TinyRAG: A Tiny Graph RAG")),
-                       ("2501.00001v2", a_v2), ("2502.00002", tiny_pdf(THIRD, "ThirdRAG: Hypergraph Retrieval"))]:
+                       ("2501.00001v2", a_v2), ("2502.00002", tiny_pdf(THIRD, "ThirdRAG: Hypergraph Retrieval", {1: ["https://github.com/third/thirdrag.git"]}))]:
         open(os.path.join(d, "arxiv", name), "wb").write(data)
     path = os.path.join(d, "view-T1.html")
     with open(path, "w", encoding="utf-8") as f:
