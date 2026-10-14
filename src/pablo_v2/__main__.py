@@ -185,6 +185,7 @@ def _parser() -> argparse.ArgumentParser:
     s = add("source")
     s.add_argument("url"), s.add_argument("--title", default="")
     s.add_argument("--arxiv", help="C2: the arXiv id the PDF was downloaded as (title + version from the PDF itself)")
+    s.add_argument("--openreview", help="⑬ the OpenReview forum id the PDF was downloaded as (title from the PDF itself)")
     s = add("anchor")
     s.add_argument("source_id"), s.add_argument("exact")
     s.add_argument("--near", default="", help="text next to the intended occurrence when the quote repeats")
@@ -343,7 +344,7 @@ def _run(a, out) -> int:
         out({"review": asdict(r), "research_issues": [asdict(i) for i in s.state.issues if i.review_id == r.id]},
             render_task(s, s.get_action(r.action_id).task_id))
     elif a.cmd == "source":
-        x = s.capture_pdf(a.url, a.title, a.arxiv) if a.url.lower().endswith(".pdf") and os.path.isfile(a.url) \
+        x = s.capture_pdf(a.url, a.title, a.arxiv, a.openreview) if a.url.lower().endswith(".pdf") and os.path.isfile(a.url) \
             else s.capture_source(a.url, a.title)
         out({"source": asdict(x)}, f"{x.id} {x.title} {x.version['content_hash'][:19]} -> {x.snapshot}")
     elif a.cmd == "anchor":

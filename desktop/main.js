@@ -244,7 +244,8 @@ ipcMain.handle("pablo:add-files", async (e, task, files) => {
 // <= 50 MB, <= 60 s, then the usual capture. One file per paper (state/papers/arxiv-<id>.pdf): a newer version saved over
 // it is a new source, and the old one's anchors are resolved against it (VALID / STALE / UNRESOLVED) so the user hears
 // whether the evidence moved. The version and the bytes' sha256 stay with the paper.
-const arxiv = { base: "https://arxiv.org/pdf/", api: "https://export.arxiv.org/api/query", max: 50 << 20, ms: 60000 };  // check.js points both at a local server
+const arxiv = { base: "https://arxiv.org/pdf/", api: "https://export.arxiv.org/api/query", max: 50 << 20, ms: 60000 };
+const openreview = { base: "https://openreview.net/", max: 50 << 20, ms: 60000 }, crossref = { api: "https://api.crossref.org/" };  // ⑬  // check.js points both at a local server
 ipcMain.handle("pablo:add-arxiv", async (e, task, text) => {
   fromWindow(e); known(task); if (!str(text, 300)) throw new Error("bad arXiv id");
   const a = papers.arxiv(text);
@@ -290,6 +291,44 @@ ipcMain.handle("pablo:add-web", async (e, task, text) => {
 // D2 논문 검색: the words the user typed go to the arXiv API (no key); the user picks a result and it is imported as
 // above. arXiv asks for at most one request every 3 seconds: searches wait their turn here.
 let searched = 0;
+// ⑬ OpenReview: the PDF from openreview.net only (its title from the PDF itself, the forum id kept)
+ipcMain.handle("pablo:add-openreview", async (e, task, text) => {
+  fromWindow(e); known(task); if (!str(text, 300)) throw new Error("bad link");
+  const o = papers.openreview(text);
+  if (!o) throw new Error("OpenReview 링크를 읽지 못했습니다. 예: https://openreview.net/forum?id=AbCd1234");
+  const data = await papers.fetchPdf(`${openreview.base}pdf?id=${encodeURIComponent(o.id)}`, { origin: new URL(openreview.base).origin,
+    max: openreview.max, ms: openreview.ms, site: "OpenReview", missing: "OpenReview에 그 논문의 PDF가 없습니다(비공개이거나 지운 글일 수 있습니다)." })
+    .catch(err => { throw new Error(err.name === "TimeoutError" ? "OpenReview가 60초 안에 답하지 않았습니다."
+      : /[가-힣]/.test(err.message) ? err.message : "OpenReview에 연결하지 못했습니다. 인터넷 연결을 확인하세요."); });
+  const file = path.join(ctl.dir, "papers", `openreview-${o.id}.pdf`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, data);
+  const x = (await ctl.py("source", file, "--openreview", o.id)).source;
+  const before = papers.list(desk(), task).find(p => p.id === x.id);
+  join(task, { id: x.id, title: x.title, openreview: o.id, sha256: x.version.content_hash });
+  return { title: x.title, version: null, same: !!before };
+});
+// ⑬ a DOI: arXiv's own DOI is an arXiv id (add-arxiv). Another publisher's PDF is rarely free to fetch, so its title
+// (Crossref) is looked up on arXiv: the user picks the arXiv version, or adds the PDF they have as a file.
+ipcMain.handle("pablo:lookup-doi", async (e, text) => {
+  fromWindow(e); if (!str(text, 300)) throw new Error("bad DOI");
+  const d = papers.doi(text);
+  if (!d) throw new Error("DOI를 읽지 못했습니다. 예: 10.1145/3580305.3599256");
+  const r = await fetch(`${crossref.api}works/${encodeURIComponent(d.doi)}`, { signal: AbortSignal.timeout(30000), redirect: "error",
+    headers: { accept: "application/json" } }).catch(() => { throw new Error("DOI 정보(Crossref)에 연결하지 못했습니다. 인터넷 연결을 확인하세요."); });
+  if (r.status === 404) throw new Error("그 DOI를 Crossref에서 찾지 못했습니다.");
+  if (!r.ok) throw new Error(`DOI 정보를 가져오지 못했습니다(HTTP ${r.status}).`);
+  const m = ((await r.json().catch(() => ({}))).message) || {}, title = String((m.title || [])[0] || "").replace(/\s+/g, " ").trim();
+  if (!title) throw new Error("그 DOI의 제목을 읽지 못했습니다.");
+  const q = papers.searchQuery(title.split(" ").slice(0, 12).join(" "));
+  const wait = searched + 3000 - Date.now();
+  searched = Date.now() + Math.max(0, wait);
+  if (wait > 0) await new Promise(res => setTimeout(res, wait));
+  const s = await fetch(`${arxiv.api}?search_query=${encodeURIComponent(q)}&start=0&max_results=5&sortBy=relevance`,
+    { signal: AbortSignal.timeout(30000), redirect: "error" }).catch(() => null);
+  const hits = s && s.ok ? papers.atom((await s.text()).slice(0, 4 << 20)) : [];
+  return { doi: d.doi, title, year: (((m.issued || {})["date-parts"] || [[]])[0] || [])[0] || null, hits };
+});
 ipcMain.handle("pablo:search-arxiv", async (e, text) => {
   fromWindow(e); if (!str(text, 300)) throw new Error("bad query");
   const q = papers.searchQuery(text);
@@ -717,4 +756,4 @@ async function launch(dir = path.join(app.getPath("userData"), "state")) {
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => { clearTimeout(timer); agent.stop(); });
 
-module.exports = { open, boot, launch, auth: () => auth, arxiv };
+module.exports = { open, boot, launch, auth: () => auth, arxiv, openreview, crossref };

@@ -252,6 +252,31 @@ def test_new_version_resolves():
         assert got == {keep.id: "VALID", gone.id: "UNRESOLVED"}, got
 
 
+def test_openreview_capture():
+    """⑬ a PDF downloaded from OpenReview is named by its own title (not its file name) and keeps its forum id."""
+    with tempfile.TemporaryDirectory() as d:
+        p = os.path.join(d, "openreview-Open123.pdf")
+        open(p, "wb").write(tiny_pdf(["OpenRAG: retrieval reviewed in the open.", "x"], "OpenRAG: Retrieval Reviewed in the Open"))
+        src = PabloSkill(IntentEngine(), None).capture_pdf(p, openreview="Open123")
+        assert (src.title, src.version["openreview"]) == ("OpenRAG", "Open123"), (src.title, src.version)
+
+
+def test_links_people_paste():
+    """⑬ what the add box reads: arXiv's own DOI is an arXiv id; an OpenReview forum or pdf link is a paper; another DOI
+    is a DOI (looked up); an OpenReview page that is no paper, or any other address, is a web page."""
+    import shutil
+    if not shutil.which("node"):
+        print("skip test_links_people_paste: no node")
+        return
+    got = node([[f, s] for s in ["https://doi.org/10.48550/arXiv.2406.03150", "10.48550/arXiv.2402.14758v2", "doi:10.1145/3580305.3599256",
+                                 "https://openreview.net/forum?id=AbC_d-123", "https://openreview.net/pdf?id=XyZ9876&noteId=1",
+                                 "https://openreview.net/group?id=ICLR.cc"] for f in ("arxiv", "openreview", "doi")])
+    rows = [got[i:i + 3] for i in range(0, len(got), 3)]
+    assert rows == [[{"id": "2406.03150", "version": None}, None, None], [{"id": "2402.14758", "version": "v2"}, None, None],
+                    [None, None, {"doi": "10.1145/3580305.3599256"}], [None, {"id": "AbC_d-123"}, None],
+                    [None, {"id": "XyZ9876"}, None], [None, None, None]], rows
+
+
 def test_code_links():
     """⑪ the code a paper links (its PDF's link annotations): the one the text calls its own ("Our code is available at")
     is official, a tool it cites is not; read once, kept beside the snapshot; the brief points the agent to it."""

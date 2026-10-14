@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -1118,6 +1118,17 @@ async function papersUi() {
       searches.push(u.searchParams.get("search_query"));
       s.writeHead(200, { "content-type": "application/atom+xml" }); return s.end(fs.readFileSync(path.join(fx.arxiv, "api.xml")));
     }
+    if (u.pathname === "/openreview/pdf") {  // ⑬ a fake openreview.net: one public paper, anything else missing
+      const f = path.join(fx.arxiv, "openreview-" + u.searchParams.get("id"));
+      if (!/^[\w-]+$/.test(u.searchParams.get("id") || "") || !fs.existsSync(f)) { s.writeHead(404); return s.end(); }
+      s.writeHead(200, { "content-type": "application/pdf" }); return s.end(fs.readFileSync(f));
+    }
+    if (u.pathname.startsWith("/crossref/works/")) {  // ⑬ a fake Crossref: one DOI known
+      const doi = decodeURIComponent(u.pathname.slice("/crossref/works/".length));
+      if (doi !== "10.1234/tinyrag.2025") { s.writeHead(404); return s.end(); }
+      s.writeHead(200, { "content-type": "application/json" });
+      return s.end(JSON.stringify({ message: { title: ["TinyRAG: A Tiny Graph RAG"], issued: { "date-parts": [[2025, 1]] } } }));
+    }
     if (u.pathname.startsWith("/page/")) {  // D1: web pages (and a PDF and a missing page behind http links)
       const name = u.pathname.slice(6);
       if (name === "two.html") { s.writeHead(200, { "content-type": "text/html; charset=utf-8" }); return s.end("<title>Notes two</title><p>Second page of notes.</p>"); }
@@ -1137,8 +1148,8 @@ async function papersUi() {
   const port = srv.address().port, at = p => `http://127.0.0.1:${port}${p}`;
   fx = JSON.parse(execFileSync("python", [path.join(__dirname, "../tests/skill/ui_fixture.py"), "--papers", S, "--web", at("/page/notes.html")],
     { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } }));
-  const { arxiv } = require("./main"), [base0, api0] = [arxiv.base, arxiv.api];
-  arxiv.base = at("/pdf/"); arxiv.api = at("/api/query");
+  const { arxiv, openreview, crossref } = require("./main"), [base0, api0, or0, cr0] = [arxiv.base, arxiv.api, openreview.base, crossref.api];
+  arxiv.base = at("/pdf/"); arxiv.api = at("/api/query"); openreview.base = at("/openreview/"); crossref.api = at("/crossref/");
   const errors = [], win = open(fx.view);
   win.webContents.on("console-message", e => e.level === "error" && errors.push(e.message));
   await new Promise(r => win.webContents.once("did-finish-load", r));
@@ -1379,8 +1390,20 @@ async function papersUi() {
     [["spec-drop", added, "표의 다른 설정에서 나온 값"], ["spec-restore", added, undefined]]);
   await js(`close()`);
   console.log("ok conditions: a sentence picked on page 2 of the 주 논문 -> a condition (kind chosen first), its [n] boxed; the same again -> named first; ThirdRAG refused; 빼기 needs why -> 뺀 조건 -> 되살림, each said in the conversation");
+  // ⑬ an OpenReview link -> its PDF (openreview.net only); arXiv's own DOI -> the arXiv paper; another DOI -> its title,
+  // then the same title on arXiv to pick from; a DOI Crossref does not know -> said
+  const add = async v => { await js(`$("adder").hidden = false; $("arxiv").value = ${JSON.stringify(v)}; $("arxiv-get").click()`);
+    return until(`(n => !$("arxiv-get").disabled && n.textContent && !/중…$/.test(n.textContent) && n.textContent)($("arxiv-note"))`); };
+  assert.strictEqual(await add("https://openreview.net/forum?id=Open123"), "추가했습니다: OpenRAG.");
+  assert.deepStrictEqual(deskJson().pdf.T1.filter(p => p.openreview).map(p => [p.title, p.openreview]), [["OpenRAG", "Open123"]]);
+  assert.match(await add("https://openreview.net/forum?id=Gone404"), /^⚠ OpenReview에 그 논문의 PDF가 없습니다/);
+  assert.strictEqual(await add("https://doi.org/10.48550/arXiv.2501.00001"), "이미 있는 자료입니다: TinyRAG v3.");
+  assert.match(await add("doi:10.1234/tinyrag.2025"), /^DOI 10\.1234\/tinyrag\.2025: "TinyRAG: A Tiny Graph RAG" \(2025\)\. 출판사의 PDF는 바로 받을 수 없어 arXiv에서 같은 제목을 찾았습니다/);
+  assert.ok(await js(`!$("arxiv-hits").hidden && !!document.querySelector('#arxiv-hits [data-hit="2501.00001"] [data-have]')`), "the arXiv version is listed (here: already a source)");
+  assert.match(await add("10.9999/unknown"), /^⚠ 그 DOI를 Crossref에서 찾지 못했습니다\.$/);
+  console.log("ok OpenReview + DOI: forum link -> its PDF, missing -> said; arXiv DOI -> the arXiv paper; another DOI -> its title on arXiv; unknown DOI -> said");
   assert.deepStrictEqual(errors, [], "no script errors");
-  arxiv.base = base0; arxiv.api = api0; srv.close(); win.destroy();
+  arxiv.base = base0; arxiv.api = api0; openreview.base = or0; crossref.api = cr0; srv.close(); win.destroy();
 }
 
 // 10) --spec [shot-dir] (A2, real ChatGPT connection, a minute or two): LinearRAG -> 📋 재현 조건 뽑기 in the app -> the

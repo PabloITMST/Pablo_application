@@ -1745,9 +1745,9 @@ if (window.pabloHost && pabloHost.chat) {
   // C1/C2: + 추가 -> a PDF file, or an arXiv id / link that main downloads (one row under the tools)
   const adder = $("chat").insertBefore(h("div", { id: "adder", hidden: true }), box);
   // D1/D2: the same box takes an arXiv id or link (C2), a web page's address (D1), or words to find a paper (D2)
-  const arx = h("input", { id: "arxiv", placeholder: "arXiv 번호·링크, 웹 문서 주소(여러 개 가능), 또는 찾을 말" }), note = h("span", { id: "arxiv-note" });
+  const arx = h("input", { id: "arxiv", placeholder: "arXiv 번호·링크, OpenReview·DOI, 웹 문서 주소(여러 개 가능), 또는 찾을 말" }), note = h("span", { id: "arxiv-note" });
   const hits = h("div", { id: "arxiv-hits", hidden: true }), lines = h("ul", { id: "arxiv-lines", hidden: true });
-  const ARXIV = /^(arxiv:|(https?:\/\/)?(www\.|export\.)?arxiv\.org\/)|^\d{4}\.\d{4,5}(v\d+)?$|^[a-z][a-z-]*(\.[A-Z]{2})?\/\d{7}(v\d+)?$/i;
+  const ARXIV = /^(arxiv:|(https?:\/\/)?(www\.|export\.)?arxiv\.org\/)|^\d{4}\.\d{4,5}(v\d+)?$|^[a-z][a-z-]*(\.[A-Z]{2})?\/\d{7}(v\d+)?$|^(https?:\/\/(dx\.)?doi\.org\/|doi:\s*)?10\.48550\/arxiv\./i;  // ⑬ arXiv's own DOI too
   const moved = m => { const n = Object.values(m).reduce((a, b) => a + b, 0);
     return n ? ` 이전 버전에서 찾은 근거 ${n}개: 그대로 ${m.VALID || 0} · 문맥 바뀜 ${m.STALE || 0} · 찾을 수 없음 ${m.UNRESOLVED || 0}.` : ""; };
   const hold = on => { get.disabled = find.disabled = on; };
@@ -1771,8 +1771,10 @@ if (window.pabloHost && pabloHost.chat) {
     hold(false); report(rows, "PDF"); refresh();
   }
   const pickPdfs = () => pabloHost.pickPdfs(V.task.id).then(ps => ps && addPaths(ps), e => { adder.hidden = false; note.textContent = "⚠ " + fail(e); });
-  const item = v => ARXIV.test(v) || /^https?:\/\//i.test(v);
-  const one = v => (ARXIV.test(v) ? pabloHost.addArxiv : pabloHost.addWeb)(V.task.id, v);
+  // ⑬ an OpenReview link is a paper (its PDF); a DOI is looked up (arXiv's own DOI is an arXiv id: ARXIV takes it)
+  const OPENREVIEW = /^(?:https?:\/\/)?(?:www\.)?openreview\.net\/(?:forum|pdf)\?/i, DOI = /^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?10\.\d{4,9}\//i;
+  const item = v => ARXIV.test(v) || /^https?:\/\//i.test(v) || OPENREVIEW.test(v);
+  const one = v => (ARXIV.test(v) ? pabloHost.addArxiv : OPENREVIEW.test(v) && pabloHost.addOpenreview ? pabloHost.addOpenreview : pabloHost.addWeb)(V.task.id, v);
   const label = r => `${r.title}${r.version ? " " + r.version : ""}`;
   async function batch(vs) {
     hold(true); fresh(); const rows = [];
@@ -1787,20 +1789,32 @@ if (window.pabloHost && pabloHost.chat) {
     if (!v || get.disabled) return;
     const parts = v.replace(/arxiv:\s+/gi, "arxiv:").split(/[\s,;]+/).filter(Boolean);
     if (parts.length > 1 && parts.every(item)) return batch(parts);  // ② several ids / links / addresses
-    const web = !ARXIV.test(v) && /^https?:\/\//i.test(v);
-    if (!web && !ARXIV.test(v)) return search();  // words: find the paper first
-    hold(true); fresh(); note.textContent = web ? "웹 문서를 가져오는 중…" : "arXiv에서 받는 중…";
-    (web ? pabloHost.addWeb : pabloHost.addArxiv)(V.task.id, v).then(r => {
+    if (!ARXIV.test(v) && DOI.test(v) && pabloHost.lookupDoi) return doi(v);
+    const or = !ARXIV.test(v) && OPENREVIEW.test(v) && !!pabloHost.addOpenreview, web = !ARXIV.test(v) && !or && /^https?:\/\//i.test(v);
+    if (!web && !or && !ARXIV.test(v)) return search();  // words: find the paper first
+    hold(true); fresh(); note.textContent = or ? "OpenReview에서 받는 중…" : web ? "웹 문서를 가져오는 중…" : "arXiv에서 받는 중…";
+    (or ? pabloHost.addOpenreview : web ? pabloHost.addWeb : pabloHost.addArxiv)(V.task.id, v).then(r => {
       hold(false); arx.value = "";
       note.textContent = `${r.same ? "이미 있는 자료입니다" : "추가했습니다"}: ${r.title}${r.version ? " " + r.version : ""}.` + (r.moved ? moved(r.moved) : "");
       refresh();
     }, e => { hold(false); note.textContent = "⚠ " + fail(e); });
   };
+  // ⑬ a DOI: its title (Crossref), then the same title on arXiv; a publisher's PDF is added as a file
+  const doi = v => {
+    hold(true); fresh(); note.textContent = "DOI의 제목을 찾고, 같은 제목을 arXiv에서 찾는 중…";
+    pabloHost.lookupDoi(v).then(r => { hold(false);
+      if (!r.hits.length) { note.textContent = `DOI ${r.doi}: "${r.title}". 출판사의 PDF는 바로 받을 수 없고, arXiv에서 같은 제목을 찾지 못했습니다. PDF를 받아 "📄 PDF 파일 고르기"로 추가하세요.`; return; }
+      show_(r.hits, `DOI ${r.doi}: "${r.title}"${r.year ? ` (${r.year})` : ""}. 출판사의 PDF는 바로 받을 수 없어 arXiv에서 같은 제목을 찾았습니다. 맞는 판을 가져오세요.`);
+    }, e => { hold(false); note.textContent = "⚠ " + fail(e); });
+  };
   const search = () => {
     const v = arx.value.trim(); if (!v || find.disabled || !pabloHost.searchArxiv) return;
     hold(true); fresh(); note.textContent = "arXiv에서 찾는 중…";
-    pabloHost.searchArxiv(v).then(rs => {
-      hold(false); note.textContent = rs.length ? "" : "arXiv에서 찾은 논문이 없습니다."; hits.textContent = ""; hits.hidden = !rs.length;
+    pabloHost.searchArxiv(v).then(rs => show_(rs), e => { hold(false); note.textContent = "⚠ " + fail(e); });
+  };
+  const show_ = (rs, intro) => {
+    {
+      hold(false); note.textContent = rs.length ? (intro || "") : "arXiv에서 찾은 논문이 없습니다."; hits.textContent = ""; hits.hidden = !rs.length;
       const picked = () => [...hits.querySelectorAll("[data-pick]:checked")].map(c => c.dataset.pick);
       const many = h("button", { class: "pill", id: "arxiv-many", disabled: true, on: () => picked().length && batch(picked()) }, "고른 논문 가져오기");
       const have = new Set((((M.desk || {})[V.task.id] || {}).papers || []).map(p => p.arxiv).filter(Boolean));  // already a source here
@@ -1812,7 +1826,7 @@ if (window.pabloHost && pabloHost.chat) {
             : h("button", { class: "link", "data-import": x.id, on: () => fetchArxiv(x.id) }, "가져오기"),
           x.summary ? h("div", { class: "sum" }, x.summary) : null)), h("p", null, many));
       hits.addEventListener("change", () => { const n = picked().length; many.disabled = !n; many.textContent = n ? `고른 ${n}개 가져오기` : "고른 논문 가져오기"; });
-    }, e => { hold(false); note.textContent = "⚠ " + fail(e); });
+    }
   };
   const get = h("button", { class: "pill", id: "arxiv-get", on: () => fetchArxiv() }, "가져오기");
   const find = h("button", { class: "pill", id: "arxiv-find", title: "검색어가 arXiv(export.arxiv.org)로 보내집니다. 3초에 한 번까지 찾습니다.", on: search }, "🔎 arXiv에서 찾기");

@@ -292,7 +292,9 @@ def build_papers(d: str, web: str | None = None) -> dict:
         json.dump({"pdf": {t.id: papers}}, f, ensure_ascii=False)
     v3 = [TINY_A[0].replace("v2", "v3"), TINY_A[1].replace("ignores synonyms", "ignores aliases")]
     for name, data in [("2501.00001", tiny_pdf([TINY_A[0].replace("v2", "v3"), v3[1]], "TinyRAG: A Tiny Graph RAG")),
-                       ("2501.00001v2", a_v2), ("2502.00002", tiny_pdf(THIRD, "ThirdRAG: Hypergraph Retrieval", {1: ["https://github.com/third/thirdrag.git"]}))]:
+                       ("2501.00001v2", a_v2), ("2502.00002", tiny_pdf(THIRD, "ThirdRAG: Hypergraph Retrieval", {1: ["https://github.com/third/thirdrag.git"]})),
+                       ("openreview-Open123", tiny_pdf(["OpenRAG: retrieval reviewed in the open.", "OpenRAG reaches 60.0 on HotpotQA."],
+                                                       "OpenRAG: Retrieval Reviewed in the Open"))]:  # ⑬ what the fake openreview.net serves
         open(os.path.join(d, "arxiv", name), "wb").write(data)
     path = os.path.join(d, "view-T1.html")
     with open(path, "w", encoding="utf-8") as f:
