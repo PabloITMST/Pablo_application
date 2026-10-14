@@ -7,6 +7,8 @@
 //   hasValue(text, value)       the paper's value in a text: numbers by value ("1,000" = 1000), words case-insensitive
 //   follow(work, item, value?)  ⑤ a line that reads a setting (cfg["retrieval"]["top_k"]) -> {where, found, agrees}: the
 //                               config line that sets it (a field of its own, `via`; the verdict's check is not changed)
+//   scan(work, item, value?)    ⑥ an item the model called missing whose value (a name: "SpaCy", "gpt-4o-mini") is in the
+//                               folder's code or config -> {where, found} (a field of its own, `seen`)
 const fs = require("fs");
 const path = require("path");
 
@@ -207,4 +209,34 @@ function follow(work, item, value) {
   } catch { return null; }
 }
 
-module.exports = { where, read, locate, verify, follow, hasValue, checkable, ReadError, LIMIT, MAX_LINES, FOUND };
+// ---- ⑥ what the model called missing, looked for by Pablo ----
+// The 0.8 review: the model said "spaCy is not used" while preprocess.py imported it. A value that is one name (letters,
+// maybe digits and - . +: "SpaCy", "all-mpnet-base-v2", "GPT-4o-mini") is looked for as a whole word in the folder's
+// code and config files (not its logs or notes). A number or a phrase is not: "5" is everywhere, a phrase is implemented.
+const CODE = /\.(py|ipynb|ya?ml|json|toml|ini|cfg|conf|sh|bash|r|jl|m|js|ts|java|c|cc|cpp|h|hpp|rs|go)$/i;
+function sources(dir, depth = 0, out = []) {
+  let ents = [];
+  try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  for (const e of ents) {
+    if (out.length >= 400) break;
+    if (e.isDirectory() && depth < 5 && !SKIP.test(e.name)) sources(path.join(dir, e.name), depth + 1, out);
+    else if (e.isFile() && CODE.test(e.name)) out.push(path.join(dir, e.name));
+  }
+  return out;
+}
+function scan(work, item, value) {
+  try {
+    const v = String(value || "").trim();
+    if (!work || !item || item.status !== "missing" || !/^[A-Za-z0-9][\w.+-]{2,59}$/.test(v) || !/[A-Za-z]{3}/.test(v)) return null;
+    const root = fs.realpathSync(work), word = new RegExp(`(?<![A-Za-z0-9_])${v.replace(/[.+-]/g, "\\$&")}(?![A-Za-z0-9_])`, "i");
+    for (const f of sources(root)) {
+      let lines;
+      try { if (fs.statSync(f).size > LIMIT) continue; lines = fs.readFileSync(f, "utf8").split(/\r?\n/); } catch { continue; }
+      const i = lines.findIndex(l => word.test(l) && !/^\s*(#|\/\/)/.test(l));  // a comment that names it is not a use
+      if (i >= 0) return { where: `${path.relative(root, f).split(path.sep).join("/")}:${i + 1}`, found: lines[i].trim().slice(0, FOUND) };
+    }
+    return null;
+  } catch { return null; }
+}
+
+module.exports = { where, read, locate, verify, follow, scan, hasValue, checkable, ReadError, LIMIT, MAX_LINES, FOUND };

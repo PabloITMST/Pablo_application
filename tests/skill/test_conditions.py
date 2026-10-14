@@ -139,6 +139,37 @@ def test_intended_deviation():
         refused(lambda: s.undeviate_spec(res.id) and s.deviate_spec(res.id, "x", "everywhere"), ValueError)
 
 
+class KindJudge(SpecJudge):  # ⑥ a setting, a result, a fact about the data and a baseline's own setting
+    def extract_spec(self, pages):
+        return {"items": [
+            {"category": "result", "kind": "result", "statement": "HotpotQA 정확도는 61.5", "value": "61.5",
+             "quote": "TinyRAG reaches 61.5 accuracy on HotpotQA", "page": 2},
+            {"category": "dataset", "kind": "fact", "statement": "질문은 1,000개씩", "value": "1,000",
+             "quote": "We evaluate on HotpotQA and MuSiQue with 1,000 questions each", "page": 1},
+            {"category": "training", "kind": "scope", "statement": "색인에 GPU 한 장, 12초", "value": "12",
+             "quote": "Indexing takes 12 seconds on one GPU", "page": 2},
+            {"category": "method", "statement": "엔티티 링킹은 동의어를 무시한다", "value": "",  # no kind: a setting (before ⑥)
+             "quote": "entity linking ignores synonyms", "page": 2}], "missing": []}
+
+
+def test_kinds():
+    """⑥ what a reproduction does with each condition: facts and the paper's other experiments are kept (cited, in the
+    card, as background in the brief) but 재현 점검 and the Guard leave them out; a condition without a kind is a setting."""
+    with tempfile.TemporaryDirectory() as d:
+        s, t, a, _ = two(d)
+        s.judge = KindJudge()
+        stated, _, dropped = s.spec(t.id, a.id)
+        assert not dropped and [c.spec.get("kind") for c in stated] == ["result", "fact", "scope", None]
+        _, items = render_audit(s, t.id)
+        assert [x["text"].split(" (")[0] for x in items if x["kind"] == "condition"] == ["HotpotQA 정확도는 61.5", "엔티티 링킹은 동의어를 무시한다"]
+        brief = render_brief(s, t.id)[0]
+        assert "참고 (논문의 서술과 이 재현 밖의 실험, 따를 조건은 아님):\n- [서술] 질문은 1,000개씩" in brief, brief
+        assert "- [실험 범위] 색인에 GPU 한 장, 12초" in brief and brief.index("확인된 근거:") < brief.index("참고 (")
+        s.judge = GuardJudge()  # cites the result line it is given; the fact and the scope are not given at all
+        act = s.propose_action(t.id, "x")
+        assert "S01" in [r["rule"] for r in act.reasons]
+
+
 def cli(d, *args):
     r = subprocess.run([sys.executable, "-m", "pablo_v2", *args, "--json", "--dir", d], capture_output=True, encoding="utf-8",
                        env={**os.environ, "PYTHONPATH": SRC, "PYTHONIOENCODING": "utf-8"})

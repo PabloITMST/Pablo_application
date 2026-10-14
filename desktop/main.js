@@ -566,6 +566,8 @@ function audited(r) {
     for (const x of items) Object.assign(x, where.verify(r.work, x, (r.values || {})[x.id]));
     // ⑤ a line that reads the setting (cfg["retrieval"]["top_k"]): the config line that sets it, in a field of its own
     for (const x of items) { const v = where.follow(r.work, x, (r.values || {})[x.id]); if (v) x.via = v; }
+    // ⑥ an item the model called missing whose value is a name: Pablo looks for it in the folder's code and config
+    for (const x of items) { const s = where.scan(r.work, x, (r.values || {})[x.id]); if (s) x.seen = s; }
     // what no item covers: kept apart from the verdicts, its place checked the same way (no paper value to hold it to)
     const outside = (Array.isArray(j.outside) ? j.outside : []).filter(x => x && String(x.what || "").trim()).slice(0, 12)
       .map(x => ({ kind: x.kind === "scope" ? "scope" : "method", what: String(x.what).slice(0, 300), where: String(x.where || ""),

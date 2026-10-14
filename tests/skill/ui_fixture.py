@@ -122,6 +122,9 @@ def build(d: str) -> str:
         s.complete_check(c.id, "VERIFIED", text, [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "x", "supports": []}])
         specs.append(c.id)
     s._find_check(specs[2]).spec["value_in_quote"] = False  # the model's value is not in its own quote
+    told = s.add_check(t.id, "HotpotQA는 약 97,000개 질문-답 쌍이다", "USEFUL")  # ⑥ a description: folded, never checked
+    told.spec = {"category": "dataset", "value": "97k", "source_id": "SRC1", "kind": "fact"}
+    s.complete_check(told.id, "VERIFIED", told.requirement, [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "x", "supports": []}])
     # ⑦ top-k was an intended deviation between the two audits only: the second card shows it as 의도한 차이
     s._find_check(specs[0]).spec["deviations"] = [{"from": "2026-10-13T01:00:58.200+00:00", "to": "2026-10-13T01:00:58.800+00:00",
                                                    "why": "ablation: top-k 10으로 비교"}]
@@ -146,7 +149,7 @@ def build(d: str) -> str:
         {"role": "user", "text": "keep.txt도 정리해줘", "at": at(30)},
         {"role": "agent", "text": "keep.txt를 지우려", "at": at(31), "status": "interrupted"},
         {"role": "ask", "text": "효율 근거가 어디 있어?", "at": at(50), "check": sc.id},
-        {"role": "spec", "at": at(55), "checks": specs, "missing": [gap.id], "dropped": 1},
+        {"role": "spec", "at": at(55), "checks": specs + [told.id], "missing": [gap.id], "dropped": 1},
         # as main.js stores it: the model's answer + what Pablo saw at each place in repro/ (desktop/where.js verify)
         {"role": "audit", "at": at(58), "status": "completed", "summary": "top-k가 논문과 다릅니다.", "items": [
             {"id": "C1", "status": "followed", "where": "", "found": "", "note": "keep.txt는 그대로다", "check": "unchecked"},
@@ -172,7 +175,10 @@ def build(d: str) -> str:
             {"id": specs[0], "status": "differs", "where": "run.py:3", "found": "print('top_k', cfg['retrieval']['top_k'])",
              "note": "", "check": "verified", "via": {"where": "config.yaml:5", "found": "top_k: 10", "agrees": True}},
             {"id": specs[1], "status": "differs", "where": "logs/2wiki.log:1", "found": "gpt_acc=61.20", "note": "",
-             "check": "verified"}]},
+             "check": "verified"},
+            # ⑥ the model called the embedding model missing; Pablo found it in config.yaml (seen)
+            {"id": specs[2], "status": "missing", "where": "", "found": "", "note": "임베딩 모델을 고르는 코드가 없다",
+             "check": "unchecked", "seen": {"where": "config.yaml:2", "found": "embedding_model: all-mpnet-base-v2"}}]},
     ]}
     repro = os.path.join(d, "repro")
     shutil.copytree(DEMO, repro, dirs_exist_ok=True)

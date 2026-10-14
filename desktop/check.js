@@ -808,22 +808,27 @@ async function uiCheck() {
   // checked in a file, not in code
   assert.deepStrictEqual(await js(`(b => [...b.querySelectorAll(":scope > ul > li, details li")].map(x => [x.querySelector(".at code").textContent,
     (x.querySelector(".at [data-check]") || {}).textContent, (x.querySelector("[data-via]") || {}).textContent]))(document.querySelectorAll("[data-audit]")[1])`),
-    [["logs/2wiki.log:1", "✓ Pablo가 파일에서 확인", undefined], ["run.py:3", "✓ Pablo가 코드에서 확인", "↳ 값을 정하는 곳: config.yaml:5 top_k: 10"]]);
+    [["config.yaml:2", undefined, undefined], ["logs/2wiki.log:1", "✓ Pablo가 파일에서 확인", undefined], ["run.py:3", "✓ Pablo가 코드에서 확인", "↳ 값을 정하는 곳: config.yaml:5 top_k: 10"]]);
+  // ⑥ an item the model called missing, which Pablo found in the folder: open, first, with the place
+  assert.strictEqual(await js(`document.querySelectorAll("[data-audit]")[1].querySelector("[data-seen]").textContent`),
+    "⚠ 모델은 아직 없다고 했지만 Pablo가 찾았습니다: config.yaml:2 embedding_model: all-mpnet-base-v2");
   // ⑦ top-k was an intended deviation when the second audit ran: its 다름 is 의도한 차이, with why; the first audit's is not
   assert.deepStrictEqual(await js(`(b => [b.querySelector(".head").textContent, b.querySelector("li.st-intended b").textContent,
     b.querySelector("[data-dev-why]").textContent])(document.querySelectorAll("[data-audit]")[1])`),
-    ["🔎 재현 점검: 다름 1 · 의도한 차이 1", "◇ 의도한 차이", "이유: ablation: top-k 10으로 비교"]);
+    ["🔎 재현 점검: 다름 1 · 의도한 차이 1 · 아직 없음 1", "◇ 의도한 차이", "이유: ablation: top-k 10으로 비교"]);
   assert.ok(await js(`!document.querySelectorAll("[data-audit]")[0].querySelector(".st-intended")`));
   // A2: what Pablo saw at each place: the ones it could not confirm come first, open, whatever the verdict
   const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, checked: b.querySelector("[data-checked]").textContent,
     rows: [...b.querySelectorAll(":scope > ul > li")].map(x => [x.className, x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent,
       (x.querySelector("[data-check]") || {}).textContent]), folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit]"))`);
-  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 아직 없음 1 · 코드가 정함 1 · 따름 2 · 조건 밖 3", folded: "따르는 항목 1개",
+  // ⑥ 코드가 정함 right after 다름 (a report needs it); 아직 없음 folds away like 따름
+  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 코드가 정함 1 · 아직 없음 1 · 따름 2 · 조건 밖 3", folded: "아직 없는 항목 1개",
     checked: "📍 모델이 댄 위치 5곳 중 4곳을 Pablo가 파일에서 직접 확인했습니다. 1곳은 그 자리에서 찾지 못했습니다. 1곳은 판정과 논문 값이 어긋납니다. 이 항목은 위에 따로 둡니다.",
     rows: [["st-differs", "✗ 다름", "config.yaml:2", "⚠ 논문 값(all-mpnet-base-v2)이 이 자리에 그대로 있음"],
       ["st-followed", "✓ 따름", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
-      ["st-differs", "✗ 다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-missing", "○ 아직 없음", "run.py:3", "✓ Pablo가 코드에서 확인"],
-      ["st-chosen", "• 코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
+      ["st-differs", "✗ 다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-chosen", "• 코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
+  assert.deepStrictEqual(await js(`[...document.querySelector("[data-audit]").querySelectorAll(":scope > details > summary")].map(x => x.textContent)`),
+    ["아직 없는 항목 1개", "따르는 항목 1개"]);
   // what no item covers: apart from the verdicts, its places checked the same way, the paper's experiments folded
   const outside = await js(`(b => ({ head: b.querySelector("h4").textContent, rows: [...b.querySelectorAll(":scope > ul > li")].map(x =>
     [x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent, (x.querySelector("[data-check]") || {}).textContent]),
@@ -839,7 +844,10 @@ async function uiCheck() {
     text: b.textContent }))(document.querySelector("[data-spec]"))`);
   assert.deepStrictEqual(spec.heads, ["모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
   assert.deepStrictEqual(spec.items, ["임베딩 모델은 all-mpnet-base-v2이다 ⚠ 값(all-mpnet-base-v2)이 인용 안에 없음",
-    "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", "검색 단계의 top-k는 5이다", "2Wiki 정확도는 63.70%이다", "난수 시드가 적혀 있지 않다"]);
+    "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", "검색 단계의 top-k는 5이다", "2Wiki 정확도는 63.70%이다",
+    "데이터셋 · HotpotQA는 약 97,000개 질문-답 쌍이다", "난수 시드가 적혀 있지 않다"]);
+  // ⑥ a description the code does not set: kept, cited, folded apart, not counted among the conditions to check
+  assert.strictEqual(await js(`document.querySelector('[data-spec] [data-aside="fact"] summary').textContent`), "논문의 서술 (코드가 정하지 않음) 1개 · 재현 점검에서 대조하지 않음");
   assert.ok(/재현 조건 4개/.test(spec.text) && /위치를 찾지 못한 조건 1개/.test(spec.text), spec.text);
   await js(`show({ mode: "intent" })`);
   assert.match(await js(`$("panel").innerText`), /논문 조건[\s\S]*top-k는 5이다/);
@@ -857,7 +865,8 @@ async function uiCheck() {
   const diff = await js(`[...document.querySelectorAll('[data-id="ACT1"] pre.diff span')].map(x => x.className + ":" + x.textContent)`);
   assert.deepStrictEqual(diff, ["file:--- hello.txt", "hunk:@@ -1 +1,2 @@", ": hello", "add:+안녕하세요"]);
   assert.strictEqual(await js(`document.querySelector('[data-id="ACT2"] pre.cmd').textContent`), "Remove-Item keep.txt");
-  // review: a BLOCK is Pablo's decision, not the user's ("사용자가 취소했습니다" under it was wrong); no "Guard" in the words
+  // review: a BLOCK is Pablo's decision, not the user's ("사용자가 취소했습니다" under it was wrong); no "Guard" in the words;
+  // said once: here no run record says it, so one bold line does
   assert.deepStrictEqual(await js(`(c => [c.querySelector("[data-blocked]").textContent, /사용자가 취소|Guard/.test(c.textContent)])(document.querySelector('[data-id="ACT2"]'))`),
     ["Pablo가 막아 실행하지 않았습니다. ", false]);
   console.log("ok cards: WARN shows the diff,", JSON.stringify(diff), "| BLOCK shows the command without its shell");

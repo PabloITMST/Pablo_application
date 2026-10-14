@@ -212,7 +212,8 @@ class PabloSkill:
         basis = set(step["basis"]) if step else set()
         # a comparison table compares, it does not bind; ⑦ nor does a condition the whole task differs from on purpose.
         # One differed from in separate runs only stays a fact: the Guard decides by what the action touches.
-        sources = {c.id: c for c in self.checks(task_id) if not c.matrix and scope_of(c) != "task"}
+        # ⑥ a description (fact) or another experiment of the paper (scope) is no rule for the work either
+        sources = {c.id: c for c in self.checks(task_id) if not c.matrix and scope_of(c) != "task" and not aside(c)}
         runs = [c.id for c in sources.values() if scope_of(c) == "runs"]
         sources |= {c.id: c for c in map(self._find_check, basis) if c}
         done = [c for c in sources.values() if c.research_state == "completed"]
@@ -483,6 +484,8 @@ class PabloSkill:
                 continue
             sc = self.add_check(task_id, it["statement"], "USEFUL")
             sc.spec = {"category": it["category"], "value": it["value"], "source_id": src.id}
+            if it.get("kind") in SPEC_KINDS:  # ⑥ none (an answer from before) reads as setting
+                sc.spec["kind"] = it["kind"]
             if checkable(it["value"]) and not has_value(a.quote["exact"], it["value"]):
                 sc.spec["value_in_quote"] = False  # the quote is anchored, the value the model read from it is not in it
             self.complete_check(sc.id, "VERIFIED", it["statement"] + " [1]",
@@ -903,6 +906,15 @@ def scope_of(c) -> str | None:
     return (d.get("scope") or "task") if d else None
 
 
+SPEC_KINDS = ("setting", "result", "fact", "scope")
+
+
+def aside(c) -> bool:
+    """⑥ a paper condition kept for the reader, not held to: a fact (dataset size, the authors' GPU) or the paper's
+    scope (a baseline's settings, an ablation). 재현 점검, the Guard and the brief's rules leave it out."""
+    return bool(c.spec) and c.spec.get("kind") in ("fact", "scope")
+
+
 def edits_existing(description: str) -> bool:
     """⑦ does the action change or delete a file that is there (desktop: "파일 수정: x, 파일 삭제: y")? Creating a file or
     running a command leaves the base run as it is."""
@@ -972,7 +984,7 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
     ai = s.get_applicable_intent(task_id)
     must = [c.statement for c in ai["constraints"] if c.strength == "hard"]
     prefer = [c.statement for c in ai["constraints"] if c.strength != "hard"]
-    facts, basis, open_, paper, differ = [], [], [], False, []
+    facts, basis, open_, paper, differ, aside_ = [], [], [], False, [], []
     for c in s.checks(task_id):
         if c.matrix:  # C3 a comparison-table cell: the user reads it; the agent is not bound by another paper's row
             continue
@@ -995,13 +1007,16 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
                           + (" (기본 실행은 논문대로 두고, 새 파일이나 실행 옵션으로 따로 돌릴 때만 다르게)" if scope_of(c) == "runs"
                              else " (이 작업 전체에서 다르게)"))
             continue
+        if c.spec and aside(c):  # ⑥ background for the agent, not a condition to follow
+            aside_.append(f"- [{'실험 범위' if c.spec['kind'] == 'scope' else '서술'}] {text}")
+            continue
         if c.spec:  # a paper's reproduction condition: the statement is the fact
             paper = True
             facts.append(f"- [{SPEC_LABEL.get(c.spec['category'], c.spec['category'])}] {text}")
         else:
             facts.append(f"- {c.requirement.strip()} → {text}" + (" (일부만 확인됨)" if c.outcome != "VERIFIED" else ""))
         basis.append(c.id)
-    if not (must or prefer or facts or open_ or differ):
+    if not (must or prefer or facts or open_ or differ or aside_):
         return "", []
     out = ["[Pablo] 이 작업에서 사용자가 정한 기준과 확인된 근거입니다. 기준과 어긋나는 일은 하기 전에 말하고, "
            "근거를 쓸 때는 괄호 안의 출처와 쪽을 함께 밝히세요."]
@@ -1013,7 +1028,10 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
     if open_:
         out += ["논문에 없는 설정 (정하면 무엇을 근거로 정했는지 밝히세요):"] + open_
     if differ:
-        out += ["사용자가 이유와 함께 일부러 논문과 다르게 두는 조건 (막지 않습니다. 결과를 말할 때 이 차이를 밝히세요):"] + differ
+        out += ["사용자가 이유와 함께 일부러 논문과 다르게 두는 조건 (줄마다 적힌 범위 안에서만 막지 않습니다. 결과를 말할 때 "
+                "이 차이를 밝히세요):"] + differ
+    if aside_:
+        out += ["참고 (논문의 서술과 이 재현 밖의 실험, 따를 조건은 아님):"] + aside_
     return "\n".join(out), basis
 
 
@@ -1041,7 +1059,7 @@ def render_audit(s: PabloSkill, task_id: str) -> tuple[str, list[dict]]:
     -> (prompt, items [{id, kind, label, text}])."""
     items = []
     for c in s.checks(task_id):
-        if not c.spec or c.research_state == "waived":
+        if not c.spec or c.research_state == "waived" or aside(c):  # ⑥ a fact or the paper's scope: nothing to check
             continue
         label = SPEC_LABEL.get(c.spec["category"], c.spec["category"])
         if c.spec.get("missing"):

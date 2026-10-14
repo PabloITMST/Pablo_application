@@ -319,8 +319,31 @@ def test_audit_fixture_is_what_main_stores():
         assert {x["check"] for x in items} == {"unchecked", "verified", "not_found", "value_mismatch", "moved"}
         got = node([["follow", repro, x, values.get(x["id"], "")] for x in items])  # ⑤ via: what main stores too
         assert got == [x.get("via") for x in items], got
+        got = node([["scan", repro, x, values.get(x["id"], "")] for x in items])  # ⑥ seen, too
+        assert got == [x.get("seen") for x in items], got
         got = node([["verify", repro, x, ""] for x in audits[0]["outside"]])  # no paper value outside the items
         assert got == [{k: x[k] for k in ("check", "line_found") if k in x} for x in audits[0]["outside"]], got
+
+
+def test_scan_what_the_model_missed():
+    """⑥ an item the model called missing: its value, when it is one name, is looked for as a whole word in the folder's
+    code and config (not logs, not a comment); a number or a phrase is not looked for."""
+    if no_node("test_scan_what_the_model_missed"):
+        return
+    with tempfile.TemporaryDirectory() as d:
+        w = os.path.join(d, "work")
+        shutil.copytree(ui_fixture.DEMO, w)
+        open(os.path.join(w, "preprocess.py"), "w").write("# spacy_lite is not used\nimport spacy\nnlp = spacy.load('en')\n")
+        M, F = "missing", "followed"
+        got = node([["scan", w, {"status": s}, v] for s, v in [
+            (M, "SpaCy"),                 # preprocess.py:2 (line 1 is a comment, and spacy_lite is another word)
+            (M, "GPT-4o-mini"),           # config.yaml:3
+            (M, "2wikimultihopqa"),       # config.yaml (a log names it too: logs are not looked in)
+            (M, "5"), (M, "Personalized PageRank"), (M, "NLTK"),  # a number, a phrase: not looked for; not there
+            (F, "SpaCy"),                 # not called missing: nothing to look for
+        ]])
+        assert got == [{"where": "preprocess.py:2", "found": "import spacy"}, {"where": "config.yaml:3", "found": "llm: gpt-4o-mini"},
+                       {"where": "config.yaml:8", "found": "datasets: [hotpotqa, 2wikimultihopqa, musique]"}, None, None, None, None], got
 
 
 def test_follow_a_setting():

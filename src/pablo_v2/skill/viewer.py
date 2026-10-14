@@ -616,7 +616,7 @@ function action(a) {
     a.criteria.length ? h("p", { class: "muted" }, "관련 기준: ", a.criteria.map(c => c.text).join(" · ")) : null, offer(a),
     d ? h("p", { class: "muted" }, d) : null, runs(a).map(x => h("p", { class: "muted" }, x)),
     tech(a.text, ...a.problems.filter(x => !korean(x))),
-    h("p", null, block ? h("b", { "data-blocked": "1" }, "Pablo가 막아 실행하지 않았습니다. ") : !d ? h("b", null, "진행할지 결정이 필요합니다. ") : null,
+    h("p", null, block ? (runs(a).length ? null : h("b", { "data-blocked": "1" }, "Pablo가 막아 실행하지 않았습니다. ")) : !d ? h("b", null, "진행할지 결정이 필요합니다. ") : null,
       h("button", { class: "link", on: () => show({ mode: "trace", act: a.id }) }, "왜 그런가요?")));
 }
 // the desktop's chat log (chat.json): what the user said, the agent's replies, PDF questions and the check that answered
@@ -657,8 +657,10 @@ const SPEC = { dataset: "데이터셋", split: "데이터 분할", preprocessing
                hyperparameter: "하이퍼파라미터", training: "학습", metric: "평가 지표", baseline: "비교 대상", result: "보고된 결과",
                protocol: "평가 규칙" };
 const fact = c => [rich((c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")), c.evidence.length ? " " : null, c.evidence.map(e => cite(e))];  // [n] numbered in this chat
+const ASIDE = { fact: "논문의 서술 (코드가 정하지 않음)", scope: "실험 범위 (이 재현 밖일 수 있는 실험)" };  // ⑥ not checked
 function conditions(ids, dropped) {
-  const cs = ids.map(id => V.checks[id]).filter(c => c && c.state !== "waived"), stated = cs.filter(c => !c.spec.missing);
+  const cs = ids.map(id => V.checks[id]).filter(c => c && c.state !== "waived"), all = cs.filter(c => !c.spec.missing);
+  const stated = all.filter(c => !ASIDE[c.spec.kind]);
   const open = cs.filter(c => c.spec.missing);
   const box = h("div", { class: "spec", "data-spec": "1" });
   if (!cs.length) return box.appendChild(h("p", { class: "muted" }, "이 조건 목록은 다시 뽑은 목록으로 바뀌었습니다.")), box;
@@ -671,6 +673,10 @@ function conditions(ids, dropped) {
         ` ⚠ 값(${c.spec.value})이 인용 안에 없음`) : null,
       devOf(c) ? h("span", { class: "chk dev", "data-dev": c.id }, ` ◇ 의도한 차이(${WHERE_DEV[scopeOf(devOf(c))]}): ${devOf(c).why}`) : null))));
   }
+  for (const [k, label] of Object.entries(ASIDE)) { const xs = all.filter(c => c.spec.kind === k);
+    if (xs.length) box.append(h("details", { "data-aside": k }, h("summary", null, `${label} ${xs.length}개 · 재현 점검에서 대조하지 않음`),
+      h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id }, h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), fact(c))))));
+  }
   if (open.length) box.append(h("h4", null, "논문에 없는 설정"), h("ul", { class: "open" }, open.map(c => h("li", { title: c.id }, rich(c.title)))),
     h("p", { class: "muted" }, "정할 때는 무엇을 근거로 정했는지 남기세요. 에이전트에게도 그렇게 알립니다."));
   if (dropped) box.append(h("p", { class: "muted" }, `원문에서 위치를 찾지 못한 조건 ${dropped}개는 뺐습니다.`));
@@ -678,8 +684,8 @@ function conditions(ids, dropped) {
   return box;
 }
 // A5/A6 재현 점검: each paper condition / open setting / task criterion against the work folder (code line or log value)
-const AUDIT = { differs: ["✗", "다름"], missing: ["○", "아직 없음"], unclear: ["?", "판단 못 함"], chosen: ["•", "코드가 정함"],
-                intended: ["◇", "의도한 차이"], followed: ["✓", "따름"] };
+const AUDIT = { differs: ["✗", "다름"], chosen: ["•", "코드가 정함"], intended: ["◇", "의도한 차이"], missing: ["○", "아직 없음"],
+                unclear: ["?", "판단 못 함"], followed: ["✓", "따름"] };
 // ⑦ the user's intended deviation from a paper condition: the one holding now, or the one that held at a time (an audit's)
 const WHERE_DEV = { runs: "별도 실행에서만", task: "작업 전체" }, scopeOf = d => (d && d.scope) || "task";  // a span before 10/14: task
 function devOf(k, at) {
@@ -692,7 +698,7 @@ function devOf(k, at) {
 // ⑤ via: the model named a line that reads the setting (cfg["retrieval"]["top_k"]); Pablo found the config line that sets
 // it (desktop/where.js follow). Its value agrees with the verdict: the value check's warning was about the reading line.
 const WARNED = new Set(["not_found", "no_file", "value_mismatch"]), eased = x => x.check === "value_mismatch" && !!x.via && x.via.agrees === true;
-const warned = x => (WARNED.has(x.check) && !eased(x)) || (!!x.via && x.via.agrees === false);
+const warned = x => (WARNED.has(x.check) && !eased(x)) || (!!x.via && x.via.agrees === false) || (x.status === "missing" && !!x.seen);
 const LOGISH = /\.(log|txt|out|csv|tsv|jsonl?|md)(:|$)|(^|\/)logs?\//i;  // ⑤ a run log or a data file is not code
 function mark(x) {
   const v = ((V.checks[x.id] || {}).spec || {}).value;
@@ -746,10 +752,13 @@ function audited(c) {
       : `의도한 차이로 두었지만(이유: ${dev(x).why}) 이 점검에서는 다르지 않았습니다.`) : null,
     x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x), seen(x)) : null,
       x.found ? [" ", h("span", null, x.found)] : null, mark(x)) : null, via(x),
+    x.status === "missing" && x.seen ? h("div", { class: "at seen", "data-seen": x.seen.where }, h("span", { class: "chk warn" }, "⚠ 모델은 아직 없다고 했지만 Pablo가 찾았습니다: "),
+      fileLink(h("code", null, x.seen.where), task, x.seen.where, null, null, x.seen.found), " ", h("span", null, x.seen.found)) : null,
     x.note ? h("div", { class: "muted" }, x.note) : null);
   const order = Object.keys(AUDIT), xs = [...c.items].sort((a, b) => warned(b) - warned(a) || order.indexOf(st(a)) - order.indexOf(st(b)));
-  // what needs attention stays open (Pablo could not confirm it, 다름, 아직 없음, 코드가 정함); 판단 못 함 and 따름 fold away
-  const fold = { unclear: "판단 못 한 항목", followed: "따르는 항목" };
+  // what needs attention stays open (Pablo could not confirm it, 다름, 코드가 정함, 의도한 차이); ⑥ 아직 없음 (a folder that is
+  // not done yet has many), 판단 못 함 and 따름 fold away; an 아직 없음 Pablo found in the folder (seen) stays open
+  const fold = { missing: "아직 없는 항목", unclear: "판단 못 한 항목", followed: "따르는 항목" };
   box.append(h("ul", null, xs.filter(x => warned(x) || !fold[st(x)]).map(row)));
   for (const [k, label] of Object.entries(fold)) { const ys = xs.filter(x => st(x) === k && !warned(x));
     if (ys.length) box.append(h("details", null, h("summary", null, `${label} ${ys.length}개`), h("ul", null, ys.map(row)))); }
@@ -1066,6 +1075,7 @@ function intent(p) {
     on: () => show({ mode: "paper", src: main.id }) }, `📄 ${main.title} 열기`), " · 빠진 조건은 문장을 골라 더합니다.") : null;
   const row = c => h("li", { title: c.id, "data-id": c.id }, fact(c),
     c.spec.by === "user" ? h("small", { class: "muted", "data-by-user": "1" }, " 직접 더함") : null,
+    ASIDE[c.spec.kind] ? h("small", { class: "muted", "data-aside": c.spec.kind }, c.spec.kind === "fact" ? " 서술 · 점검 안 함" : " 실험 범위 · 점검 안 함") : null,
     devOf(c) ? h("div", { class: "chk dev", "data-dev": c.id }, `◇ 의도한 차이(${WHERE_DEV[scopeOf(devOf(c))]}): ${devOf(c).why}`) : null,
     canEdit ? [differ(c), devOf(c) ? null : [" ·", takeOut(c)]] : null);
   const kinds = [...Object.keys(SPEC), ...new Set(spec.map(c => c.spec.category).filter(k => !SPEC[k]))];  // grouped by kind, as in the card

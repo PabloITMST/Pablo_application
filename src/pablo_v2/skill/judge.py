@@ -13,6 +13,9 @@ Judge contract (duck-typed; tests inject stubs):
 """
 from __future__ import annotations
 
+import json
+import os
+
 TASK_SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["reuse", "checks"],
     "properties": {
@@ -165,9 +168,10 @@ PAPER: {title}
 
 SPEC_CATEGORIES = ["dataset", "split", "preprocessing", "model", "method", "hyperparameter", "training", "metric",
                    "baseline", "result", "protocol"]
+SPEC_KINDS = ["setting", "result", "fact", "scope"]  # ⑥ what a reproduction does with a condition
 SPEC_SCHEMA = _obj(
-    items={"type": "array", "items": _obj(category={"enum": SPEC_CATEGORIES}, statement=_str, value=_str, quote=_str,
-                                          page={"type": "integer"})},
+    items={"type": "array", "items": _obj(category={"enum": SPEC_CATEGORIES}, kind={"enum": SPEC_KINDS}, statement=_str,
+                                          value=_str, quote=_str, page={"type": "integer"})},
     missing={"type": "array", "items": _obj(category={"enum": SPEC_CATEGORIES}, statement=_str)})
 
 SPEC_PROMPT = """You extract what a faithful reproduction of this paper's main experiments must follow, from the paper's
@@ -181,6 +185,14 @@ items: concrete conditions the paper states.
   top-k, thresholds, dimensions, ...) | training (steps, epochs, hardware, seeds when stated) | metric (how results are
   scored) | baseline (methods compared against) | result (a main reported number) | protocol (evaluation rules a
   reproduction must not break, e.g. data used only for testing).
+- kind: what a reproduction does with it.
+  setting = what the code or its config fixes: data and split, preprocessing, the model, a method step, a
+            hyperparameter, the metric, an evaluation rule, a training setting. 재현 점검 holds the folder to it.
+  result  = a number the paper reports for the main experiments; a run should come close to it.
+  fact    = a description no code sets: a dataset's size or origin, the hardware or runtime the authors had, what
+            other work did. Kept for the reader; never checked in the folder.
+  scope   = another experiment of the paper: a baseline's own settings, an ablation, an extra dataset or analysis a
+            reproduction of the main result may leave out. Kept as the paper's scope; never checked in the folder.
 - statement: one short Korean sentence stating the condition with its exact value (e.g. "검색 단계의 top-k는 5이다").
   For method: what the code has to do, so that reading the code can tell (e.g. "δ는 엔티티 활성 점수의 pruning
   임계값이다", not "δ는 4이다"; "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다").
@@ -197,7 +209,9 @@ paraphrase inside quote.
 
 missing: settings a reproduction must decide that the paper does NOT state (e.g. random seed, learning rate schedule,
 number of runs, prompt templates, hardware), at most 6, each with a Korean statement naming what is missing. List
-only what a reader would actually have to decide; never list something the paper states.
+only what a reader would actually have to decide; never list something the paper states. A method that trains nothing
+(training-free, zero-shot, retrieval only) has no training settings to decide: never list epochs, learning rate,
+optimizer or batch size for it.
 
 PAPER (page text from the PDF, [p.N] = page N):
 {pages}
@@ -343,7 +357,11 @@ class LLMJudge:
 
     def extract_spec(self, pages: list[str]) -> dict:
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
-        return self.provider.complete_json(SPEC_PROMPT.format(pages=text), SPEC_SCHEMA)
+        r = self.provider.complete_json(SPEC_PROMPT.format(pages=text), SPEC_SCHEMA)
+        if dump := os.environ.get("PABLO_SPEC_DUMP"):  # tests/eval: the answer as it came, frozen for later runs
+            with open(dump, "w", encoding="utf-8") as f:
+                json.dump({"items": r["items"], "missing": r["missing"]}, f, ensure_ascii=False, indent=1)
+        return r
 
     def compare_paper(self, columns: list[str], title: str, pages: list[str]) -> dict:
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
