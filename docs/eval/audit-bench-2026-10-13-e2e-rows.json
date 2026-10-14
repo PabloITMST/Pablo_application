@@ -9,7 +9,16 @@
    "method": 4,
    "chosen": 3,
    "warn": 0,
-   "other": 4
+   "other": 4,
+   "open_now": 7,
+   "planted_now": 0,
+   "method_now": 4,
+   "chosen_now": 3,
+   "warn_now": 0,
+   "other_now": 0,
+   "drifts_open_now": 0,
+   "drifts_folded_only": 0,
+   "folded_only": []
   },
   {
    "variant": "v01",
@@ -20,7 +29,18 @@
    "method": 4,
    "chosen": 2,
    "warn": 0,
-   "other": 5
+   "other": 5,
+   "open_now": 9,
+   "planted_now": 3,
+   "method_now": 4,
+   "chosen_now": 2,
+   "warn_now": 0,
+   "other_now": 0,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 1,
+   "folded_only": [
+    "contain_missing"
+   ]
   },
   {
    "variant": "v02",
@@ -31,7 +51,16 @@
    "method": 4,
    "chosen": 2,
    "warn": 0,
-   "other": 5
+   "other": 5,
+   "open_now": 9,
+   "planted_now": 3,
+   "method_now": 4,
+   "chosen_now": 2,
+   "warn_now": 0,
+   "other_now": 0,
+   "drifts_open_now": 3,
+   "drifts_folded_only": 0,
+   "folded_only": []
   },
   {
    "variant": "v03",
@@ -42,7 +71,16 @@
    "method": 3,
    "chosen": 3,
    "warn": 0,
-   "other": 3
+   "other": 3,
+   "open_now": 8,
+   "planted_now": 2,
+   "method_now": 3,
+   "chosen_now": 3,
+   "warn_now": 0,
+   "other_now": 0,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
   },
   {
    "variant": "v04",
@@ -53,7 +91,16 @@
    "method": 4,
    "chosen": 3,
    "warn": 0,
-   "other": 2
+   "other": 2,
+   "open_now": 9,
+   "planted_now": 2,
+   "method_now": 4,
+   "chosen_now": 3,
+   "warn_now": 0,
+   "other_now": 0,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
   },
   {
    "variant": "v05",
@@ -64,7 +111,18 @@
    "method": 5,
    "chosen": 2,
    "warn": 0,
-   "other": 4
+   "other": 4,
+   "open_now": 7,
+   "planted_now": 1,
+   "method_now": 4,
+   "chosen_now": 2,
+   "warn_now": 0,
+   "other_now": 0,
+   "drifts_open_now": 1,
+   "drifts_folded_only": 1,
+   "folded_only": [
+    "datasets_drop"
+   ]
   },
   {
    "variant": "v06",
@@ -75,7 +133,16 @@
    "method": 4,
    "chosen": 3,
    "warn": 0,
-   "other": 3
+   "other": 3,
+   "open_now": 9,
+   "planted_now": 2,
+   "method_now": 4,
+   "chosen_now": 3,
+   "warn_now": 0,
+   "other_now": 0,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
   },
   {
    "variant": "v07",
@@ -86,7 +153,16 @@
    "method": 4,
    "chosen": 2,
    "warn": 0,
-   "other": 6
+   "other": 6,
+   "open_now": 8,
+   "planted_now": 1,
+   "method_now": 4,
+   "chosen_now": 2,
+   "warn_now": 0,
+   "other_now": 1,
+   "drifts_open_now": 1,
+   "drifts_folded_only": 0,
+   "folded_only": []
   },
   {
    "variant": "v08",
@@ -97,7 +173,16 @@
    "method": 4,
    "chosen": 3,
    "warn": 0,
-   "other": 4
+   "other": 4,
+   "open_now": 9,
+   "planted_now": 3,
+   "method_now": 3,
+   "chosen_now": 3,
+   "warn_now": 0,
+   "other_now": 0,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
   }
  ],
  "total": {
@@ -108,7 +193,20 @@
   "method": 36,
   "chosen": 23,
   "warn": 0,
-  "other": 36
+  "other": 36,
+  "open_now": 75,
+  "planted_now": 17,
+  "method_now": 34,
+  "chosen_now": 23,
+  "warn_now": 0,
+  "other_now": 1,
+  "drifts_open_now": 15,
+  "drifts_folded_only": 2,
+  "drifts": 18,
+  "folded_only": [
+   "v01 contain_missing",
+   "v05 datasets_drop"
+  ]
  },
  "other": [
   {
@@ -117,7 +215,8 @@
    "category": "baseline",
    "condition": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
    "note": "나열된 비교 방법들의 구현이나 실행이 없다.",
-   "where": "config.yaml:4"
+   "where": "config.yaml:4",
+   "now": false
   },
   {
    "variant": "v00-clean",
@@ -125,7 +224,8 @@
    "category": "baseline",
    "condition": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
    "note": "Vanilla RAG의 1·3·5 passage 비교 실행이 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v00-clean",
@@ -133,7 +233,8 @@
    "category": "result",
    "condition": "LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다.",
    "note": "네 데이터셋 결과 전체가 아니라 2Wiki 결과 로그만 존재한다.",
-   "where": "logs\\2wikimultihopqa.log:1"
+   "where": "logs\\2wikimultihopqa.log:1",
+   "now": false
   },
   {
    "variant": "v00-clean",
@@ -141,7 +242,8 @@
    "category": "training",
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습 단계와 학습률·스케줄 설정이 코드에 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v01",
@@ -149,7 +251,8 @@
    "category": "baseline",
    "condition": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
    "note": "열거된 비교 대상 방법들의 구현이나 실행 결과가 없습니다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v01",
@@ -157,7 +260,8 @@
    "category": "baseline",
    "condition": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
    "note": "1·3·5개 passage를 비교하는 Vanilla RAG 실행이 없습니다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v01",
@@ -165,7 +269,8 @@
    "category": "result",
    "condition": "LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다.",
    "note": "네 데이터셋의 주요 정확도 표 전체가 없고 2Wiki 로그만 존재합니다.",
-   "where": "logs\\2wikimultihopqa.log:1"
+   "where": "logs\\2wikimultihopqa.log:1",
+   "now": false
   },
   {
    "variant": "v01",
@@ -173,7 +278,8 @@
    "category": "training",
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습률과 학습률 스케줄 설정 또는 학습 과정이 없습니다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v01",
@@ -181,7 +287,8 @@
    "category": "protocol",
    "condition": "각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다.",
    "note": "반복 실행 및 결과 평균 처리가 없습니다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v02",
@@ -189,7 +296,8 @@
    "category": "baseline",
    "condition": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
    "note": "열거된 데이터셋을 실행할 뿐 논문의 주요 비교 방법들은 구현·실행되지 않았다.",
-   "where": "run.py:18"
+   "where": "run.py:18",
+   "now": false
   },
   {
    "variant": "v02",
@@ -197,7 +305,8 @@
    "category": "baseline",
    "condition": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
    "note": "Vanilla RAG의 1·3·5 passage 비교 실행이나 기록이 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v02",
@@ -205,7 +314,8 @@
    "category": "result",
    "condition": "LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다.",
    "note": "네 데이터셋별 표 결과가 아니라 2Wiki 하나의 로그만 확인된다.",
-   "where": "logs\\2wikimultihopqa.log:1"
+   "where": "logs\\2wikimultihopqa.log:1",
+   "now": false
   },
   {
    "variant": "v02",
@@ -213,7 +323,8 @@
    "category": "training",
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습률과 학습률 스케줄 설정이나 구현이 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v02",
@@ -221,7 +332,8 @@
    "category": "protocol",
    "condition": "각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다.",
    "note": "반복 실행 횟수와 반복 결과 평균 방식이 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v03",
@@ -229,7 +341,8 @@
    "category": "baseline",
    "condition": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
    "note": "열거된 주요 비교 대상 방법들의 구현이나 비교 실행이 없다.",
-   "where": "run.py:18"
+   "where": "run.py:18",
+   "now": false
   },
   {
    "variant": "v03",
@@ -237,7 +350,8 @@
    "category": "baseline",
    "condition": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
    "note": "Vanilla RAG의 1·3·5 passage 비교 실행이 없다.",
-   "where": "run.py:23"
+   "where": "run.py:23",
+   "now": false
   },
   {
    "variant": "v03",
@@ -245,7 +359,8 @@
    "category": "result",
    "condition": "LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다.",
    "note": "네 데이터셋 전체의 주요 정확도 표가 보고되지 않았고 현재 로그는 2Wiki 하나뿐이다.",
-   "where": "logs/2wikimultihopqa.log:1"
+   "where": "logs/2wikimultihopqa.log:1",
+   "now": false
   },
   {
    "variant": "v04",
@@ -253,7 +368,8 @@
    "category": "baseline",
    "condition": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
    "note": "제시된 비교 방법들의 구현이나 실행 로그가 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v04",
@@ -261,7 +377,8 @@
    "category": "baseline",
    "condition": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
    "note": "Vanilla RAG의 1·3·5 passage 검색 구현이나 결과가 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v05",
@@ -269,7 +386,8 @@
    "category": "baseline",
    "condition": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
    "note": "열거된 비교 방법을 구현하거나 실행한 코드와 로그가 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v05",
@@ -277,7 +395,8 @@
    "category": "baseline",
    "condition": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
    "note": "1·3·5 passage Vanilla RAG baseline 실행이 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v05",
@@ -285,7 +404,8 @@
    "category": "result",
    "condition": "LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다.",
    "note": "네 데이터셋의 주요 정확도 표가 없고 2Wiki 로그만 존재한다.",
-   "where": "logs/2wikimultihopqa.log:1"
+   "where": "logs/2wikimultihopqa.log:1",
+   "now": false
   },
   {
    "variant": "v05",
@@ -293,7 +413,8 @@
    "category": "training",
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습률과 스케줄 설정 또는 학습 단계가 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v06",
@@ -301,7 +422,8 @@
    "category": "baseline",
    "condition": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
    "note": "LinearRAG만 실행하며 열거된 비교 대상 방법의 구현이나 실행이 없습니다.",
-   "where": "run.py:18"
+   "where": "run.py:18",
+   "now": false
   },
   {
    "variant": "v06",
@@ -309,7 +431,8 @@
    "category": "baseline",
    "condition": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
    "note": "1·3·5 passage Vanilla RAG 검색 실행이 없습니다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v06",
@@ -317,7 +440,8 @@
    "category": "result",
    "condition": "LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다.",
    "note": "네 데이터셋 전체의 주요 정확도 표가 없고 2Wiki 로그만 존재합니다.",
-   "where": "logs/2wikimultihopqa.log:1"
+   "where": "logs/2wikimultihopqa.log:1",
+   "now": false
   },
   {
    "variant": "v07",
@@ -325,7 +449,8 @@
    "category": "baseline",
    "condition": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
    "note": "설정이나 코드에 논문의 주요 비교 대상 실행이 구현되어 있지 않다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v07",
@@ -333,7 +458,8 @@
    "category": "baseline",
    "condition": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
    "note": "1·3·5 passage를 검색하는 Vanilla RAG baseline이 구현되어 있지 않다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v07",
@@ -341,7 +467,8 @@
    "category": "training",
    "condition": "실험은 NVIDIA GeForce RTX 4090 D 24GB GPU에서 수행한다.",
    "note": "4090 D 24GB GPU 사용을 나타내는 실행 정보나 설정이 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v07",
@@ -349,7 +476,8 @@
    "category": "training",
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습률과 학습률 스케줄 설정이나 구현이 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v07",
@@ -357,7 +485,8 @@
    "category": "protocol",
    "condition": "각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다.",
    "note": "반복 실행 및 반복 결과 평균 처리 구현이 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v07",
@@ -365,7 +494,8 @@
    "category": "조건 밖",
    "condition": "",
    "note": "PageRank 입력 subgraph에서 sentence 노드를 제외하여 sentence 노드가 최종 ranking에 전달되지 않는다.",
-   "where": "retrieve.py:20"
+   "where": "retrieve.py:20",
+   "now": true
   },
   {
    "variant": "v08",
@@ -373,7 +503,8 @@
    "category": "baseline",
    "condition": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
    "note": "논문의 비교 방법들을 구현하거나 실행하는 코드가 없다.",
-   "where": "run.py:18"
+   "where": "run.py:18",
+   "now": false
   },
   {
    "variant": "v08",
@@ -381,7 +512,8 @@
    "category": "baseline",
    "condition": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
    "note": "Vanilla RAG baseline과 1·3·5 passage 비교 실행이 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   },
   {
    "variant": "v08",
@@ -389,7 +521,8 @@
    "category": "result",
    "condition": "LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다.",
    "note": "네 데이터셋 전체의 주요 정확도 표가 없고 2Wiki 로그만 존재한다.",
-   "where": "logs\\2wikimultihopqa.log:1"
+   "where": "logs\\2wikimultihopqa.log:1",
+   "now": false
   },
   {
    "variant": "v08",
@@ -397,7 +530,8 @@
    "category": "training",
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습 과정과 학습률·스케줄 설정이 없어 코드가 선택한 값도 없다.",
-   "where": ""
+   "where": "",
+   "now": false
   }
  ],
  "conditions": {

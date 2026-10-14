@@ -247,7 +247,7 @@ def test_rows():
         assert c1["planted"] == 1 and c1["open"] == 6
         assert r["other"][0]["condition"] == "HotpotQA는 97k" and r["conditions"]["r01"] == {"missing": 9, "followed": 18}
         md = B.markdown_rows(r, {"date": "test", "model": "x", "avg_ms": 1})
-        assert "| 그 밖 (손으로 읽음) | 9 | 1.0 |" in md and "HotpotQA는 97k | dataset | followed 18, missing 9" in md
+        assert "| 그 밖 (손으로 읽음) | 9 | 1.0 | 0.0 |" in md and r["total"]["open_now"] == r["total"]["open"] - 9 and r["total"]["planted"] == 1 and r["total"]["drifts"] == 18 and "HotpotQA는 97k | dataset | followed 18, missing 9" in md
 
 
 def test_state_real():

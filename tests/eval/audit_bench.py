@@ -237,7 +237,8 @@ def variants(out_dir: str, n: int = 8, seed: int = 7, clean: int = 1, set: str =
     return truth
 
 
-REAL_SPEC = os.path.join(HERE, "linearrag_spec_real.json")
+REAL_SPEC = os.path.join(HERE, "linearrag_spec_real.json")  # 2026-10-13, before spec items carried a kind (e2e)
+REAL_SPECS = {"real": REAL_SPEC, "real_kind": os.path.join(HERE, "linearrag_spec_real_kind.json")}  # real_kind: after (e2e2)
 
 
 class _Saved:
@@ -259,7 +260,7 @@ def state(out_dir: str, conditions_from: str = "frozen") -> dict:
     from pablo_v2.skill.viewer import render_html
     spec = conditions()
     os.makedirs(out_dir, exist_ok=True)
-    real = json.load(open(REAL_SPEC, encoding="utf-8")) if conditions_from == "real" else None
+    real = json.load(open(REAL_SPECS[conditions_from], encoding="utf-8")) if conditions_from in REAL_SPECS else None
     s = PabloSkill(IntentEngine.load(os.path.join(out_dir, "intent.json")), _Saved(real) if real else None,
                    path=os.path.join(out_dir, "skill.json"))
     src = s.capture_pdf(os.path.abspath(os.path.join(ROOT, spec["pdf"])))
@@ -271,7 +272,8 @@ def state(out_dir: str, conditions_from: str = "frozen") -> dict:
         labels = {}
         for i, c in enumerate(stated + missing, 1):
             keys[f"r{i:02d}"] = c.id
-            labels[f"r{i:02d}"] = {"category": c.spec["category"], "statement": c.requirement.strip(), "missing": bool(c.spec.get("missing"))}
+            labels[f"r{i:02d}"] = {"category": c.spec["category"], "statement": c.requirement.strip(), "missing": bool(c.spec.get("missing")),
+                                   "kind": c.spec.get("kind", "setting")}  # fact / scope: not asked by the audit (bc214e8)
         json.dump(labels, open(os.path.join(out_dir, "conditions.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     for c in [] if real else spec["conditions"]:
         a = s.add_anchor(src.id, c["quote"], page=c["page"])
@@ -591,7 +593,9 @@ def rows(results: list[dict], truth: dict, labels: dict, keys: dict) -> dict:
     followed / unclear, a place Pablo could not confirm, an outside method difference (the paper's experiments the folder
     lacks fold away, like followed and unclear). Each open row: a planted drift (its place and words, as in compare), one
     of the base's method gaps (THEMES on what the row says), an open setting the code fixed (chosen), a warning on a row
-    that is followed or unclear, or other: read by hand. labels: {key: {category, statement}} for the conditions."""
+    that is followed or unclear, or other: read by hand. labels: {key: {category, statement}} for the conditions.
+    Two card rules: open (the card until bc214e8, 아직 없음 open) and open_now (아직 없음 folds like 따름, unless Pablo
+    found its name in the folder: seen); each kind is counted both ways (<kind>_now)."""
     by_check = {v: k for k, v in keys.items()}
     per, other, conds = [], [], {}
     for v in truth["variants"]:
@@ -601,8 +605,14 @@ def rows(results: list[dict], truth: dict, labels: dict, keys: dict) -> dict:
         warned = lambda i: i.get("check") in WARNED and not (i.get("check") == "value_mismatch" and (i.get("via") or {}).get("agrees"))  # noqa: E731
         shown = [i for i in items if i.get("status") in ("differs", "missing", "chosen") or warned(i)] + \
                 [dict(o, status="outside", note=o.get("what", "")) for o in outs if o.get("kind") != "scope"]
-        c = dict(variant=v["name"], items=len(items), outside=len(outs), open=len(shown), **{k: 0 for k in ROW_KINDS})
+        c = dict(variant=v["name"], items=len(items), outside=len(outs), open=len(shown), **{k: 0 for k in ROW_KINDS},
+                 **{k + "_now": 0 for k in ["open", *ROW_KINDS]}, drifts_open_now=0, drifts_folded_only=0)
+        on = {p["id"]: [] for p in v["planted"]}  # the rows that name each planted drift, and whether each is open now
         for i in shown:
+            now = not (i["status"] == "missing" and not i.get("seen"))
+            for p in v["planted"]:
+                if any(hits(l, p) for l in locs(i.get("where", ""))) and about(i, p):
+                    on[p["id"]].append(now)
             text = " ".join(str(i.get(f, "")) for f in ("what", "note"))
             lab = labels.get(by_check.get(i.get("id"), ""), {})
             step = lab.get("category") == "method" and not lab.get("missing")  # a method step the base only sketches
@@ -610,16 +620,24 @@ def rows(results: list[dict], truth: dict, labels: dict, keys: dict) -> dict:
                 else "chosen" if i["status"] == "chosen" else "warn" if i["status"] in ("followed", "unclear") \
                 else "method" if step or any(re.search(rx, text, re.I | re.A) for rx in THEMES.values()) else "other"
             c[kind] += 1
+            c[kind + "_now"] += now; c["open_now"] += now
             if kind == "other":
                 lab = labels.get(by_check.get(i.get("id"), ""), {})
                 other.append({"variant": v["name"], "status": i["status"], "category": lab.get("category", "조건 밖"),
-                              "condition": lab.get("statement", ""), "note": i.get("note", ""), "where": i.get("where", "")})
+                              "condition": lab.get("statement", ""), "note": i.get("note", ""), "where": i.get("where", ""),
+                              "now": now})
         for i in items:
             k = by_check.get(i.get("id"))
             if k:
                 conds.setdefault(k, {})[i["status"]] = conds.get(k, {}).get(i["status"], 0) + 1
+        c["drifts_open_now"] = sum(any(x) for x in on.values())
+        c["drifts_folded_only"] = sum(bool(x) and not any(x) for x in on.values())  # named, but only in a folded 아직 없음
+        c["folded_only"] = [d for d, x in on.items() if x and not any(x)]
         per.append(c)
-    total = {k: sum(c[k] for c in per) for k in ("items", "outside", "open", *ROW_KINDS)}
+    total = {k: sum(c[k] for c in per) for k in ("items", "outside", "open", *ROW_KINDS, "open_now", *[x + "_now" for x in ROW_KINDS],
+                                                 "drifts_open_now", "drifts_folded_only")}
+    total["drifts"] = sum(len(v["planted"]) for v in truth["variants"])  # not "planted": that is the row count
+    total["folded_only"] = [f"{c['variant']} {d}" for c in per for d in c["folded_only"]]
     return {"per_variant": per, "total": total, "other": other, "conditions": conds, "labels": labels}
 
 
@@ -627,18 +645,26 @@ def markdown_rows(r: dict, meta: dict) -> str:
     n, t = len(r["per_variant"]), r["total"]
     out = [f"# 점검 카드에 펼쳐지는 행 — {meta.get('date', '')} ({meta.get('tag') or ''})", "",
            f"- 변형 {n}개, 모델 {meta.get('model')}, 점검 1회 평균 {meta.get('avg_ms')} ms",
-           f"- 카드당 판정 {round(t['items'] / n, 1)}행, 그중 펼쳐진 행 {round(t['open'] / n, 1)}행 (조건 밖 방법 차이 포함)", "",
-           "| 펼쳐진 행 | 합 | 카드당 |", "|---|---|---|"]
-    out += [f"| {label} | {t[k]} | {round(t[k] / n, 1)} |" for k, label in ROW_KINDS.items()]
+           f"- 카드당 판정 {round(t['items'] / n, 1)}행, 그중 펼쳐진 행 {round(t['open'] / n, 1)}행 (조건 밖 방법 차이 포함)",
+           f"- 지금 카드(bc214e8부터 아직 없음을 접음, Pablo가 이름을 찾은 것은 펼침)로는 {round(t['open_now'] / n, 1)}행", "",
+           "| 펼쳐진 행 | 합 | 카드당 | 지금 카드 카드당 |", "|---|---|---|---|"]
+    out += [f"| {label} | {t[k]} | {round(t[k] / n, 1)} | {round(t[k + '_now'] / n, 1)} |" for k, label in ROW_KINDS.items()]
+    folded = {k: t[k] - t[k + "_now"] for k in ROW_KINDS}
+    out += ["", f"- 심은 어긋남 {t['drifts']}개 중 지금 카드에서 펼쳐진 칸에 보이는 것 {t['drifts_open_now']}개, "
+            f"접힌 아직 없음에만 있는 것 {t['drifts_folded_only']}개" + (f" ({', '.join(t['folded_only'])})" if t["folded_only"] else ""),
+            f"- 지금 카드가 접는 아직 없음 {sum(folded.values())}행: " + ", ".join(f"{ROW_KINDS[k]} {m}" for k, m in folded.items() if m)]
     out += ["", "## 변형별", "", "| 변형 | 판정 | 펼쳐짐 | " + " | ".join(ROW_KINDS.values()) + " |", "|---|---|---|" + "---|" * len(ROW_KINDS)]
     out += [f"| {c['variant']} | {c['items']} | {c['open']} | " + " | ".join(str(c[k]) for k in ROW_KINDS) + " |" for c in r["per_variant"]]
     out += ["", "## 조건별 판정 (변형 전체)", "", "| 조건 | 분류 | 판정 |", "|---|---|---|"]
     for k, lab in r["labels"].items():
         st = r["conditions"].get(k, {})
-        out.append(f"| {lab['statement']} | {lab['category']}{' (논문에 없음)' if lab.get('missing') else ''} | "
-                   + ", ".join(f"{s} {m}" for s, m in sorted(st.items(), key=lambda x: -x[1])) + " |")
+        kind = lab.get("kind", "setting")
+        out.append(f"| {lab['statement']} | {lab['category']}{' (논문에 없음)' if lab.get('missing') else ''}"
+                   f"{' · ' + kind if kind != 'setting' else ''} | "
+                   + (", ".join(f"{s} {m}" for s, m in sorted(st.items(), key=lambda x: -x[1])) or "점검이 묻지 않음") + " |")
     out += ["", f"## 그 밖의 펼쳐진 행 {len(r['other'])}개", ""]
-    out += [f"- {o['variant']} {o['status']} [{o['category']}] {o['condition'][:60]} — {' '.join(o['note'].split())[:120]}" for o in r["other"]] or ["- 없음"]
+    out += [f"- {o['variant']} {o['status']}{'' if o.get('now', True) else ' (지금 카드에서는 접힘)'} [{o['category']}] {o['condition'][:60]} — "
+            f"{' '.join(o['note'].split())[:120]}" for o in r["other"]] or ["- 없음"]
     return "\n".join(out) + "\n"
 
 

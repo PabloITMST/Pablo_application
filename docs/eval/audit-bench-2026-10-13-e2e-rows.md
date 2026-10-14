@@ -2,14 +2,18 @@
 
 - 변형 9개, 모델 gpt-5.6-luna, 점검 1회 평균 82059 ms
 - 카드당 판정 31.0행, 그중 펼쳐진 행 12.9행 (조건 밖 방법 차이 포함)
+- 지금 카드(bc214e8부터 아직 없음을 접음, Pablo가 이름을 찾은 것은 펼침)로는 8.3행
 
-| 펼쳐진 행 | 합 | 카드당 |
-|---|---|---|
-| 심은 어긋남 | 21 | 2.3 |
-| 바탕의 방법 차이 | 36 | 4.0 |
-| 논문에 없는 설정(코드가 정함) | 23 | 2.6 |
-| 따름/판단 못 함에 붙은 확인 경고 | 0 | 0.0 |
-| 그 밖 (손으로 읽음) | 36 | 4.0 |
+| 펼쳐진 행 | 합 | 카드당 | 지금 카드 카드당 |
+|---|---|---|---|
+| 심은 어긋남 | 21 | 2.3 | 1.9 |
+| 바탕의 방법 차이 | 36 | 4.0 | 3.8 |
+| 논문에 없는 설정(코드가 정함) | 23 | 2.6 | 2.6 |
+| 따름/판단 못 함에 붙은 확인 경고 | 0 | 0.0 | 0.0 |
+| 그 밖 (손으로 읽음) | 36 | 4.0 | 0.1 |
+
+- 심은 어긋남 18개 중 지금 카드에서 펼쳐진 칸에 보이는 것 15개, 접힌 아직 없음에만 있는 것 2개 (v01 contain_missing, v05 datasets_drop)
+- 지금 카드가 접는 아직 없음 41행: 심은 어긋남 4, 바탕의 방법 차이 2, 그 밖 (손으로 읽음) 35
 
 ## 변형별
 
@@ -63,39 +67,39 @@
 
 ## 그 밖의 펼쳐진 행 36개
 
-- v00-clean missing [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 나열된 비교 방법들의 구현이나 실행이 없다.
-- v00-clean missing [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — Vanilla RAG의 1·3·5 passage 비교 실행이 없다.
-- v00-clean missing [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋 결과 전체가 아니라 2Wiki 결과 로그만 존재한다.
-- v00-clean missing [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습 단계와 학습률·스케줄 설정이 코드에 없다.
-- v01 missing [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 열거된 비교 대상 방법들의 구현이나 실행 결과가 없습니다.
-- v01 missing [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — 1·3·5개 passage를 비교하는 Vanilla RAG 실행이 없습니다.
-- v01 missing [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋의 주요 정확도 표 전체가 없고 2Wiki 로그만 존재합니다.
-- v01 missing [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습률과 학습률 스케줄 설정 또는 학습 과정이 없습니다.
-- v01 missing [protocol] 각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다. — 반복 실행 및 결과 평균 처리가 없습니다.
-- v02 missing [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 열거된 데이터셋을 실행할 뿐 논문의 주요 비교 방법들은 구현·실행되지 않았다.
-- v02 missing [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — Vanilla RAG의 1·3·5 passage 비교 실행이나 기록이 없다.
-- v02 missing [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋별 표 결과가 아니라 2Wiki 하나의 로그만 확인된다.
-- v02 missing [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습률과 학습률 스케줄 설정이나 구현이 없다.
-- v02 missing [protocol] 각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다. — 반복 실행 횟수와 반복 결과 평균 방식이 없다.
-- v03 missing [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 열거된 주요 비교 대상 방법들의 구현이나 비교 실행이 없다.
-- v03 missing [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — Vanilla RAG의 1·3·5 passage 비교 실행이 없다.
-- v03 missing [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋 전체의 주요 정확도 표가 보고되지 않았고 현재 로그는 2Wiki 하나뿐이다.
-- v04 missing [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 제시된 비교 방법들의 구현이나 실행 로그가 없다.
-- v04 missing [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — Vanilla RAG의 1·3·5 passage 검색 구현이나 결과가 없다.
-- v05 missing [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 열거된 비교 방법을 구현하거나 실행한 코드와 로그가 없다.
-- v05 missing [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — 1·3·5 passage Vanilla RAG baseline 실행이 없다.
-- v05 missing [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋의 주요 정확도 표가 없고 2Wiki 로그만 존재한다.
-- v05 missing [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습률과 스케줄 설정 또는 학습 단계가 없다.
-- v06 missing [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — LinearRAG만 실행하며 열거된 비교 대상 방법의 구현이나 실행이 없습니다.
-- v06 missing [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — 1·3·5 passage Vanilla RAG 검색 실행이 없습니다.
-- v06 missing [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋 전체의 주요 정확도 표가 없고 2Wiki 로그만 존재합니다.
-- v07 missing [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 설정이나 코드에 논문의 주요 비교 대상 실행이 구현되어 있지 않다.
-- v07 missing [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — 1·3·5 passage를 검색하는 Vanilla RAG baseline이 구현되어 있지 않다.
-- v07 missing [training] 실험은 NVIDIA GeForce RTX 4090 D 24GB GPU에서 수행한다. — 4090 D 24GB GPU 사용을 나타내는 실행 정보나 설정이 없다.
-- v07 missing [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습률과 학습률 스케줄 설정이나 구현이 없다.
-- v07 missing [protocol] 각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다. — 반복 실행 및 반복 결과 평균 처리 구현이 없다.
+- v00-clean missing (지금 카드에서는 접힘) [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 나열된 비교 방법들의 구현이나 실행이 없다.
+- v00-clean missing (지금 카드에서는 접힘) [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — Vanilla RAG의 1·3·5 passage 비교 실행이 없다.
+- v00-clean missing (지금 카드에서는 접힘) [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋 결과 전체가 아니라 2Wiki 결과 로그만 존재한다.
+- v00-clean missing (지금 카드에서는 접힘) [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습 단계와 학습률·스케줄 설정이 코드에 없다.
+- v01 missing (지금 카드에서는 접힘) [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 열거된 비교 대상 방법들의 구현이나 실행 결과가 없습니다.
+- v01 missing (지금 카드에서는 접힘) [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — 1·3·5개 passage를 비교하는 Vanilla RAG 실행이 없습니다.
+- v01 missing (지금 카드에서는 접힘) [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋의 주요 정확도 표 전체가 없고 2Wiki 로그만 존재합니다.
+- v01 missing (지금 카드에서는 접힘) [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습률과 학습률 스케줄 설정 또는 학습 과정이 없습니다.
+- v01 missing (지금 카드에서는 접힘) [protocol] 각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다. — 반복 실행 및 결과 평균 처리가 없습니다.
+- v02 missing (지금 카드에서는 접힘) [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 열거된 데이터셋을 실행할 뿐 논문의 주요 비교 방법들은 구현·실행되지 않았다.
+- v02 missing (지금 카드에서는 접힘) [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — Vanilla RAG의 1·3·5 passage 비교 실행이나 기록이 없다.
+- v02 missing (지금 카드에서는 접힘) [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋별 표 결과가 아니라 2Wiki 하나의 로그만 확인된다.
+- v02 missing (지금 카드에서는 접힘) [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습률과 학습률 스케줄 설정이나 구현이 없다.
+- v02 missing (지금 카드에서는 접힘) [protocol] 각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다. — 반복 실행 횟수와 반복 결과 평균 방식이 없다.
+- v03 missing (지금 카드에서는 접힘) [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 열거된 주요 비교 대상 방법들의 구현이나 비교 실행이 없다.
+- v03 missing (지금 카드에서는 접힘) [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — Vanilla RAG의 1·3·5 passage 비교 실행이 없다.
+- v03 missing (지금 카드에서는 접힘) [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋 전체의 주요 정확도 표가 보고되지 않았고 현재 로그는 2Wiki 하나뿐이다.
+- v04 missing (지금 카드에서는 접힘) [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 제시된 비교 방법들의 구현이나 실행 로그가 없다.
+- v04 missing (지금 카드에서는 접힘) [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — Vanilla RAG의 1·3·5 passage 검색 구현이나 결과가 없다.
+- v05 missing (지금 카드에서는 접힘) [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 열거된 비교 방법을 구현하거나 실행한 코드와 로그가 없다.
+- v05 missing (지금 카드에서는 접힘) [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — 1·3·5 passage Vanilla RAG baseline 실행이 없다.
+- v05 missing (지금 카드에서는 접힘) [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋의 주요 정확도 표가 없고 2Wiki 로그만 존재한다.
+- v05 missing (지금 카드에서는 접힘) [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습률과 스케줄 설정 또는 학습 단계가 없다.
+- v06 missing (지금 카드에서는 접힘) [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — LinearRAG만 실행하며 열거된 비교 대상 방법의 구현이나 실행이 없습니다.
+- v06 missing (지금 카드에서는 접힘) [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — 1·3·5 passage Vanilla RAG 검색 실행이 없습니다.
+- v06 missing (지금 카드에서는 접힘) [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋 전체의 주요 정확도 표가 없고 2Wiki 로그만 존재합니다.
+- v07 missing (지금 카드에서는 접힘) [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 설정이나 코드에 논문의 주요 비교 대상 실행이 구현되어 있지 않다.
+- v07 missing (지금 카드에서는 접힘) [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — 1·3·5 passage를 검색하는 Vanilla RAG baseline이 구현되어 있지 않다.
+- v07 missing (지금 카드에서는 접힘) [training] 실험은 NVIDIA GeForce RTX 4090 D 24GB GPU에서 수행한다. — 4090 D 24GB GPU 사용을 나타내는 실행 정보나 설정이 없다.
+- v07 missing (지금 카드에서는 접힘) [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습률과 학습률 스케줄 설정이나 구현이 없다.
+- v07 missing (지금 카드에서는 접힘) [protocol] 각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다. — 반복 실행 및 반복 결과 평균 처리 구현이 없다.
 - v07 outside [조건 밖]  — PageRank 입력 subgraph에서 sentence 노드를 제외하여 sentence 노드가 최종 ranking에 전달되지 않는다.
-- v08 missing [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 논문의 비교 방법들을 구현하거나 실행하는 코드가 없다.
-- v08 missing [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — Vanilla RAG baseline과 1·3·5 passage 비교 실행이 없다.
-- v08 missing [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋 전체의 주요 정확도 표가 없고 2Wiki 로그만 존재한다.
-- v08 missing [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습 과정과 학습률·스케줄 설정이 없어 코드가 선택한 값도 없다.
+- v08 missing (지금 카드에서는 접힘) [baseline] 주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, H — 논문의 비교 방법들을 구현하거나 실행하는 코드가 없다.
+- v08 missing (지금 카드에서는 접힘) [baseline] Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다. — Vanilla RAG baseline과 1·3·5 passage 비교 실행이 없다.
+- v08 missing (지금 카드에서는 접힘) [result] LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다. — 네 데이터셋 전체의 주요 정확도 표가 없고 2Wiki 로그만 존재한다.
+- v08 missing (지금 카드에서는 접힘) [training] 학습률과 학습률 스케줄은 명시되지 않았다. — 학습 과정과 학습률·스케줄 설정이 없어 코드가 선택한 값도 없다.
