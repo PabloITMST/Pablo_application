@@ -250,6 +250,19 @@ def test_report():
         assert re.search(r"파일 해시 `sha256:[0-9a-f]{64}`", md), md  # the whole hash
 
 
+def test_task_name():
+    """⑭ a task's own name for the list; its text stays the goal the judge reads; an empty name goes back to the text."""
+    from pablo_v2.skill.viewer import workspace
+    s = PabloSkill(IntentEngine(), None)
+    t = s.start_task("LinearRAG를 논문대로 재현하고 2Wiki 결과를 비교한다", [])
+    s.rename_task(t.id, "  LinearRAG   1차 ")
+    assert (t.name, t.text) == ("LinearRAG 1차", "LinearRAG를 논문대로 재현하고 2Wiki 결과를 비교한다")
+    assert workspace(s)["tasks"][0]["name"] == "LinearRAG 1차" and "2Wiki 결과를 비교한다" in s._intent_text(t.id)
+    s.rename_task(t.id, " ")
+    assert t.name is None
+    refused(lambda: s.rename_task(t.id, "x" * 81), ValueError, "80자")
+
+
 def test_reads_are_not_departures():
     """real --guard (10/14): reading a file to do the step was warned as leaving the plan (D01) 3 times in one run. A
     command that only reads is part of any step; one that writes, deletes or runs code is judged as before."""

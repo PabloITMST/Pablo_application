@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "models", "newTask", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -1104,6 +1104,23 @@ async function uiCheck() {
   await until(`V.intent.must.filter(x => x.repro).length === 2`);
   await js(`close()`);
   console.log("ok criteria edit: 반드시 -> 가능하면, GPU 기준 지움(장비가 바뀜) -> 지운 기준에 남음 -> 되살림; 재현 기본 기준은 이유를 적어야 지워짐");
+  // ⑭ the task list: search over names, goals and sources; a task's own name (its goal stays); 보관 folds it away, kept whole
+  const rows_ = () => js(`[...document.querySelectorAll("#task-list > [data-task]")].map(b => b.dataset.task)`);
+  await js(`(q => { q.value = "인사말"; q.dispatchEvent(new Event("input")); })($("task-search"))`);
+  assert.deepStrictEqual(await rows_(), ["T1"]);
+  await js(`(q => { q.value = ""; q.dispatchEvent(new Event("input")); })($("task-search"))`);
+  assert.ok((await rows_()).length >= 3);
+  await js(`select("T1")`);
+  await js(`document.querySelector("[data-rename-task]").click()`);
+  await js(`$("task-name").value = "인사 파일 정리 (1차)"; document.querySelector("[data-rename-task-ok]").click()`);
+  await until(`(h => h && h.textContent === "인사 파일 정리 (1차)")(document.querySelector("#bar [data-task-name]"))`);
+  assert.ok(await js(`document.querySelector('#task-list [data-task="T1"]').textContent.startsWith("인사 파일 정리 (1차)") && V.task.text === "인사말 파일 정리"`),
+    "the list shows the name; the goal stays");
+  await js(`document.querySelector('[data-archive="on"]').click()`);
+  await until(`(d => d && d.dataset.archived === "1" && !!d.querySelector('[data-task="T1"]'))(document.querySelector("#task-list details.away"))`);
+  await js(`document.querySelector('[data-archive="off"]').click()`);
+  await until(`!document.querySelector("#task-list details.away") && !!document.querySelector('#task-list > [data-task="T1"]')`);
+  console.log("ok tasks: search '인사말' -> T1 only; renamed (the goal stays); 보관 -> folded at the bottom -> 보관 풀기");
   assert.deepStrictEqual(errors, [], "no script errors");
   win.destroy();
 }

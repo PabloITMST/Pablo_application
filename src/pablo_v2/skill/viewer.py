@@ -386,7 +386,7 @@ def workspace(s, current: str | None = None) -> dict:
         if x.kind == "pdf":
             papers[x.id]["code"] = s.code_links(x)
     return {"current": current or (s.state.tasks[-1].id if s.state.tasks else None),
-            "tasks": [{"id": t.id, "text": t.text, "at": t.created_at} for t in s.state.tasks],
+            "tasks": [{"id": t.id, "text": t.text, "at": t.created_at, "name": t.name} for t in s.state.tasks],
             "views": views, "anchors": anchors, "sources": sources, "papers": papers,
             "pdf": any(x.kind == "pdf" for x in s.state.sources)}  # M3.3: the static page's composer asks the PDF
 
@@ -439,6 +439,11 @@ code { font:0.88em ui-monospace, SFMono-Regular, Consolas, monospace; background
            line-height:1.4; }
 #side .t:hover { background:var(--hover); } #side .t.on { background:var(--hover); font-weight:600; }
 #side .t small { display:block; color:var(--faint); font-size:11px; font-weight:400; }
+#task-search { width:100%; box-sizing:border-box; margin:0 0 6px; border:1px solid var(--line); border-radius:8px; padding:5px 9px;
+  background:var(--bg); color:var(--fg); font:inherit; font-size:13px; }
+#side details.away summary { font-size:12px; color:var(--muted); cursor:pointer; margin:10px 6px 4px; }
+#bar .quiet { font-size:12px; color:var(--faint); } #bar h1 .rn-in { font-size:15px; width:min(320px, 50vw); }
+#bar h1:hover + .rn, #bar .rn:focus-visible { opacity:1; }
 /* conversation */
 #chat { display:flex; flex-direction:column; min-width:0; height:100vh; }
 #bar { display:flex; align-items:center; gap:8px; padding:10px 20px; border-bottom:1px solid var(--line); }
@@ -737,20 +742,51 @@ function cited(text, eids) {
 }
 
 // ---- sidebar + header ------------------------------------------------------------------------------------
+// ⑭ the task list: a name the user gave it (else its goal), a search over names, goals and source titles, and the tasks
+// put away (보관) folded at the bottom; nothing is deleted
+const nameOf = t => (t && (t.name || t.text)) || "";
+let taskQuery = "";
 function sidebar() {
-  $("side").textContent = "";
-  $("side").append(h("div", { class: "brand" }, h("b", null, art("head", "ico"), "Pablo"),
+  const side = $("side"), had = document.activeElement && document.activeElement.id === "task-search";
+  side.textContent = "";
+  const q = h("input", { id: "task-search", type: "search", placeholder: "작업·자료 찾기", value: taskQuery, "aria-label": "작업 찾기" });
+  q.addEventListener("input", () => { taskQuery = q.value; list(); });
+  const box = h("div", { id: "task-list" });
+  side.append(h("div", { class: "brand" }, h("b", null, art("head", "ico"), "Pablo"),
       h("button", { class: "new", id: "new", disabled: !(window.pabloHost && pabloHost.newTask), on: () => newTask() }, "+ 새 작업")),
-    h("h4", null, "작업"),
-    ...[...M.tasks].reverse().map(t => h("button", { class: "t" + (V && t.id === V.task.id ? " on" : ""), title: t.id,
-      on: () => { select(t.id); document.body.classList.remove("side"); } }, t.text, h("small", null, time(t.at)))));
+    M.tasks.length > 1 ? q : null, box);
+  const row = t => h("button", { class: "t" + (V && t.id === V.task.id ? " on" : ""), title: t.name ? t.text : t.id, "data-task": t.id,
+    on: () => { select(t.id); document.body.classList.remove("side"); } }, nameOf(t), h("small", null, time(t.at)));
+  function list() {
+    const words = taskQuery.trim().toLowerCase().split(/\s+/).filter(Boolean), d = M.desk || {};
+    const hit = t => !words.length || words.every(w => [t.name, t.text, t.id, ...((d[t.id] || {}).papers || []).map(p => p.title)]
+      .some(x => String(x || "").toLowerCase().includes(w)));
+    const ts = [...M.tasks].reverse().filter(hit), kept = ts.filter(t => !(d[t.id] || {}).archived), away = ts.filter(t => (d[t.id] || {}).archived);
+    box.replaceChildren(h("h4", null, words.length ? `찾은 작업 ${ts.length}개` : "작업"), ...kept.map(row),
+      away.length ? h("details", { class: "away", "data-archived": String(away.length), open: words.length ? true : null },
+        h("summary", null, `보관한 작업 ${away.length}개`), ...away.map(row)) : null,
+      words.length && !ts.length ? h("p", { class: "muted", style: "padding:0 8px;font-size:13px" }, "맞는 작업이 없습니다.") : null);
+  }
+  list();
+  if (had) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
 }
 function header() {
   const mode = hi >= 0 && document.body.classList.contains("panel") ? hist[hi].mode : null;
   $("bar").textContent = "";
   $("bar").append(h("button", { id: "menu", title: "작업 목록", on: () => document.body.classList.toggle("side") }, "☰"));
   if (!V) return $("bar").append(h("h1", null, "Pablo"));
-  $("bar").append(h("h1", { title: V.task.id }, V.task.text),
+  // ⑭ the task's own name (✎) and 보관 / 보관 풀기, beside it
+  const t = M.tasks.find(x => x.id === V.task.id) || V.task, d = (M.desk || {})[V.task.id] || {};
+  const name = h("h1", { title: t.name ? `목표: ${V.task.text}` : V.task.id, "data-task-name": "1" }, nameOf(t));
+  const edit = window.pabloHost && pabloHost.renameTask ? h("button", { class: "rn", "data-rename-task": V.task.id, title: "작업 이름 바꾸기 (목표 문장은 그대로)", on: () => {
+    const inp = h("input", { class: "rn-in", id: "task-name", value: nameOf(t) }), note = h("small", { class: "muted" });
+    const ok = () => pabloHost.renameTask(V.task.id, inp.value.trim() === V.task.text ? "" : inp.value.trim()).then(() => refresh(), e => { note.textContent = " " + fail(e); });
+    inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); if (e.key === "Escape") { e.stopPropagation(); header(); } });
+    name.replaceChildren(inp, " ", h("button", { class: "link", "data-rename-task-ok": "1", on: ok }, "저장"), note); inp.select(); } }, "✎") : null;
+  const away = window.pabloHost && pabloHost.archiveTask ? h("button", { class: "link quiet", "data-archive": d.archived ? "off" : "on",
+    title: d.archived ? "작업 목록으로 되돌립니다" : "작업 목록 아래 '보관한 작업'으로 옮깁니다. 기록은 그대로 남습니다.",
+    on: () => pabloHost.archiveTask(V.task.id, !d.archived).then(() => refresh()) }, d.archived ? "보관 풀기" : "보관") : null;
+  $("bar").append(name, edit, away,
     h("button", { class: "pill" + (mode === "intent" ? " on" : ""), on: () => toggle({ mode: "intent" }) }, "기준"),
     h("button", { class: "pill" + (mode === "plan" ? " on" : ""), disabled: !V.plan, on: () => toggle({ mode: "plan" }) }, "계획"),
     h("button", { class: "pill" + (mode === "trace" ? " on" : ""), on: () => toggle({ mode: "trace" }) }, "왜?"));
@@ -1180,7 +1216,7 @@ function select(tid) {
   if (!V) return empty();
   V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
   conversation();
-  document.title = "Pablo · " + V.task.text;
+  document.title = "Pablo · " + nameOf(M.tasks.find(x => x.id === V.task.id) || V.task);
 }
 // M5.1: no task yet -> an empty Pablo screen; the desktop makes tasks in the app (+ 새 작업)
 function empty() {

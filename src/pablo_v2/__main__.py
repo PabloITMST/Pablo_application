@@ -128,6 +128,8 @@ def _parser() -> argparse.ArgumentParser:
     s = add("drop-spec")  # ⑩ a condition taken out by the user (with why; restorable)
     s.add_argument("check_id"), s.add_argument("--reason", required=True)
     add("restore-spec").add_argument("check_id")
+    s = add("rename-task")  # ⑭ the name a task goes by in the list (its text stays the goal)
+    s.add_argument("task_id"), s.add_argument("--name", required=True)
     s = add("rename-source")  # ⑧ the name the user knows a paper by
     s.add_argument("source_id"), s.add_argument("--title", required=True)
     s = add("deviate")  # ⑦ differ from a paper condition on purpose (why required)
@@ -401,6 +403,9 @@ def _run(a, out) -> int:
     elif a.cmd in ("drop-spec", "restore-spec"):
         sc = s.drop_spec(a.check_id, a.reason) if a.cmd == "drop-spec" else s.restore_spec(a.check_id)
         out({"check": asdict(sc)}, f"{sc.id} {sc.research_state}")
+    elif a.cmd == "rename-task":
+        t = s.rename_task(a.task_id, a.name)
+        out({"task": asdict(t)}, f"{t.id} -> {t.name or t.text}")
     elif a.cmd == "rename-source":
         src = s.rename_source(a.source_id, a.title)
         out({"source": asdict(src)}, f"{src.id} -> {src.title}")

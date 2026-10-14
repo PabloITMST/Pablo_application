@@ -734,6 +734,16 @@ class PabloSkill:
                 json.dump(links, f)
         return links
 
+    def rename_task(self, task_id: str, name: str) -> Task:
+        """⑭ the name the task goes by in the list and the header; its text stays the goal the judge, the Guard and the
+        brief read. An empty name goes back to the text."""
+        t, name = self.get_task(task_id), " ".join(name.split())
+        if len(name) > 80:
+            raise ValueError("작업 이름은 80자까지입니다.")
+        t.name = name or None
+        self.save()
+        return t
+
     def rename_source(self, src_id: str, title: str) -> EvidenceSource:
         """⑧ the name the user knows a paper by ("HippoRAG 2", not its long title): every card, the brief and the panels
         use it from now on; its file, anchors and evidence stay as they are."""

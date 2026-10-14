@@ -33,6 +33,7 @@ class Task:
     text: str
     reused: list[str] = field(default_factory=list)  # completed checks of earlier tasks this task relies on
     created_at: str = field(default_factory=now)
+    name: str | None = None  # ⑭ what the user calls the task in the list (its text stays the goal the judge reads)
 
 
 @dataclass

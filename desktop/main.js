@@ -153,7 +153,7 @@ ipcMain.handle("pablo:state", async e => {
     return [t.id, { folder: w ? path.basename(w) : null, net: !!(d.net || {})[t.id],
       papers: papers.list(d, t.id).map(x => ({ id: x.id, title: x.title, version: x.version || null, kind: x.kind === "web" ? "web" : "pdf",
         arxiv: x.arxiv || null, primary: !!p && x.id === p.id })),  // arxiv: a search result already here says so
-      route: (d.route || {})[t.id] === "ask" ? "ask" : "agent" }]; }));  // names only, no paths
+      route: (d.route || {})[t.id] === "ask" ? "ask" : "agent", archived: !!(d.archived || {})[t.id] }]; }));  // names only, no paths
   m.last = d.last;
   return m;
 });
@@ -347,6 +347,16 @@ ipcMain.handle("pablo:remove-source", (e, task, id) => {
   fromWindow(e); known(task); if (!str(id, 20)) throw new Error("bad source");
   saveDesk(d => { d.pdf[task] = papers.list(d, task).filter(p => p.id !== id); if ((d.primary || {})[task] === id) delete d.primary[task]; });
   return true;
+});
+// ⑭ a task's own name (the list, the header; its text stays the goal) and 보관 (folded at the list's bottom, kept whole)
+ipcMain.handle("pablo:rename-task", async (e, task, name) => {
+  fromWindow(e); known(task); if (!str(name, 80)) throw new Error("작업 이름은 80자까지입니다.");
+  return (await ctl.py("rename-task", task, "--name", name).catch(err => { throw new Error(short(err.message)); })).task.name;
+});
+ipcMain.handle("pablo:archive-task", (e, task, on) => {
+  fromWindow(e); known(task);
+  saveDesk(d => { d.archived = { ...(d.archived || {}) }; if (on === true) d.archived[task] = true; else delete d.archived[task]; });
+  return on === true;
 });
 // ⑧ the name the user knows a paper by: Pablo's records (cards, brief, panels) and the task lists that hold it
 ipcMain.handle("pablo:rename-source", async (e, task, id, title) => {
