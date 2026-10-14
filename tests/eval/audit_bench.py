@@ -273,7 +273,7 @@ def state(out_dir: str, conditions_from: str = "frozen") -> dict:
         for i, c in enumerate(stated + missing, 1):
             keys[f"r{i:02d}"] = c.id
             labels[f"r{i:02d}"] = {"category": c.spec["category"], "statement": c.requirement.strip(), "missing": bool(c.spec.get("missing")),
-                                   "kind": c.spec.get("kind", "setting")}  # fact / scope: not asked by the audit (bc214e8)
+                                   "kind": c.spec.get("kind")}  # None: an extraction before kinds; fact / scope: not asked (bc214e8)
         json.dump(labels, open(os.path.join(out_dir, "conditions.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     for c in [] if real else spec["conditions"]:
         a = s.add_anchor(src.id, c["quote"], page=c["page"])
@@ -594,8 +594,9 @@ def rows(results: list[dict], truth: dict, labels: dict, keys: dict) -> dict:
     lacks fold away, like followed and unclear). Each open row: a planted drift (its place and words, as in compare), one
     of the base's method gaps (THEMES on what the row says), an open setting the code fixed (chosen), a warning on a row
     that is followed or unclear, or other: read by hand. labels: {key: {category, statement}} for the conditions.
-    Two card rules: open (the card until bc214e8, 아직 없음 open) and open_now (아직 없음 folds like 따름, unless Pablo
-    found its name in the folder: seen); each kind is counted both ways (<kind>_now)."""
+    Two card rules: open (the card until bc214e8, every 아직 없음 open) and open_now (8f48e1a: 아직 없음 on a condition
+    without a kind, from an extraction before kinds, folds under a line naming the items, unless Pablo found its name in
+    the folder: seen; with a kind, an open setting or a criterion it stays open); each kind is counted both ways."""
     by_check = {v: k for k, v in keys.items()}
     per, other, conds = [], [], {}
     for v in truth["variants"]:
@@ -609,7 +610,8 @@ def rows(results: list[dict], truth: dict, labels: dict, keys: dict) -> dict:
                  **{k + "_now": 0 for k in ["open", *ROW_KINDS]}, drifts_open_now=0, drifts_folded_only=0)
         on = {p["id"]: [] for p in v["planted"]}  # the rows that name each planted drift, and whether each is open now
         for i in shown:
-            now = not (i["status"] == "missing" and not i.get("seen"))
+            lab = labels.get(by_check.get(i.get("id"), ""), {})
+            now = not (i["status"] == "missing" and not i.get("seen") and lab and not lab.get("kind") and not lab.get("missing"))
             for p in v["planted"]:
                 if any(hits(l, p) for l in locs(i.get("where", ""))) and about(i, p):
                     on[p["id"]].append(now)
@@ -646,7 +648,7 @@ def markdown_rows(r: dict, meta: dict) -> str:
     out = [f"# 점검 카드에 펼쳐지는 행 — {meta.get('date', '')} ({meta.get('tag') or ''})", "",
            f"- 변형 {n}개, 모델 {meta.get('model')}, 점검 1회 평균 {meta.get('avg_ms')} ms",
            f"- 카드당 판정 {round(t['items'] / n, 1)}행, 그중 펼쳐진 행 {round(t['open'] / n, 1)}행 (조건 밖 방법 차이 포함)",
-           f"- 지금 카드(bc214e8부터 아직 없음을 접음, Pablo가 이름을 찾은 것은 펼침)로는 {round(t['open_now'] / n, 1)}행", "",
+           f"- 지금 카드(8f48e1a: 종류가 없는 조건의 아직 없음만 이름을 보이며 접음)로는 {round(t['open_now'] / n, 1)}행", "",
            "| 펼쳐진 행 | 합 | 카드당 | 지금 카드 카드당 |", "|---|---|---|---|"]
     out += [f"| {label} | {t[k]} | {round(t[k] / n, 1)} | {round(t[k + '_now'] / n, 1)} |" for k, label in ROW_KINDS.items()]
     folded = {k: t[k] - t[k + "_now"] for k in ROW_KINDS}
@@ -658,7 +660,7 @@ def markdown_rows(r: dict, meta: dict) -> str:
     out += ["", "## 조건별 판정 (변형 전체)", "", "| 조건 | 분류 | 판정 |", "|---|---|---|"]
     for k, lab in r["labels"].items():
         st = r["conditions"].get(k, {})
-        kind = lab.get("kind", "setting")
+        kind = lab.get("kind") or "setting"
         out.append(f"| {lab['statement']} | {lab['category']}{' (논문에 없음)' if lab.get('missing') else ''}"
                    f"{' · ' + kind if kind != 'setting' else ''} | "
                    + (", ".join(f"{s} {m}" for s, m in sorted(st.items(), key=lambda x: -x[1])) or "점검이 묻지 않음") + " |")

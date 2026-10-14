@@ -10,12 +10,12 @@
    "chosen": 3,
    "warn": 0,
    "other": 4,
-   "open_now": 7,
+   "open_now": 8,
    "planted_now": 0,
    "method_now": 4,
    "chosen_now": 3,
    "warn_now": 0,
-   "other_now": 0,
+   "other_now": 1,
    "drifts_open_now": 0,
    "drifts_folded_only": 0,
    "folded_only": []
@@ -30,12 +30,12 @@
    "chosen": 2,
    "warn": 0,
    "other": 5,
-   "open_now": 9,
+   "open_now": 11,
    "planted_now": 3,
    "method_now": 4,
    "chosen_now": 2,
    "warn_now": 0,
-   "other_now": 0,
+   "other_now": 2,
    "drifts_open_now": 2,
    "drifts_folded_only": 1,
    "folded_only": [
@@ -52,12 +52,12 @@
    "chosen": 2,
    "warn": 0,
    "other": 5,
-   "open_now": 9,
+   "open_now": 11,
    "planted_now": 3,
    "method_now": 4,
    "chosen_now": 2,
    "warn_now": 0,
-   "other_now": 0,
+   "other_now": 2,
    "drifts_open_now": 3,
    "drifts_folded_only": 0,
    "folded_only": []
@@ -112,12 +112,12 @@
    "chosen": 2,
    "warn": 0,
    "other": 4,
-   "open_now": 7,
+   "open_now": 9,
    "planted_now": 1,
-   "method_now": 4,
+   "method_now": 5,
    "chosen_now": 2,
    "warn_now": 0,
-   "other_now": 0,
+   "other_now": 1,
    "drifts_open_now": 1,
    "drifts_folded_only": 1,
    "folded_only": [
@@ -154,12 +154,12 @@
    "chosen": 2,
    "warn": 0,
    "other": 6,
-   "open_now": 8,
+   "open_now": 10,
    "planted_now": 1,
    "method_now": 4,
    "chosen_now": 2,
    "warn_now": 0,
-   "other_now": 1,
+   "other_now": 3,
    "drifts_open_now": 1,
    "drifts_folded_only": 0,
    "folded_only": []
@@ -174,12 +174,12 @@
    "chosen": 3,
    "warn": 0,
    "other": 4,
-   "open_now": 9,
+   "open_now": 10,
    "planted_now": 3,
    "method_now": 3,
    "chosen_now": 3,
    "warn_now": 0,
-   "other_now": 0,
+   "other_now": 1,
    "drifts_open_now": 2,
    "drifts_folded_only": 0,
    "folded_only": []
@@ -194,12 +194,12 @@
   "chosen": 23,
   "warn": 0,
   "other": 36,
-  "open_now": 75,
+  "open_now": 85,
   "planted_now": 17,
-  "method_now": 34,
+  "method_now": 35,
   "chosen_now": 23,
   "warn_now": 0,
-  "other_now": 1,
+  "other_now": 10,
   "drifts_open_now": 15,
   "drifts_folded_only": 2,
   "drifts": 18,
@@ -243,7 +243,7 @@
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습 단계와 학습률·스케줄 설정이 코드에 없다.",
    "where": "",
-   "now": false
+   "now": true
   },
   {
    "variant": "v01",
@@ -279,7 +279,7 @@
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습률과 학습률 스케줄 설정 또는 학습 과정이 없습니다.",
    "where": "",
-   "now": false
+   "now": true
   },
   {
    "variant": "v01",
@@ -288,7 +288,7 @@
    "condition": "각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다.",
    "note": "반복 실행 및 결과 평균 처리가 없습니다.",
    "where": "",
-   "now": false
+   "now": true
   },
   {
    "variant": "v02",
@@ -324,7 +324,7 @@
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습률과 학습률 스케줄 설정이나 구현이 없다.",
    "where": "",
-   "now": false
+   "now": true
   },
   {
    "variant": "v02",
@@ -333,7 +333,7 @@
    "condition": "각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다.",
    "note": "반복 실행 횟수와 반복 결과 평균 방식이 없다.",
    "where": "",
-   "now": false
+   "now": true
   },
   {
    "variant": "v03",
@@ -414,7 +414,7 @@
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습률과 스케줄 설정 또는 학습 단계가 없다.",
    "where": "",
-   "now": false
+   "now": true
   },
   {
    "variant": "v06",
@@ -477,7 +477,7 @@
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습률과 학습률 스케줄 설정이나 구현이 없다.",
    "where": "",
-   "now": false
+   "now": true
   },
   {
    "variant": "v07",
@@ -486,7 +486,7 @@
    "condition": "각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다.",
    "note": "반복 실행 및 반복 결과 평균 처리 구현이 없다.",
    "where": "",
-   "now": false
+   "now": true
   },
   {
    "variant": "v07",
@@ -531,7 +531,7 @@
    "condition": "학습률과 학습률 스케줄은 명시되지 않았다.",
    "note": "학습 과정과 학습률·스케줄 설정이 없어 코드가 선택한 값도 없다.",
    "where": "",
-   "now": false
+   "now": true
   }
  ],
  "conditions": {

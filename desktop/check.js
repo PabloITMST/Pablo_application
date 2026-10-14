@@ -1523,7 +1523,7 @@ async function auditBench() {
   const avg = Math.round(runs.reduce((a, r) => a + r.ms, 0) / runs.length);
   fs.writeFileSync(prefix + "-results.json", JSON.stringify({ meta: { date, model: agent.model, n, seed, set, conditions: conds, avg_ms: avg, ...(tag ? { tag } : {}) }, runs }, null, 1));
   fs.copyFileSync(vs.truth, prefix + "-truth.json"); fs.copyFileSync(path.join(S, "keys.json"), prefix + "-keys.json");
-  if (conds === "real") {  // no truth per condition: what each card shows, read off (audit_bench.py rows)
+  if (conds.startsWith("real")) {  // real, real_kind: no truth per condition: what each card shows, read off (audit_bench.py rows)
     fs.copyFileSync(path.join(S, "conditions.json"), prefix + "-conditions.json");
     console.log(bench("rows", prefix + "-results.json", prefix + "-truth.json", prefix + "-keys.json", prefix + "-conditions.json", "--out", prefix));
   } else console.log(bench("score", prefix + "-results.json", prefix + "-truth.json", prefix + "-keys.json", "--out", prefix));

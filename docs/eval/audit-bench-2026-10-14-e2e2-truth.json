@@ -1,0 +1,430 @@
+{
+ "seed": 7,
+ "n": 8,
+ "clean": 1,
+ "set": "base",
+ "variants": [
+  {
+   "name": "v00-clean",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-csTJUI\\variants\\v00-clean",
+   "planted": [],
+   "expect": {
+    "datasets": "followed",
+    "questions": "followed",
+    "segment": "followed",
+    "ner": "followed",
+    "graph": "followed",
+    "ppr": "followed",
+    "damping": "followed",
+    "delta": "followed",
+    "lambda": "followed",
+    "topk": "followed",
+    "embedding": "followed",
+    "llm": "followed",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "followed",
+    "result_gpt": "followed",
+    "result_contain": "followed",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "followed",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  },
+  {
+   "name": "v01",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-csTJUI\\variants\\v01",
+   "planted": [
+    {
+     "id": "contain_missing",
+     "key": "contain_acc",
+     "file": "evaluate.py",
+     "line": null,
+     "expect": "missing"
+    },
+    {
+     "id": "ppr_degree",
+     "key": "ppr",
+     "file": "retrieve.py",
+     "line": 22,
+     "expect": "differs"
+    },
+    {
+     "id": "segment_window",
+     "key": "segment",
+     "file": "preprocess.py",
+     "line": 11,
+     "expect": "differs"
+    }
+   ],
+   "expect": {
+    "datasets": "followed",
+    "questions": "followed",
+    "segment": "differs",
+    "ner": "followed",
+    "graph": "followed",
+    "ppr": "differs",
+    "damping": "ambiguous",
+    "delta": "followed",
+    "lambda": "followed",
+    "topk": "followed",
+    "embedding": "followed",
+    "llm": "followed",
+    "contain_acc": "missing",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "ambiguous",
+    "result_gpt": "followed",
+    "result_contain": "ambiguous",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "differs",
+    "m_rank": "differs",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  },
+  {
+   "name": "v02",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-csTJUI\\variants\\v02",
+   "planted": [
+    {
+     "id": "embedding",
+     "key": "embedding",
+     "file": "config.yaml",
+     "line": 2,
+     "expect": "differs"
+    },
+    {
+     "id": "delta",
+     "key": "delta",
+     "file": "config.yaml",
+     "line": 12,
+     "expect": "differs"
+    },
+    {
+     "id": "damping",
+     "key": "damping",
+     "file": "config.yaml",
+     "line": 14,
+     "expect": "differs"
+    }
+   ],
+   "expect": {
+    "datasets": "followed",
+    "questions": "followed",
+    "segment": "followed",
+    "ner": "followed",
+    "graph": "followed",
+    "ppr": "followed",
+    "damping": "differs",
+    "delta": "differs",
+    "lambda": "followed",
+    "topk": "followed",
+    "embedding": "differs",
+    "llm": "followed",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "followed",
+    "result_gpt": "followed",
+    "result_contain": "followed",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "followed",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  },
+  {
+   "name": "v03",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-csTJUI\\variants\\v03",
+   "planted": [
+    {
+     "id": "split_test",
+     "key": "questions",
+     "file": "config.yaml",
+     "line": 6,
+     "expect": "differs"
+    },
+    {
+     "id": "medical_both",
+     "key": "medical_gpt_only",
+     "file": "evaluate.py",
+     "line": 17,
+     "expect": "differs"
+    }
+   ],
+   "expect": {
+    "datasets": "followed",
+    "questions": "differs",
+    "segment": "followed",
+    "ner": "followed",
+    "graph": "followed",
+    "ppr": "followed",
+    "damping": "followed",
+    "delta": "followed",
+    "lambda": "followed",
+    "topk": "followed",
+    "embedding": "followed",
+    "llm": "followed",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "differs",
+    "result_gpt": "followed",
+    "result_contain": "followed",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "followed",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  },
+  {
+   "name": "v04",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-csTJUI\\variants\\v04",
+   "planted": [
+    {
+     "id": "result_gpt_low",
+     "key": "result_gpt",
+     "file": "logs/2wikimultihopqa.log",
+     "line": 1,
+     "expect": "differs"
+    },
+    {
+     "id": "questions_500",
+     "key": "questions",
+     "file": "config.yaml",
+     "line": 7,
+     "expect": "differs"
+    }
+   ],
+   "expect": {
+    "datasets": "followed",
+    "questions": "differs",
+    "segment": "followed",
+    "ner": "followed",
+    "graph": "followed",
+    "ppr": "followed",
+    "damping": "followed",
+    "delta": "followed",
+    "lambda": "followed",
+    "topk": "followed",
+    "embedding": "followed",
+    "llm": "followed",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "followed",
+    "result_gpt": "differs",
+    "result_contain": "followed",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "followed",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  },
+  {
+   "name": "v05",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-csTJUI\\variants\\v05",
+   "planted": [
+    {
+     "id": "datasets_drop",
+     "key": "datasets",
+     "file": "config.yaml",
+     "line": 4,
+     "expect": "differs"
+    },
+    {
+     "id": "topk_hardcoded",
+     "key": "topk",
+     "file": "retrieve.py",
+     "line": 16,
+     "expect": "differs"
+    }
+   ],
+   "expect": {
+    "datasets": "differs",
+    "questions": "followed",
+    "segment": "followed",
+    "ner": "followed",
+    "graph": "followed",
+    "ppr": "followed",
+    "damping": "followed",
+    "delta": "followed",
+    "lambda": "followed",
+    "topk": "differs",
+    "embedding": "followed",
+    "llm": "followed",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "followed",
+    "result_gpt": "followed",
+    "result_contain": "followed",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "ambiguous",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  },
+  {
+   "name": "v06",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-csTJUI\\variants\\v06",
+   "planted": [
+    {
+     "id": "lambda",
+     "key": "lambda",
+     "file": "config.yaml",
+     "line": 10,
+     "expect": "differs"
+    },
+    {
+     "id": "topk_config",
+     "key": "topk",
+     "file": "config.yaml",
+     "line": 9,
+     "expect": "differs"
+    }
+   ],
+   "expect": {
+    "datasets": "followed",
+    "questions": "followed",
+    "segment": "followed",
+    "ner": "followed",
+    "graph": "followed",
+    "ppr": "followed",
+    "damping": "followed",
+    "delta": "followed",
+    "lambda": "differs",
+    "topk": "differs",
+    "embedding": "followed",
+    "llm": "followed",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "followed",
+    "result_gpt": "followed",
+    "result_contain": "followed",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "ambiguous",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  },
+  {
+   "name": "v07",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-csTJUI\\variants\\v07",
+   "planted": [
+    {
+     "id": "ner_regex",
+     "key": "ner",
+     "file": "preprocess.py",
+     "line": 11,
+     "expect": "differs"
+    },
+    {
+     "id": "result_contain_low",
+     "key": "result_contain",
+     "file": "logs/2wikimultihopqa.log",
+     "line": 1,
+     "expect": "differs"
+    }
+   ],
+   "expect": {
+    "datasets": "followed",
+    "questions": "followed",
+    "segment": "followed",
+    "ner": "differs",
+    "graph": "followed",
+    "ppr": "followed",
+    "damping": "followed",
+    "delta": "followed",
+    "lambda": "followed",
+    "topk": "followed",
+    "embedding": "followed",
+    "llm": "followed",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "followed",
+    "result_gpt": "followed",
+    "result_contain": "differs",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "followed",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  },
+  {
+   "name": "v08",
+   "dir": "C:\\Users\\itisyijy\\AppData\\Local\\Temp\\pablo-bench-csTJUI\\variants\\v08",
+   "planted": [
+    {
+     "id": "llm",
+     "key": "llm",
+     "file": "config.yaml",
+     "line": 3,
+     "expect": "differs"
+    },
+    {
+     "id": "graph_no_sentences",
+     "key": "graph",
+     "file": "graph.py",
+     "line": 11,
+     "expect": "differs"
+    }
+   ],
+   "expect": {
+    "datasets": "followed",
+    "questions": "followed",
+    "segment": "ambiguous",
+    "ner": "followed",
+    "graph": "differs",
+    "ppr": "followed",
+    "damping": "followed",
+    "delta": "followed",
+    "lambda": "followed",
+    "topk": "followed",
+    "embedding": "followed",
+    "llm": "differs",
+    "contain_acc": "followed",
+    "gpt_acc": "followed",
+    "medical_gpt_only": "followed",
+    "result_gpt": "followed",
+    "result_contain": "followed",
+    "m_graph": "ambiguous",
+    "m_match": "differs",
+    "m_propagate": "differs",
+    "m_prune": "differs",
+    "m_seed_ppr": "followed",
+    "m_rank": "followed",
+    "seed": "chosen",
+    "prompt": "chosen"
+   }
+  }
+ ]
+}
