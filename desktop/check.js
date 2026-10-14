@@ -321,6 +321,46 @@ async function authCheck() {
   win.destroy(); F.srv.close();
 }
 
+// ⑤ hard2 (10/14): app-server starts in a UTF-8 console, so the agent's sandboxed PowerShell hands λ and Korean back
+// intact (cp949 made them U+FFFD, and [Console]::OutputEncoding is refused inside the sandbox). Offline: Codex's own
+// `codex sandbox` (the restricted-token sandbox main.js configures), no account, no network.
+async function consoleCheck() {
+  if (process.platform !== "win32") return console.log("skip console: not Windows");
+  const run = (bin, args, opts = {}) => new Promise((res, rej) => {
+    const p = agent.spawnUtf8(bin, args, { windowsHide: true, ...opts }), out = [];
+    p.stdout.on("data", d => out.push(d)); p.on("error", rej); p.on("exit", code => res({ p, code, out: Buffer.concat(out).toString("utf8") }));
+    if (!opts.keep) p.stdin.end();
+  });
+  // the arguments arrive as given through cmd (the -c values keep their quotes; spaces, a trailing backslash, an empty one)
+  const node = { env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" } };
+  const args = ["-c", 'model_providers.p.name="ChatGPT plan"', "-c", 'model_provider="openai_chatgpt_plan"', "a b", "C:\\dir with space\\", ""];
+  const echo = await run(process.execPath, ["-e", "process.stdout.write(JSON.stringify(process.argv.slice(1)))", "--", ...args], node);  // -- : -c is node's own --check
+  assert.ok(/cmd\.exe$/i.test(echo.p.spawnfile), "started through cmd: " + echo.p.spawnfile);
+  assert.deepStrictEqual(JSON.parse(echo.out), args);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-utf8-")), home = path.join(dir, "home"), w = path.join(dir, "w");
+  fs.mkdirSync(home); fs.mkdirSync(w);
+  fs.writeFileSync(path.join(home, "config.toml"), '[windows]\nsandbox = "unelevated"\n');
+  fs.writeFileSync(path.join(w, "cfg.yaml"), "lam: 0.5  # the paper's \u03bb\n# 한글 주석\n");
+  const pwsh = ["PowerShell\\7\\pwsh.exe"].map(x => path.join(process.env.ProgramFiles || "C:\\Program Files", x)).find(x => fs.existsSync(x));
+  if (!pwsh) console.log("skip console: no pwsh 7 (Codex then uses Windows PowerShell 5.1, whose Get-Content reads the ANSI code page)");
+  else {
+    const codex = path.join(__dirname, "node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe");
+    const r = await run(codex, ["sandbox", pwsh, "-Command", "Get-Content -LiteralPath cfg.yaml"], { cwd: w, env: { ...process.env, CODEX_HOME: home } });
+    assert.strictEqual(r.out, "lam: 0.5  # the paper's \u03bb\r\n# 한글 주석\r\n", "the sandboxed shell's output: " + JSON.stringify(r.out));
+  }
+  // stop(): the end of stdin ends codex, then cmd; taskkill /T takes cmd and what it runs
+  const waits = "process.stdin.resume(); process.stdin.on('end', function () { process.exit(7) })";  // no > (cmd would read it)
+  assert.strictEqual((await run(process.execPath, ["-e", waits], node)).code, 7);
+  let child = null;
+  const held = new Promise(res => { const p = agent.spawnUtf8(process.execPath, ["-e", "console.log(process.pid); setInterval(function () {}, 1000)"], { windowsHide: true, ...node });
+    p.stdout.once("data", d => { child = +String(d).trim(); execFileSync("taskkill", ["/pid", String(p.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" }); });
+    p.on("exit", res); });
+  await held; await sleep(300);
+  assert.throws(() => process.kill(child, 0), /ESRCH/, "the process cmd ran is gone too");
+  fs.rmSync(dir, { recursive: true, force: true });
+  console.log("ok console: app-server's console is UTF-8 -> the sandboxed pwsh hands back λ and 한글 intact; -c quotes kept through cmd; stdin end and taskkill /T stop both");
+}
+
 async function guardCheck() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-guard-")), S = path.join(root, "state"), W = path.join(root, "ws");
   fs.mkdirSync(S); fs.mkdirSync(W);
@@ -1787,7 +1827,7 @@ app.whenReady().then(async () => {
     else if (process.argv.includes("--app")) await appCheck();
     else if (process.argv.includes("--auth")) await authCheck();
     else if (process.argv.includes("--pdf")) await pdfCheck();
-    else if (process.argv.includes("--ui")) { await uiCheck(); await papersUi(); }
+    else if (process.argv.includes("--ui")) { await uiCheck(); await papersUi(); await consoleCheck(); }
     else if (process.argv.includes("--spec")) await specCheck();
     else if (process.argv.includes("--shot")) await shotCheck();
     else if (process.argv.includes("--audit-bench") && process.argv.includes("--plain")) await plainBench();
