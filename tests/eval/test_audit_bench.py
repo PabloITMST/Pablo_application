@@ -17,7 +17,7 @@ def test_drifts_apply_to_the_base():
     """Every drift edits text that occurs once in the base, and leaves its mark on a line the truth can point at."""
     keys = {c["key"] for c in B.conditions()["conditions"]} | set(B.OPEN_EXPECT)
     with tempfile.TemporaryDirectory() as d:
-        for drift in B.CATALOG + B.HARD:
+        for drift in B.CATALOG + B.HARD + B.ENC:
             folder = os.path.join(d, drift["id"])
             shutil.copytree(B.BASE, folder)
             line = B.plant(folder, drift)
@@ -38,7 +38,7 @@ def test_crlf_checkout():
                 p = os.path.join(root, f)
                 t = open(p, encoding="utf-8", newline="").read().replace("\r\n", "\n").replace("\n", "\r\n")
                 open(p, "w", encoding="utf-8", newline="").write(t)
-        for drift in B.CATALOG + B.HARD:
+        for drift in B.CATALOG + B.HARD + B.ENC:
             lf, crlf = os.path.join(d, "lf-" + drift["id"]), os.path.join(d, "crlf-" + drift["id"])
             shutil.copytree(B.BASE, lf)
             shutil.copytree(base, crlf)
@@ -166,7 +166,7 @@ def test_locs():
 
 def test_compare():
     """The comparison group's scoring: the drift's place and what changed there, the same rule for both systems."""
-    assert set(B.SAYS) == {x["id"] for x in B.CATALOG + B.HARD}
+    assert set(B.SAYS) == {x["id"] for x in B.CATALOG + B.HARD + B.ENC}
     with tempfile.TemporaryDirectory() as d:
         truth = B.variants(d, n=8, seed=7, clean=1)
         at = lambda p: f"{p['file']}:{p['line']}" if p["line"] else p["file"]  # noqa: E731

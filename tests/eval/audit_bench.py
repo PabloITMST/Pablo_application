@@ -139,7 +139,17 @@ HARD = [
     dict(id="lambda_comment", key="lambda", region="cfg.lam", file="config.yaml", expect="differs", mark="lam: 0.5",
          edits=[("  lam: 0.05\n", "  lam: 0.5  # the paper's λ\n")]),
 ]
-SETS = {"base": CATALOG, "hard": HARD}
+# non-ASCII on the drifted lines (Korean comments, λ): whether the agent's quote of a line comes back intact (U+FFFD,
+# Pablo's check) once its shell writes UTF-8; the drifts themselves are plain values
+ENC = [
+    dict(id="enc_lambda", key="lambda", region="cfg.lam", file="config.yaml", expect="differs", mark="lam: 0.5",
+         edits=[("  lam: 0.05\n", "  lam: 0.5  # 패시지 초기 점수의 절충 계수 λ\n")]),
+    dict(id="enc_topk", key="topk", region="retrieve.k", file="retrieve.py", expect="differs", mark="k = 10", affects=["m_rank"],
+         edits=[('    k = cfg["retrieval"]["top_k"]\n', "    k = 10  # 검색할 패시지 수\n")]),
+    dict(id="enc_damping", key="damping", region="cfg.damping", file="config.yaml", expect="differs", mark="damping: 0.5",
+         edits=[("  damping: 0.85\n", "  damping: 0.5  # 감쇠 계수 d\n")]),
+]
+SETS = {"base": CATALOG, "hard": HARD, "enc": ENC}
 OPEN_EXPECT = {"seed": "chosen", "prompt": "chosen"}  # the base fixes seed: 42 and a prompt; the paper names neither
 # what a report about the drift says (regex, any case): in the comparison, a report that lands on the drift's line but
 # talks about something else there (e.g. "no retrieval-quality metrics" at evaluate.py:15-18) has not found it
@@ -158,6 +168,8 @@ SAYS = {
     "judge_model": r"gpt-4o(?!-mini)", "embedding_env": r"MiniLM|환경 ?변수|environ|EMBEDDING_MODEL",
     "seed_unused": r"(random\.seed|난수|랜덤 ?시드|random seed|seed: ?42|시드 ?42|시드 값).{0,60}(않|없|안 ?(쓰|씀|됨)|빠|unused|never)|seed (is )?(never )?(unused|not used|not applied)",  # the random seed, not "seed entities"
     "lambda_comment": r"\b0\.5\b",
+    # ENC
+    "enc_lambda": r"\b0\.5\b", "enc_topk": r"\b10\b", "enc_damping": r"\b0\.5\b",
 }
 
 
