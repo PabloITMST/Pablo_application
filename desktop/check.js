@@ -301,6 +301,20 @@ async function authCheck() {
   await js(`(s => { s.value = "gpt-5.5"; s.dispatchEvent(new Event("change")); })($("model"))`); await sleep(300);
   assert.ok(agent.model === "gpt-5.5" && JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).model === "gpt-5.5", "pick saved");
   console.log("ok model picker:", JSON.stringify(opts), "-> gpt-5.5 saved");
+  // ⑤ a PC without PowerShell 7: once connected, the notice (why, winget, the docs link, restart) -> 알겠습니다 -> not again
+  const deskFile = path.join(ctl.dir, "desktop.json");
+  const unnotice = () => { try { const d = JSON.parse(fs.readFileSync(deskFile, "utf8")); delete d.noticed; fs.writeFileSync(deskFile, JSON.stringify(d)); } catch {} };
+  unnotice(); process.env.PABLO_SHELL = "powershell";
+  await js(`refresh()`);
+  assert.match(await until(`(b => b && b.textContent)(document.querySelector("#shell-note [data-shell]"))`),
+    /^한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다이 PC에는 Windows PowerShell 5\.1만 있어.*winget install Microsoft\.PowerShell · 설치 방법 ↗\. 설치한 뒤 Pablo를 다시 시작하세요\.알겠습니다$/);
+  await js(`[...document.querySelectorAll("#shell-note button")].find(b => b.textContent === "알겠습니다").click()`);
+  await until(`!document.querySelector("#shell-note [data-shell]")`);
+  assert.strictEqual(JSON.parse(fs.readFileSync(deskFile, "utf8")).noticed.shell, true);
+  await js(`refresh()`); await sleep(300);
+  assert.ok(await js(`!document.querySelector("#shell-note [data-shell]")`), "said once");
+  unnotice(); delete process.env.PABLO_SHELL;
+  console.log("ok PowerShell 5.1: connected -> the notice once (winget, 다시 시작) -> 알겠습니다 -> not again");
   // the fake token reaches the real API -> 401 -> short message, refresh, restart, same thread
   const [thread, spawns] = [agent.thread(), agent.spawns];
   await js(`(i => { i.value = "hi"; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
@@ -1118,18 +1132,11 @@ async function uiCheck() {
   console.log("ok report: saved as Markdown with the fixed sections (의도한 차이, 뺀 조건과 지운 기준, 점검, 앱과 같은 재대조, 분 단위 시각)");
   // ⑤ a PC without PowerShell 7: said once above the account line, with how to install; 알겠습니다 -> not again
   assert.ok(await js(`!document.querySelector("#shell-note [data-shell]")`), "pwsh 7 here: no notice");
-  process.env.PABLO_SHELL = "powershell";
-  await js(`refresh()`);
-  assert.match(await until(`(b => b && b.textContent)(document.querySelector("#shell-note [data-shell]"))`),
-    /^한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다이 PC에는 Windows PowerShell 5\.1만 있어.*winget install Microsoft\.PowerShell · 설치 방법 ↗\. 설치한 뒤 Pablo를 다시 시작하세요\.알겠습니다$/);
-  if (shots || view) fs.writeFileSync(path.join(shots || view, "shell-note.png"), (await win.capturePage()).toPNG());
-  await js(`[...document.querySelectorAll("#shell-note button")].find(b => b.textContent === "알겠습니다").click()`);
-  await until(`!document.querySelector("#shell-note [data-shell]")`);
-  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")).noticed.shell, true);
+  process.env.PABLO_SHELL = "powershell";  // review: before sign-in the sign-in card comes alone (--auth shows the notice)
   await js(`refresh()`); await sleep(300);
-  assert.ok(await js(`!document.querySelector("#shell-note [data-shell]")`), "said once");
+  assert.ok(await js(`!document.querySelector("#shell-note [data-shell]") && $("acct").dataset.state === "signed_out"`), "signed out: the sign-in card alone");
   delete process.env.PABLO_SHELL;
-  console.log("ok PowerShell 5.1: the notice once (winget, 다시 시작) -> 알겠습니다 -> not again; an audit run in 5.1 says so on its card and in the report");
+  console.log("ok PowerShell 5.1: no notice before sign-in (the sign-in card first); an audit run in 5.1 says so on its card and in the report");
   // ③ a new task's criterion lines (the review's own): the ones read become criteria, the ones the reader could not
   // classify wait in the conversation for 반드시 / 가능하면 / 괜찮음; nothing is dropped without a word
   const lines3 = ["재현 작업", "test 셋은 튜닝에 쓰면 안 됨", "결과는 3번 돌려서 평균 내", "GPU 메모리는 24GB 안에서만 써",

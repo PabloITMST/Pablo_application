@@ -1732,10 +1732,11 @@ if (window.pabloHost && pabloHost.chat) {
   const status = (s, err) => { agentSt = s; st.title = err || ""; gate(); };
   const link = (text, on) => h("button", { class: "link", on }, text);
   // ⑤ a PC without PowerShell 7: Codex runs the agent's commands in Windows PowerShell 5.1, which reads 한글 and symbols
-  // in a BOM-less UTF-8 file wrongly. Pablo tells the agent to read as UTF-8; this says so once, with how to install
+  // in a BOM-less UTF-8 file wrongly. Pablo tells the agent to read as UTF-8; this says so once, with how to install,
+  // after the account is connected (review: nothing works before sign-in, so the sign-in card comes alone first)
   const shellBox = $("chat").insertBefore(h("div", { id: "shell-note" }), acct);
   const shellNote = () => { const host = M.host || {}; shellBox.textContent = "";
-    if (host.shell !== "powershell" || host.noticed) return;
+    if (host.shell !== "powershell" || host.noticed || authSt.state !== "connected") return;
     shellBox.append(h("div", { class: "call", "data-shell": "5.1" }, h("p", { class: "head" }, "한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다"),
       h("p", null, "이 PC에는 Windows PowerShell 5.1만 있어, 에이전트가 한글 주석이나 λ 같은 기호를 깨진 채 읽을 수 있습니다. "
         + "Pablo가 에이전트에게 UTF-8로 읽으라고 일러 두었지만, 지키지 않으면 재현 점검의 판정이 틀릴 수 있습니다."),
@@ -1755,7 +1756,7 @@ if (window.pabloHost && pabloHost.chat) {
     else acct.append(h("div", { class: "call" }, h("p", { class: "head" }, "ChatGPT 계정을 연결하세요"), err,
       h("p", null, h("button", { class: "pill on", id: "signin", on: () => pabloHost.login() }, "ChatGPT로 계속하기"),
         a.state === "error" ? [" ", link("연결 해제", () => pabloHost.logout())] : null)));
-    gate();
+    gate(); shellNote();
   }
   const scroll = () => { $("log").scrollTop = $("log").scrollHeight; };
   pabloHost.onAuth(account);
