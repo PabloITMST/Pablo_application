@@ -756,12 +756,18 @@ function audited(c) {
       fileLink(h("code", null, x.seen.where), task, x.seen.where, null, null, x.seen.found), " ", h("span", null, x.seen.found)) : null,
     x.note ? h("div", { class: "muted" }, x.note) : null);
   const order = Object.keys(AUDIT), xs = [...c.items].sort((a, b) => warned(b) - warned(a) || order.indexOf(st(a)) - order.indexOf(st(b)));
-  // what needs attention stays open (Pablo could not confirm it, 다름, 코드가 정함, 의도한 차이); ⑥ 아직 없음 (a folder that is
-  // not done yet has many), 판단 못 함 and 따름 fold away; an 아직 없음 Pablo found in the folder (seen) stays open
+  // what needs attention stays open (Pablo could not confirm it, 다름, 코드가 정함, 의도한 차이, 아직 없음); 판단 못 함 and 따름
+  // fold away. ⑥ review + e2e: an 아직 없음 is mostly work left to do once facts left the list by their kind (folding it hid
+  // 2 of 17 drifts the audit found), so only a condition from an extraction before kinds folds it, named on its line.
+  const folds = x => st(x) === "unclear" || st(x) === "followed"
+    || (st(x) === "missing" && !!(V.checks[x.id] || {}).spec && !V.checks[x.id].spec.missing && !V.checks[x.id].spec.kind);
   const fold = { missing: "아직 없는 항목", unclear: "판단 못 한 항목", followed: "따르는 항목" };
-  box.append(h("ul", null, xs.filter(x => warned(x) || !fold[st(x)]).map(row)));
-  for (const [k, label] of Object.entries(fold)) { const ys = xs.filter(x => st(x) === k && !warned(x));
-    if (ys.length) box.append(h("details", null, h("summary", null, `${label} ${ys.length}개`), h("ul", null, ys.map(row)))); }
+  const short = x => { const k = V.checks[x.id] || {}, v = (k.spec || {}).value; const t = v || (k.title || x.id);
+    return t.length > 22 ? t.slice(0, 21) + "…" : t; };
+  box.append(h("ul", null, xs.filter(x => warned(x) || !folds(x)).map(row)));
+  for (const [k, label] of Object.entries(fold)) { const ys = xs.filter(x => st(x) === k && folds(x) && !warned(x));
+    if (ys.length) box.append(h("details", null, h("summary", null, `${label} ${ys.length}개`,
+      k === "missing" ? `: ${ys.slice(0, 6).map(short).join(", ")}${ys.length > 6 ? " …" : ""}` : ""), h("ul", null, ys.map(row)))); }
   // what no item covers (main.js audited): how the method is done stays open, the paper's experiments the folder does not
   // have fold away. The model wrote them from the code and the items, not from the paper: no page is attached.
   if (out.length) {

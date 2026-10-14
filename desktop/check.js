@@ -821,14 +821,14 @@ async function uiCheck() {
   const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, checked: b.querySelector("[data-checked]").textContent,
     rows: [...b.querySelectorAll(":scope > ul > li")].map(x => [x.className, x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent,
       (x.querySelector("[data-check]") || {}).textContent]), folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit]"))`);
-  // ⑥ 코드가 정함 right after 다름 (a report needs it); 아직 없음 folds away like 따름
-  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 코드가 정함 1 · 아직 없음 1 · 따름 2 · 조건 밖 3", folded: "아직 없는 항목 1개",
+  // ⑥ 코드가 정함 right after 다름 (a report needs it); an 아직 없음 of a condition from before kinds folds, named on its line
+  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 코드가 정함 1 · 아직 없음 1 · 따름 2 · 조건 밖 3", folded: "아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…",
     checked: "📍 모델이 댄 위치 5곳 중 4곳을 Pablo가 파일에서 직접 확인했습니다. 1곳은 그 자리에서 찾지 못했습니다. 1곳은 판정과 논문 값이 어긋납니다. 이 항목은 위에 따로 둡니다.",
     rows: [["st-differs", "✗ 다름", "config.yaml:2", "⚠ 논문 값(all-mpnet-base-v2)이 이 자리에 그대로 있음"],
       ["st-followed", "✓ 따름", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
       ["st-differs", "✗ 다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-chosen", "• 코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
   assert.deepStrictEqual(await js(`[...document.querySelector("[data-audit]").querySelectorAll(":scope > details > summary")].map(x => x.textContent)`),
-    ["아직 없는 항목 1개", "따르는 항목 1개"]);
+    ["아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…", "따르는 항목 1개"]);
   // what no item covers: apart from the verdicts, its places checked the same way, the paper's experiments folded
   const outside = await js(`(b => ({ head: b.querySelector("h4").textContent, rows: [...b.querySelectorAll(":scope > ul > li")].map(x =>
     [x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent, (x.querySelector("[data-check]") || {}).textContent]),
@@ -1388,7 +1388,11 @@ async function specCheck() {
   if (shots || view) fs.writeFileSync(path.join(shots || view, "spec-card.png"), (await win.capturePage()).toPNG());  // --spec [shot-dir]
   console.log("ok [1] -> PDF page, highlighted");
   const brief = await ctl.py("brief", "T1");
-  assert.ok(brief.text.includes("근거 없이 바꾸지 마세요") && /\(LinearRAG p\.\d+\)/.test(brief.text) && brief.basis.length === stated.length);
+  // ⑥ a fact or the paper's scope is background in the brief (참고), not a fact the agent's step rests on
+  const held = stated.filter(c => !["fact", "scope"].includes(c.spec.kind));
+  assert.ok(brief.text.includes("근거 없이 바꾸지 마세요") && /\(LinearRAG p\.\d+\)/.test(brief.text) && brief.basis.length === held.length,
+    `basis ${brief.basis.length} vs ${held.length} conditions held to`);
+  if (held.length < stated.length) assert.match(brief.text, /참고 \(논문의 서술과 이 재현 밖의 실험, 따를 조건은 아님\):/);
   console.log("ok brief:", brief.text.split("\n").length, "lines, basis", brief.basis.length, "checks");
   win.destroy();
 }
