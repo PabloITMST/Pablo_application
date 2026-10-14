@@ -671,6 +671,8 @@ function conditions(ids, dropped) {
     if (xs.length) box.append(h("h4", null, SPEC[k]), h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id },
       fact(c), c.spec.value_in_quote === false ? h("span", { class: "chk warn", "data-vq": "1", title: "모델이 읽은 값이 고정한 인용 문장 안에 없습니다. 원문에서 직접 확인하세요." },
         ` ⚠ 값(${c.spec.value})이 인용 안에 없음`) : null,
+      c.spec.header_missing ? h("span", { class: "chk warn", "data-hm": "1", title: "PDF 글자에는 표의 머리가 따로 떨어져 있어, 어느 숫자가 어느 데이터셋·지표인지는 모델의 추측입니다." },
+        " ⚠ 인용에 표의 열 이름이 없습니다. 숫자와 데이터셋 짝을 원문 표에서 확인하세요") : null,
       devOf(c) ? h("span", { class: "chk dev", "data-dev": c.id }, ` ◇ 의도한 차이(${WHERE_DEV[scopeOf(devOf(c))]}): ${devOf(c).why}`) : null))));
   }
   for (const [k, label] of Object.entries(ASIDE)) { const xs = all.filter(c => c.spec.kind === k);
@@ -738,7 +740,8 @@ function audited(c) {
     lost || off ? " 이 항목은 위에 따로 둡니다." : ""));
   const what = x => { const k = V.checks[x.id];  // ⑤ [5쪽]: a page in the table, not the chat's running number (rows are sorted)
     if (k) return [h("span", { class: "muted" }, (k.spec && k.spec.missing ? "논문에 없는 설정" : SPEC[(k.spec || {}).category] || "근거") + " · "),
-      rich((k.conclusion || k.title).replace(/\s*\[\d+\]/g, "")), " ", k.evidence.map(e => cite(e, (M.anchors[e] || {}).page ? `${M.anchors[e].page}쪽` : undefined))];
+      rich((k.conclusion || k.title).replace(/\s*\[\d+\]/g, "")), " ", k.evidence.map(e => cite(e, (M.anchors[e] || {}).page ? `${M.anchors[e].page}쪽` : undefined)),
+      (k.spec || {}).header_missing ? h("span", { class: "chk warn", "data-hm": "1" }, " ⚠ 논문 값의 열 짝 확인 필요") : null];
     const i = [...V.intent.must, ...V.intent.prefer].find(y => y.id === x.id);
     return [h("span", { class: "muted" }, "작업 기준 · "), i ? i.text : x.id]; };
   const moved = x => x.check === "moved" ? `모델이 댄 위치(${x.where})에는 없고 ${x.line_found}줄에 있습니다.` : null;

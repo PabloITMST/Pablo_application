@@ -50,13 +50,14 @@ REWRITE_MAX_REMOVED = 0.5
 def decide(*, pending_required: list[str], step: dict | None, unverified: list[str], analysis: dict,
            constraints: dict[str, str], sources: dict[str, str | None],
            valid_support: list[str], rewrites: list[dict] = (), separate: list[str] = (),
-           edits_existing: bool = False) -> tuple[str, list[dict]]:
+           edits_existing: bool = False, reads: bool = False) -> tuple[str, list[dict]]:
     """-> (verdict, rule hits). constraints: active constraint / system policy id -> hard|soft.
     sources: the task's source checks, id -> outcome (None = waived / pending).
     valid_support: checks the judge cited that are completed with a supporting outcome.
     rewrites: file edits measured by the host, [{path, lines (the file before), removed (lines the diff removes)}].
     separate: ⑦ checks the user differs from on purpose in separate runs only (the base run stays as the paper says);
-    edits_existing: the action changes or deletes a file that is there (vs. a new file or a command)."""
+    edits_existing: the action changes or deletes a file that is there (vs. a new file or a command).
+    reads: the action only reads (skill.reads_only): it is part of doing any step, never a departure from one."""
     hits = []
 
     def hit(rule, verdict, reason):
@@ -67,9 +68,9 @@ def decide(*, pending_required: list[str], step: dict | None, unverified: list[s
             hit("W01", "WARN", f"{r['path']}의 기존 {r['lines']}줄 중 {r['removed']}줄을 지우고 새로 씁니다. "
                                "작은 수정이 쌓여 처음 의도와 멀어지기 쉬운 변경이라 확인이 필요합니다.")
 
-    if pending_required:
+    if pending_required and not reads:  # reading changes nothing; a read is how research gets done
         hit("G01", "BLOCK", f"REQUIRED research not completed: {pending_required}")
-    if step is None:
+    if step is None and not reads:
         hit("G02", "WARN", "no plan step behind this action")
     elif unverified:
         hit("G03", "ALLOW", f"basis not officially verified, treat as estimate/workaround: {unverified}")
@@ -124,7 +125,7 @@ def decide(*, pending_required: list[str], step: dict | None, unverified: list[s
         else:
             hit("S05", "ALLOW", f"possible conflict with {sid}")
 
-    if step is not None and not (analysis.get("plan_alignment") or {}).get("follows_step", True):
+    if step is not None and not reads and not (analysis.get("plan_alignment") or {}).get("follows_step", True):
         if justified:
             hit("D02", "ALLOW", f"departs from {step['id']}, reason given")
         else:

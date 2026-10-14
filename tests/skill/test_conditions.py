@@ -152,6 +152,29 @@ class KindJudge(SpecJudge):  # ⑥ a setting, a result, a fact about the data an
              "quote": "entity linking ignores synonyms", "page": 2}], "missing": []}
 
 
+def test_table_row_without_its_columns():
+    """review: a result quoted as a table row with no column names is flagged (which number is which dataset is the
+    model's guess); a sentence that names them, or a row that does, is not; a baseline is the paper's scope."""
+    from pablo_v2.skill.skill import header_missing
+    row = "LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72"
+    assert header_missing("LinearRAG는 HotpotQA, 2Wiki, MuSiQue, Medical에서 각각 64.30, 66.50, 70.20, 63.70을 보고한다", row, "result")
+    assert header_missing("LinearRAG의 전체 파이프라인 정확도는 66.95이다", "LinearRAG (Ours) 249.78 0.093 0 0 66.95", "result")
+    assert not header_missing("2Wiki의 GPT-Acc는 63.70이다", "LinearRAG achieves 63.70% GPT-based accuracy on 2Wiki", "result")
+    assert not header_missing("HotpotQA 61.5, MuSiQue 40.2, 2Wiki 55.0", "HotpotQA 61.5 MuSiQue 40.2 2Wiki 55.0", "result")
+    assert not header_missing("x", row, "setting")
+    with tempfile.TemporaryDirectory() as d:
+        s, t, a, _ = two(d)
+
+        class Rows(SpecJudge):
+            def extract_spec(self, pages):
+                return {"items": [
+                    {"category": "baseline", "kind": "setting", "statement": "비교 대상은 OtherRAG", "value": "",
+                     "quote": "We evaluate on HotpotQA and MuSiQue with 1,000 questions each", "page": 1}], "missing": []}
+        s.judge = Rows()
+        (c,), _, _ = s.spec(t.id, a.id)
+        assert c.spec["kind"] == "scope"
+
+
 def test_kinds():
     """⑥ what a reproduction does with each condition: facts and the paper's other experiments are kept (cited, in the
     card, as background in the brief) but 재현 점검 and the Guard leave them out; a condition without a kind is a setting."""
@@ -168,6 +191,26 @@ def test_kinds():
         s.judge = GuardJudge()  # cites the result line it is given; the fact and the scope are not given at all
         act = s.propose_action(t.id, "x")
         assert "S01" in [r["rule"] for r in act.reasons]
+
+
+def test_reads_are_not_departures():
+    """real --guard (10/14): reading a file to do the step was warned as leaving the plan (D01) 3 times in one run. A
+    command that only reads is part of any step; one that writes, deletes or runs code is judged as before."""
+    class Wanders(SpecJudge):  # the judge says every action departs from the step
+        def analyze_action(self, *_):
+            return {"intent_conflicts": [], "source_conflicts": [], "plan_alignment": {"follows_step": False},
+                    "justification": {"present": False, "relevant": False, "supported_by": []}}
+    s = PabloSkill(IntentEngine(), Wanders())
+    t = s.start_task("hello.txt에 줄 더하기", [])
+    s.create_plan(t.id, [{"action": "hello.txt 끝에 world 줄을 더한다", "basis": []}])
+    pwsh = '명령 실행: "C:\\Program Files\\PowerShell\\7\\pwsh.exe" -Command '
+    verdict = lambda d: (lambda a: (a.verdict, [r["rule"] for r in a.reasons]))(s.propose_action(t.id, d, "P1.1"))  # noqa: E731
+    for read in ['"Get-Content -LiteralPath .\\hello.txt -Tail 5"', "'git diff -- hello.txt; git status --short'",
+                 '"Get-Item -LiteralPath .\\keep.txt | Select-Object FullName,Length"']:
+        assert verdict(pwsh + read) == ("ALLOW", []), read
+    for change in ['"Remove-Item keep.txt"', '"Get-Content a.txt > b.txt"', '"python run.py"', '"git checkout -- hello.txt"']:
+        assert verdict(pwsh + change) == ("WARN", ["D01"]), change
+    assert verdict("파일 수정: hello.txt") == ("WARN", ["D01"])
 
 
 def cli(d, *args):

@@ -201,6 +201,9 @@ items: concrete conditions the paper states.
   appears only once in the paper and contains the value. For a result from a table: ONE row, its label followed by the
   numbers, exactly as in the text (e.g. "MethodName 12.3 4.5"); never a whole table or a caption. For method: the
   sentence that says it in words, never a formula's symbols (formulas do not survive PDF text extraction).
+  For a result: pair every number with its dataset and metric in the statement (e.g. "2Wiki의 GPT-Acc는 63.70이다").
+  A table row's text rarely carries its column names (the header is lost in the PDF text), so prefer the sentence of
+  the text that states the number with those names; quote a row only when you are sure which column each number is.
 - page: the [p.N] it is on.
 At most 24 items besides method, and at most 10 method items. Prefer what changes results: data and splits, the
 model, key hyperparameters, metrics, the main baselines and main results. Method items: one per step of the main

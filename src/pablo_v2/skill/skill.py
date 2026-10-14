@@ -233,7 +233,7 @@ class PabloSkill:
             constraints={k: st for k, (st, _) in constraints.items()},
             sources={c.id: c.outcome for c in sources.values()},
             valid_support=[c.id for c in done if c.id in cited and c.outcome in guard.SUPPORTING_OUTCOMES],
-            rewrites=list(rewrites), separate=runs, edits_existing=edits_existing(description))
+            rewrites=list(rewrites), separate=runs, edits_existing=edits_existing(description), reads=reads_only(description))
         act = ActionProposal(self._next_id("ACT"), task_id, description, step and step["id"], justification,
                              analysis, verdict, reasons, analysis_key=key, analysis_from=prev and prev.id)
         self.state.actions.append(act)
@@ -485,7 +485,10 @@ class PabloSkill:
             sc = self.add_check(task_id, it["statement"], "USEFUL")
             sc.spec = {"category": it["category"], "value": it["value"], "source_id": src.id}
             if it.get("kind") in SPEC_KINDS:  # ⑥ none (an answer from before) reads as setting
-                sc.spec["kind"] = it["kind"]
+                # review: a baseline is another experiment of the paper (its scope), whatever kind the model gave it
+                sc.spec["kind"] = "scope" if it["kind"] == "setting" and it["category"] == "baseline" else it["kind"]
+            if header_missing(it["statement"], a.quote["exact"], sc.spec.get("kind")):
+                sc.spec["header_missing"] = True  # review: a table row without its column names; the pairing is the model's guess
             if checkable(it["value"]) and not has_value(a.quote["exact"], it["value"]):
                 sc.spec["value_in_quote"] = False  # the quote is anchored, the value the model read from it is not in it
             self.complete_check(sc.id, "VERIFIED", it["statement"] + " [1]",
@@ -907,12 +910,59 @@ def scope_of(c) -> str | None:
 
 
 SPEC_KINDS = ("setting", "result", "fact", "scope")
+_NUMS = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)*%?(?![\w])")
+_NAMES = re.compile(r"[A-Za-z][A-Za-z0-9.+-]{2,}")
+
+
+def header_missing(statement: str, quote: str, kind: str | None) -> bool:
+    """review (0.8): a result quoted as a table row ("LinearRAG (Ours) 64.30 66.50 70.20 63.70 …") whose text has no
+    column names: which number is which dataset and metric is the model's guess (it paired 2Wiki with the wrong column).
+    True when the row has 3+ numbers and none of the names the statement gives (datasets, metrics; the row's own label
+    aside) is in the quote."""
+    if kind != "result" or len(_NUMS.findall(quote)) < 3:
+        return False
+    first = _NUMS.search(quote)
+    label, rest = quote[:first.start()].lower(), quote[first.start():].lower()
+    names = [n for n in _NAMES.findall(statement) if n.lower() not in label]
+    return not any(n.lower() in rest for n in names)
 
 
 def aside(c) -> bool:
     """⑥ a paper condition kept for the reader, not held to: a fact (dataset size, the authors' GPU) or the paper's
     scope (a baseline's settings, an ablation). 재현 점검, the Guard and the brief's rules leave it out."""
     return bool(c.spec) and c.spec.get("kind") in ("fact", "scope")
+
+
+_READ_CMDS = {"get-content", "gc", "cat", "type", "get-item", "gi", "get-childitem", "gci", "ls", "dir", "select-string",
+              "sls", "rg", "grep", "findstr", "head", "tail", "wc", "select-object", "select", "format-table", "ft",
+              "format-list", "fl", "measure-object", "measure", "sort-object", "sort", "where-object", "where", "?",
+              "test-path", "resolve-path", "get-location", "pwd", "get-filehash", "out-string", "more"}
+_READ_GIT = {"diff", "status", "log", "show", "ls-files", "grep", "blame", "rev-parse", "branch"}
+
+
+def reads_only(description: str) -> bool:
+    """real --guard (10/14): reading a file to do a step (Get-Content, git diff, git status, Get-Item) was warned as a
+    plan departure (D01) three times in one run. A command made only of read commands, with no redirection and no
+    script block, changes nothing: it is part of doing the step, whatever step it is."""
+    head = description.split("\n")[0]
+    if not head.startswith("명령 실행:"):
+        return False
+    m = re.search(r"-Command\s+(['\"])(.*)\1\s*$", head)  # pwsh -Command "…" / '…': the command inside the wrapper
+    cmd = m.group(2) if m else head.split(":", 1)[1].strip()
+    if re.search(r">|\{|\$\(|`|Set-|Out-File|Add-Content|Remove-|New-|Move-|Copy-|Rename-|Invoke-|Start-", cmd, re.I):
+        return False
+    for part in re.split(r"\s*(?:;|\|\||&&|\|)\s*", cmd.strip()):
+        words = part.strip().strip("&").split()
+        if not words:
+            continue
+        name = words[0].strip("'\"").lower()
+        if name == "git":
+            sub = next((w for w in words[1:] if not w.startswith("-")), "")
+            if sub not in _READ_GIT or (sub == "branch" and any(w in ("-d", "-D", "-m", "-M", "--delete") for w in words)):
+                return False
+        elif name not in _READ_CMDS:
+            return False
+    return True
 
 
 def edits_existing(description: str) -> bool:
@@ -1067,8 +1117,10 @@ def render_audit(s: PabloSkill, task_id: str) -> tuple[str, list[dict]]:
             continue
         pages = [a.selector.get("page") for _, a in s.evidence_for(c.id)]
         where = f" (논문 p.{pages[0]})" if pages and pages[0] else ""
-        items.append({"id": c.id, "kind": "condition", "label": label,
-                      "text": re.sub(r"\s*\[\d+\]", "", c.conclusion or c.requirement).strip() + where,
+        text = re.sub(r"\s*\[\d+\]", "", c.conclusion or c.requirement).strip() + where
+        if c.spec.get("header_missing"):  # review/e2e2: the column pairing is the extraction's guess; a mismatch may be it
+            text += " [주의: 논문 표 한 행에서 읽은 값이라 숫자와 데이터셋·지표의 짝이 틀렸을 수 있음. 다르면 그 가능성을 note에 쓰세요]"
+        items.append({"id": c.id, "kind": "condition", "label": label, "text": text,
                       "value": c.spec.get("value", "")})  # the desktop checks the verdict against it (desktop/where.js)
     for i in s.get_applicable_intent(task_id)["constraints"]:
         items.append({"id": i.id, "kind": "criterion", "label": "작업 기준" + (" (반드시)" if i.strength == "hard" else ""),
