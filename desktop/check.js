@@ -843,9 +843,17 @@ async function uiCheck() {
   const spec = await js(`(b => ({ heads: [...b.querySelectorAll("h4")].map(x => x.textContent), items: [...b.querySelectorAll("li")].map(x => x.textContent.trim()),
     text: b.textContent }))(document.querySelector("[data-spec]"))`);
   assert.deepStrictEqual(spec.heads, ["모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
-  assert.deepStrictEqual(spec.items, ["임베딩 모델은 all-mpnet-base-v2이다 ⚠ 값(all-mpnet-base-v2)이 인용 안에 없음",
+  assert.deepStrictEqual(spec.items, ["방법 · 검색 결과는 passage 단위로 돌려준다 · 되살리기", "임베딩 모델은 all-mpnet-base-v2이다 ⚠ 값(all-mpnet-base-v2)이 인용 안에 없음",
     "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", "검색 단계의 top-k는 5이다", "2Wiki 정확도는 63.70%이다",
     "데이터셋 · HotpotQA는 약 97,000개 질문-답 쌍이다", "난수 시드가 적혀 있지 않다"]);
+  // review: a re-extraction says what changed; the one it did not find again comes back with 되살리기, kept from then on
+  assert.strictEqual(await js(`document.querySelector("[data-spec] [data-redo] p").textContent`),
+    "다시 뽑았습니다: 이전 2개 중 1개는 이번에도 나왔고, 새로 생긴 것 1개, 이번에 빠진 것 1개입니다.");
+  await js(`document.querySelector("[data-spec] [data-redo-restore]").click()`);
+  const lost = await js(`document.querySelector("[data-spec] [data-redo-restore]").closest("li").dataset.id`);
+  const kept = `V.checks[${JSON.stringify(lost)}].state === "completed" && V.checks[${JSON.stringify(lost)}].spec.kept === true`;
+  for (let i = 0; i < 100 && !(await js(kept)); i++) await sleep(100);
+  assert.ok(await js(kept), "restored, and kept from then on");
   // ⑥ a description the code does not set: kept, cited, folded apart, not counted among the conditions to check
   assert.strictEqual(await js(`document.querySelector('[data-spec] [data-aside="fact"] summary').textContent`), "논문의 서술 (코드가 정하지 않음) 1개 · 재현 점검에서 대조하지 않음");
   assert.ok(/재현 조건 4개/.test(spec.text) && /위치를 찾지 못한 조건 1개/.test(spec.text), spec.text);
@@ -1009,6 +1017,12 @@ async function uiCheck() {
   assert.strictEqual(await until(`(r => r && r.querySelector("b").dataset.route === "ask" && "ask")($("route"))`), "ask");
   assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")).route.T1, "ask");
   console.log("ok route: paper + folder -> 보낼 곳 에이전트 by default, 논문 질문 remembered for the task");
+  // review: 다시 뽑기 asks first, saying what stays (here: the condition the user took out stays out; the one restored above stays)
+  await js(`document.querySelector("#specs .link").click()`);
+  assert.match(await until(`(b => b && b.textContent)(document.querySelector("[data-redo-ask]"))`),
+    /^📋 재현 조건을 다시 뽑을까요\?Pablo가 뽑은 조건은 새로 뽑은 목록으로 바뀝니다\..* 직접 더하거나 되살린 조건 1개와 의도한 차이로 둔 조건 0개는 그대로 둡니다\. 이전에 뺀 조건 1개는 다시 넣지 않습니다\.다시 뽑기 취소$/);
+  await js(`[...document.querySelectorAll("[data-redo-ask] button")].find(b => b.textContent === "취소").click()`);
+  assert.ok(await js(`!document.querySelector("[data-redo-ask]")`));
   // ③ a new task's criterion lines (the review's own): the ones read become criteria, the ones the reader could not
   // classify wait in the conversation for 반드시 / 가능하면 / 괜찮음; nothing is dropped without a word
   const lines3 = ["재현 작업", "test 셋은 튜닝에 쓰면 안 됨", "결과는 3번 돌려서 평균 내", "GPU 메모리는 24GB 안에서만 써",

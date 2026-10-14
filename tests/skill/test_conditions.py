@@ -15,7 +15,7 @@ sys.path.insert(0, HERE)
 
 from pablo_v2.intent.engine import IntentEngine  # noqa: E402
 from pablo_v2.skill.evidence import AnchorRejected  # noqa: E402
-from pablo_v2.skill.skill import PabloSkill, render_audit, render_brief  # noqa: E402
+from pablo_v2.skill.skill import PabloSkill, deviation, render_audit, render_brief  # noqa: E402
 from pablo_v2.skill.viewer import model, workspace  # noqa: E402
 from ui_fixture import TINY_A, TINY_B, tiny_pdf  # noqa: E402
 
@@ -191,6 +191,43 @@ def test_kinds():
         s.judge = GuardJudge()  # cites the result line it is given; the fact and the scope are not given at all
         act = s.propose_action(t.id, "x")
         assert "S01" in [r["rule"] for r in act.reasons]
+
+
+def test_extract_again_keeps_the_users_work():
+    """0.8 review: extracting the same paper again replaced everything, the user's own work included. Now what the user
+    added, differs from on purpose or took out stays as they left it (not twice, not back); what the last extraction had
+    and this one did not find is said, and can be restored (kept like the user's own from then on)."""
+    R = ("result", "result", "HotpotQA 정확도는 61.5", "61.5", "TinyRAG reaches 61.5 accuracy on HotpotQA", 2)
+    I = ("training", "setting", "색인은 GPU 한 장에서 12초", "12", "Indexing takes 12 seconds on one GPU", 2)
+    D = ("dataset", "fact", "질문은 1,000개씩", "1,000", "We evaluate on HotpotQA and MuSiQue with 1,000 questions each", 1)
+    U = ("method", "setting", "엔티티 링킹은 동의어를 무시한다", "", "entity linking ignores synonyms", 2)
+    N = ("method", "setting", "TinyRAG는 작은 그래프 검색 방법이다", "", "TinyRAG: a tiny graph retrieval method", 1)
+
+    class Runs(SpecJudge):
+        runs = [[R, I, D], [R, D, U, N]]
+
+        def extract_spec(self, pages):
+            items = self.runs.pop(0)
+            return {"items": [dict(zip(("category", "kind", "statement", "value", "quote", "page"), x)) for x in items], "missing": []}
+    with tempfile.TemporaryDirectory() as d:
+        s, t, a, _ = two(d)
+        s.judge = Runs()
+        (r, i, dd), _, _ = s.spec(t.id, a.id)
+        assert s.spec_diff["first"]
+        s.deviate_spec(r.id, "ablation: 다른 모델로 비교")
+        s.drop_spec(dd.id, "데이터 설명이라 조건이 아님")
+        u = s.add_spec(t.id, a.id, U[4], 2, "method", U[2])
+        (n,), _, _ = s.spec(t.id, a.id)  # R, D and U came again: the user's versions stay, nothing twice
+        diff = s.spec_diff
+        assert (n.spec["value"], diff["before"], diff["same"], diff["new"], diff["gone"]) == ("", 1, 0, [n.id], [i.id]), diff
+        assert sorted(diff["kept"]) == sorted([r.id, u.id]) and sorted(diff["again"]) == sorted([r.id, u.id]) and diff["out"] == [dd.id]
+        assert r.research_state == "completed" and deviation(r)["why"] == "ablation: 다른 모델로 비교"  # the ablation still holds
+        assert u.research_state == "completed" and (dd.research_state, dd.waived_by) == ("waived", "user")
+        assert (i.research_state, i.waive_reason) == ("waived", "replaced by a new extraction")
+        live = [c.id for c in s.checks(t.id) if c.spec and c.research_state != "waived"]
+        assert sorted(live) == sorted([r.id, u.id, n.id]), live
+        s.restore_spec(i.id)  # the one this extraction missed, back, and kept from now on
+        assert i.research_state == "completed" and i.spec["kept"] is True
 
 
 def test_reads_are_not_departures():

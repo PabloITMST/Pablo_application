@@ -94,6 +94,7 @@ class PabloSkill:
         self.intent, self.judge, self.state, self.path = intent, judge, state or SkillState(), path
         self.fetch = evidence.fetch  # tests swap in a fake
         self._snapshots = {}  # in-memory snapshots when there is no state path
+        self.spec_diff = None  # what the last spec() changed against the previous extraction of the same paper
 
     @classmethod
     def load(cls, path: str, intent: IntentEngine, judge=None) -> "PabloSkill":
@@ -467,12 +468,21 @@ class PabloSkill:
             raise KeyError("no captured PDF to read the conditions from")
         self.get_task(task_id)
         r = self.judge.extract_spec(self.snapshot_text(src).split("\f"))
-        for c in self.checks(task_id):
-            if c.spec and c.research_state != "waived" and c.task_id == task_id:
+        # 0.8 review: extracting the same paper again keeps what the user made of its conditions: one they added (⑩),
+        # restored after a re-extraction (kept) or differ from on purpose (⑦) stays; one they took out stays out
+        def own(c):
+            return c.spec.get("source_id") == src.id and (c.spec.get("by") == "user" or c.spec.get("kept") or deviation(c))
+        mine = [c for c in self.checks(task_id) if c.spec and c.task_id == task_id]
+        kept = [c for c in mine if c.research_state != "waived" and own(c)]
+        out = [c for c in mine if c.research_state == "waived" and c.waived_by == "user" and c.spec.get("source_id") == src.id]
+        prev = [c for c in mine if c.research_state != "waived" and not own(c) and c.spec.get("source_id") == src.id
+                and not c.spec.get("missing")]  # the previous extraction, to say what changed
+        for c in mine:
+            if c.research_state != "waived" and not own(c):
                 c.research_state, c.waived_by = "waived", "pablo"
                 c.waive_reason = "replaced by a new extraction" if c.spec.get("source_id") == src.id \
                     else f"replaced by the conditions of {src.id} ({src.title})"
-        stated, missing, dropped = [], [], []
+        stated, missing, dropped, again, still_out = [], [], [], [], []
         for it in r["items"]:
             try:
                 try:
@@ -481,6 +491,11 @@ class PabloSkill:
                     a = self.add_anchor(src.id, it["quote"])
             except evidence.AnchorRejected as e:
                 dropped.append({**it, "why": str(e)})
+                continue
+            hit = next((c for c in kept + out if not c.spec.get("missing") and self._same_condition(c, it["category"], it["value"], a)), None)
+            if hit:  # the user's own version of it is there (or they took it out): not twice, not back
+                (again if hit in kept else still_out).append(hit.id)
+                self.state.anchors.remove(a)
                 continue
             sc = self.add_check(task_id, it["statement"], "USEFUL")
             sc.spec = {"category": it["category"], "value": it["value"], "source_id": src.id}
@@ -495,6 +510,12 @@ class PabloSkill:
                                 [{"tier": 4, "type": "pdf", "title": src.title, "url": src.locator, "supports": [a.id]}])
             self.link_evidence(a.id, sc.id, "supports", it["category"])
             stated.append(sc)
+        anchor = lambda c: next((x for _, x in self.evidence_for(c.id)), None)  # noqa: E731
+        same = [p for p in prev if any(anchor(n) and self._same_condition(p, n.spec["category"], n.spec["value"], anchor(n)) for n in stated)]
+        self.spec_diff = {"first": not prev, "before": len(prev), "same": len(same),
+                          "new": [n.id for n in stated if not any(anchor(n) and self._same_condition(p, n.spec["category"], n.spec["value"], anchor(n)) for p in prev)],
+                          "gone": [p.id for p in prev if p not in same], "kept": [c.id for c in kept],
+                          "again": sorted(set(again)), "out": sorted(set(still_out))}
         for it in r["missing"]:
             sc = self.add_check(task_id, it["statement"], "USEFUL",
                                 "논문에 없는 설정: 정하면 그 근거(저자 저장소, 관례, 실험)를 남긴다")
@@ -548,17 +569,31 @@ class PabloSkill:
         return sc
 
     def restore_spec(self, sc_id: str) -> SourceCheck:
-        """A condition the user took out, back as it was; not over another paper's conditions extracted since."""
+        """A condition the user took out, back as it was; or (0.8 review) one the last extraction of the same paper did
+        not find again, kept from then on like the user's own. Never over another paper's conditions extracted since."""
         sc = self._find_check(sc_id)
-        if not sc or not sc.spec or sc.research_state != "waived" or sc.waived_by != "user":
+        replaced = bool(sc) and sc.waived_by == "pablo" and sc.waive_reason == "replaced by a new extraction"
+        if not sc or not sc.spec or sc.research_state != "waived" or not (sc.waived_by == "user" or replaced):
             raise KeyError(f"no condition {sc_id} taken out by the user to restore")
         if {c.spec["source_id"] for c in self.checks(sc.task_id) if c.spec and c.research_state != "waived"} - {sc.spec["source_id"]}:
             raise ValueError("그 뒤로 다른 논문의 재현 조건을 뽑아서 되살리지 않습니다.")
         sc.research_state = "pending" if sc.spec.get("missing") else "completed"
         sc.waived_by = sc.waive_reason = None
-        sc.spec["dropped"][-1]["to"] = now()
+        if replaced:
+            sc.spec["kept"] = True
+        else:
+            sc.spec["dropped"][-1]["to"] = now()
         self.save()
         return sc
+
+    def _same_condition(self, c, category: str, value: str, a) -> bool:
+        """The same condition of the same paper: their quotes overlap on a page, or one kind with one value."""
+        for _, b in self.evidence_for(c.id):
+            if b.source_id == a.source_id and b.selector.get("page") == a.selector.get("page") \
+                    and b.selector["start"] < a.selector["end"] and a.selector["start"] < b.selector["end"]:
+                return True
+        v = c.spec.get("value", "")
+        return c.spec["category"] == category and checkable(v) and checkable(value) and has_value(v, value) and has_value(value, v)
 
     # --- 0.8 ⑦ an intended deviation: the user differs from the paper on purpose (ablation, hardware), with why -------
     def deviate_spec(self, sc_id: str, reason: str, scope: str = "runs") -> SourceCheck:

@@ -658,7 +658,22 @@ const SPEC = { dataset: "데이터셋", split: "데이터 분할", preprocessing
                protocol: "평가 규칙" };
 const fact = c => [rich((c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")), c.evidence.length ? " " : null, c.evidence.map(e => cite(e))];  // [n] numbered in this chat
 const ASIDE = { fact: "논문의 서술 (코드가 정하지 않음)", scope: "실험 범위 (이 재현 밖일 수 있는 실험)" };  // ⑥ not checked
-function conditions(ids, dropped) {
+// 0.8 review: a re-extraction of the same paper says what changed; what the last one had and this one did not find comes
+// back with 되살리기 (extractions differ from run to run); what the user made of the conditions was kept
+function redone(d) {
+  const gone = (d.gone || []).map(id => V.checks[id]).filter(k => k && k.state === "waived" && k.waived_by === "pablo");
+  const can = window.pabloHost && pabloHost.condition, task = V.task.id;
+  const back = k => { const at = h("span");
+    return [at, h("button", { class: "link", "data-redo-restore": k.id, on: () => pabloHost.condition(task, "restore", { id: k.id }).then(() => {
+      echo(task, { role: "spec-restore", check: k.id }); return refresh(); }, e => at.replaceChildren(h("span", { class: "muted" }, fail(e) + " "))) }, "되살리기")]; };
+  return h("div", { class: "muted", "data-redo": "1" },
+    h("p", null, `다시 뽑았습니다: 이전 ${d.before}개 중 ${d.same}개는 이번에도 나왔고, 새로 생긴 것 ${(d.new || []).length}개, 이번에 빠진 것 ${(d.gone || []).length}개입니다.`,
+      (d.kept || []).length ? ` 직접 더하거나 되살리거나 의도한 차이로 둔 조건 ${d.kept.length}개는 그대로 두었습니다.` : "",
+      (d.out || []).length ? ` 이전에 뺀 조건 ${d.out.length}개는 다시 넣지 않았습니다.` : ""),
+    gone.length ? h("details", { "data-gone": String(gone.length) }, h("summary", null, `이번에 빠진 조건 ${gone.length}개`),
+      h("ul", null, gone.map(k => h("li", { "data-id": k.id }, h("span", null, (SPEC[k.spec.category] || k.spec.category) + " · "), fact(k), can ? [" · ", back(k)] : null)))) : null);
+}
+function conditions(ids, dropped, diff) {
   const cs = ids.map(id => V.checks[id]).filter(c => c && c.state !== "waived"), all = cs.filter(c => !c.spec.missing);
   const stated = all.filter(c => !ASIDE[c.spec.kind]);
   const open = cs.filter(c => c.spec.missing);
@@ -666,6 +681,7 @@ function conditions(ids, dropped) {
   if (!cs.length) return box.appendChild(h("p", { class: "muted" }, "이 조건 목록은 다시 뽑은 목록으로 바뀌었습니다.")), box;
   const paper = (cs.find(c => c.paper) || {}).paper;  // C1: which of the task's papers they are from
   box.append(h("p", { class: "head" }, `📋 ${paper ? paper + "에서" : "논문에서"} 재현 조건 ${stated.length}개를 찾았습니다.`));
+  if (diff && !diff.first) box.append(redone(diff));
   for (const k of Object.keys(SPEC)) {
     const xs = stated.filter(c => c.spec.category === k);
     if (xs.length) box.append(h("h4", null, SPEC[k]), h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id },
@@ -898,7 +914,7 @@ function held(k, task) {
 }
 function said(c) {
   if (c.role === "audit") return [msg("Pablo", null, audited(c))];
-  if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped))];
+  if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped, c.diff))];
   const said1 = { "spec-drop": "📋 재현 조건에서 뺐습니다: ", "spec-restore": "📋 뺀 재현 조건을 되살렸습니다: ",  // ⑩ taken out / back
     "spec-deviate": `◇ 논문 조건을 의도한 차이(${WHERE_DEV[c.scope || "task"]})로 두었습니다: `, "spec-undeviate": "📋 의도한 차이를 거두고 논문 조건으로 되돌렸습니다: " }[c.role];  // ⑦
   if (said1) { const k = V.checks[c.check];
@@ -1650,6 +1666,19 @@ if (window.pabloHost && pabloHost.chat) {
       addPaths(paths);
     });
   }
+  // 0.8 review: 다시 뽑기 says first what it replaces and what it keeps (extractions differ from run to run)
+  const redo = () => {
+    const live = V.research.map(id => V.checks[id]).filter(k => k.spec && k.state !== "waived");
+    const own = live.filter(k => k.spec.by === "user" || k.spec.kept).length, dev = live.filter(k => devOf(k)).length;
+    const outn = V.research.map(id => V.checks[id]).filter(k => k.spec && k.state === "waived" && k.waived_by === "user").length;
+    const box = h("div", { class: "call", "data-redo-ask": "1" }, h("p", { class: "head" }, "📋 재현 조건을 다시 뽑을까요?"),
+      h("p", { class: "muted" }, "Pablo가 뽑은 조건은 새로 뽑은 목록으로 바뀝니다. 뽑을 때마다 조금씩 다를 수 있어, 이번에 빠진 조건은 되살릴 수 있게 남겨 둡니다.",
+        own || dev ? ` 직접 더하거나 되살린 조건 ${own}개와 의도한 차이로 둔 조건 ${dev}개는 그대로 둡니다.` : "",
+        outn ? ` 이전에 뺀 조건 ${outn}개는 다시 넣지 않습니다.` : ""),
+      h("p", null, h("button", { class: "pill on", "data-redo-go": "1", on: () => { box.closest(".msg").remove(); spec(V.task.id); } }, "다시 뽑기"), " ",
+        h("button", { class: "link", on: () => box.closest(".msg").remove() }, "취소")));
+    live_(V.task.id).append(msg("Pablo", null, box)); scroll(); };
+  const live_ = t => live(t);
   tools = () => {
     bar.textContent = "";
     if (!V) { adder.hidden = true; return; }
@@ -1677,7 +1706,7 @@ if (window.pabloHost && pabloHost.chat) {
         pabloHost.addArxiv ? link("+ 추가", () => { adder.hidden = !adder.hidden; if (!adder.hidden) arx.focus(); }) : link("PDF 추가", pickPdfs)),
       h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder"))),
       ps.length && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
-        link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => spec(V.task.id))) : null,
+        link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => hasSpec ? redo() : spec(V.task.id))) : null,
       several && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null,
       ps.length && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
         "💬 보낼 곳: ", ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label], i) => [i ? " · " : "",
@@ -1731,7 +1760,7 @@ if (window.pabloHost && pabloHost.chat) {
     pabloHost.spec(t).then(r => {
       Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources);
       for (const c of [...r.stated, ...r.missing]) M.views[t].checks[c.id] = c;
-      box.replaceWith(conditions([...r.stated, ...r.missing].map(c => c.id), r.dropped.length));
+      box.replaceWith(conditions([...r.stated, ...r.missing].map(c => c.id), r.dropped.length, r.diff));
       busy = null; status("Ready"); scroll(); refresh();
     }, e => { box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e)))); busy = null; status("Ready"); });
   }

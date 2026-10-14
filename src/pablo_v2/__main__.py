@@ -382,7 +382,7 @@ def _run(a, out) -> int:
         v = model(s, a.task_id)
         ids = [e for c in stated for e in v["checks"][c.id]["evidence"]]
         out({"stated": [v["checks"][c.id] for c in stated], "missing": [v["checks"][c.id] for c in missing],
-             "dropped": dropped, "anchors": {e: v["anchors"][e] for e in ids},
+             "dropped": dropped, "diff": s.spec_diff, "anchors": {e: v["anchors"][e] for e in ids},
              "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
             "\n".join([f"{c.id} [{c.spec['category']}] {c.conclusion}" for c in stated]
                       + [f"{c.id} [{c.spec['category']}] 논문에 없음: {c.requirement}" for c in missing]

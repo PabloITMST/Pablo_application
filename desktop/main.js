@@ -398,7 +398,8 @@ ipcMain.handle("pablo:spec", async (e, task) => {
   if (!src) throw new Error("먼저 논문 PDF를 추가하세요.");
   const at = new Date().toISOString();
   const r = await ctl.py("spec", task, "--source", src).catch(err => { console.error("[pablo] spec", err.message); throw new Error(short(err.message)); });
-  logChat(task, { role: "spec", at, checks: r.stated.map(c => c.id), missing: r.missing.map(c => c.id), dropped: r.dropped.length });
+  logChat(task, { role: "spec", at, checks: r.stated.map(c => c.id), missing: r.missing.map(c => c.id), dropped: r.dropped.length,
+    ...(r.diff && !r.diff.first ? { diff: r.diff } : {}) });  // 0.8 review: a re-extraction says what changed and what it kept
   return r;
 });
 // C3 비교표: the task's papers (rows) by columns; one judge call per paper, every cell anchored or left empty

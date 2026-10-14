@@ -122,6 +122,10 @@ def build(d: str) -> str:
         s.complete_check(c.id, "VERIFIED", text, [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "x", "supports": []}])
         specs.append(c.id)
     s._find_check(specs[2]).spec["value_in_quote"] = False  # the model's value is not in its own quote
+    lost = s.add_check(t.id, "검색 결과는 passage 단위로 돌려준다", "USEFUL")  # review: the last extraction had it, this one not
+    lost.spec = {"category": "method", "value": "", "source_id": "SRC1"}
+    s.complete_check(lost.id, "VERIFIED", lost.requirement, [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "x", "supports": []}])
+    lost.research_state, lost.waived_by, lost.waive_reason = "waived", "pablo", "replaced by a new extraction"
     told = s.add_check(t.id, "HotpotQA는 약 97,000개 질문-답 쌍이다", "USEFUL")  # ⑥ a description: folded, never checked
     told.spec = {"category": "dataset", "value": "97k", "source_id": "SRC1", "kind": "fact"}
     s.complete_check(told.id, "VERIFIED", told.requirement, [{"tier": 4, "type": "pdf", "title": "LinearRAG", "url": "x", "supports": []}])
@@ -149,7 +153,8 @@ def build(d: str) -> str:
         {"role": "user", "text": "keep.txt도 정리해줘", "at": at(30)},
         {"role": "agent", "text": "keep.txt를 지우려", "at": at(31), "status": "interrupted"},
         {"role": "ask", "text": "효율 근거가 어디 있어?", "at": at(50), "check": sc.id},
-        {"role": "spec", "at": at(55), "checks": specs + [told.id], "missing": [gap.id], "dropped": 1},
+        {"role": "spec", "at": at(55), "checks": specs + [told.id], "missing": [gap.id], "dropped": 1,
+         "diff": {"first": False, "before": 2, "same": 1, "new": [specs[3]], "gone": [lost.id], "kept": [], "again": [], "out": []}},
         # as main.js stores it: the model's answer + what Pablo saw at each place in repro/ (desktop/where.js verify)
         {"role": "audit", "at": at(58), "status": "completed", "summary": "top-k가 논문과 다릅니다.", "items": [
             {"id": "C1", "status": "followed", "where": "", "found": "", "note": "keep.txt는 그대로다", "check": "unchecked"},
