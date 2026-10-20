@@ -1,6 +1,7 @@
 """M3.3 B eval (evidence selection) on LinearRAG.pdf: a keyword baseline vs Pablo's ask, scored against the gold spans.
 Run: python tests/eval/linearrag_eval.py [<state_dir> <asks.json>]   (no args: the baseline only)
-     python tests/eval/linearrag_eval.py fixture <state_dir> [--gold]   (state for check.js --pdf)
+     python tests/eval/linearrag_eval.py fixture <state_dir> [--gold] [--pdf <paper.pdf> --title <name>]
+       (state for check.js --pdf; --pdf/--title: another paper, for check.js --spec --paper)
 asks.json = [{id: "Q1", check: "SC1", ms}] from `check.js --pdf --ask`; the cited anchors are read from <state_dir>/skill.json.
 
 Rules (fixed before running):
@@ -81,14 +82,15 @@ def table(name, rows):
           f"{sum(REL[r['relevance']] for r in rows) / n:.0%} | low {sum(r['noise'] == 'low' for r in rows)}/{n} | | |")
 
 
-def fixture(state_dir, gold):
-    """A fresh state with the captured PDF and task T1; gold: one check per question citing its gold spans (A eval)."""
+def fixture(state_dir, gold, paper=None, title=""):
+    """A fresh state with the captured PDF and task T1; gold: one check per question citing its gold spans (A eval).
+    paper/title (D3, check.js --spec --paper): another paper instead of LinearRAG, captured under that title."""
     from pablo_v2.intent.engine import IntentEngine
     from pablo_v2.skill.skill import PabloSkill
     from pablo_v2.skill.viewer import render_html
     s = PabloSkill(IntentEngine(), path=os.path.join(state_dir, "skill.json"))
-    src = s.capture_pdf(os.path.abspath(os.path.join(ROOT, GOLD["pdf"])))
-    t = s.start_task("LinearRAG 논문 읽기", checks=[])
+    src = s.capture_pdf(os.path.abspath(paper or os.path.join(ROOT, GOLD["pdf"])), title=title)
+    t = s.start_task(f"{title or 'LinearRAG'} 논문 읽기", checks=[])
     out = []
     for q in GOLD["questions"] if gold else []:
         es = [s.add_anchor(src.id, g["exact"], page=g["page"]) for g in q["gold"]]
@@ -105,7 +107,8 @@ def fixture(state_dir, gold):
 
 def main(argv):
     if argv[:1] == ["fixture"]:
-        return fixture(argv[1], "--gold" in argv)
+        opt = lambda k: argv[argv.index(k) + 1] if k in argv else None  # noqa: E731
+        return fixture(argv[1], "--gold" in argv, opt("--pdf"), opt("--title") or "")
     qs = {q["id"]: q for q in GOLD["questions"]}
     base = [{"id": q["id"], **score(q, *baseline(q))} for q in qs.values()]
     table("keyword baseline", base)

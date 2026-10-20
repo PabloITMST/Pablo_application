@@ -1534,11 +1534,29 @@ async function papersUi() {
 // 10) --spec [shot-dir] (A2, real ChatGPT connection, a minute or two): LinearRAG -> 📋 재현 조건 뽑기 in the app -> the
 //     conditions card. How many of the model's quotes were found verbatim on their page (the rest are dropped, never kept
 //     unanchored); [n] opens the PDF on that page, highlighted; the agent's brief carries the conditions.
+//     --spec --paper=<key> (D3): one of the papers in tests/eval/spec_gold instead of LinearRAG, captured under its short
+//     name; the model's answer is kept in <state>/spec_dump.json and the run is scored against the confirmed gold
+//     (score.py -> <state>/score.json) before the card is checked, so a later failure does not lose the numbers.
+const SPEC_PAPERS = { sample_specific_masks: "Sample-specific Masks", batch_and_match: "Batch and Match", pinns_loss_landscape: "PINNs" };
+function specPaper() {
+  const key = (process.argv.find(a => a.startsWith("--paper=")) || "").slice(8);
+  if (!key) return null;
+  assert.ok(SPEC_PAPERS[key], `--paper=${key}: one of ${Object.keys(SPEC_PAPERS).join(", ")}`);
+  const gold = path.join(__dirname, "../tests/eval/spec_gold", key + ".json"), g = JSON.parse(fs.readFileSync(gold, "utf8"));
+  const pdf = path.resolve(path.dirname(gold), g.pdf);
+  assert.ok(fs.existsSync(pdf), `${pdf} is missing: arXiv ${g.arxiv}${g.version} goes there (.pablo is gitignored)`);
+  assert.strictEqual(crypto.createHash("sha256").update(fs.readFileSync(pdf)).digest("hex"), g.sha256.replace(/^sha256:/, ""),
+    `${pdf} is not the version the gold was written on`);
+  return { key, title: SPEC_PAPERS[key], gold, pdf };
+}
+
 async function specCheck() {
+  const paper = specPaper(), title = paper ? paper.title : "LinearRAG";  // before boot: a wrong paper never reaches the account
   const S = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-spec-"));
+  if (paper && !process.env.PABLO_SPEC_DUMP) process.env.PABLO_SPEC_DUMP = path.join(S, "spec_dump.json");
   await boot(); assert.strictEqual(auth().state, "connected", "sign in once with `npm start` first");
-  const fx = JSON.parse(pyEval("fixture", S));
-  fs.writeFileSync(path.join(S, "desktop.json"), JSON.stringify({ pdf: { T1: { id: "SRC1", title: "LinearRAG" } } }));
+  const fx = JSON.parse(pyEval("fixture", S, ...(paper ? ["--pdf", paper.pdf, "--title", title] : [])));
+  fs.writeFileSync(path.join(S, "desktop.json"), JSON.stringify({ pdf: { T1: { id: "SRC1", title } } }));
   const win = open(fx.view);
   await new Promise(r => win.webContents.once("did-finish-load", r));
   const js = code => win.webContents.executeJavaScript(code);
@@ -1557,6 +1575,15 @@ async function specCheck() {
     console.log(`  [${c.spec.category}] ${a ? "p." + a.selector.page : "논문에 없음"} ${c.requirement}${a ? ` | "${a.quote.exact.slice(0, 70)}"` : ""}`);
   }
   console.log(`  method steps (how values are used): ${stated.filter(c => c.spec.category === "method").length}; state ${S}`);
+  if (paper) {
+    const score = (...a) => execFileSync("python", [path.join(__dirname, "../tests/eval/spec_gold/score.py"), paper.gold, S, "--task", "T1", ...a],
+      { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } });
+    const r = JSON.parse(score("--json"));
+    fs.writeFileSync(path.join(S, "score.json"), JSON.stringify(r, null, 1));
+    console.log(score());
+    console.log(`D3 ${paper.key}: recall ${r.recall}, precision ${r.precision}, ${r.unmatched.length} not in the gold, ` +
+      `${r.place_only.length} place only; ${path.join(S, "score.json")}`);
+  }
   assert.ok(stated.length >= 6, "at least 6 conditions anchored");
   assert.ok(log.dropped <= Math.ceil((stated.length + log.dropped) / 3), "at most a third of the quotes dropped");
   await js(`document.querySelector("#live [data-spec] .cite").click()`);
@@ -1566,7 +1593,8 @@ async function specCheck() {
   const brief = await ctl.py("brief", "T1");
   // ⑥ a fact or the paper's scope is background in the brief (참고), not a fact the agent's step rests on
   const held = stated.filter(c => !["fact", "scope"].includes(c.spec.kind));
-  assert.ok(brief.text.includes("근거 없이 바꾸지 마세요") && /\(LinearRAG p\.\d+\)/.test(brief.text) && brief.basis.length === held.length,
+  const cited = new RegExp("\\(" + title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + " p\\.\\d+\\)");  // "(LinearRAG p.3)"
+  assert.ok(brief.text.includes("근거 없이 바꾸지 마세요") && cited.test(brief.text) && brief.basis.length === held.length,
     `basis ${brief.basis.length} vs ${held.length} conditions held to`);
   if (held.length < stated.length) assert.match(brief.text, /참고 \(논문의 서술과 이 재현 밖의 실험, 따를 조건은 아님\):/);
   console.log("ok brief:", brief.text.split("\n").length, "lines, basis", brief.basis.length, "checks");

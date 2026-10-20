@@ -135,7 +135,7 @@ def main(argv: list[str]) -> int:
     pdf_path = argv[argv.index("--pdf") + 1] if "--pdf" in argv else os.path.join(os.path.dirname(os.path.abspath(gold_path)), gold["pdf"])
     with open(pdf_path, "rb") as f:
         data = f.read()
-    if gold.get("sha256") and pdf.content_hash(data) != gold["sha256"]:
+    if gold.get("sha256") and pdf.content_hash(data).removeprefix("sha256:") != gold["sha256"].removeprefix("sha256:"):
         print(f"warning: {pdf_path} is not the version the gold was written on", file=sys.stderr)
     r = score(gold, pdf.pages(data), extracted(state, task), "--all" in argv)
     print(json.dumps(r, ensure_ascii=False, indent=1) if "--json" in argv else markdown(gold["paper"], r))
