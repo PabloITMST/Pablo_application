@@ -136,7 +136,8 @@ function review(act, args, summary) {
 ctl.idle = async () => { for (let p; p !== q;) { p = q; await p.catch(() => {}); await new Promise(r => setTimeout(r, 50)); } };
 
 // M3.3: answer from the captured PDF -> {check, anchors, sources, dropped} (the judge runs with the same account)
-ctl.ask = (task, question, src) => py("ask", task, question, ...(src ? ["--source", src] : []));
+// C1: src is one id or a list (the task's papers); each quote is anchored in its own paper
+ctl.ask = (task, question, src) => py("ask", task, question, ...[].concat(src || []).flatMap(s => ["--source", s]));
 
 Object.assign(ctl, { tasks, py });
 module.exports = ctl;

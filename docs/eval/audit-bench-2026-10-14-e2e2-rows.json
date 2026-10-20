@@ -1,0 +1,814 @@
+{
+ "per_variant": [
+  {
+   "variant": "v00-clean",
+   "items": 26,
+   "outside": 3,
+   "open": 14,
+   "planted": 0,
+   "method": 5,
+   "chosen": 5,
+   "warn": 0,
+   "other": 4,
+   "open_now": 14,
+   "planted_now": 0,
+   "method_now": 5,
+   "chosen_now": 5,
+   "warn_now": 0,
+   "other_now": 4,
+   "drifts_open_now": 0,
+   "drifts_folded_only": 0,
+   "folded_only": []
+  },
+  {
+   "variant": "v01",
+   "items": 26,
+   "outside": 4,
+   "open": 19,
+   "planted": 4,
+   "method": 6,
+   "chosen": 4,
+   "warn": 0,
+   "other": 5,
+   "open_now": 19,
+   "planted_now": 4,
+   "method_now": 6,
+   "chosen_now": 4,
+   "warn_now": 0,
+   "other_now": 5,
+   "drifts_open_now": 3,
+   "drifts_folded_only": 0,
+   "folded_only": []
+  },
+  {
+   "variant": "v02",
+   "items": 26,
+   "outside": 1,
+   "open": 15,
+   "planted": 2,
+   "method": 5,
+   "chosen": 5,
+   "warn": 0,
+   "other": 3,
+   "open_now": 15,
+   "planted_now": 2,
+   "method_now": 5,
+   "chosen_now": 5,
+   "warn_now": 0,
+   "other_now": 3,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
+  },
+  {
+   "variant": "v03",
+   "items": 26,
+   "outside": 3,
+   "open": 15,
+   "planted": 2,
+   "method": 5,
+   "chosen": 4,
+   "warn": 0,
+   "other": 4,
+   "open_now": 15,
+   "planted_now": 2,
+   "method_now": 5,
+   "chosen_now": 4,
+   "warn_now": 0,
+   "other_now": 4,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
+  },
+  {
+   "variant": "v04",
+   "items": 26,
+   "outside": 1,
+   "open": 14,
+   "planted": 2,
+   "method": 4,
+   "chosen": 5,
+   "warn": 1,
+   "other": 2,
+   "open_now": 14,
+   "planted_now": 2,
+   "method_now": 4,
+   "chosen_now": 5,
+   "warn_now": 1,
+   "other_now": 2,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
+  },
+  {
+   "variant": "v05",
+   "items": 26,
+   "outside": 1,
+   "open": 16,
+   "planted": 3,
+   "method": 3,
+   "chosen": 5,
+   "warn": 0,
+   "other": 5,
+   "open_now": 16,
+   "planted_now": 3,
+   "method_now": 3,
+   "chosen_now": 5,
+   "warn_now": 0,
+   "other_now": 5,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
+  },
+  {
+   "variant": "v06",
+   "items": 26,
+   "outside": 3,
+   "open": 15,
+   "planted": 2,
+   "method": 5,
+   "chosen": 4,
+   "warn": 0,
+   "other": 4,
+   "open_now": 15,
+   "planted_now": 2,
+   "method_now": 5,
+   "chosen_now": 4,
+   "warn_now": 0,
+   "other_now": 4,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
+  },
+  {
+   "variant": "v07",
+   "items": 26,
+   "outside": 2,
+   "open": 14,
+   "planted": 3,
+   "method": 5,
+   "chosen": 3,
+   "warn": 0,
+   "other": 3,
+   "open_now": 14,
+   "planted_now": 3,
+   "method_now": 5,
+   "chosen_now": 3,
+   "warn_now": 0,
+   "other_now": 3,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
+  },
+  {
+   "variant": "v08",
+   "items": 26,
+   "outside": 3,
+   "open": 17,
+   "planted": 3,
+   "method": 4,
+   "chosen": 5,
+   "warn": 0,
+   "other": 5,
+   "open_now": 17,
+   "planted_now": 3,
+   "method_now": 4,
+   "chosen_now": 5,
+   "warn_now": 0,
+   "other_now": 5,
+   "drifts_open_now": 2,
+   "drifts_folded_only": 0,
+   "folded_only": []
+  }
+ ],
+ "total": {
+  "items": 234,
+  "outside": 21,
+  "open": 139,
+  "planted": 21,
+  "method": 42,
+  "chosen": 40,
+  "warn": 1,
+  "other": 35,
+  "open_now": 139,
+  "planted_now": 21,
+  "method_now": 42,
+  "chosen_now": 40,
+  "warn_now": 1,
+  "other_now": 35,
+  "drifts_open_now": 17,
+  "drifts_folded_only": 0,
+  "drifts": 18,
+  "folded_only": []
+ },
+ "other": [
+  {
+   "variant": "v00-clean",
+   "status": "differs",
+   "category": "preprocessing",
+   "condition": "spaCy로 코퍼스와 질의에서 명명 개체를 추출한다.",
+   "note": "코퍼스에는 spaCy NER를 적용하지만 질의는 spaCy로 추출하지 않고 입력 entities를 그대로 사용한다.",
+   "where": "run.py:23",
+   "now": true
+  },
+  {
+   "variant": "v00-clean",
+   "status": "missing",
+   "category": "baseline",
+   "condition": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "note": "Vanilla RAG baseline의 1·3·5 passage 설정이나 실행 코드가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v00-clean",
+   "status": "differs",
+   "category": "result",
+   "condition": "LinearRAG는 HotpotQA, 2Wiki, MuSiQue, Medical에서 각각 64.30, 66.50, 70.20, 63.70의 Contain-Acc. 또는 GPT-Acc. 결과를 보고한다.",
+   "note": "기록된 2Wiki 결과가 논문의 LinearRAG 값 66.50과 일치하지 않으며 나머지 데이터셋 로그도 없다.",
+   "where": "logs/2wikimultihopqa.log:1",
+   "now": true
+  },
+  {
+   "variant": "v00-clean",
+   "status": "missing",
+   "category": "result",
+   "condition": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "note": "전체 파이프라인 정확도 66.95를 산출하거나 보고한 로그가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v01",
+   "status": "differs",
+   "category": "preprocessing",
+   "condition": "spaCy로 코퍼스와 질의에서 명명 개체를 추출한다.",
+   "note": "코퍼스 문장은 spaCy로 처리하지만 질의에서는 추출하지 않고 사전 제공된 entities를 사용합니다.",
+   "where": "run.py:23",
+   "now": true
+  },
+  {
+   "variant": "v01",
+   "status": "missing",
+   "category": "baseline",
+   "condition": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "note": "1·3·5 passage Vanilla RAG baseline을 구현하거나 실행한 흔적이 없습니다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v01",
+   "status": "differs",
+   "category": "result",
+   "condition": "LinearRAG는 HotpotQA, 2Wiki, MuSiQue, Medical에서 각각 64.30, 66.50, 70.20, 63.70의 Contain-Acc. 또는 GPT-Acc. 결과를 보고한다.",
+   "note": "2Wiki 로그 값이 논문의 66.50과 다르고 나머지 세 데이터셋 결과도 없습니다.",
+   "where": "logs\\2wikimultihopqa.log:1",
+   "now": true
+  },
+  {
+   "variant": "v01",
+   "status": "missing",
+   "category": "result",
+   "condition": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "note": "전체 파이프라인 정확도 66.95를 계산하거나 보고한 로그가 없습니다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v01",
+   "status": "missing",
+   "category": "method",
+   "condition": "LLM 생성의 decoding 설정이 명시되지 않았다.",
+   "note": "temperature, max_tokens 등 decoding 설정을 명시하지 않습니다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v02",
+   "status": "missing",
+   "category": "baseline",
+   "condition": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "note": "1·3·5 passage Vanilla RAG baseline을 구현하거나 실행한 근거가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v02",
+   "status": "differs",
+   "category": "result",
+   "condition": "LinearRAG는 HotpotQA, 2Wiki, MuSiQue, Medical에서 각각 64.30, 66.50, 70.20, 63.70의 Contain-Acc. 또는 GPT-Acc. 결과를 보고한다.",
+   "note": "네 데이터셋의 논문 보고값 전체가 없고, 기록된 2Wiki GPT-ACC 63.70도 논문값 66.50과 다르다.",
+   "where": "logs/2wikimultihopqa.log:1",
+   "now": true
+  },
+  {
+   "variant": "v02",
+   "status": "missing",
+   "category": "result",
+   "condition": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "note": "전체 파이프라인 정확도 66.95를 기록한 로그나 계산 코드가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v03",
+   "status": "missing",
+   "category": "baseline",
+   "condition": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "note": "Vanilla RAG baseline의 1·3·5 passage 비교 구현이나 로그가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v03",
+   "status": "differs",
+   "category": "result",
+   "condition": "LinearRAG는 HotpotQA, 2Wiki, MuSiQue, Medical에서 각각 64.30, 66.50, 70.20, 63.70의 Contain-Acc. 또는 GPT-Acc. 결과를 보고한다.",
+   "note": "2Wiki 로그 값이 논문 기준 66.50과 다르고 나머지 세 데이터셋 결과도 보고되지 않았다.",
+   "where": "logs\\2wikimultihopqa.log:1",
+   "now": true
+  },
+  {
+   "variant": "v03",
+   "status": "missing",
+   "category": "result",
+   "condition": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "note": "전체 파이프라인 정확도 66.95를 기록하거나 계산한 결과가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v03",
+   "status": "outside",
+   "category": "조건 밖",
+   "condition": "",
+   "note": "실행 로그와 설정 파일의 데이터 split이 서로 다르다.",
+   "where": "logs\\2wikimultihopqa.log:1",
+   "now": true
+  },
+  {
+   "variant": "v04",
+   "status": "missing",
+   "category": "baseline",
+   "condition": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "note": "Vanilla RAG baseline과 1·3·5 passage 설정 구현이나 로그가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v04",
+   "status": "missing",
+   "category": "result",
+   "condition": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "note": "전체 파이프라인 정확도 66.95를 계산하거나 보고한 코드·로그가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v05",
+   "status": "differs",
+   "category": "preprocessing",
+   "condition": "spaCy로 코퍼스와 질의에서 명명 개체를 추출한다.",
+   "note": "spaCy는 문장에서만 호출되고 질의의 명명 개체는 spaCy로 추출하지 않는다.",
+   "where": "preprocess.py:14-15",
+   "now": true
+  },
+  {
+   "variant": "v05",
+   "status": "missing",
+   "category": "baseline",
+   "condition": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "note": "1·3·5 passage Vanilla RAG baseline 구현이나 실행 흔적이 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v05",
+   "status": "differs",
+   "category": "result",
+   "condition": "LinearRAG는 HotpotQA, 2Wiki, MuSiQue, Medical에서 각각 64.30, 66.50, 70.20, 63.70의 Contain-Acc. 또는 GPT-Acc. 결과를 보고한다.",
+   "note": "네 데이터셋 결과가 모두 보고되지 않았고 2Wiki의 보고값도 논문의 66.50과 다르다.",
+   "where": "logs/2wikimultihopqa.log:1",
+   "now": true
+  },
+  {
+   "variant": "v05",
+   "status": "missing",
+   "category": "result",
+   "condition": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "note": "전체 파이프라인 정확도 66.95를 기록한 로그나 코드가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v05",
+   "status": "outside",
+   "category": "조건 밖",
+   "condition": "",
+   "note": "설정한 all-mpnet-base-v2 임베더를 실제 검색 계산에 사용하지 않는다.",
+   "where": "run.py:16",
+   "now": true
+  },
+  {
+   "variant": "v06",
+   "status": "differs",
+   "category": "preprocessing",
+   "condition": "spaCy로 코퍼스와 질의에서 명명 개체를 추출한다.",
+   "note": "코퍼스 문장에서는 spaCy 개체를 추출하지만 질의에서는 미리 제공된 entities를 사용한다.",
+   "where": "run.py:23",
+   "now": true
+  },
+  {
+   "variant": "v06",
+   "status": "missing",
+   "category": "baseline",
+   "condition": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "note": "1·3·5 passage Vanilla RAG baseline 구현이나 실행 설정이 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v06",
+   "status": "differs",
+   "category": "result",
+   "condition": "LinearRAG는 HotpotQA, 2Wiki, MuSiQue, Medical에서 각각 64.30, 66.50, 70.20, 63.70의 Contain-Acc. 또는 GPT-Acc. 결과를 보고한다.",
+   "note": "네 데이터셋 결과가 모두 보고되지 않았고, 보고된 2Wiki 값도 논문의 66.50과 다르다.",
+   "where": "logs/2wikimultihopqa.log:1",
+   "now": true
+  },
+  {
+   "variant": "v06",
+   "status": "missing",
+   "category": "result",
+   "condition": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "note": "전체 파이프라인 정확도 66.95를 산출하거나 기록한 로그가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v07",
+   "status": "missing",
+   "category": "dataset",
+   "condition": "주요 실험은 HotpotQA, 2WikiMultiHopQA, MuSiQue, Medical의 네 데이터셋에서 수행한다.",
+   "note": "설정에는 네 데이터셋이 있으나 실행 로그는 2Wiki 하나만 존재한다.",
+   "where": "config.yaml:4; logs/2wikimultihopqa.log:1",
+   "now": true
+  },
+  {
+   "variant": "v07",
+   "status": "missing",
+   "category": "baseline",
+   "condition": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "note": "1·3·5 passage Vanilla RAG baseline 구현이나 실행 로그가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v07",
+   "status": "missing",
+   "category": "result",
+   "condition": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "note": "전체 파이프라인 정확도 66.95를 계산하거나 기록하는 코드와 로그가 없다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v08",
+   "status": "differs",
+   "category": "preprocessing",
+   "condition": "spaCy로 코퍼스와 질의에서 명명 개체를 추출한다.",
+   "note": "코퍼스에는 spaCy를 적용하지만 질의에서는 미리 제공된 entities를 사용하고 spaCy로 추출하지 않습니다.",
+   "where": "run.py:23",
+   "now": true
+  },
+  {
+   "variant": "v08",
+   "status": "missing",
+   "category": "baseline",
+   "condition": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "note": "Vanilla RAG의 1·3·5 passage 비교 baseline 코드나 로그가 없습니다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v08",
+   "status": "differs",
+   "category": "result",
+   "condition": "LinearRAG는 HotpotQA, 2Wiki, MuSiQue, Medical에서 각각 64.30, 66.50, 70.20, 63.70의 Contain-Acc. 또는 GPT-Acc. 결과를 보고한다.",
+   "note": "2Wiki 로그값이 논문의 66.50과 다르고 나머지 세 데이터셋 결과도 보고되지 않았습니다.",
+   "where": "logs/2wikimultihopqa.log:1",
+   "now": true
+  },
+  {
+   "variant": "v08",
+   "status": "missing",
+   "category": "result",
+   "condition": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "note": "전체 파이프라인 정확도 66.95를 계산하거나 기록하는 코드와 로그가 없습니다.",
+   "where": "",
+   "now": true
+  },
+  {
+   "variant": "v08",
+   "status": "outside",
+   "category": "조건 밖",
+   "condition": "",
+   "note": "PPR의 damping 계수 0.85가 별도 설정으로 사용됩니다.",
+   "where": "config.yaml:13-14",
+   "now": true
+  }
+ ],
+ "conditions": {
+  "r01": {
+   "followed": 7,
+   "missing": 2
+  },
+  "r06": {
+   "followed": 6,
+   "differs": 2,
+   "missing": 1
+  },
+  "r07": {
+   "followed": 7,
+   "differs": 1,
+   "missing": 1
+  },
+  "r08": {
+   "differs": 7,
+   "followed": 2
+  },
+  "r09": {
+   "followed": 8,
+   "differs": 1
+  },
+  "r10": {
+   "followed": 8,
+   "differs": 1
+  },
+  "r11": {
+   "followed": 7,
+   "differs": 2
+  },
+  "r12": {
+   "followed": 8,
+   "differs": 1
+  },
+  "r13": {
+   "differs": 9
+  },
+  "r14": {
+   "differs": 8,
+   "missing": 1
+  },
+  "r15": {
+   "differs": 9
+  },
+  "r16": {
+   "followed": 8,
+   "differs": 1
+  },
+  "r17": {
+   "followed": 8,
+   "differs": 1
+  },
+  "r18": {
+   "followed": 8,
+   "differs": 1
+  },
+  "r19": {
+   "followed": 8,
+   "differs": 1
+  },
+  "r20": {
+   "followed": 8,
+   "missing": 1
+  },
+  "r21": {
+   "followed": 9
+  },
+  "r22": {
+   "followed": 8,
+   "differs": 1
+  },
+  "r24": {
+   "missing": 9
+  },
+  "r26": {
+   "differs": 9
+  },
+  "r27": {
+   "missing": 9
+  },
+  "r28": {
+   "chosen": 9
+  },
+  "r29": {
+   "chosen": 9
+  },
+  "r30": {
+   "chosen": 9
+  },
+  "r31": {
+   "chosen": 5,
+   "missing": 1,
+   "unclear": 3
+  },
+  "r32": {
+   "chosen": 9
+  }
+ },
+ "labels": {
+  "r01": {
+   "category": "dataset",
+   "statement": "주요 실험은 HotpotQA, 2WikiMultiHopQA, MuSiQue, Medical의 네 데이터셋에서 수행한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r02": {
+   "category": "dataset",
+   "statement": "HotpotQA는 약 97,000개의 질문-답변 인스턴스로 구성된다.",
+   "missing": false,
+   "kind": "fact"
+  },
+  "r03": {
+   "category": "dataset",
+   "statement": "2WikiMultiHopQA는 약 192,000개의 질문을 포함한다.",
+   "missing": false,
+   "kind": "fact"
+  },
+  "r04": {
+   "category": "dataset",
+   "statement": "MuSiQue는 약 25,000개의 질문-답변 쌍으로 구성된다.",
+   "missing": false,
+   "kind": "fact"
+  },
+  "r05": {
+   "category": "dataset",
+   "statement": "Medical 데이터셋은 NCCN 임상 지침에서 구축된 4,076개 질문을 포함한다.",
+   "missing": false,
+   "kind": "fact"
+  },
+  "r06": {
+   "category": "split",
+   "statement": "각 데이터셋의 검증 세트에서 1,000개 질문을 선택한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r07": {
+   "category": "preprocessing",
+   "statement": "각 passage를 구두점으로 문장 분할한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r08": {
+   "category": "preprocessing",
+   "statement": "spaCy로 코퍼스와 질의에서 명명 개체를 추출한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r09": {
+   "category": "model",
+   "statement": "모든 방법은 all-mpnet-base-v2 임베딩 모델을 사용한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r10": {
+   "category": "model",
+   "statement": "생성과 평가에는 GPT-4o-mini를 사용한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r11": {
+   "category": "hyperparameter",
+   "statement": "모든 방법의 top-k 검색값은 5이다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r12": {
+   "category": "method",
+   "statement": "Tri-Graph는 entity, sentence, passage 노드와 entity-문장 및 entity-passage 엣지를 포함하는 계층 그래프를 구축한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r13": {
+   "category": "method",
+   "statement": "첫 단계는 passage 노드를 고정하고 entity-문장 부분 그래프에서 semantic bridging으로 중간 entity를 활성화한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r14": {
+   "category": "method",
+   "statement": "semantic propagation은 질의-문장 유사도를 문장-entity 그래프를 통해 전파해 관련 중간 entity를 활성화한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r15": {
+   "category": "method",
+   "statement": "각 전파 단계에서 relevance score가 임계값보다 큰 새 entity만 다음 반복으로 유지한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r16": {
+   "category": "method",
+   "statement": "두 번째 단계는 활성화된 entity를 초기값으로 사용해 passage-entity 그래프에서 Personalized PageRank로 전역 중요도를 계산한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r17": {
+   "category": "method",
+   "statement": "검색된 passage는 PPR 점수로 순위를 매기고 가장 높은 top-k passage를 선택한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r18": {
+   "category": "hyperparameter",
+   "statement": "동적 pruning 임계값 δ는 4로 설정한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r19": {
+   "category": "hyperparameter",
+   "statement": "passage 초기 점수에서 DPR 유사도와 entity 정보의 균형 계수 λ는 0.05로 설정한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r20": {
+   "category": "metric",
+   "statement": "Contain-Match Accuracy는 생성 응답에 정답이 포함되는지를 평가한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r21": {
+   "category": "metric",
+   "statement": "GPT-Evaluation Accuracy는 LLM이 예측 답변과 정답의 일치 여부를 평가한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r22": {
+   "category": "metric",
+   "statement": "Medical 데이터셋은 GPT-ACC만으로 평가한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r23": {
+   "category": "baseline",
+   "statement": "비교 대상에는 zero-shot LLM, Vanilla RAG, KGP, G-Retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2가 포함된다.",
+   "missing": false,
+   "kind": "scope"
+  },
+  "r24": {
+   "category": "baseline",
+   "statement": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "missing": false,
+   "kind": "setting"
+  },
+  "r25": {
+   "category": "training",
+   "statement": "실험 하드웨어는 NVIDIA GeForce RTX 4090 D 24GB GPU와 Intel Xeon Gold 6426Y CPU이다.",
+   "missing": false,
+   "kind": "fact"
+  },
+  "r26": {
+   "category": "result",
+   "statement": "LinearRAG는 HotpotQA, 2Wiki, MuSiQue, Medical에서 각각 64.30, 66.50, 70.20, 63.70의 Contain-Acc. 또는 GPT-Acc. 결과를 보고한다.",
+   "missing": false,
+   "kind": "result"
+  },
+  "r27": {
+   "category": "result",
+   "statement": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "missing": false,
+   "kind": "result"
+  },
+  "r28": {
+   "category": "training",
+   "statement": "주요 실험의 난수 시드가 명시되지 않았다.",
+   "missing": true,
+   "kind": null
+  },
+  "r29": {
+   "category": "training",
+   "statement": "주요 실험의 반복 실행 횟수와 결과 집계 방식이 명시되지 않았다.",
+   "missing": true,
+   "kind": null
+  },
+  "r30": {
+   "category": "method",
+   "statement": "생성 및 평가에 사용한 구체적인 프롬프트 템플릿이 명시되지 않았다.",
+   "missing": true,
+   "kind": null
+  },
+  "r31": {
+   "category": "method",
+   "statement": "LLM 생성의 decoding 설정이 명시되지 않았다.",
+   "missing": true,
+   "kind": null
+  },
+  "r32": {
+   "category": "preprocessing",
+   "statement": "spaCy의 구체적인 모델명과 버전이 명시되지 않았다.",
+   "missing": true,
+   "kind": null
+  }
+ }
+}

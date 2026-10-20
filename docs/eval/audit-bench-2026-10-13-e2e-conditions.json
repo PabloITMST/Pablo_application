@@ -1,0 +1,157 @@
+{
+ "r01": {
+  "category": "dataset",
+  "statement": "HotpotQA는 약 97,000개의 질의-응답 인스턴스로 구성된다.",
+  "missing": false
+ },
+ "r02": {
+  "category": "dataset",
+  "statement": "2WikiMultiHopQA는 192,000개의 질문을 포함한다.",
+  "missing": false
+ },
+ "r03": {
+  "category": "dataset",
+  "statement": "MuSiQue는 25,000개의 질문-답변 쌍으로 구성된다.",
+  "missing": false
+ },
+ "r04": {
+  "category": "dataset",
+  "statement": "Medical 데이터셋은 총 4,076개의 질문으로 구성된다.",
+  "missing": false
+ },
+ "r05": {
+  "category": "split",
+  "statement": "각 데이터셋의 검증 세트에서 1,000개의 질문을 선택한다.",
+  "missing": false
+ },
+ "r06": {
+  "category": "preprocessing",
+  "statement": "각 passage는 구두점을 사용해 문장으로 분할한다.",
+  "missing": false
+ },
+ "r07": {
+  "category": "model",
+  "statement": "모든 방법은 all-mpnet-base-v2 임베딩 모델을 사용한다.",
+  "missing": false
+ },
+ "r08": {
+  "category": "model",
+  "statement": "생성과 평가에는 GPT-4o-mini를 사용한다.",
+  "missing": false
+ },
+ "r09": {
+  "category": "hyperparameter",
+  "statement": "모든 방법의 top-k 검색값은 5이다.",
+  "missing": false
+ },
+ "r10": {
+  "category": "hyperparameter",
+  "statement": "동적 pruning 임계값 δ는 4로 설정한다.",
+  "missing": false
+ },
+ "r11": {
+  "category": "hyperparameter",
+  "statement": "passage 초기 점수의 trade-off 계수 λ는 0.05에서 최적이다.",
+  "missing": false
+ },
+ "r12": {
+  "category": "hyperparameter",
+  "statement": "PageRank의 damping factor는 일반적으로 0.85이다.",
+  "missing": false
+ },
+ "r13": {
+  "category": "metric",
+  "statement": "Contain-Match Accuracy는 생성된 응답에 정답이 포함되는지를 검사한다.",
+  "missing": false
+ },
+ "r14": {
+  "category": "metric",
+  "statement": "GPT-Evaluation Accuracy는 LLM이 예측 답변과 정답의 일치 여부를 평가한다.",
+  "missing": false
+ },
+ "r15": {
+  "category": "protocol",
+  "statement": "Medical 데이터셋은 GPT-ACC.만으로 평가한다.",
+  "missing": false
+ },
+ "r16": {
+  "category": "baseline",
+  "statement": "주요 비교 대상으로 KGP, G-retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2를 사용한다.",
+  "missing": false
+ },
+ "r17": {
+  "category": "baseline",
+  "statement": "Vanilla RAG baseline은 1, 3, 5개 passage를 검색한다.",
+  "missing": false
+ },
+ "r18": {
+  "category": "training",
+  "statement": "실험은 NVIDIA GeForce RTX 4090 D 24GB GPU에서 수행한다.",
+  "missing": false
+ },
+ "r19": {
+  "category": "result",
+  "statement": "LinearRAG의 네 데이터셋별 주요 정확도 결과는 표에 보고된 값과 같다.",
+  "missing": false
+ },
+ "r20": {
+  "category": "result",
+  "statement": "LinearRAG의 2Wiki GPT 기반 정확도는 63.70%이다.",
+  "missing": false
+ },
+ "r21": {
+  "category": "result",
+  "statement": "LinearRAG의 2Wiki Contain 기반 정확도는 70.20%이다.",
+  "missing": false
+ },
+ "r22": {
+  "category": "method",
+  "statement": "Tri-Graph는 entity, sentence, passage 노드와 entity-문장 및 entity-passage 연결로 구성된다.",
+  "missing": false
+ },
+ "r23": {
+  "category": "method",
+  "statement": "질문에서 추출한 각 entity는 그래프에서 가장 유사한 entity에 초기 활성화된다.",
+  "missing": false
+ },
+ "r24": {
+  "category": "method",
+  "statement": "문장-entity 그래프에서 질문-문장 유사도를 이용해 중간 entity의 활성화 점수를 전파한다.",
+  "missing": false
+ },
+ "r25": {
+  "category": "method",
+  "statement": "각 전파 단계에서 관련성 점수가 임계값을 넘는 새 entity만 다음 반복에 유지한다.",
+  "missing": false
+ },
+ "r26": {
+  "category": "method",
+  "statement": "활성화된 entity를 seed로 사용해 entity-passage 그래프에서 Personalized PageRank로 passage 중요도를 집계한다.",
+  "missing": false
+ },
+ "r27": {
+  "category": "method",
+  "statement": "최종 검색 결과는 passage의 PageRank 점수가 높은 top-k passage이다.",
+  "missing": false
+ },
+ "r28": {
+  "category": "training",
+  "statement": "실험의 난수 시드와 재현에 사용할 시드 개수는 명시되지 않았다.",
+  "missing": true
+ },
+ "r29": {
+  "category": "training",
+  "statement": "학습률과 학습률 스케줄은 명시되지 않았다.",
+  "missing": true
+ },
+ "r30": {
+  "category": "protocol",
+  "statement": "각 실험을 몇 회 반복하고 결과를 어떻게 평균내는지는 명시되지 않았다.",
+  "missing": true
+ },
+ "r31": {
+  "category": "method",
+  "statement": "생성 단계에서 사용할 구체적인 프롬프트 템플릿은 명시되지 않았다.",
+  "missing": true
+ }
+}

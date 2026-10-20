@@ -49,11 +49,15 @@ REWRITE_MAX_REMOVED = 0.5
 
 def decide(*, pending_required: list[str], step: dict | None, unverified: list[str], analysis: dict,
            constraints: dict[str, str], sources: dict[str, str | None],
-           valid_support: list[str], rewrites: list[dict] = ()) -> tuple[str, list[dict]]:
+           valid_support: list[str], rewrites: list[dict] = (), separate: list[str] = (),
+           edits_existing: bool = False, reads: bool = False) -> tuple[str, list[dict]]:
     """-> (verdict, rule hits). constraints: active constraint / system policy id -> hard|soft.
     sources: the task's source checks, id -> outcome (None = waived / pending).
     valid_support: checks the judge cited that are completed with a supporting outcome.
-    rewrites: file edits measured by the host, [{path, lines (the file before), removed (lines the diff removes)}]."""
+    rewrites: file edits measured by the host, [{path, lines (the file before), removed (lines the diff removes)}].
+    separate: ⑦ checks the user differs from on purpose in separate runs only (the base run stays as the paper says);
+    edits_existing: the action changes or deletes a file that is there (vs. a new file or a command).
+    reads: the action only reads (skill.reads_only): it is part of doing any step, never a departure from one."""
     hits = []
 
     def hit(rule, verdict, reason):
@@ -64,9 +68,9 @@ def decide(*, pending_required: list[str], step: dict | None, unverified: list[s
             hit("W01", "WARN", f"{r['path']}의 기존 {r['lines']}줄 중 {r['removed']}줄을 지우고 새로 씁니다. "
                                "작은 수정이 쌓여 처음 의도와 멀어지기 쉬운 변경이라 확인이 필요합니다.")
 
-    if pending_required:
+    if pending_required and not reads:  # reading changes nothing; a read is how research gets done
         hit("G01", "BLOCK", f"REQUIRED research not completed: {pending_required}")
-    if step is None:
+    if step is None and not reads:
         hit("G02", "WARN", "no plan step behind this action")
     elif unverified:
         hit("G03", "ALLOW", f"basis not officially verified, treat as estimate/workaround: {unverified}")
@@ -100,6 +104,13 @@ def decide(*, pending_required: list[str], step: dict | None, unverified: list[s
         if sid not in sources or kind == "none":
             continue  # judge cited a check outside this task
         outcome = sources[sid]
+        if kind == "contradicts" and sid in separate:  # ⑦ an ablation the user allowed, in a separate run only
+            if edits_existing:
+                hit("S07", "WARN", f"{sid}: 의도한 차이는 별도 실행에서만 두기로 했는데, 이 작업은 기존 파일을 바꿉니다. "
+                                   "기본 실행은 논문대로 두고 새 파일이나 실행 옵션으로 다르게 하세요.")
+            else:
+                hit("S06", "ALLOW", f"{sid}: intended deviation, in a separate run")
+            continue
         if kind == "contradicts":
             # ponytail: no exception path, like hard constraints; a wrong conclusion is fixed by redoing the check
             if outcome == "VERIFIED":
@@ -114,7 +125,7 @@ def decide(*, pending_required: list[str], step: dict | None, unverified: list[s
         else:
             hit("S05", "ALLOW", f"possible conflict with {sid}")
 
-    if step is not None and not (analysis.get("plan_alignment") or {}).get("follows_step", True):
+    if step is not None and not reads and not (analysis.get("plan_alignment") or {}).get("follows_step", True):
         if justified:
             hit("D02", "ALLOW", f"departs from {step['id']}, reason given")
         else:

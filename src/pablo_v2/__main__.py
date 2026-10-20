@@ -2,7 +2,8 @@
 
 Account   login [--device] | logout | status
 Intent    say "<msg>" [--agent] [--llm] | show | candidates | history | promote K4 | reject K4 | demo [--llm]
-Skill     task "<task>" [--checks JSON]          start task; no --checks -> Codex analyzer decides checks
+          promote K4 --as hard|soft | strength C2 hard|soft | drop C2 [--reason R] | restore C2   (the user's own edits)
+Skill     task "<task>" [--checks JSON] [--repro]  start task; no --checks -> Codex analyzer decides checks
           search SC1 "<target>" "<query>" --tier 1 --found|--not-found
           check SC1 VERIFIED "<conclusion>" [--sources JSON] [--stop-reason R]
           plan T1 --steps JSON                    [{"action": "...", "basis": ["SC1", "C1"]}]
@@ -17,14 +18,23 @@ Skill     task "<task>" [--checks JSON]          start task; no --checks -> Code
           brief T1                                what the desktop agent is told: criteria + located facts (+ basis ids)
           audit T1                                the 재현 점검 turn for the desktop agent: prompt + output schema + items
 Evidence  source <url> [--title T]                Pablo fetches + snapshots the page -> SRC1 (version = content hash)
-          source <file.pdf> [--title T]           M3.3: copies the PDF + its page text -> SRC1 (version = bytes hash)
+          source <file.pdf> [--title T] [--arxiv ID]   M3.3: copies the PDF + its page text -> SRC1 (version = bytes hash)
+                                                  (C2 --arxiv: title and arXiv version read from the PDF)
           anchor SRC1 "<exact quote>" [--near "<text next to it>"] [--page N]   -> E1 (refused if missing or ambiguous)
           link E1 SC2 supports|contradicts|verifies|implements|derived_from [--note ...]
-          resolve E1 | resolve --all              re-fetch live source -> VALID | STALE | UNRESOLVED
+          resolve E1 | --all | --source SRC1      re-fetch live source -> VALID | STALE | UNRESOLVED
           evidence E1                             quote in context, status, links
-          ask T1 "<question>" [--source SRC1]     M3.3: answer from a captured PDF, quotes anchored -> SC + [n] citations
+          ask T1 "<question>" [--source SRC1]...  M3.3: answer from a captured PDF, quotes anchored -> SC + [n] citations
+                                                  (C1: several --source, each quote anchored in its own paper)
           spec T1 [--source SRC1]                 the paper's reproduction conditions -> anchored VERIFIED checks
-                                                  (+ pending checks for what the paper does not state)
+                                                  (+ pending checks for what the paper does not state; replaces the
+                                                  task's conditions from any paper: one paper is reproduced)
+          add-spec T1 --source SRC1 --quote Q --page N --category C --statement S [--value V]   one condition by hand
+          drop-spec SC5 --reason R | restore-spec SC5   take a condition out (kept, with why) / back
+          deviate SC5 --reason R [--scope runs|task] | undeviate SC5   ⑦ differ from it on purpose / back
+          rename-source SRC2 --title "HippoRAG 2"  ⑧ the name the user knows a paper by
+          compare T1 --source SRC1 --source SRC2 [--columns JSON]   C3: a table, one judge call per paper, each cell
+                                                  anchored or left empty -> M1 + cells
 JSON args accept inline JSON or @file.json. State lives in --dir (default .pablo/).
 Exit codes: 0 ok, 2 refused by Pablo (research gate etc.), 1 other error.
 """
@@ -41,14 +51,14 @@ from dataclasses import asdict
 
 from pablo_v2 import auth
 from pablo_v2.intent.engine import IntentEngine
-from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor, standing_criteria
+from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor, reads_like_rule, standing_criteria
 from pablo_v2.intent.render import render_candidates, render_history, render_intent
 from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
-from pablo_v2.skill.viewer import model, render_html, workspace
+from pablo_v2.skill.viewer import model, render_html, render_report, workspace
 from pablo_v2.skill.evidence import AnchorRejected
-from pablo_v2.skill.skill import (AUDIT_SCHEMA, DecisionRejected, PabloSkill, ResearchIncomplete, ResearchRejected,
-                                  render_audit, render_brief, render_evidence, render_task)
+from pablo_v2.skill.skill import (AUDIT_SCHEMA, REPRO_CRITERIA, SPEC_LABEL, DecisionRejected, PabloSkill,
+                                  ResearchIncomplete, ResearchRejected, render_audit, render_brief, render_evidence, render_task)
 
 # M1.1 acceptance conversation: (role, text)
 ACCEPTANCE = [
@@ -101,18 +111,47 @@ def _parser() -> argparse.ArgumentParser:
                    "criteria become task-scoped intent; the request itself is the plan step, never a goal")
     s.add_argument("--task", help="the task this was said in (--scope task / --request): its task-scoped intent applies "
                    "to that task only, also when other tasks were made later")
-    for name in ("promote", "reject"):
-        add(name).add_argument("id")
+    s = add("promote")
+    s.add_argument("id")
+    s.add_argument("--as", dest="as_", choices=["hard", "soft"], help="③ make an unread / held line a rule of its task")
+    add("reject").add_argument("id")
+    s = add("strength")  # ④ the user changes a criterion's strength
+    s.add_argument("id"), s.add_argument("level", choices=["hard", "soft"])
+    s = add("drop")  # ④ the user removes a criterion (kept in the history, status removed)
+    s.add_argument("id")
+    s.add_argument("--reason", default="", help="required for a reproduction task's default criterion")
+    add("restore").add_argument("id")  # ④ a removed criterion back
+    s = add("add-spec")  # ⑩ a sentence the user picked in the paper -> a reproduction condition, anchored
+    s.add_argument("task_id"), s.add_argument("--source", required=True), s.add_argument("--quote", required=True)
+    s.add_argument("--page", type=int), s.add_argument("--category", required=True, choices=list(SPEC_LABEL))
+    s.add_argument("--statement", required=True), s.add_argument("--value", default="")
+    s = add("drop-spec")  # ⑩ a condition taken out by the user (with why; restorable)
+    s.add_argument("check_id"), s.add_argument("--reason", required=True)
+    add("restore-spec").add_argument("check_id")
+    s = add("rename-task")  # ⑭ the name a task goes by in the list (its text stays the goal)
+    s.add_argument("task_id"), s.add_argument("--name", required=True)
+    s = add("rename-source")  # ⑧ the name the user knows a paper by
+    s.add_argument("source_id"), s.add_argument("--title", required=True)
+    s = add("deviate")  # ⑦ differ from a paper condition on purpose (why required)
+    s.add_argument("check_id"), s.add_argument("--reason", required=True)
+    s.add_argument("--scope", choices=["runs", "task"], default="runs",
+                   help="runs (default): separate runs only, the base run stays as the paper says; task: the whole task")
+    add("undeviate").add_argument("check_id")  # ⑦ back to the paper's condition
     s = add("view")
     s.add_argument("id", nargs="?", help="task to show first (--html: default the latest)")
     s.add_argument("--html", action="store_true", help="write <dir>/view-T1.html (export/debug snapshot of every task)")
     add("state")  # the desktop's live workspace model (read-only)
     add("brief").add_argument("task_id")
     add("audit").add_argument("task_id")
+    s = add("report")  # ⑫ the reproduction report (Markdown)
+    s.add_argument("task_id")
+    s.add_argument("--now", type=_json_arg, default=None, help='desktop: {"tree", "git": {head, dirty}, "recheck": {at, placed, gone}}')
 
     s = add("task")
     s.add_argument("text")
     s.add_argument("--checks", type=_json_arg, help='[{"requirement", "necessity", "why"}]; [] = no research')
+    s.add_argument("--repro", action="store_true", help="a reproduction task: the output lists the criteria it starts "
+                   "with (say them with --scope task --task T)")
     s = add("search")
     s.add_argument("check_id"), s.add_argument("target"), s.add_argument("query")
     s.add_argument("--tier", type=int, required=True, help="authority of what you searched, 1 official docs .. 6 web")
@@ -149,6 +188,9 @@ def _parser() -> argparse.ArgumentParser:
     add("review").add_argument("execution_id")
     s = add("source")
     s.add_argument("url"), s.add_argument("--title", default="")
+    s.add_argument("--arxiv", help="C2: the arXiv id the PDF was downloaded as (title + version from the PDF itself)")
+    s.add_argument("--openreview", help="⑬ the OpenReview forum id the PDF was downloaded as (title from the PDF itself)")
+    s.add_argument("--doi", help="⑬ with --arxiv: the publisher DOI this arXiv version was found by")
     s = add("anchor")
     s.add_argument("source_id"), s.add_argument("exact")
     s.add_argument("--near", default="", help="text next to the intended occurrence when the quote repeats")
@@ -161,13 +203,19 @@ def _parser() -> argparse.ArgumentParser:
     g = s.add_mutually_exclusive_group(required=True)
     g.add_argument("evidence_id", nargs="?")
     g.add_argument("--all", action="store_true")
+    g.add_argument("--source", dest="source_id", help="C2: every anchor of one source (a newer version saved over its file)")
     add("evidence").add_argument("evidence_id")
     s = add("ask")
     s.add_argument("task_id"), s.add_argument("question")
-    s.add_argument("--source", help="PDF source id (default: the latest captured PDF)")
+    s.add_argument("--source", action="append", help="PDF source id, repeat for several papers (default: the latest PDF)")
     s = add("spec")
     s.add_argument("task_id")
     s.add_argument("--source", help="PDF source id (default: the latest captured PDF)")
+    s = add("compare")
+    s.add_argument("task_id")
+    s.add_argument("--source", action="append", required=True, help="PDF source id, two or more")
+    s.add_argument("--columns", type=_json_arg, help='["데이터셋", "평가 지표", ...] (default: skill.COLUMNS)')
+    s.add_argument("--into", help="⑧ a table that is there (M1): its new columns only, the same matrix id")
     return p
 
 
@@ -230,7 +278,10 @@ def _run(a, out) -> int:
         else:
             ks = e.process_message(a.text, role="agent" if a.agent else "user")
         added = [e.get_item(k.item_id) for k in ks if k.status == "committed" and k.item_id]
-        out({"candidates": [asdict(k) for k in ks],
+        # ③ never dropped without a word: a criterion line the reader could not classify comes back for the user to
+        # decide (a new task's lines always; a chat sentence when it ends like an instruction)
+        unread = [{"id": k.id, "text": k.text} for k in ks if k.status == "ignored" and (not a.request or reads_like_rule(k.text))]
+        out({"candidates": [asdict(k) for k in ks], "unread": unread,
              "added": [{"id": i.id, "kind": i.kind, "strength": i.strength, "text": i.statement} for i in added if i]},
             "\n".join(f"{k.id} {k.action} -> {k.status} {k.item_id or ''} ({k.policy_reason})" for k in ks)
             or "(agent message stored as context)")
@@ -241,8 +292,17 @@ def _run(a, out) -> int:
     elif a.cmd == "history":
         out({"history": [asdict(c) for c in e.get_intent_history()]}, render_history(e))
     elif a.cmd == "promote":
-        item = e.promote_candidate(a.id)
+        item = e.promote_as(a.id, a.as_) if a.as_ else e.promote_candidate(a.id)
         out({"item": asdict(item)}, item.id)
+    elif a.cmd == "strength":
+        item = e.set_strength(a.id, a.level)
+        out({"item": asdict(item)}, f"{item.id} -> {item.strength}")
+    elif a.cmd == "drop":
+        item = s.drop_criterion(a.id, a.reason)
+        out({"item": asdict(item)}, f"{item.id} removed")
+    elif a.cmd == "restore":
+        item = e.restore_item(a.id)
+        out({"item": asdict(item)}, f"{item.id} restored")
     elif a.cmd == "reject":
         e.reject_candidate(a.id)
         out({}, f"{a.id} rejected")
@@ -251,7 +311,7 @@ def _run(a, out) -> int:
 
     elif a.cmd == "task":
         t = s.start_task(a.text, a.checks)
-        out(_task_json(s, t.id), render_task(s, t.id))
+        out({**_task_json(s, t.id), **({"repro": list(REPRO_CRITERIA)} if a.repro else {})}, render_task(s, t.id))
     elif a.cmd == "search":
         s.record_search(a.check_id, a.target, a.query, a.tier, a.found)
         c = s.get_check(a.check_id)
@@ -289,7 +349,7 @@ def _run(a, out) -> int:
         out({"review": asdict(r), "research_issues": [asdict(i) for i in s.state.issues if i.review_id == r.id]},
             render_task(s, s.get_action(r.action_id).task_id))
     elif a.cmd == "source":
-        x = s.capture_pdf(a.url, a.title) if a.url.lower().endswith(".pdf") and os.path.isfile(a.url) \
+        x = s.capture_pdf(a.url, a.title, a.arxiv, a.openreview, a.doi) if a.url.lower().endswith(".pdf") and os.path.isfile(a.url) \
             else s.capture_source(a.url, a.title)
         out({"source": asdict(x)}, f"{x.id} {x.title} {x.version['content_hash'][:19]} -> {x.snapshot}")
     elif a.cmd == "anchor":
@@ -299,7 +359,8 @@ def _run(a, out) -> int:
         x = s.link_evidence(a.evidence_id, a.target_id, a.relation, a.note)
         out({"link": asdict(x)}, f"{x.id}: {x.evidence_id} {x.relation} {x.target_id}")
     elif a.cmd == "resolve":
-        xs = [s.resolve_anchor(i) for i in ([x.id for x in s.state.anchors] if a.all else [a.evidence_id])]
+        xs = s.resolve_source(a.source_id) if a.source_id else \
+            [s.resolve_anchor(i) for i in ([x.id for x in s.state.anchors] if a.all else [a.evidence_id])]
         out({"anchors": [asdict(x) for x in xs]}, "\n".join(render_evidence(s, x.id) for x in xs))
     elif a.cmd == "evidence":
         out({"anchor": asdict(s.get_anchor(a.evidence_id)),
@@ -313,16 +374,45 @@ def _run(a, out) -> int:
              "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
             "\n".join([sc.conclusion, *(render_evidence(s, e) for e in ids),
                        *(f"dropped p.{d['page']}: {d['quote']} ({d['why']})" for d in dropped)]))
+    elif a.cmd == "compare":
+        mid, cells, empty = s.compare(a.task_id, a.source, a.columns, a.into)
+        v = model(s, a.task_id)  # the desktop shows the table without a reload
+        ids = [e for c in cells for e in v["checks"][c.id]["evidence"]]
+        out({"matrix": mid, "cells": [v["checks"][c.id] for c in cells], "empty": empty,
+             "anchors": {e: v["anchors"][e] for e in ids},
+             "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
+            "\n".join([f"{mid}: {len(cells)} cells anchored, {len(empty)} empty"]
+                      + [f"{c.id} [{c.matrix['source_id']} · {c.matrix['column']}] {c.conclusion}" for c in cells]
+                      + [f"empty [{x['source_id']} · {x['column']}] {x['why']}" for x in empty]))
     elif a.cmd == "spec":
         stated, missing, dropped = s.spec(a.task_id, a.source)
         v = model(s, a.task_id)
         ids = [e for c in stated for e in v["checks"][c.id]["evidence"]]
         out({"stated": [v["checks"][c.id] for c in stated], "missing": [v["checks"][c.id] for c in missing],
-             "dropped": dropped, "anchors": {e: v["anchors"][e] for e in ids},
+             "dropped": dropped, "diff": s.spec_diff, "anchors": {e: v["anchors"][e] for e in ids},
              "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
             "\n".join([f"{c.id} [{c.spec['category']}] {c.conclusion}" for c in stated]
                       + [f"{c.id} [{c.spec['category']}] 논문에 없음: {c.requirement}" for c in missing]
                       + [f"dropped p.{d['page']}: {d['quote']} ({d['why']})" for d in dropped]))
+    elif a.cmd == "add-spec":
+        sc = s.add_spec(a.task_id, a.source, a.quote, a.page, a.category, a.statement, a.value)
+        v = model(s, a.task_id)
+        ids = v["checks"][sc.id]["evidence"]
+        out({"check": v["checks"][sc.id], "anchors": {e: v["anchors"][e] for e in ids},
+             "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
+            f"{sc.id} [{sc.spec['category']}] {sc.conclusion}")
+    elif a.cmd in ("drop-spec", "restore-spec"):
+        sc = s.drop_spec(a.check_id, a.reason) if a.cmd == "drop-spec" else s.restore_spec(a.check_id)
+        out({"check": asdict(sc)}, f"{sc.id} {sc.research_state}")
+    elif a.cmd == "rename-task":
+        t = s.rename_task(a.task_id, a.name)
+        out({"task": asdict(t)}, f"{t.id} -> {t.name or t.text}")
+    elif a.cmd == "rename-source":
+        src = s.rename_source(a.source_id, a.title)
+        out({"source": asdict(src)}, f"{src.id} -> {src.title}")
+    elif a.cmd in ("deviate", "undeviate"):
+        sc = s.deviate_spec(a.check_id, a.reason, a.scope) if a.cmd == "deviate" else s.undeviate_spec(a.check_id)
+        out({"check": asdict(sc)}, f"{sc.id} {'differs on purpose' if a.cmd == 'deviate' else 'back to the paper'}")
     elif a.cmd == "view" and a.html:
         path = os.path.abspath(os.path.join(a.dir, f"view-{a.id}.html" if a.id else "pablo.html"))
         with open(path, "w", encoding="utf-8") as f:
@@ -338,6 +428,9 @@ def _run(a, out) -> int:
     elif a.cmd == "audit":
         prompt, items = render_audit(s, a.task_id)
         out({"prompt": prompt, "schema": AUDIT_SCHEMA, "items": items}, prompt)
+    elif a.cmd == "report":
+        md = render_report(s, a.task_id, a.now)
+        out({"text": md, "title": s.get_task(a.task_id).text}, md)
     elif a.cmd == "brief":
         text, basis = render_brief(s, a.task_id)
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16] if text else ""

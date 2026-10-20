@@ -1,0 +1,244 @@
+{
+ "pdf": "LinearRAG.pdf",
+ "note": "The spec model's answer for LinearRAG.pdf as it came on 2026-10-14 (check.js --spec with PABLO_SPEC_DUMP, the kind prompt of bc214e8): 27 conditions (19 setting, 2 result, 5 fact, 1 scope), all anchored, 0 dropped, and 5 settings the paper does not state. Unedited, kinds as the model gave them: the four dataset sizes and the GPU came as fact and the baseline list as scope, while the Vanilla RAG baseline's own 1/3/5-passage settings came as setting. linearrag_spec_real.json (2026-10-13, no kinds) stays the e2e baseline.",
+ "items": [
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "주요 실험은 HotpotQA, 2WikiMultiHopQA, MuSiQue, Medical의 네 데이터셋에서 수행한다.",
+   "value": "HotpotQA; 2WikiMultiHopQA; MuSiQue; Medical",
+   "quote": "including HotpotQA (Yang et al., 2018), 2WikiMultiHopQA (2Wiki) (Ho et al., 2020), MuSiQue",
+   "page": 7
+  },
+  {
+   "category": "dataset",
+   "kind": "fact",
+   "statement": "HotpotQA는 약 97,000개의 질문-답변 인스턴스로 구성된다.",
+   "value": "97k",
+   "quote": "A comprehensive benchmark comprising 97k question-answer instances designed to evaluate multi-hop reasoning capabilities",
+   "page": 15
+  },
+  {
+   "category": "dataset",
+   "kind": "fact",
+   "statement": "2WikiMultiHopQA는 약 192,000개의 질문을 포함한다.",
+   "value": "192k",
+   "quote": "A multi-hop reasoning benchmark containing 192k questions that necessitate information integration across multiple Wikipedia articles",
+   "page": 15
+  },
+  {
+   "category": "dataset",
+   "kind": "fact",
+   "statement": "MuSiQue는 약 25,000개의 질문-답변 쌍으로 구성된다.",
+   "value": "25k",
+   "quote": "A sophisticated multi-hop QA benchmark featuring 25k question-answer pairs that demand 2-4 sequential reasoning steps",
+   "page": 15
+  },
+  {
+   "category": "dataset",
+   "kind": "fact",
+   "statement": "Medical 데이터셋은 NCCN 임상 지침에서 구축된 4,076개 질문을 포함한다.",
+   "value": "4,076",
+   "quote": "The dataset encompasses four tasks of increasing complexity: fact retrieval, complex reasoning, contextual summarization, and creative generation, totaling 4,076 questions",
+   "page": 15
+  },
+  {
+   "category": "split",
+   "kind": "setting",
+   "statement": "각 데이터셋의 검증 세트에서 1,000개 질문을 선택한다.",
+   "value": "1,000",
+   "quote": "using the same corpus for retrieval and choosing 1,000 questions from each validation set",
+   "page": 7
+  },
+  {
+   "category": "preprocessing",
+   "kind": "setting",
+   "statement": "각 passage를 구두점으로 문장 분할한다.",
+   "value": "punctuation",
+   "quote": "we first segment each passage into sentences using punctuation (e.g., periods or exclamation marks)",
+   "page": 5
+  },
+  {
+   "category": "preprocessing",
+   "kind": "setting",
+   "statement": "spaCy로 코퍼스와 질의에서 명명 개체를 추출한다.",
+   "value": "spaCy",
+   "quote": "We then apply lightweight models (e.g., spaCy (Honnibal et al., 2020)) for named entity recognition",
+   "page": 5
+  },
+  {
+   "category": "model",
+   "kind": "setting",
+   "statement": "모든 방법은 all-mpnet-base-v2 임베딩 모델을 사용한다.",
+   "value": "all-mpnet-base-v2",
+   "quote": "all algorithms use the same embedding model,i.e., all-mpnet-base-v2 (Xiao et al., 2023))",
+   "page": 8
+  },
+  {
+   "category": "model",
+   "kind": "setting",
+   "statement": "생성과 평가에는 GPT-4o-mini를 사용한다.",
+   "value": "GPT-4o-mini",
+   "quote": "All RAG approaches employ the same LLM (GPT-4o-mini) for both generation and evaluation tasks",
+   "page": 8
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "모든 방법의 top-k 검색값은 5이다.",
+   "value": "5",
+   "quote": "We setk= 5 for topkretrieval in all methods.",
+   "page": 8
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "Tri-Graph는 entity, sentence, passage 노드와 entity-문장 및 entity-passage 엣지를 포함하는 계층 그래프를 구축한다.",
+   "value": "",
+   "quote": "It constructs a graph that contains three types of nodes: entity nodes, sentence nodes, and passage nodes.",
+   "page": 4
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "첫 단계는 passage 노드를 고정하고 entity-문장 부분 그래프에서 semantic bridging으로 중간 entity를 활성화한다.",
+   "value": "",
+   "quote": "entity activation stage, where we fix the passage nodes and use local semantic bridging on the entity–sentence subgraph to identify intermediate entities",
+   "page": 4
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "semantic propagation은 질의-문장 유사도를 문장-entity 그래프를 통해 전파해 관련 중간 entity를 활성화한다.",
+   "value": "",
+   "quote": "Semantic propagation that propagates the similarities in σq through semantic similarity extraction to activate relevant intermediate entities",
+   "page": 5
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "각 전파 단계에서 relevance score가 임계값보다 큰 새 entity만 다음 반복으로 유지한다.",
+   "value": "",
+   "quote": "A newly activated entity is retained for the next iteration only if its relevance score exceeds δ; otherwise, it is pruned.",
+   "page": 6
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "두 번째 단계는 활성화된 entity를 초기값으로 사용해 passage-entity 그래프에서 Personalized PageRank로 전역 중요도를 계산한다.",
+   "value": "",
+   "quote": "The second stage performs global importance aggregation with hybrid initialization for passage nodes to retrieve important passages using Personalized PageRank",
+   "page": 6
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "검색된 passage는 PPR 점수로 순위를 매기고 가장 높은 top-k passage를 선택한다.",
+   "value": "",
+   "quote": "Passages are ranked by their PPR scores I(v|v∈V p), and the top-k passages with the highest scores are selected for retrieval.",
+   "page": 6
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "동적 pruning 임계값 δ는 4로 설정한다.",
+   "value": "4",
+   "quote": "And, we setδ= 4based on our experimental setting.",
+   "page": 17
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "passage 초기 점수에서 DPR 유사도와 entity 정보의 균형 계수 λ는 0.05로 설정한다.",
+   "value": "0.05",
+   "quote": "optimal performance is achieved whenλtakes a relatively small value (e.g., 0.05)",
+   "page": 18
+  },
+  {
+   "category": "metric",
+   "kind": "setting",
+   "statement": "Contain-Match Accuracy는 생성 응답에 정답이 포함되는지를 평가한다.",
+   "value": "Contain-Match Accuracy",
+   "quote": "Contain-Match Accuracy (Contain-Acc.), which checks if the correct answer appears in the generated response",
+   "page": 8
+  },
+  {
+   "category": "metric",
+   "kind": "setting",
+   "statement": "GPT-Evaluation Accuracy는 LLM이 예측 답변과 정답의 일치 여부를 평가한다.",
+   "value": "GPT-Evaluation Accuracy",
+   "quote": "GPT-Evaluation Accuracy (GPT-ACC.), an LLM-based metric that assesses whether the predicted answer matches the ground truth",
+   "page": 8
+  },
+  {
+   "category": "metric",
+   "kind": "setting",
+   "statement": "Medical 데이터셋은 GPT-ACC만으로 평가한다.",
+   "value": "GPT-ACC",
+   "quote": "For the Medical dataset, since golden answers consist of lengthy descriptive statements, we only evaluate using GPT-ACC.",
+   "page": 8
+  },
+  {
+   "category": "baseline",
+   "kind": "scope",
+   "statement": "비교 대상에는 zero-shot LLM, Vanilla RAG, KGP, G-Retriever, RAPTOR, E2GraphRAG, LightRAG, HippoRAG, GFM-RAG, HippoRAG2가 포함된다.",
+   "value": "zero-shot LLM; Vanilla RAG; KGP; G-Retriever; RAPTOR; E2GraphRAG; LightRAG; HippoRAG; GFM-RAG; HippoRAG2",
+   "quote": "We compare against leading GraphRAG implementations including KGP (Wang et al., 2024), G-retriever (He et al., 2024), RAPTOR",
+   "page": 7
+  },
+  {
+   "category": "baseline",
+   "kind": "setting",
+   "statement": "Vanilla RAG baseline은 1, 3, 5개 passage 검색 설정을 사용한다.",
+   "value": "1, 3, 5",
+   "quote": "We deploy Vanilla RAG methodologies across multiple retrieval configurations (retrieving 1, 3, or 5 top passages)",
+   "page": 7
+  },
+  {
+   "category": "training",
+   "kind": "fact",
+   "statement": "실험 하드웨어는 NVIDIA GeForce RTX 4090 D 24GB GPU와 Intel Xeon Gold 6426Y CPU이다.",
+   "value": "NVIDIA GeForce RTX 4090 D (24GB VRAM); Intel(R) Xeon(R) Gold 6426Y",
+   "quote": "GPU NVIDIA GeForce RTX 4090 D (24GB VRAM) CPU Intel(R) Xeon(R) Gold 6426Y",
+   "page": 16
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "LinearRAG는 HotpotQA, 2Wiki, MuSiQue, Medical에서 각각 64.30, 66.50, 70.20, 63.70의 Contain-Acc. 또는 GPT-Acc. 결과를 보고한다.",
+   "value": "64.30; 66.50; 70.20; 63.70; 33.90; 37.00; 63.72",
+   "quote": "LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72",
+   "page": 7
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "LinearRAG의 전체 파이프라인 정확도는 66.95이다.",
+   "value": "66.95",
+   "quote": "LinearRAG (Ours) 249.78 0.093 0 0 66.95",
+   "page": 9
+  }
+ ],
+ "missing": [
+  {
+   "category": "training",
+   "statement": "주요 실험의 난수 시드가 명시되지 않았다."
+  },
+  {
+   "category": "training",
+   "statement": "주요 실험의 반복 실행 횟수와 결과 집계 방식이 명시되지 않았다."
+  },
+  {
+   "category": "method",
+   "statement": "생성 및 평가에 사용한 구체적인 프롬프트 템플릿이 명시되지 않았다."
+  },
+  {
+   "category": "method",
+   "statement": "LLM 생성의 decoding 설정이 명시되지 않았다."
+  },
+  {
+   "category": "preprocessing",
+   "statement": "spaCy의 구체적인 모델명과 버전이 명시되지 않았다."
+  }
+ ]
+}

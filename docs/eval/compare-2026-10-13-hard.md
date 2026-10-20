@@ -1,0 +1,188 @@
+# 비교군: Pablo 재현 점검 vs 같은 모델에 그냥 묻기 — 2026-10-13
+
+- 같은 변형 7개(씨앗 7), 같은 모델 gpt-5.6-luna, 둘 다 읽기 전용 + JSON 답
+- Pablo: 고정 조건 17개 + 원문 쪽을 받고 조건마다 판정. 그냥 묻기: 논문 본문 전체를 받고 "논문과 다른 곳을 모두 찾아줘"
+- 찾음 = 심은 어긋남의 파일:줄(±2)을 짚고 무엇이 바뀌었는지 말함(`SAYS`). 위치만 = 줄만 맞음
+- 심은 것 밖의 보고 = 어느 심은 어긋남에 대한 것도 아닌 보고. 틀린 말이라는 뜻이 아니다: 조건 목록 밖의 실제 차이일 수 있다
+
+| 시스템 | 찾음 | 위치만 | 보고 수 | 심은 것 밖의 보고 | 변형당 | 깨끗한 변형의 보고 | 1회 시간 |
+|---|---|---|---|---|---|---|---|
+| Pablo 재현 점검 | 11/12 (91.7%) | 12/12 | 50 | 37 | 5.3 | 6 | 76687 ms |
+| 그냥 묻기 | 10/12 (83.3%) | 12/12 | 119 | 109 | 15.6 | 15 | 75307 ms |
+
+## 방법 수준 차이: 바탕 폴더가 가진 8가지를 변형 7개에서 몇 번 짚었나
+
+보고가 하는 말(코드 인용은 빼고)에 주제별 표현(`THEMES`)이 나오면 짚은 것으로 셉니다.
+
+| 주제 | Pablo 재현 점검 | 그냥 묻기 |
+|---|---|---|
+| hybrid passage 초기화 없음 | 1/7 | 7/7 |
+| 그래프 구조(희소 행렬·passage-sentence 간선) | 0/7 | 7/7 |
+| δ를 임계값이 아니라 hop 수로 | 7/7 | 7/7 |
+| LLM에 passage 본문 대신 ID | 5/7 | 6/7 |
+| 의미 기반 entity 활성화 없음 | 7/7 | 7/7 |
+| 질의 entity를 유사 entity에 매칭하지 않음 | 6/7 | 7/7 |
+| 임베딩 모델을 쓰지 않음 | 6/7 | 7/7 |
+| 생성 프롬프트 | 0/7 | 4/7 |
+| 합 | 32/56 | 52/56 |
+
+## Pablo 재현 점검: 놓친 어긋남 1건
+
+- v04 seed_unused
+
+## 그냥 묻기: 놓친 어긋남 2건
+
+- v04 contain_swapped
+- v04 seed_unused
+
+## Pablo 재현 점검: 심은 것 밖의 보고 37건
+
+- v00-clean `run.py:23`: 질문 개체를 가장 유사한 그래프 개체에 매칭하는 과정 없이 입력 개체를 직접 전달한다.
+- v00-clean `retrieve.py:9-10`: 질문-문장 유사도로 중간 개체 활성화를 전파하지 않고 그래프 이웃 개체만 확장한다.
+- v00-clean `retrieve.py:5-12`: 관련성 점수 임계값이 아니라 delta 횟수·홉으로 개체를 유지한다.
+- v00-clean `run.py:16`: 임베딩 모델을 로드하지만 질문 개체 매칭이나 검색 계산에는 사용하지 않는다.
+- v00-clean `run.py:24`: 그래프 노드에 패시지 본문을 저장하지 않아 생성 컨텍스트에 패시지 텍스트 대신 패시지 ID가 들어간다.
+- v00-clean `logs/2wikimultihopqa.log:1`: 폴더에는 2Wiki 실행 로그만 있어 나머지 세 데이터셋의 실행 결과 로그가 없다.
+- v01 `retrieve.py:7`: 질의 entity를 가장 유사한 그래프 entity에 매칭하지 않고 그대로 seed로 사용한다.
+- v01 `retrieve.py:9-10`: 질문-문장 유사도를 계산하거나 문장에서 중간 entity로 점수를 전파하지 않는다.
+- v01 `retrieve.py:8`: 관련성 점수 임계값이 아니라 delta 홉의 반복 횟수로 entity를 확장한다.
+- v01 `run.py:25`: 검색된 passage의 실제 텍스트가 생성 단계에 전달되지 않고 passage ID만 전달된다.
+- v01 `logs/2wikimultihopqa.log:1`: 폴더에는 2Wiki 실행 로그만 있어 나머지 세 데이터셋의 실행 결과가 없다.
+- v02 `run.py:27`: 질문 엔티티를 가장 유사한 그래프 엔티티에 매칭하지 않고 입력 엔티티를 그대로 seed로 사용합니다.
+- v02 `retrieve.py:7-12`: 질문-문장 유사도와 중간 entity 점수 전파가 아니라 이웃 엔티티를 단순 탐색합니다.
+- v02 `retrieve.py:8-12`: 관련성 점수 임계값으로 새 엔티티를 선별하지 않고 delta 횟수만큼 확장합니다.
+- v02 `run.py:20`: 임베딩 모델을 로드하지만 검색·그래프 구성에는 encoder를 사용하지 않습니다.
+- v03 `run.py:16`: 모델 이름은 맞지만 encoder가 검색이나 생성에 실제로 사용되지 않습니다.
+- v03 `retrieve.py:7`: 질문 entity를 유사도 비교로 가장 가까운 그래프 entity에 매핑하지 않고 그대로 seed로 씁니다.
+- v03 `retrieve.py:9-10`: 질문-문장 유사도를 사용한 활성화 점수 전파가 아니라 그래프 이웃 탐색만 수행합니다.
+- v03 `retrieve.py:8-12`: 관련성 점수 임계값으로 entity를 유지하지 않고 delta 횟수만큼 hop을 확장합니다.
+- v03 `run.py:24`: 그래프 생성 시 passage 텍스트를 노드 속성에 저장하지 않아 검색된 문맥으로 passage ID만 생성 모델에 전달합니다.
+- v03 `logs\2wikimultihopqa.log:1`: 실행 로그가 2WikiMultiHopQA 하나만 포함하고 나머지 세 데이터셋의 보고 결과가 없습니다.
+- v04 `retrieve.py:7`: 질문 엔티티를 가장 유사한 그래프 엔티티에 매칭하지 않고 그대로 seed로 사용합니다.
+- v04 `retrieve.py:9`: 질문-문장 유사도나 활성화 점수 전파 없이 그래프 이웃을 hop 방식으로 탐색합니다.
+- v04 `retrieve.py:8`: 관련성 점수 임계값으로 선별하지 않고 고정 hop 수만큼 반복합니다.
+- v04 `run.py:15`: 임베딩 모델을 생성하지만 검색·활성화 계산에는 사용하지 않습니다.
+- v05 `retrieve.py:7`: 질문 엔티티를 가장 유사한 그래프 엔티티에 매칭하지 않고 그대로 초기화합니다.
+- v05 `retrieve.py:9-10`: 질문-문장 유사도나 중간 엔티티 활성화 점수 없이 이웃 엔티티를 확장합니다.
+- v05 `retrieve.py:9-12`: 관련성 점수 임계값으로 가지치기하지 않고 delta 홉만큼 확장합니다.
+- v05 `run.py:16`: 임베딩 모델을 로드하지만 질문 엔티티 매칭이나 검색 계산에는 사용하지 않습니다.
+- v05 `run.py:24`: 그래프에 패시지 원문을 저장하지 않아 생성 컨텍스트에 패시지 텍스트 대신 패시지 ID가 전달됩니다.
+- v05 `logs/2wikimultihopqa.log:1`: 폴더에는 2WikiMultiHopQA 실행 로그만 있어 나머지 세 데이터셋의 실행 결과가 없습니다.
+- v06 `retrieve.py:7`: 질문 엔티티를 임베딩 유사도로 그래프 엔티티에 매칭하지 않고 그대로 seed로 사용한다.
+- v06 `retrieve.py:9-12`: 질문-문장 유사도를 이용한 중간 엔티티 활성화 전파가 구현되어 있지 않다.
+- v06 `retrieve.py:9`: 관련성 점수 임계값으로 새 엔티티를 유지하지 않고 delta 횟수만큼 반복한다.
+- v06 `retrieve.py:18-22`: 활성화 집합으로 PageRank를 계산하지만 활성화 방식과 PageRank 감쇠 인자 사용이 기준 구현과 다르다.
+- v06 `run.py:16`: 임베딩 모델을 로드하지만 검색이나 질문 엔티티 매칭에 사용하지 않는다.
+- v06 `run.py:24`: 그래프 노드에 패시지 본문을 저장하지 않아 생성 컨텍스트에 패시지 ID만 전달한다.
+
+## 그냥 묻기: 심은 것 밖의 보고 109건
+
+- v00-clean `run.py:15; config.yaml:13-15`: 실행이 시작되기 전에 설정 키 오류가 발생합니다.
+- v00-clean `run.py:23; retrieve.py:5-12`: 질의 엔티티를 SpaCy로 추출하고 전체 엔티티와 의미적으로 매칭하는 단계가 없습니다.
+- v00-clean `retrieve.py:5-12`: Stage 1이 의미 기반 semantic bridging이 아니라 단순 그래프 탐색입니다.
+- v00-clean `graph.py:14-18; retrieve.py:9-10`: 현재 그래프 구조에서는 Stage 1의 엔티티 간 확장이 사실상 일어나지 않습니다.
+- v00-clean `config.yaml:11-12; retrieve.py:8`: delta를 의미 점수 임계값으로 사용하지 않습니다.
+- v00-clean `retrieve.py:15-22`: Stage 2의 hybrid passage initialization 수식이 구현되지 않았습니다.
+- v00-clean `retrieve.py:21-22`: PPR의 엔티티 초기화가 활성화 점수가 아니라 이진값입니다.
+- v00-clean `run.py:8,16; retrieve.py 전체`: 논문의 임베딩 기반 검색이 사용되지 않습니다.
+- v00-clean `graph.py:9-18; run.py:24`: 그래프 노드에 원문 패시지 텍스트가 저장되지 않아 검색 컨텍스트가 원문이 아닙니다.
+- v00-clean `graph.py:14`: 논문에 없는 passage-sentence edge를 추가하고, 인접행렬 구조를 직접 구현하지 않았습니다.
+- v00-clean `run.py:18-30`: 데이터셋별 전체 실험 파이프라인이 논문과 일치하지 않습니다.
+- v00-clean `run.py 전체; 작업 폴더 전체`: 논문에 보고된 baseline 비교가 구현되어 있지 않습니다.
+- v00-clean `run.py, config.yaml; 작업 폴더 전체`: 논문의 추가 실험이 누락되었습니다.
+- v00-clean `config.yaml; 작업 폴더 전체`: 효율성 조건과 하드웨어 재현 설정이 없습니다.
+- v00-clean `logs/2wikimultihopqa.log:1; run.py:15`: 실행 로그가 현재 코드와 일관되지 않습니다.
+- v01 `run.py:24; retrieve.py:5-18`: 질의 엔터티의 의미 기반 초기 매칭이 빠져 있습니다.
+- v01 `retrieve.py:5-12`: semantic bridging에 의한 엔터티 활성화가 구현되지 않았습니다.
+- v01 `retrieve.py:5-12; config.yaml:11-12`: 동적 pruning의 의미와 구현이 다릅니다.
+- v01 `retrieve.py:15-23`: 두 번째 단계의 passage 초기화 점수가 구현되지 않았습니다.
+- v01 `retrieve.py:21-22`: PPR의 초기화가 논문과 다릅니다.
+- v01 `graph.py:7-18; retrieve.py:20-22`: 논문의 sparse adjacency 행렬 C와 M 대신 NetworkX 그래프를 사용합니다.
+- v01 `graph.py:14`: 그래프에 논문에 명시되지 않은 passage-sentence 간 간선을 추가합니다.
+- v01 `graph.py:8`: 그래프를 무방향으로 만들어 논문의 인접행렬 기반 구조와 방향성이 달라집니다.
+- v01 `retrieve.py:9-10`: 질의 엔터티가 그래프에 없을 때 논문처럼 유사 엔터티로 보정하지 못하고 오류가 날 수 있습니다.
+- v01 `logs\2wikimultihopqa.log:1`: 논문의 네 데이터셋 실험 전체가 로그로 재현되어 있지 않습니다.
+- v01 `전체 작업 폴더; run.py:19-32`: 베이스라인 비교 실험이 구현·실행되어 있지 않습니다.
+- v01 `전체 작업 폴더; retrieve.py:15-23`: ablation 실험이 빠져 있습니다.
+- v01 `전체 작업 폴더; evaluate.py:15-18`: 검색 품질 평가가 빠져 있습니다.
+- v01 `전체 작업 폴더; config.yaml:2,10,12`: 하이퍼파라미터 민감도와 임베딩 백본 비교가 빠져 있습니다.
+- v01 `전체 작업 폴더`: 대규모 ATLAS-Wiki 효율성 실험이 빠져 있습니다.
+- v01 `run.py:29-31; logs\2wikimultihopqa.log:1`: 논문이 보고한 indexing/retrieval 시간과 토큰 소비 로그가 없습니다.
+- v01 `run.py:16,20; config.yaml:5-7`: 질문 선택이 논문의 실험 선택 방식과 재현 가능하게 연결되어 있지 않습니다.
+- v02 `graph.py:10`: passage 원문이 그래프에 저장되지 않음
+- v02 `run.py:28-29`: 생성 모델에 passage 원문이 전달되지 않음
+- v02 `run.py:27, retrieve.py:5-18`: 질의 엔티티 추출 및 유사 엔티티 매칭이 빠짐
+- v02 `retrieve.py:5-12`: Stage 1이 semantic bridging을 구현하지 않음
+- v02 `retrieve.py:8-10`: Stage 1 propagation이 실제로 수행되지 않음
+- v02 `retrieve.py:5-12, config.yaml:12`: delta를 잘못 사용함
+- v02 `graph.py:14, retrieve.py:20`: Tri-Graph의 구조와 Stage 1 사용 방식이 다름
+- v02 `retrieve.py:21-22`: Stage 2의 hybrid initialization이 구현되지 않음
+- v02 `retrieve.py:20-22`: PPR 그래프와 점수가 논문의 방식과 다름
+- v02 `run.py:9,20`: 임베딩 모델이 로드되지만 사용되지 않음
+- v02 `graph.py:7-18`: 희소 adjacency matrix 및 선형 구현이 아님
+- v02 `run.py:29`: 생성 프롬프트 구성이 논문 실험과 불완전함
+- v02 `run.py:22-34`: 기준선 실험이 누락됨
+- v02 `evaluate.py:15-19`: 논문의 retrieval-quality 평가가 누락됨
+- v02 `run.py 전체`: ablation 실험이 누락됨
+- v02 `config.yaml, run.py 전체`: 추가 실험이 누락됨
+- v02 `logs\2wikimultihopqa.log:1, run.py:32-34`: 효율성 측정과 token 사용량 기록이 누락됨
+- v02 `logs\2wikimultihopqa.log:1`: 실험 로그가 논문의 전체 평가 범위를 포함하지 않음
+- v03 `config.yaml:15; run.py:15`: 설정된 random seed의 위치와 실행 코드가 불일치합니다.
+- v03 `run.py:23; retrieve.py:5-12`: 논문에 정의된 query NER 및 entity similarity matching이 없습니다.
+- v03 `retrieve.py:5-12`: Stage 1의 semantic bridging이 BFS hop 확장으로 대체되었습니다.
+- v03 `retrieve.py:5-12; config.yaml:11-12`: dynamic pruning 조건이 구현되지 않았습니다.
+- v03 `retrieve.py 전체; run.py:8,16`: 문장 embedding과 query-sentence relevance 계산이 빠져 있습니다.
+- v03 `graph.py:14`: Tri-Graph에 논문에 없는 passage-sentence edge가 추가됩니다.
+- v03 `graph.py:7-19; run.py:24`: 그래프에 passage 원문이 저장되지 않습니다.
+- v03 `retrieve.py:15-22`: Stage 2의 hybrid passage initialization이 구현되지 않았습니다.
+- v03 `retrieve.py:21-22`: entity activation score 기반 personalization이 구현되지 않았습니다.
+- v03 `run.py:24-25`: 검색된 passage의 실제 text가 generation prompt에 포함되지 않습니다.
+- v03 `run.py:25`: generation prompt가 논문의 RAG 평가 설정과 다릅니다.
+- v03 `run.py 전체`: 논문에서 비교한 baseline 실험이 모두 빠져 있습니다.
+- v03 `evaluate.py 전체; run.py 전체`: retrieval quality 평가가 빠져 있습니다.
+- v03 `run.py, evaluate.py 전체`: ablation 및 추가 실험이 빠져 있습니다.
+- v03 `run.py:27-31; logs/2wikimultihopqa.log:1`: 효율성 측정과 token/time logging이 빠져 있습니다.
+- v03 `logs/2wikimultihopqa.log:1`: 로그의 결과가 현재 코드 실행 결과로 검증되지 않습니다.
+- v03 `run.py:19-20`: 재현에 필요한 데이터 파일이 작업 폴더에 없습니다.
+- v04 `graph.py:10-18; run.py:23`: 검색된 passage의 실제 본문이 그래프 노드에 저장되지 않아 LLM에 passage ID만 전달됩니다.
+- v04 `evaluate.py:5-6, 18`: Contain-Acc. 계산 방향이 반대입니다.
+- v04 `run.py:22; retrieve.py:5-12`: 질의의 entity를 SpaCy로 추출하거나 그래프 entity와 의미적으로 매칭하지 않습니다.
+- v04 `retrieve.py:5-12`: Stage 1의 semantic bridging이 구현되지 않았습니다.
+- v04 `retrieve.py:5-12, config.yaml:11-12`: 동적 pruning과 종료 조건이 구현되지 않았습니다.
+- v04 `graph.py:13-18`: Tri-Graph에 passage-sentence edge를 추가합니다.
+- v04 `graph.py:7-18; retrieve.py:20-22`: 논문의 sparse adjacency matrix 대신 NetworkX 일반 그래프를 사용합니다.
+- v04 `retrieve.py:15-23`: Stage 2의 hybrid passage initialization이 구현되지 않았습니다.
+- v04 `run.py:8, 15; retrieve.py:15-23`: 실제 query와 passage·sentence embedding을 검색에 사용하지 않습니다.
+- v04 `retrieve.py:20-22`: PPR 대상 그래프와 초기화가 논문 수식과 다릅니다.
+- v04 `run.py:24`: 생성 프롬프트의 chain-of-thought reasoning 지침이 빠졌습니다.
+- v04 `전체 코드; 특히 run.py:17-30`: 논문의 baseline 비교가 구현되지 않았습니다.
+- v04 `전체 코드 및 config.yaml:4-15`: 주요 실험 및 부가 실험 대부분이 누락되었습니다.
+- v04 `run.py:27-30; logs\2wikimultihopqa.log:1`: 효율성 측정과 token/time logging이 누락되었습니다.
+- v04 `logs\2wikimultihopqa.log:1`: 실행 로그가 논문의 전체 실험 결과를 재현하지 않습니다.
+- v05 `run.py:23; preprocess.py:14-15`: 질의 엔터티를 spaCy로 추출하고 그래프 엔터티와 의미적으로 매칭하는 단계가 없습니다.
+- v05 `retrieve.py:5-12`: Semantic bridging이 단순한 그래프 홉 확장으로 대체되었습니다.
+- v05 `retrieve.py:5-12; config.yaml:11-12`: dynamic pruning의 의미와 구현이 다릅니다.
+- v05 `graph.py:11-18`: Tri-Graph의 지정된 구조와 다른 추가 passage-sentence 간선이 생성됩니다.
+- v05 `graph.py:10; run.py:24`: 패시지 원문이 그래프 노드에 저장되지 않습니다.
+- v05 `run.py:16; retrieve.py:15-23`: 임베딩 모델이 로드되지만 검색에 사용되지 않습니다.
+- v05 `retrieve.py:21-22`: 2단계의 hybrid passage initialization이 구현되지 않았습니다.
+- v05 `retrieve.py:21-22`: Personalized PageRank의 seed 점수가 논문과 다릅니다.
+- v05 `run.py:25`: 생성 프롬프트가 논문의 평가 설정과 다릅니다.
+- v05 `logs/2wikimultihopqa.log:1; run.py:18-30`: 로그 결과와 실제 평가 입력의 설정이 불일치합니다.
+- v05 `run.py:18-30`: 기준선 비교가 구현되어 있지 않습니다.
+- v05 `run.py:18-30`: 주요 ablation study가 빠져 있습니다.
+- v05 `run.py:18-30; logs/2wikimultihopqa.log:1`: 효율성 분석이 빠져 있습니다.
+- v05 `run.py:18-30`: 검색 품질 평가가 빠져 있습니다.
+- v05 `config.yaml:10-14; run.py:18-30`: 하이퍼파라미터·임베딩 백본 민감도 실험이 빠져 있습니다.
+- v05 `run.py:18-30`: 대규모 ATLAS-Wiki 효율성 실험이 빠져 있습니다.
+- v05 `run.py:18-30`: 논문에 제시된 case study 및 검색 결과 분석이 자동화되어 있지 않습니다.
+- v06 `graph.py:14`: Tri-Graph에 논문에 없는 passage–sentence 간선이 추가됩니다.
+- v06 `graph.py:10, run.py:24`: 패시지 원문이 그래프 노드에 저장되지 않아 검색 후 원문 대신 패시지 ID가 생성 모델에 전달됩니다.
+- v06 `graph.py:12-17`: 엔티티 노드가 타입별로 분리되지 않은 단일 문자열 네임스페이스를 사용합니다.
+- v06 `run.py:23, retrieve.py:5-12`: 질의 엔티티를 SpaCy로 추출하고 그래프 내 가장 유사한 엔티티에 매칭하는 과정이 없습니다.
+- v06 `retrieve.py:5-12`: Stage 1의 semantic bridging이 구현되지 않고 단순한 이산 그래프 hop 탐색으로 대체되었습니다.
+- v06 `retrieve.py:5-12, config.yaml:11-12`: 동적 pruning 조건이 구현되지 않았습니다.
+- v06 `retrieve.py:7-12, retrieve.py:21`: 엔티티 활성화가 점수 벡터가 아닌 이진 집합입니다.
+- v06 `retrieve.py:21`: Stage 2의 passage 초기화 식이 누락되었습니다.
+- v06 `graph.py:8, graph.py:14-18, retrieve.py:20-22`: PageRank 그래프의 방향성과 구조가 논문과 다릅니다.
+- v06 `run.py:9, run.py:16, retrieve.py 전체`: 논문에서 요구하는 임베딩 기반 유사도 계산이 전혀 실행되지 않습니다.

@@ -1,0 +1,279 @@
+{
+ "note": "score.py (8949985, default rules) against sample_specific_masks.json for the run in sample_specific_masks.2026-10-20b.spec.json; as check.js wrote it.",
+ "gold": 30,
+ "extracted": 23,
+ "place_only": [
+  {
+   "gold": "G28",
+   "check": "SC24",
+   "gold_value": "56.35",
+   "value": "52.53%",
+   "statement": "ResNet-18에서 SMM의 11개 데이터셋 평균 테스트 정확도는 52.53%이다."
+  }
+ ],
+ "aside": 2,
+ "kind_misses": [
+  {
+   "check": "SC21",
+   "kind": "fact",
+   "gold": "G25",
+   "statement": "실험은 단일 A100 GPU에서 세 개의 시드로 수행한다."
+  }
+ ],
+ "recall": 0.433,
+ "precision": 0.565,
+ "matched": [
+  {
+   "gold": "G3",
+   "check": "SC6",
+   "how": "place",
+   "statement": "모든 사전학습 모델은 ImageNet-1K로 사전학습된 가중치를 쓴다."
+  },
+  {
+   "gold": "G10",
+   "check": "SC11",
+   "how": "place",
+   "statement": "패턴 δ는 데이터셋의 모든 이미지가 공유하고, 마스크는 f_mask가 샘플마다 따로 생성한다."
+  },
+  {
+   "gold": "G9",
+   "check": "SC12",
+   "how": "place",
+   "statement": "학습 가능한 패턴 δ를 생성된 마스크와 픽셀 단위로 곱한 뒤 리사이즈된 이미지에 더한다(f_in(x)=r(x)+δ⊙f_mask(r(x)))."
+  },
+  {
+   "gold": "G6",
+   "check": "SC14",
+   "how": "place",
+   "statement": "목표 이미지는 일반적으로 쌍선형 보간 업샘플링으로 구현되는 리사이징 함수를 통해 사전학습 모델의 입력 크기에 맞게 조정된다."
+  },
+  {
+   "gold": "G13",
+   "check": "SC15",
+   "how": "place",
+   "statement": "마스크 생성기는 ResNet용 5층, ViT용 6층 CNN이며, 합성곱은 3×3 커널(padding 1, stride 1)이고 2×2 Max-Pooling 층이 3개다."
+  },
+  {
+   "gold": "G12",
+   "check": "SC16",
+   "how": "place",
+   "statement": "마스크 생성기는 리사이즈된 이미지를 입력받는 CNN이며, 마지막 층의 채널 수를 3으로 두어 3채널 마스크를 출력한다."
+  },
+  {
+   "gold": "G15",
+   "check": "SC17",
+   "how": "place",
+   "statement": "마스크 패치 크기 2^l은 모든 데이터셋에서 8(l=3)이다."
+  },
+  {
+   "gold": "G20",
+   "check": "SC18",
+   "how": "place",
+   "statement": "총 200 에폭을 학습하며, 100번째와 145번째 에폭이 학습률 감쇠 마일스톤이다."
+  },
+  {
+   "gold": "G20",
+   "check": "SC19",
+   "how": "place",
+   "statement": "총 200 에폭을 학습하며, 100번째와 145번째 에폭이 학습률 감쇠 마일스톤이다."
+  },
+  {
+   "gold": "G18",
+   "check": "SC20",
+   "how": "place",
+   "statement": "ResNet 실험의 초기 학습률은 0.01이다."
+  },
+  {
+   "gold": "G19",
+   "check": "SC20",
+   "how": "place",
+   "statement": "ResNet 실험의 학습률 감쇠 계수는 0.1이다."
+  },
+  {
+   "gold": "G26",
+   "check": "SC22",
+   "how": "place",
+   "statement": "평가 지표는 테스트 정확도(%)이며 시드 평균을 보고한다."
+  },
+  {
+   "gold": "G27",
+   "check": "SC24",
+   "how": "place",
+   "statement": "ResNet-18에서 SMM의 11개 데이터셋 평균 정확도는 52.53%이다."
+  },
+  {
+   "gold": "G29",
+   "check": "SC25",
+   "how": "place",
+   "statement": "ViT-B32에서 SMM의 11개 데이터셋 평균 정확도는 72.4%이다."
+  }
+ ],
+ "missed": [
+  {
+   "gold": "G1",
+   "category": "model",
+   "statement": "사전학습 모델로 ResNet-18과 ResNet-50을 사용한다.",
+   "page": 6
+  },
+  {
+   "gold": "G2",
+   "category": "model",
+   "statement": "사전학습 ViT-B32에서도 SMM을 실험한다.",
+   "page": 6
+  },
+  {
+   "gold": "G4",
+   "category": "dataset",
+   "statement": "목표 과제는 CIFAR10, CIFAR100, SVHN, GTSRB, Flowers102, DTD, UCF101, Food101, SUN397, EuroSAT, OxfordPets의 11개 데이터셋이다.",
+   "page": 17
+  },
+  {
+   "gold": "G5",
+   "category": "split",
+   "statement": "데이터셋 분할은 Chen et al. (2023)을 따른다.",
+   "page": 6
+  },
+  {
+   "gold": "G7",
+   "category": "preprocessing",
+   "statement": "ResNet-18/50의 입력 이미지 크기는 224×224이다.",
+   "page": 14
+  },
+  {
+   "gold": "G8",
+   "category": "preprocessing",
+   "statement": "ViT-B32의 입력 이미지 크기는 384×384이다.",
+   "page": 14
+  },
+  {
+   "gold": "G11",
+   "category": "method",
+   "statement": "사전학습 분류기는 고정하고, 학습하는 것은 패턴 δ와 마스크 생성기 파라미터 ϕ뿐이다.",
+   "page": 4
+  },
+  {
+   "gold": "G14",
+   "category": "method",
+   "statement": "패치 단위 보간은 CNN이 출력한 마스크의 각 픽셀 값을 2^l×2^l 패치에 그대로 복사해 원래 크기 H×W로 키운다.",
+   "page": 5
+  },
+  {
+   "gold": "G16",
+   "category": "training",
+   "statement": "δ는 학습 전에 0 행렬로 초기화하고, ϕ는 무작위로 초기화한다.",
+   "page": 5
+  },
+  {
+   "gold": "G17",
+   "category": "method",
+   "statement": "주 결과의 출력 라벨 매핑은 반복 라벨 매핑(Ilm)으로, 매 에폭 현재 패턴을 적용한 학습 샘플의 예측 빈도로 일대일 매핑을 갱신한다.",
+   "page": 7
+  },
+  {
+   "gold": "G21",
+   "category": "hyperparameter",
+   "statement": "DTD와 OxfordPets를 제외한 데이터셋의 배치 크기는 256이다.",
+   "page": 18
+  },
+  {
+   "gold": "G22",
+   "category": "hyperparameter",
+   "statement": "DTD와 OxfordPets의 배치 크기는 64이다.",
+   "page": 18
+  },
+  {
+   "gold": "G23",
+   "category": "hyperparameter",
+   "statement": "ViT-B32 실험에 사용된 6층 마스크 생성기의 초기 학습률은 0.001이며, 학습률 감쇠계수 γ는 1로 설정되었다.",
+   "page": 18
+  },
+  {
+   "gold": "G24",
+   "category": "protocol",
+   "statement": "데이터셋별로 조정하지 않고 하나의 통일된 학습 파라미터를 모든 데이터셋에 쓴다.",
+   "page": 17
+  },
+  {
+   "gold": "G25",
+   "category": "training",
+   "statement": "실험은 3개의 시드로 반복한다.",
+   "page": 7
+  },
+  {
+   "gold": "G28",
+   "category": "result",
+   "statement": "ResNet-50에서 SMM의 11개 데이터셋 평균 정확도는 56.35%이다.",
+   "page": 6
+  },
+  {
+   "gold": "G30",
+   "category": "result",
+   "statement": "통일된 학습 파라미터로 얻은 ViT-B32의 UCF101 SMM 정확도는 42.6%이다.",
+   "page": 7
+  }
+ ],
+ "partial": [],
+ "unmatched": [
+  {
+   "check": "SC1",
+   "category": "dataset",
+   "statement": "주요 실험의 첫 번째 대상 데이터셋들은 CIFAR10, CIFAR100, SVHN, GTSRB, Flowers102이다.",
+   "page": 6
+  },
+  {
+   "check": "SC2",
+   "category": "dataset",
+   "statement": "주요 실험의 나머지 대상 데이터셋들은 DTD, UCF101, Food101, EuroSAT, OxfordPets, SUN397이다.",
+   "page": 6
+  },
+  {
+   "check": "SC3",
+   "category": "split",
+   "statement": "CIFAR10은 학습 50000개와 테스트 10000개로 분할한다.",
+   "page": 17
+  },
+  {
+   "check": "SC4",
+   "category": "split",
+   "statement": "Flowers102는 학습 4093개와 테스트 2463개로 분할한다.",
+   "page": 17
+  },
+  {
+   "check": "SC5",
+   "category": "split",
+   "statement": "OxfordPets는 학습 2944개와 테스트 3669개로 분할한다.",
+   "page": 17
+  },
+  {
+   "check": "SC7",
+   "category": "method",
+   "statement": "SMM은 각 타깃 이미지를 먼저 크기 조정한 뒤 마스크 생성기로 처리해 3채널 마스크를 만든다.",
+   "page": 4
+  },
+  {
+   "check": "SC8",
+   "category": "method",
+   "statement": "마스크 생성기는 입력 이미지마다 샘플별 마스크를 생성하는 경량 CNN이다.",
+   "page": 2
+  },
+  {
+   "check": "SC9",
+   "category": "method",
+   "statement": "패치별 보간 모듈은 생성된 마스크를 패치 단위로 업샘플링해 패턴 크기에 맞춘다.",
+   "page": 4
+  },
+  {
+   "check": "SC10",
+   "category": "method",
+   "statement": "패치별 보간은 각 픽셀을 해당 패치 전체에 같은 값으로 복사한다.",
+   "page": 4
+  },
+  {
+   "check": "SC13",
+   "category": "method",
+   "statement": "출력 라벨 매핑은 학습 파라미터가 없는 매핑으로 처리한다.",
+   "page": 3
+  }
+ ],
+ "unanchored_gold": []
+}

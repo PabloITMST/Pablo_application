@@ -1,0 +1,613 @@
+{
+ "paper": "Sample-specific Masks for Visual Reprogramming-based Prompting",
+ "arxiv": "2406.03150",
+ "version": "v1",
+ "pdf": "../../../.pablo/gold/papers/arxiv-2406.03150v1.pdf",
+ "sha256": "96f158a34d6e9e6d63b8731a25e4241b8184c19cc730a1b73b01cfa322d327e1",
+ "conditions": [
+  {
+   "id": "G1",
+   "category": "model",
+   "kind": "setting",
+   "statement": "사전학습 모델로 ResNet-18과 ResNet-50을 사용한다.",
+   "value": "ResNet-18, ResNet-50",
+   "quote": "Following Chen et al. (2023), we use ResNet-18, and ResNet-50 (He et al., 2016) as the pre-trained model.",
+   "page": 6,
+   "status": "confirmed",
+   "note": "Sec 5 'Pre-trained Models and Target Tasks'. Table 1 covers these two backbones.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.754Z"
+   }
+  },
+  {
+   "id": "G2",
+   "category": "model",
+   "kind": "setting",
+   "statement": "사전학습 ViT-B32에서도 SMM을 실험한다.",
+   "value": "ViT-B32",
+   "quote": "Performance on pre-trained ViT-B32 (Dosovitskiy et al., 2020) is also tested.",
+   "page": 6,
+   "status": "confirmed",
+   "note": "Sec 5. Table 2 covers this backbone.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.756Z"
+   }
+  },
+  {
+   "id": "G3",
+   "category": "model",
+   "kind": "setting",
+   "statement": "모든 사전학습 모델은 ImageNet-1K로 사전학습된 가중치를 쓴다.",
+   "value": "ImageNet-1K",
+   "quote": "All these models are pre-trained on ImageNet-1K (Deng et al., 2009)",
+   "page": 6,
+   "status": "confirmed",
+   "note": "Sec 5. Applies to ResNet-18, ResNet-50 and ViT-B32 (also in Table 1/2 headers).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.757Z"
+   }
+  },
+  {
+   "id": "G4",
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "목표 과제는 CIFAR10, CIFAR100, SVHN, GTSRB, Flowers102, DTD, UCF101, Food101, SUN397, EuroSAT, OxfordPets의 11개 데이터셋이다.",
+   "value": "11",
+   "quote": "The 11 datasets used for the experiments are summarized in Table 6",
+   "page": 17,
+   "status": "confirmed",
+   "note": "App C. The dataset names are listed in Sec 5 (p.6) and Table 6; the full name list is too long for one quote. StanfordCars is only discussed in App D.4 and is not part of Tables 1/2.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.757Z"
+   },
+   "alts": [
+    {
+     "quote": "target tasks include CIFAR10, CIFAR100 (Krizhevsky, 2009), SVHN (Yuval, 2011), GTSRB",
+     "page": 6,
+     "status": "confirmed",
+     "note": "the 11 target datasets named in Sec 5 (the gold quotes App C's count); quoted by the 2026-10-20 run (item 1), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "names the 11 target datasets the condition lists"
+     }
+    },
+    {
+     "quote": "DTD (Cim- poi et al., 2014), UCF101 (Soomro et al., 2012), Food101 (Bossard et al., 2014), EuroSAT (Helber et al., 2019), Ox- fordPets",
+     "page": 6,
+     "status": "confirmed",
+     "note": "quoted by the 2026-10-20b run (item 2)",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "the rest of the 11 target datasets, in the same Sec 5 sentence"
+     }
+    }
+   ]
+  },
+  {
+   "id": "G5",
+   "category": "split",
+   "kind": "setting",
+   "statement": "데이터셋 분할은 Chen et al. (2023)을 따른다.",
+   "value": "Chen et al. (2023)",
+   "quote": "We follow Chen et al. (2023) to split the datasets.",
+   "page": 6,
+   "status": "confirmed",
+   "note": "Sec 5. The split itself is only given by reference; Table 6 lists train/test sizes. No validation split is mentioned.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.757Z"
+   }
+  },
+  {
+   "id": "G6",
+   "category": "preprocessing",
+   "kind": "setting",
+   "statement": "목표 이미지는 일반적으로 쌍선형 보간 업샘플링으로 구현되는 리사이징 함수를 통해 사전학습 모델의 입력 크기에 맞게 조정된다.",
+   "value": "bilinear interpolation",
+   "quote": "is the resizing function, typically im- plemented as bilinear interpolation upsampling (Wikipedia contributors, 2023) that scales image dimension from dT todP",
+   "page": 4,
+   "status": "confirmed",
+   "note": "Sec 3.1, Eq. (3), resizing function r. The paper says 'typically'; reviewer may confirm this is the implementation actually used.",
+   "draft_statement": "목표 이미지는 쌍선형 보간 업샘플링으로 사전학습 모델의 입력 크기에 맞게 리사이즈한다.",
+   "review": {
+    "how": "asked",
+    "verdict": "fix",
+    "at": "2026-10-20T02:32:19.157Z"
+   }
+  },
+  {
+   "id": "G7",
+   "category": "preprocessing",
+   "kind": "setting",
+   "statement": "ResNet-18/50의 입력 이미지 크기는 224×224이다.",
+   "value": "224×224",
+   "quote": "RESNET-50 224 ×224×3 5 26,499 17.60% 0.10%",
+   "page": 14,
+   "status": "confirmed",
+   "note": "Table 4, ResNet-50 row (input image size column). The ResNet-18 row prints '224 ×224×2', apparently a typo for ×3, so the ResNet-50 row is quoted.",
+   "review": {
+    "how": "asked",
+    "verdict": "ok",
+    "at": "2026-10-20T02:32:21.083Z"
+   }
+  },
+  {
+   "id": "G8",
+   "category": "preprocessing",
+   "kind": "setting",
+   "statement": "ViT-B32의 입력 이미지 크기는 384×384이다.",
+   "value": "384×384",
+   "quote": "VIT-B32 384 ×384×3 6 102,339 23.13% 0.12%",
+   "page": 14,
+   "status": "confirmed",
+   "note": "Table 4, ViT-B32 row (input image size column).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.757Z"
+   }
+  },
+  {
+   "id": "G9",
+   "category": "method",
+   "kind": "setting",
+   "statement": "학습 가능한 패턴 δ를 생성된 마스크와 픽셀 단위로 곱한 뒤 리사이즈된 이미지에 더한다(f_in(x)=r(x)+δ⊙f_mask(r(x))).",
+   "value": "",
+   "quote": "the learnable pattern δ is multiplied with the mask on a pixel-wise basis and added to the image",
+   "page": 4,
+   "status": "confirmed",
+   "note": "Sec 3.1; same as Eq. (3)/(4). The result is fed to the fixed pre-trained classifier.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.757Z"
+   }
+  },
+  {
+   "id": "G10",
+   "category": "method",
+   "kind": "setting",
+   "statement": "패턴 δ는 데이터셋의 모든 이미지가 공유하고, 마스크는 f_mask가 샘플마다 따로 생성한다.",
+   "value": "",
+   "quote": "Note thatδ is shared by all images in the dataset following Bahng et al. (2022) and Chen et al. (2023), while fmask uniquely generates sample-specific multi-channel masks",
+   "page": 4,
+   "status": "confirmed",
+   "note": "Sec 3.1, after Eq. (4).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.758Z"
+   }
+  },
+  {
+   "id": "G11",
+   "category": "method",
+   "kind": "setting",
+   "statement": "사전학습 분류기는 고정하고, 학습하는 것은 패턴 δ와 마스크 생성기 파라미터 ϕ뿐이다.",
+   "value": "",
+   "quote": "The resulting image is fed into the fixed pre- trained classifier.",
+   "page": 4,
+   "status": "confirmed",
+   "note": "Sec 3.1. Trainable parameters θ={ϕ,δ} (Eq. 4); Algorithm 1 (p.5) updates only δ and ϕ, with separate learning rates α1 (δ) and α2 (ϕ).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.758Z"
+   },
+   "alts": [
+    {
+     "quote": "The parameters δ and ϕ are iteratively updated in each epoch",
+     "page": 5,
+     "status": "rejected",
+     "note": "quoted by the 2026-10-20 run (item 16)",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "differ",
+      "why": "δ and ϕ are updated, but not that only they are and the classifier stays fixed"
+     }
+    }
+   ]
+  },
+  {
+   "id": "G12",
+   "category": "method",
+   "kind": "setting",
+   "statement": "마스크 생성기는 리사이즈된 이미지를 입력받는 CNN이며, 마지막 층의 채널 수를 3으로 두어 3채널 마스크를 출력한다.",
+   "value": "3",
+   "quote": "The number of channels of the last layer is set to 3 to produce a three-channel mask.",
+   "page": 12,
+   "status": "confirmed",
+   "note": "App A.2; Sec 3.2 (p.4) states the CNN input is the resized image r(x).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.758Z"
+   },
+   "alts": [
+    {
+     "quote": "The mask generator is a lightweight convolutional neural network (CNN) that takes resized individual target-domain images",
+     "page": 2,
+     "status": "confirmed",
+     "note": "the mask generator is a CNN taking the resized image; quoted by the 2026-10-20 run (item 11), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "the CNN that takes the resized image: one part of the condition, stated exactly"
+     }
+    },
+    {
+     "quote": "The last layer of the generator is designed to generate a three-channel mask",
+     "page": 2,
+     "status": "confirmed",
+     "note": "its last layer gives a three-channel mask; quoted by the 2026-10-20 run (item 12), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "the three-channel last layer: the other part"
+     }
+    },
+    {
+     "quote": "SMM starts by resizing target images, followed by their processing through the mask generator to create corresponding three- channel masks.",
+     "page": 4,
+     "status": "confirmed",
+     "note": "quoted by the 2026-10-20b run (item 7)",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "images resized, then the generator makes a three-channel mask"
+     }
+    }
+   ]
+  },
+  {
+   "id": "G13",
+   "category": "method",
+   "kind": "setting",
+   "statement": "마스크 생성기는 ResNet용 5층, ViT용 6층 CNN이며, 합성곱은 3×3 커널(padding 1, stride 1)이고 2×2 Max-Pooling 층이 3개다.",
+   "value": "",
+   "quote": "Each of them contains 5 or 6 CNN layers with 3× 3 kernels of padding size 1 and stride 1. Both models have 3 Max-Pooling layers.",
+   "page": 13,
+   "status": "confirmed",
+   "note": "App A.2, Fig 8 (5-layer, ResNet) / Fig 9 (6-layer, ViT); figures show BatchNorm+ReLU after conv layers except the last. Intermediate channel widths are NOT stated; Table 4 gives 26,499 (5-layer) and 102,339 (6-layer) parameters as a check.",
+   "review": {
+    "how": "rule 1",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.758Z"
+   }
+  },
+  {
+   "id": "G14",
+   "category": "method",
+   "kind": "setting",
+   "statement": "패치 단위 보간은 CNN이 출력한 마스크의 각 픽셀 값을 2^l×2^l 패치에 그대로 복사해 원래 크기 H×W로 키운다.",
+   "value": "",
+   "quote": "enlarge each pixel to 2l× 2l pixels by padding the same value of a pixel to its surrounding areas within the patch",
+   "page": 5,
+   "status": "confirmed",
+   "note": "Sec 3.3 (sentence starts at the bottom of p.4, quoted part is on p.5). '2l' in the extracted text is 2^l. Non-divisible cases mirror the closest patches; the module needs no gradient computation (App A.3).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   },
+   "alts": [
+    {
+     "quote": "For generated masks smaller than the pattern size, the patch-wise interpolation module performs upsampling",
+     "page": 4,
+     "status": "rejected",
+     "note": "patch-wise interpolation upsamples the generated mask; quoted by the 2026-10-20 run (item 13), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "differ",
+      "why": "names the module and that it upsamples, not how (each pixel copied into a 2^l patch); a reimplementation could follow it and still interpolate otherwise"
+     }
+    },
+    {
+     "quote": "each sized 2l× 2l, ensuring the same values within each patch",
+     "page": 4,
+     "status": "confirmed",
+     "note": "quoted by the 2026-10-20b run (item 10)",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "the same value within each 2^l x 2^l patch: the mechanism, stated on p.4"
+     }
+    }
+   ]
+  },
+  {
+   "id": "G15",
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "마스크 패치 크기 2^l은 모든 데이터셋에서 8(l=3)이다.",
+   "value": "8",
+   "quote": "We thus have set the patch size to be 8 across all datasets.",
+   "page": 8,
+   "status": "confirmed",
+   "note": "Sec 5 'Impact of Patch Size'. Consistent with the 3 Max-Pooling layers in App A.2.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
+  },
+  {
+   "id": "G16",
+   "category": "training",
+   "kind": "setting",
+   "statement": "δ는 학습 전에 0 행렬로 초기화하고, ϕ는 무작위로 초기화한다.",
+   "value": "0",
+   "quote": "To mitigate the impact of initialization,δ is set to be a zero matrix before training, noted as{0}dP.",
+   "page": 5,
+   "status": "confirmed",
+   "note": "Sec 3.4; Algorithm 1 line 3 ('Initialize ϕ randomly; set δ←{0}'). The random-init scheme for ϕ is not specified.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
+  },
+  {
+   "id": "G17",
+   "category": "method",
+   "kind": "setting",
+   "statement": "주 결과의 출력 라벨 매핑은 반복 라벨 매핑(Ilm)으로, 매 에폭 현재 패턴을 적용한 학습 샘플의 예측 빈도로 일대일 매핑을 갱신한다.",
+   "value": "Ilm",
+   "quote": "Due to page limits, we report here only the results obtained with the output mappingfIlm out",
+   "page": 7,
+   "status": "confirmed",
+   "note": "Sec 5 Baselines paragraph. Ilm procedure is in App A.4 / Algorithm 4 (from Chen et al. 2023); f_out is non-parametric (Sec 3). Rlm/Flm results are only in App D.1.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   },
+   "alts": [
+    {
+     "quote": "Ilm evolves with iterations, being an improved version of Flm",
+     "page": 15,
+     "status": "confirmed",
+     "note": "Ilm, updated with iterations (App A.4); quoted by the 2026-10-20 run (item 17), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "App A.4: Ilm updated every epoch with the current pattern, the mechanism the condition states"
+     }
+    }
+   ]
+  },
+  {
+   "id": "G18",
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "ResNet 실험의 초기 학습률은 0.01이다.",
+   "value": "0.01",
+   "quote": "with 0.01 being the initial learning rate",
+   "page": 7,
+   "status": "confirmed",
+   "note": "Sec 5 Baselines paragraph, stated for training the shared noise pattern δ (all methods, following Chen et al. 2023). Table 9 gives α=0.01 for the 5-layer mask generator as well.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
+  },
+  {
+   "id": "G19",
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "ResNet 실험의 학습률 감쇠 계수는 0.1이다.",
+   "value": "0.1",
+   "quote": "and 0.1 being the learning rate decay",
+   "page": 7,
+   "status": "confirmed",
+   "note": "Sec 5; decay applied at the milestones (G20). Table 9 gives γ=0.1 for the 5-layer mask generator.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
+  },
+  {
+   "id": "G20",
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "총 200 에폭을 학습하며, 100번째와 145번째 에폭이 학습률 감쇠 마일스톤이다.",
+   "value": "200",
+   "quote": "Two hundred epochs are run in total, and the 100th and the 145th epochs are the milestones.",
+   "page": 7,
+   "status": "confirmed",
+   "note": "Sec 5. The quote spells the number out ('Two hundred'). Table 9 lists milestones [0, 100, 145] for both mask generators. Milestones folded into this condition; reviewer may split. The sentence sits in the Baselines paragraph but describes the common schedule; that ViT-B32 also runs 200 epochs is implied, not restated. [value not in quote]",
+   "review": {
+    "how": "rule 2·3",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
+  },
+  {
+   "id": "G21",
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "DTD와 OxfordPets를 제외한 데이터셋의 배치 크기는 256이다.",
+   "value": "256",
+   "quote": "CIFAR10 256 [0, 100, 145] 0.01 0.1 0.001 1",
+   "page": 18,
+   "status": "confirmed",
+   "note": "Table 9, CIFAR10 row (columns: b, milestones, α/γ for 5-layer, α/γ for 6-layer). All rows except DTD and OxfordPets use 256.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
+  },
+  {
+   "id": "G22",
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "DTD와 OxfordPets의 배치 크기는 64이다.",
+   "value": "64",
+   "quote": "DTD 64 [0, 100, 145] 0.01 0.1 0.001 1",
+   "page": 18,
+   "status": "confirmed",
+   "note": "Table 9, DTD row; the OXFORD PETS row also has b=64.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
+  },
+  {
+   "id": "G23",
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "ViT-B32 실험에 사용된 6층 마스크 생성기의 초기 학습률은 0.001이며, 학습률 감쇠계수 γ는 1로 설정되었다.",
+   "value": "0.001",
+   "quote": "CIFAR100 256 [0, 100, 145] 0.01 0.1 0.001 1",
+   "page": 18,
+   "status": "confirmed",
+   "note": "Table 9 6-layer columns (α=0.001, γ=1), same for all datasets; chosen by a search on CIFAR10 (Table 7). Double-check: Table 9 is titled for the mask generator; App C implies the same α, γ are used for ViT-B32 training overall, but δ's ViT learning rate is not stated separately.",
+   "draft_statement": "ViT-B32(6층 생성기) 실험은 초기 학습률 0.001, 학습률 감쇠 1(감쇠 없음)을 쓴다.",
+   "review": {
+    "how": "asked",
+    "verdict": "fix",
+    "at": "2026-10-20T02:32:44.932Z"
+   }
+  },
+  {
+   "id": "G24",
+   "category": "protocol",
+   "kind": "setting",
+   "statement": "데이터셋별로 조정하지 않고 하나의 통일된 학습 파라미터를 모든 데이터셋에 쓴다.",
+   "value": "",
+   "quote": "Nevertheless, for uniformity and fairness in this paper, we still use a single set of unified training parameters for all datasets.",
+   "page": 17,
+   "status": "confirmed",
+   "note": "App C. The 49.9% ViT-B32 UCF101 result with dataset-specific α=0.01, γ=0.1 (Table 8) is not the main-table number.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
+  },
+  {
+   "id": "G25",
+   "category": "training",
+   "kind": "setting",
+   "statement": "실험은 3개의 시드로 반복한다.",
+   "value": "3",
+   "quote": "Experiments are run with three seeds on a single A100 GPU",
+   "page": 7,
+   "status": "confirmed",
+   "note": "Sec 5 Baselines paragraph. The quote spells the number out ('three'). Specific seed values are not given. [value not in quote]",
+   "review": {
+    "how": "rule 3",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
+  },
+  {
+   "id": "G26",
+   "category": "metric",
+   "kind": "setting",
+   "statement": "평가 지표는 테스트 정확도(%)이며 시드 평균을 보고한다.",
+   "value": "test accuracy",
+   "quote": "and the aver- aged test accuracy is reported",
+   "page": 7,
+   "status": "confirmed",
+   "note": "Sec 5. Table 1 reports mean ± std over seeds; Table 2 reports the mean only.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   },
+   "alts": [
+    {
+     "quote": "Mean % ± Std %, the average results across all datasets are highlighted in grey",
+     "page": 6,
+     "status": "confirmed",
+     "note": "Table 1's caption: mean ± std over seeds; quoted by the 2026-10-20 run (item 23), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "Table 1 reports the mean over seeds (± std): the reporting rule"
+     }
+    }
+   ]
+  },
+  {
+   "id": "G27",
+   "category": "result",
+   "kind": "result",
+   "statement": "ResNet-18에서 SMM의 11개 데이터셋 평균 정확도는 52.53%이다.",
+   "value": "52.53",
+   "quote": "AVERAGE 43.91 43.48 45.04 46.85 52.53 49.15 46.76 49.39 52.10 56.35",
+   "page": 6,
+   "status": "confirmed",
+   "note": "Table 1 AVERAGE row, 5th number (ResNet-18, OURS), Ilm mapping. Same row as G28 (the row holds both backbones).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
+  },
+  {
+   "id": "G28",
+   "category": "result",
+   "kind": "result",
+   "statement": "ResNet-50에서 SMM의 11개 데이터셋 평균 정확도는 56.35%이다.",
+   "value": "56.35",
+   "quote": "AVERAGE 43.91 43.48 45.04 46.85 52.53 49.15 46.76 49.39 52.10 56.35",
+   "page": 6,
+   "status": "confirmed",
+   "note": "Table 1 AVERAGE row, last number (ResNet-50, OURS). Shares its quote with G27; reviewer may merge the two into one row-level condition.",
+   "review": {
+    "how": "rule 2",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
+  },
+  {
+   "id": "G29",
+   "category": "result",
+   "kind": "result",
+   "statement": "ViT-B32에서 SMM의 11개 데이터셋 평균 정확도는 72.4%이다.",
+   "value": "72.4",
+   "quote": "AVERAGE 53.1 63.7 65.2 64.7 72.4",
+   "page": 7,
+   "status": "confirmed",
+   "note": "Table 2 AVERAGE row, last number (OURS).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.761Z"
+   }
+  },
+  {
+   "id": "G30",
+   "category": "result",
+   "kind": "result",
+   "statement": "통일된 학습 파라미터로 얻은 ViT-B32의 UCF101 SMM 정확도는 42.6%이다.",
+   "value": "42.6",
+   "quote": "UCF101 33.6 44.5 44.8 40.9 42.6",
+   "page": 7,
+   "status": "confirmed",
+   "note": "Table 2 UCF101 row, last number (OURS). Picked because the text also cites 49.9% (dataset-specific lr, App C Table 8), which is not the main-table number.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.761Z"
+   }
+  }
+ ]
+}

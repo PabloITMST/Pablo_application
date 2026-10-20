@@ -1,0 +1,246 @@
+{
+ "note": "score.py (8949985, default rules) against pinns_loss_landscape.json for the run in pinns_loss_landscape.2026-10-20b.spec.json; as check.js wrote it.",
+ "gold": 30,
+ "extracted": 26,
+ "place_only": [],
+ "aside": 2,
+ "kind_misses": [],
+ "recall": 0.6,
+ "precision": 0.885,
+ "matched": [
+  {
+   "gold": "G2",
+   "check": "SC2",
+   "how": "place",
+   "statement": "대류 계수는 β=40 이고, 경계는 주기 조건 u(0,t)=u(2π,t), 정답해는 u=sin(x−βt) 이다."
+  },
+  {
+   "gold": "G4",
+   "check": "SC3",
+   "how": "place",
+   "statement": "반응 계수는 ρ=5 이다."
+  },
+  {
+   "gold": "G6",
+   "check": "SC4",
+   "how": "place",
+   "statement": "파동 계수는 β=5 이다."
+  },
+  {
+   "gold": "G7",
+   "check": "SC5",
+   "how": "place",
+   "statement": "잔차(collocation) 점 10000개를 영역 내부의 255×100 격자에서 무작위로 뽑는다."
+  },
+  {
+   "gold": "G8",
+   "check": "SC6",
+   "how": "place",
+   "statement": "초기조건 점은 등간격 257개, 경계조건마다 등간격 101개를 쓴다."
+  },
+  {
+   "gold": "G8",
+   "check": "SC7",
+   "how": "place",
+   "statement": "초기조건 점은 등간격 257개, 경계조건마다 등간격 101개를 쓴다."
+  },
+  {
+   "gold": "G12",
+   "check": "SC8",
+   "how": "place",
+   "statement": "손실은 PDE 잔차 항과 경계/초기조건 항의 최소제곱 합이며, 각 항은 1/(2n_res), 1/(2n_bc) 로 평균한다."
+  },
+  {
+   "gold": "G9",
+   "check": "SC9",
+   "how": "place",
+   "statement": "모델은 tanh 활성화와 은닉층 3개를 가진 MLP 이다."
+  },
+  {
+   "gold": "G10",
+   "check": "SC10",
+   "how": "place",
+   "statement": "은닉층 너비는 50, 100, 200, 400 네 가지를 쓴다."
+  },
+  {
+   "gold": "G11",
+   "check": "SC11",
+   "how": "place",
+   "statement": "가중치는 Xavier normal 로, bias 는 모두 0 으로 초기화한다."
+  },
+  {
+   "gold": "G18",
+   "check": "SC12",
+   "how": "place",
+   "statement": "PDE·최적화 방법·MLP 구조의 각 조합을 random seed 5개로 돌린다."
+  },
+  {
+   "gold": "G14",
+   "check": "SC13",
+   "how": "place",
+   "statement": "Adam 학습률은 {1e-5, 1e-4, 1e-3, 1e-2, 1e-1} 격자에서 탐색해 고른다."
+  },
+  {
+   "gold": "G15",
+   "check": "SC14",
+   "how": "place",
+   "statement": "L-BFGS 는 학습률 1.0, 메모리 크기 100, strong Wolfe 선탐색을 쓴다."
+  },
+  {
+   "gold": "G16",
+   "check": "SC15",
+   "how": "place",
+   "statement": "Adam+L-BFGS 는 Adam 학습률을 같은 격자로 조정하고, 1000·11000·31000 반복 뒤 L-BFGS 로 바꾸는 세 경우를 돌린다."
+  },
+  {
+   "gold": "G17",
+   "check": "SC16",
+   "how": "place",
+   "statement": "Adam, L-BFGS, Adam+L-BFGS 모두 총 41000 반복 돌린다."
+  },
+  {
+   "gold": "G23",
+   "check": "SC19",
+   "how": "place",
+   "statement": "NNCG 는 단독이 아니라 Adam+L-BFGS 가 끝난 뒤 이어서 실행한다 (Adam+L-BFGS+NNCG)."
+  },
+  {
+   "gold": "G26",
+   "check": "SC20",
+   "how": "place",
+   "statement": "평가 지표는 해석해 대비 ℓ2 상대오차 L2RE = ‖y−y′‖₂/‖y′‖₂ 이며, 최종 loss 와 함께 보고한다."
+  },
+  {
+   "gold": "G29",
+   "check": "SC23",
+   "how": "part",
+   "statement": "Adam+L-BFGS 의 최저 loss/L2RE 는 대류 5.95e-6/4.19e-3, 반응 3.26e-6/1.92e-2, 파동 1.12e-3/5.52e-2 이다."
+  },
+  {
+   "gold": "G29",
+   "check": "SC24",
+   "how": "part",
+   "statement": "Adam+L-BFGS 의 최저 loss/L2RE 는 대류 5.95e-6/4.19e-3, 반응 3.26e-6/1.92e-2, 파동 1.12e-3/5.52e-2 이다."
+  },
+  {
+   "gold": "G29",
+   "check": "SC25",
+   "how": "part",
+   "statement": "Adam+L-BFGS 의 최저 loss/L2RE 는 대류 5.95e-6/4.19e-3, 반응 3.26e-6/1.92e-2, 파동 1.12e-3/5.52e-2 이다."
+  },
+  {
+   "gold": "G28",
+   "check": "SC26",
+   "how": "part",
+   "statement": "Adam+L-BFGS+NNCG 의 loss/L2RE 는 대류 3.63e-7/1.94e-3, 반응 2.89e-7/9.92e-3, 파동 6.13e-5/1.27e-2 이다."
+  },
+  {
+   "gold": "G28",
+   "check": "SC27",
+   "how": "part",
+   "statement": "Adam+L-BFGS+NNCG 의 loss/L2RE 는 대류 3.63e-7/1.94e-3, 반응 2.89e-7/9.92e-3, 파동 6.13e-5/1.27e-2 이다."
+  },
+  {
+   "gold": "G28",
+   "check": "SC28",
+   "how": "part",
+   "statement": "Adam+L-BFGS+NNCG 의 loss/L2RE 는 대류 3.63e-7/1.94e-3, 반응 2.89e-7/9.92e-3, 파동 6.13e-5/1.27e-2 이다."
+  }
+ ],
+ "missed": [
+  {
+   "gold": "G1",
+   "category": "dataset",
+   "statement": "대류 방정식 u_t + βu_x = 0 을 x∈(0,2π), t∈(0,1) 영역에서 초기조건 u(x,0)=sin(x) 로 푼다.",
+   "page": 14
+  },
+  {
+   "gold": "G3",
+   "category": "dataset",
+   "statement": "반응 방정식 u_t − ρu(1−u) = 0 을 x∈(0,2π), t∈(0,1) 에서 가우시안 초기조건 exp(−(x−π)²/(2(π/4)²)) 와 주기 경계로 푼다.",
+   "page": 14
+  },
+  {
+   "gold": "G5",
+   "category": "dataset",
+   "statement": "파동 방정식 u_tt − 4u_xx = 0 을 x∈(0,1), t∈(0,1) 에서 초기조건 u(x,0)=sin(πx)+½sin(βπx) 로 푼다.",
+   "page": 14
+  },
+  {
+   "gold": "G13",
+   "category": "hyperparameter",
+   "statement": "경계/초기조건 항의 가중치 λ 는 1 이다.",
+   "page": 21
+  },
+  {
+   "gold": "G19",
+   "category": "protocol",
+   "statement": "각 너비·최적화 방법마다 모든 seed 중 가장 낮은 loss(L2RE)를 낸 학습률 η* 를 고르고, 그 η* 에서 seed 별 min/median/max 를 보고한다.",
+   "page": 18
+  },
+  {
+   "gold": "G20",
+   "category": "protocol",
+   "statement": "표 1 은 각 최적화 방법의 (조정 후) 모든 너비에 걸친 최저 loss 를 보고한다.",
+   "page": 5
+  },
+  {
+   "gold": "G21",
+   "category": "method",
+   "statement": "제안 방법 NNCG 는 Armijo 선탐색을 쓰는 감쇠(damped) 뉴턴법이다.",
+   "page": 6
+  },
+  {
+   "gold": "G22",
+   "category": "method",
+   "statement": "뉴턴 스텝은 Nyström 전처리 CG(NyströmPCG)로 풀고, 직전 반복의 스텝으로 warm start 한다.",
+   "page": 18
+  },
+  {
+   "gold": "G24",
+   "category": "hyperparameter",
+   "statement": "NNCG 는 η=1, 반복 K=2000, 스케치 크기 s=60, 전처리 갱신 주기 F=20, CG 허용오차 ε=1e-16, CG 최대 반복 M=1000, Armijo α=0.1·β=0.5 를 쓴다.",
+   "page": 18
+  },
+  {
+   "gold": "G25",
+   "category": "hyperparameter",
+   "statement": "NNCG 감쇠 계수 μ 는 {1e-5, 1e-4, 1e-3, 1e-2, 1e-1} 에서 조정하며, 1e-2 와 1e-1 이 가장 잘 된다.",
+   "page": 18
+  },
+  {
+   "gold": "G27",
+   "category": "protocol",
+   "statement": "L2RE 는 내부 255×100 격자의 모든 점과 초기·경계조건용 257개·101개 점에서 계산한다.",
+   "page": 3
+  },
+  {
+   "gold": "G30",
+   "category": "result",
+   "statement": "NNCG 출발점인 Adam+L-BFGS 의 loss/L2RE 는 대류 5.95e-6/4.19e-3, 반응 5.26e-6/1.92e-2, 파동 1.12e-3/5.52e-2 이다.",
+   "page": 8
+  }
+ ],
+ "partial": [],
+ "unmatched": [
+  {
+   "check": "SC1",
+   "category": "dataset",
+   "statement": "주요 실험은 convection PDE, reaction ODE, wave PDE의 세 문제를 사용한다.",
+   "page": 2
+  },
+  {
+   "check": "SC17",
+   "category": "method",
+   "statement": "Adam을 먼저 실행해 saddle point를 피한 뒤 L-BFGS를 실행해 문제의 condition number를 줄인다.",
+   "page": 6
+  },
+  {
+   "check": "SC18",
+   "category": "method",
+   "statement": "NNCG는 Hessian-vector product와 preconditioned conjugate gradient로 Newton step을 계산한다.",
+   "page": 6
+  }
+ ],
+ "unanchored_gold": []
+}

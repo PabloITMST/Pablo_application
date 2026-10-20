@@ -1,0 +1,288 @@
+"""재현 점검 benchmark, offline: the planted drifts, the variants and the scoring (no model calls).
+Run: python tests/eval/test_audit_bench.py
+"""
+import json
+import os
+import shutil
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+
+import audit_bench as B  # noqa: E402
+
+
+def test_drifts_apply_to_the_base():
+    """Every drift edits text that occurs once in the base, and leaves its mark on a line the truth can point at."""
+    keys = {c["key"] for c in B.conditions()["conditions"]} | set(B.OPEN_EXPECT)
+    with tempfile.TemporaryDirectory() as d:
+        for drift in B.CATALOG + B.HARD + B.ENC:
+            folder = os.path.join(d, drift["id"])
+            shutil.copytree(B.BASE, folder)
+            line = B.plant(folder, drift)
+            assert drift["key"] in keys and all(k in keys for k in drift.get("affects", []))
+            assert (line is None) == (drift["mark"] is None) and drift["expect"] in B.DETECTED
+            base = open(os.path.join(B.BASE, drift["file"]), encoding="utf-8").read()
+            if drift["mark"]:
+                assert not any(B.marked(x, drift["mark"]) for x in base.splitlines()), f"{drift['id']}: its mark is in the base"
+
+
+def test_crlf_checkout():
+    """A Windows checkout gives the base CRLF line ends: every drift still applies, on the same line."""
+    with tempfile.TemporaryDirectory() as d:
+        base = os.path.join(d, "base")
+        shutil.copytree(B.BASE, base)
+        for root, _, files in os.walk(base):
+            for f in files:
+                p = os.path.join(root, f)
+                t = open(p, encoding="utf-8", newline="").read().replace("\r\n", "\n").replace("\n", "\r\n")
+                open(p, "w", encoding="utf-8", newline="").write(t)
+        for drift in B.CATALOG + B.HARD + B.ENC:
+            lf, crlf = os.path.join(d, "lf-" + drift["id"]), os.path.join(d, "crlf-" + drift["id"])
+            shutil.copytree(B.BASE, lf)
+            shutil.copytree(base, crlf)
+            assert B.plant(crlf, drift) == B.plant(lf, drift), drift["id"]
+
+
+def test_variants():
+    with tempfile.TemporaryDirectory() as d:
+        t = B.variants(d, n=8, seed=7, clean=1)
+        names = [v["name"] for v in t["variants"]]
+        assert names[0] == "v00-clean" and len(names) == 9
+        planted = [p for v in t["variants"] for p in v["planted"]]
+        assert sorted(p["id"] for p in planted) == sorted(x["id"] for x in B.CATALOG)  # each drift once
+        for v in t["variants"]:
+            ks = [p["key"] for p in v["planted"]]
+            assert len(ks) == len(set(ks)) and 0 <= len(ks) <= 3
+            for p in v["planted"]:
+                assert v["expect"][p["key"]] == p["expect"]
+            assert v["expect"]["seed"] == "chosen"
+        clean, method = t["variants"][0], B.METHOD()
+        assert {e for k, e in clean["expect"].items() if k not in method} == {"followed", "chosen"}
+        # the method steps: the base only sketches the method (its gaps in every variant), a drift may change one
+        base = {c["key"]: c["base"] for c in B.conditions()["conditions"] if c["key"] in method}
+        assert base == {"m_graph": "ambiguous", "m_match": "differs", "m_propagate": "differs", "m_prune": "differs",
+                        "m_seed_ppr": "followed", "m_rank": "followed"}
+        assert {k: clean["expect"][k] for k in method} == base
+        ppr = next(v for v in t["variants"] if any(p["id"] == "ppr_degree" for p in v["planted"]))
+        assert ppr["expect"]["m_seed_ppr"] == ppr["expect"]["m_rank"] == "differs"  # PageRank gone: both steps differ
+        topk = next(v for v in t["variants"] if any(p["id"] == "topk_config" for p in v["planted"]))
+        assert topk["expect"]["m_rank"] == "ambiguous" and clean["expect"]["prompt"] == "chosen"
+        again = B.variants(os.path.join(d, "again"), n=8, seed=7, clean=1)  # same seed, same benchmark
+        assert [[p["id"] for p in v["planted"]] for v in again["variants"]] == [[p["id"] for p in v["planted"]] for v in t["variants"]]
+
+
+def test_hard():
+    """The held-out set: each drift once, the truth's line is its mark's line after every drift of the variant is in
+    (one may add lines above another), the seed left unapplied is expected missing, not chosen; a report that quotes
+    the drifted line and names the change is found by the same scoring."""
+    with tempfile.TemporaryDirectory() as d:
+        t = B.variants(d, n=6, seed=7, clean=1, set="hard")
+        assert t["set"] == "hard" and len(t["variants"]) == 7 and not t["variants"][0]["planted"]
+        assert sorted(p["id"] for v in t["variants"] for p in v["planted"]) == sorted(x["id"] for x in B.HARD)
+        for v in t["variants"]:
+            for p in v["planted"]:
+                mark = next(x["mark"] for x in B.HARD if x["id"] == p["id"])
+                if mark:
+                    assert B.marked(open(os.path.join(v["dir"], p["file"]), encoding="utf-8").read().splitlines()[p["line"] - 1], mark)
+        seed = next(v for v in t["variants"] if any(p["id"] == "seed_unused" for p in v["planted"]))
+        assert seed["expect"]["seed"] == "missing" and t["variants"][0]["expect"]["seed"] == "chosen"
+
+        def said(v, p):
+            line = open(os.path.join(v["dir"], p["file"]), encoding="utf-8").read().splitlines()[p["line"] - 1] if p["line"] else ""
+            return line + " / " + p["id"].replace("_", " ")
+
+        at = lambda p: f"{p['file']}:{p['line']}" if p["line"] else p["file"]  # noqa: E731
+        one = [{"variant": v["name"], "ms": 1, "items": [{"what": "differs", "code": said(v, p), "where": at(p)} for p in v["planted"]]}
+               for v in t["variants"]]
+        c = B.compare({"one": one}, t)["one"]
+        assert (c["found"], c["missed"]) == (12, []), c["missed"]
+        again = B.variants(os.path.join(d, "again"), n=6, seed=7, clean=1, set="hard")
+        assert [[p["id"] for p in v["planted"]] for v in again["variants"]] == [[p["id"] for p in v["planted"]] for v in t["variants"]]
+
+
+def test_where():
+    assert B.where("config.yaml:10-11") == ("config.yaml", 10, 11)
+    assert B.where("logs\\2wikimultihopqa.log:1") == ("logs/2wikimultihopqa.log", 1, 1)
+    assert B.where("retrieve.py#L16") == ("retrieve.py", 16, 16)
+    assert B.where("C:\\w\\v01\\config.yaml:9") == ("C:/w/v01/config.yaml", 9, 9)
+    assert B.where("evaluate.py") == ("evaluate.py", None, None) and B.where("") == ("", None, None)
+
+
+def _answers(truth, keys, how):
+    """Fake audit runs: how(variant, key, expected) -> (status, where)."""
+    runs = []
+    for v in truth["variants"]:
+        items = []
+        for k, exp in v["expect"].items():
+            st, w = how(v, k, exp)
+            items.append({"id": keys[k], "status": st, "where": w, "found": "", "note": ""})
+        runs.append({"variant": v["name"], "items": items, "ms": 1000})
+    return runs
+
+
+def test_score():
+    with tempfile.TemporaryDirectory() as d:
+        truth = B.variants(d, n=8, seed=7, clean=1)
+        keys = {k: f"SC{i}" for i, k in enumerate(list(truth["variants"][0]["expect"]), 1)}
+
+        def perfect(v, k, exp):
+            p = next((p for p in v["planted"] if p["key"] == k), None)
+            return (exp if exp != "ambiguous" else "unclear"), (f"{p['file']}:{p['line']}" if p and p["line"] else p["file"] if p else "")
+
+        s = B.score(_answers(truth, keys, perfect), truth, keys)["summary"]
+        assert (s["recall"], s["exact_status"], s["false_alarm_rate"], s["file_accuracy"], s["line_accuracy"], s["open_chosen"]) == \
+            (100.0, 100.0, 0.0, 100.0, 100.0, 100.0), s
+        assert (s["method_recall"], s["method_false_alarm_rate"], s["followed_items"]) == (100.0, 0.0, 131), s  # apart
+
+        # value-only (the audit before method steps): every value right, every method step called followed
+        values = B.score(_answers(truth, keys, lambda v, k, exp: perfect(v, k, exp) if k not in B.METHOD() else ("followed", "")),
+                         truth, keys)
+        m = values["method"]
+        assert values["summary"]["recall"] == 100.0 and (m["gap"], m["found"], m["missed_as"]) == (29, 0, {"followed": 29})
+        md = B.markdown(values, {"date": "test", "model": "x", "avg_ms": 1})
+        assert "## 방법 조건" in md and "0/29 짚음" in md
+
+        blind = B.score(_answers(truth, keys, lambda v, k, exp: ("followed", "")), truth, keys)
+        assert blind["summary"]["recall"] == 0.0 and blind["summary"]["false_alarm_rate"] == 0.0
+        assert blind["planted"]["missed_as"] == {"followed": 18}
+
+        alarmist = B.score(_answers(truth, keys, lambda v, k, exp: ("differs", "config.yaml:1")), truth, keys)
+        a = alarmist["summary"]
+        assert a["recall"] == 100.0 and a["false_alarm_rate"] == 100.0 and a["line_accuracy"] < 50
+        assert alarmist["false_alarms"]["topk"] == 7  # followed in 7 of the 9 variants (two have a top-k drift)
+        md = B.markdown(alarmist, {"date": "test", "model": "x", "avg_ms": 1})
+        assert "| 오탐률 | 100.0%" in md and "## 어긋남별" in md
+
+
+def test_locs():
+    assert B.locs("config.yaml:5 (top_k)") == [("config.yaml", 5, 5)]
+    assert B.locs("preprocess.py:6,15, graph.py:3") == [("preprocess.py", 6, 6), ("preprocess.py", 15, 15), ("graph.py", 3, 3)]
+    assert B.locs("retrieve.py line 16; graph.py#L10-12") == [("retrieve.py", 16, 16), ("graph.py", 10, 12)]
+    assert B.locs("logs\\2wikimultihopqa.log:1") == [("logs/2wikimultihopqa.log", 1, 1)]
+    assert B.locs("evaluate.py (함수가 없음)") == [("evaluate.py", None, None)] and B.locs("") == []
+
+
+def test_compare():
+    """The comparison group's scoring: the drift's place and what changed there, the same rule for both systems."""
+    assert set(B.SAYS) == {x["id"] for x in B.CATALOG + B.HARD + B.ENC}
+    with tempfile.TemporaryDirectory() as d:
+        truth = B.variants(d, n=8, seed=7, clean=1)
+        at = lambda p: f"{p['file']}:{p['line']}" if p["line"] else p["file"]  # noqa: E731
+
+        def said(v, p):  # a report quoting the drifted line and naming the change (a removal shows only in words)
+            line = open(os.path.join(v["dir"], p["file"]), encoding="utf-8").read().splitlines()[p["line"] - 1] if p["line"] else ""
+            return line + " / " + p["id"].replace("_", " ")
+
+        sys_ = lambda f: [{"variant": v["name"], "ms": 1, "items": f(v)} for v in truth["variants"]]  # noqa: E731
+        c = B.compare({
+            "one": sys_(lambda v: [{"what": "differs", "code": said(v, p), "where": at(p)} for p in v["planted"]]),
+            "bundled": sys_(lambda v: [{"what": "all", "code": " / ".join(said(v, p) for p in v["planted"]),
+                                        "where": "; ".join(at(p) for p in v["planted"])}] if v["planted"] else []),
+            "wide": sys_(lambda v: [{"what": said(v, p), "where": f"{p['file']}:1-80"} for p in v["planted"]]),
+            "offtopic": sys_(lambda v: [{"what": "no retrieval-quality metrics", "where": at(p)} for p in v["planted"]]),
+            "noisy": sys_(lambda v: [{"what": "baselines not run", "where": "run.py:1"}]),
+        }, truth)
+        assert (c["one"]["found"], c["one"]["extra"], c["one"]["clean_extra"], c["one"]["missed"]) == (18, 0, 0, [])
+        assert (c["bundled"]["found"], c["bundled"]["extra"]) == (18, 0)  # one report may name several places
+        assert c["wide"]["found"] == sum(1 for v in truth["variants"] for p in v["planted"] if p["line"] is None)
+        o = c["offtopic"]  # on the drift's line, about something else there: not found, and outside the benchmark
+        assert (o["found"], o["found_loc"], o["extra"], len(o["missed"])) == (0, 18, 18, 18)
+        assert c["noisy"]["clean_extra"] == 1 and c["noisy"]["extras"][0]["what"] == "baselines not run"
+        md = B.markdown_compare(c, {"date": "test", "model": "x", "seed": 7, "variants": 9})
+        assert "| one | 18/18 (100.0%) | 18/18 |" in md and "## noisy: 심은 것 밖의 보고 9건" in md
+    # Korean particles follow values: "delta=2를", "500개", "lam=0.5로" still say the value
+    p = lambda i: {"id": i}  # noqa: E731
+    assert B.about({"code": "delta=2를 사용"}, p("delta")) and B.about({"what": "질문 500개"}, p("questions_500"))
+    assert B.about({"code": "lam=0.5로 설정"}, p("lambda")) and not B.about({"code": "1000개"}, p("topk_config"))
+
+
+def test_recheck():
+    """Pablo's check recomputed by desktop/where.js: a drift claim quoting its line holds in its own folder, and mostly
+    not in another variant's folder (the control)."""
+    with tempfile.TemporaryDirectory() as d:
+        truth = B.variants(d, n=8, seed=7, clean=1)
+        keys = {k: f"SC{i}" for i, k in enumerate(list(truth["variants"][0]["expect"]), 1)}
+        runs = [{"variant": v["name"], "ms": 1, "items": [
+            {"id": keys[p["key"]], "status": p["expect"], "where": f"{p['file']}:{p['line']}", "note": "",
+             "found": open(os.path.join(v["dir"], p["file"]), encoding="utf-8").read().splitlines()[p["line"] - 1].strip()}
+            for p in v["planted"] if p["line"]]} for v in truth["variants"]]
+        own = B.recheck(runs, truth, keys)
+        if own is None:
+            print("skip test_recheck: no node or desktop/where.js")
+            return
+        n = sum(len(r["items"]) for r in runs)
+        assert B.tally(own, truth, keys)["drift"] == {"verified": n}
+        other = B.tally(B.recheck(runs, truth, keys, shift=1), truth, keys)["drift"]
+        assert sum(other.values()) == n and other.get("verified", 0) < n / 2, other
+        assert "check" not in runs[1]["items"][0]  # the saved answers stay as they were
+
+
+def test_rows():
+    """What a card shows: open rows (not followed / unclear, or warned; outside method differences) and what each is."""
+    with tempfile.TemporaryDirectory() as d:
+        t = B.variants(d, n=8, seed=7, clean=1)
+        keys = {"r01": "SC1", "r02": "SC2", "r03": "SC3"}
+        labels = {"r01": {"category": "dataset", "statement": "HotpotQA는 97k", "missing": False},
+                  "r02": {"category": "method", "statement": "δ는 임계값", "missing": False},
+                  "r03": {"category": "training", "statement": "시드가 없다", "missing": True}}
+        v1 = t["variants"][1]
+        p = next(p for p in v1["planted"] if p["line"])
+        line = open(os.path.join(v1["dir"], p["file"]), encoding="utf-8").read().splitlines()[p["line"] - 1]
+        runs = [{"variant": v["name"], "items": [
+            {"id": "SC1", "status": "missing", "where": "", "found": "", "note": "데이터셋 크기를 확인할 코드가 없다", "check": "unchecked"},
+            {"id": "SC2", "status": "differs", "where": "retrieve.py:8", "found": "", "note": "delta를 hop 수로 쓴다", "check": "verified"},
+            {"id": "SC3", "status": "chosen", "where": "config.yaml:15", "found": "seed: 42", "note": "", "check": "verified"},
+            {"id": "SC1", "status": "followed", "where": "run.py:19", "found": "", "note": "", "check": "value_mismatch"},
+            {"id": "SC1", "status": "followed", "where": "run.py:16", "found": "", "note": "", "check": "value_mismatch",
+             "via": {"where": "config.yaml:2", "found": "embedding_model: all-mpnet-base-v2", "agrees": True}}]  # not shown
+            + ([{"id": "SC2", "status": "differs", "where": f"{p['file']}:{p['line']}", "found": line, "note": p["id"].replace("_", " ")}]
+               if v is v1 else []),
+            "outside": [{"kind": "method", "what": "임베딩 모델을 불러 놓고 쓰지 않는다", "where": "run.py:16", "found": ""},
+                        {"kind": "scope", "what": "baseline 비교가 없다", "where": "", "found": ""}]} for v in t["variants"]]
+        r = B.rows(runs, t, labels, keys)
+        c0, c1 = r["per_variant"][0], r["per_variant"][1]
+        assert (c0["items"], c0["open"], c0["other"], c0["method"], c0["chosen"], c0["warn"], c0["planted"]) == (5, 5, 1, 2, 1, 1, 0), c0
+        assert c1["planted"] == 1 and c1["open"] == 6
+        assert r["other"][0]["condition"] == "HotpotQA는 97k" and r["conditions"]["r01"] == {"missing": 9, "followed": 18}
+        md = B.markdown_rows(r, {"date": "test", "model": "x", "avg_ms": 1})
+        assert "| 그 밖 (손으로 읽음) | 9 | 1.0 | 0.0 |" in md and r["total"]["open_now"] == r["total"]["open"] - 9 and r["total"]["planted"] == 1 and r["total"]["drifts"] == 18 and "HotpotQA는 97k | dataset | followed 18, missing 9" in md
+
+
+def test_state_real():
+    """The spec output as a user gets it, through PabloSkill.spec: every saved quote anchors again; the audit asks all."""
+    if not os.path.exists(os.path.join(B.ROOT, "LinearRAG.pdf")):
+        print("skip test_state_real: LinearRAG.pdf not here")
+        return
+    sys.path.insert(0, os.path.join(B.ROOT, "src"))
+    from pablo_v2.intent.engine import IntentEngine
+    from pablo_v2.skill.skill import PabloSkill, render_audit
+    with tempfile.TemporaryDirectory() as d:
+        r = B.state(d, "real")
+        labels = json.load(open(os.path.join(d, "conditions.json"), encoding="utf-8"))
+        real = json.load(open(B.REAL_SPEC, encoding="utf-8"))
+        assert len(r["keys"]) == len(labels) == len(real["items"]) + len(real["missing"]) == 31
+        s = PabloSkill.load(os.path.join(d, "skill.json"), IntentEngine.load(os.path.join(d, "intent.json")))
+        _, items = render_audit(s, r["task"])
+        assert len(items) == 31 and sum(x["kind"] == "open" for x in items) == 4
+
+
+def test_state():
+    if not os.path.exists(os.path.join(B.ROOT, "LinearRAG.pdf")):
+        print("skip test_state: LinearRAG.pdf not here")
+        return
+    with tempfile.TemporaryDirectory() as d:
+        r = B.state(d)
+        assert set(r["keys"]) == {c["key"] for c in B.conditions()["conditions"]} | set(B.OPEN_EXPECT)
+        assert os.path.exists(r["view"])
+        s = json.load(open(os.path.join(d, "skill.json"), encoding="utf-8"))
+        specs = [c for c in s["checks"] if c.get("spec")]
+        assert len([c for c in specs if c["outcome"] == "VERIFIED"]) == 23 and len(s["anchors"]) == 23  # 17 values, 6 method steps
+
+
+if __name__ == "__main__":
+    for name, fn in list(globals().items()):
+        if name.startswith("test_"):
+            fn()
+            print("ok", name)

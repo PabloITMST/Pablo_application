@@ -102,11 +102,14 @@ function setModel(m) { if (!agent.models.includes(m)) throw new Error("unknown m
 function forget() { threadId = key = null; loaded.clear(); if (agent.stateFile) fs.rmSync(agent.stateFile, { force: true }); }
 
 // switch to a task's own thread: loaded in this process -> as is; saved -> thread/resume; else thread/start
+// The open thread is tied to a work folder and sandbox: a task whose folder changed while the app runs gets the thread
+// of the new folder (saved -> resume, else a new one), never keeps working in the old folder.
+let place = null;
 async function open(task) {
-  if (task === key && loaded.has(threadId)) return;
-  const th = { model: agent.model, ...where() }, s = (state().threads || {})[task];
+  const th = { model: agent.model, ...where() }, here = th.cwd + "|" + th.sandbox, s = (state().threads || {})[task];
+  if (task === key && loaded.has(threadId) && place === here) return;
   const old = s && s.cwd === th.cwd && s.sandbox === th.sandbox ? s.threadId : null;
-  key = task; threadId = null;
+  key = task; threadId = null; place = here;
   if (old && loaded.has(old)) { threadId = old; return; }
   const r = old ? await call("thread/resume", { threadId: old, ...th }).catch(() => call("thread/start", th)) : await call("thread/start", th);
   agent.resumed = !!old && r.thread.id === old;
@@ -123,12 +126,36 @@ function codexBin() {
   return CODEX;
 }
 
+// ⑤ hard2 (10/14): the agent's shell commands (pwsh) wrote their output in the console's code page (cp949 on a Korean
+// Windows) and Codex reads it as UTF-8, so λ and Korean comments came back as U+FFFD (PYTHONUTF8 only covers Python).
+// Inside Codex's sandbox a command cannot change the code page ([Console]::OutputEncoding is refused there, silently),
+// but the sandboxed shells inherit app-server's console: start it in one set to UTF-8. cmd only sets the code page and
+// runs codex.exe on the same stdio; stop() ends its stdin (codex exits, then cmd) and its taskkill /T takes both. A line
+// cmd would read itself (% ^ & | < > !) is started as before.
+function spawnUtf8(bin, args, opts) {
+  const q = a => !a || /[\s"]/.test(a) ? `"${a.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, "$1$1")}"` : a;
+  const line = [bin, ...args].map(q).join(" ");
+  if (process.platform !== "win32" || /[%^&|<>!]/.test(line)) return spawn(bin, args, opts);
+  return spawn(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/v:off", "/c", `"chcp 65001 >nul & ${line}"`], { ...opts, windowsVerbatimArguments: true });
+}
+
+// ⑤ which PowerShell Codex runs the agent's commands in: pwsh 7 where it is installed (the path Codex itself looks at, or
+// on PATH), else Windows PowerShell 5.1, which every Windows 10/11 has (pwsh 7 is a separate install). 5.1's Get-Content
+// reads a BOM-less UTF-8 file as the ANSI code page: a UTF-8 console cannot fix that, a session default can (main.js).
+const PWSH7 = path.join(process.env.ProgramFiles || "C:\\Program Files", "PowerShell", "7", "pwsh.exe");
+function shell() {
+  if (process.platform !== "win32") return null;
+  if (["pwsh", "powershell"].includes(process.env.PABLO_SHELL)) return process.env.PABLO_SHELL;  // check.js: a PC without pwsh 7
+  const onPath = (process.env.PATH || "").split(path.delimiter).some(d => d && fs.existsSync(path.join(d, "pwsh.exe")));
+  return fs.existsSync(PWSH7) || onPath ? "pwsh" : "powershell";
+}
+
 function start() {
   if (ready) return ready;
   set("Connecting"); agent.spawns++;
   ready = (async () => {
     const L = agent.launch ? await agent.launch() : null;
-    const p = proc = L ? spawn(codexBin(), ["app-server", "--listen", "stdio://", ...L.args], { cwd, env: { ...process.env, ...L.env }, windowsHide: true })
+    const p = proc = L ? spawnUtf8(codexBin(), ["app-server", "--listen", "stdio://", ...L.args], { cwd, env: { ...process.env, ...L.env }, windowsHide: true })
                        : spawn("codex app-server", { cwd, shell: true, windowsHide: true });  // M4.0 fallback: `codex login`, npm .cmd shim
     buf = "";
     p.stdout.setEncoding("utf8");
@@ -213,5 +240,5 @@ function stop() {
 const restart = () => stop().then(start);
 
 agent.models = [];
-Object.assign(agent, { start, send, retry, interrupt, stop, restart, forget, setModel, busy: () => !!turn, thread: () => threadId, task: () => key, pid: () => proc && proc.pid });
+Object.assign(agent, { start, send, retry, interrupt, stop, restart, forget, setModel, spawnUtf8, shell, busy: () => !!turn, thread: () => threadId, task: () => key, pid: () => proc && proc.pid });
 module.exports = agent;

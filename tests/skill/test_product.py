@@ -3,6 +3,7 @@ Stub judges only; no network.
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -15,7 +16,7 @@ sys.path.insert(0, HERE)
 from pablo_v2.__main__ import current_step  # noqa: E402
 from pablo_v2.intent.engine import IntentEngine  # noqa: E402
 from pablo_v2.skill.models import ActionProposal, ExecutionRecord, PostReview  # noqa: E402
-from pablo_v2.skill.skill import AUDIT_SCHEMA, PabloSkill, render_audit, render_brief  # noqa: E402
+from pablo_v2.skill.skill import AUDIT_SCHEMA, PabloSkill, checkable, has_value, render_audit, render_brief  # noqa: E402
 from pablo_v2.skill.viewer import model, workspace  # noqa: E402
 import ui_fixture  # noqa: E402
 
@@ -31,7 +32,7 @@ def test_chat_log():
     with tempfile.TemporaryDirectory() as d:
         ui_fixture.build(d)
         v = model(load(d), "T1")
-        assert [c["role"] for c in v["chat"]] == ["user", "intent", "agent", "user", "agent", "ask", "spec", "audit"]
+        assert [c["role"] for c in v["chat"]] == ["user", "intent", "agent", "user", "agent", "ask", "spec", "audit", "audit"]
         assert v["chat"][4]["status"] == "interrupted" and v["chat"][5]["check"] in v["checks"]
         assert [a["at"] for a in v["actions"]] == [ui_fixture.at(20), ui_fixture.at(40)]
         with open(os.path.join(d, "chat.json"), "w", encoding="utf-8") as f:
@@ -71,7 +72,9 @@ class SpecJudge:  # extract_spec stub on LinearRAG.pdf: two results, a method st
              "quote": "LinearRAG achieves 63.70% GPT-based accuracy on 2Wiki", "page": 8},
             {"category": "model", "statement": "문서 중요도는 personalized PageRank로 계산한다", "value": "PageRank",
              "quote": "In the second Stage, the model uses personalized PageRank algorithms", "page": 4},
-            {"category": "dataset", "statement": "없는 데이터셋", "value": "X", "quote": "a dataset this paper never names", "page": 6}],
+            {"category": "dataset", "statement": "없는 데이터셋", "value": "X", "quote": "a dataset this paper never names", "page": 6},
+            {"category": "method", "statement": "δ는 새로 활성된 엔티티의 관련도 점수를 거르는 임계값이다", "value": "",
+             "quote": "A newly activated entity is retained for the next iteration only if its relevance score exceeds", "page": 6}],
             "missing": [{"category": "training", "statement": "난수 시드가 적혀 있지 않다"}]}
 
     def analyze_action(self, action, justification, step, constraints, checks):
@@ -91,20 +94,22 @@ def test_spec():
     t = s.start_task("LinearRAG 재현", [])
     src = s.capture_pdf(PDF)
     stated, missing, dropped = s.spec(t.id, src.id)
-    assert [c.spec["category"] for c in stated] == ["result", "result", "model"] and len(dropped) == 1
+    assert [c.spec["category"] for c in stated] == ["result", "result", "model", "method"] and len(dropped) == 1
     pages = [s.evidence_for(c.id)[0][1].selector["page"] for c in stated]
-    assert pages == [9, 8, 9]  # the method step's page was wrong: found where it is
+    assert pages == [9, 8, 9, 6]  # the PageRank step's page was wrong: found where it is
     assert all(c.outcome == "VERIFIED" and c.sources[0]["tier"] == 4 for c in stated)
+    assert "value_in_quote" not in stated[3].spec  # a method step has no single value to look for in its quote
     assert len(missing) == 1 and missing[0].research_state == "pending" and missing[0].spec["missing"]
     text, basis = render_brief(s, t.id)
     assert "[보고된 결과] LinearRAG의 색인 시간은 249.78초이다 (LinearRAG p.9)" in text, text
+    assert "[방법] δ는 새로 활성된 엔티티의 관련도 점수를 거르는 임계값이다 (LinearRAG p.6)" in text, text
     assert "근거 없이 바꾸지 마세요" in text and "[학습] 난수 시드가 적혀 있지 않다" in text
     assert basis == [c.id for c in stated]
     act = s.propose_action(t.id, "eval.py에서 색인 시간 249.78을 120으로 고쳐 쓴다")
     assert act.verdict == "BLOCK" and "S01" in [r["rule"] for r in act.reasons]  # against a verified paper condition
     s.spec(t.id, src.id)  # again: the earlier set is replaced, not doubled
     live = [c for c in s.checks(t.id) if c.spec and c.research_state != "waived"]
-    assert len(live) == 4 and all(c.id not in {x.id for x in stated + missing} for c in live)
+    assert len(live) == 5 and all(c.id not in {x.id for x in stated + missing} for c in live)
     v = model(s, t.id)
     assert v["checks"][live[0].id]["spec"]["category"] == "result"
 
@@ -142,17 +147,255 @@ def test_rewrite_and_cache():
 
 def test_audit_prompt():
     """재현 점검 asks about every stated condition (with its page), every open setting and every task criterion, by id;
-    the answer's shape is a strict schema (status from a fixed set)."""
+    a method step is judged by what the code does, not by a value; what no item covers comes back apart (outside).
+    The answer's shape is a strict schema (status and kind from fixed sets, every property required)."""
     with tempfile.TemporaryDirectory() as d:
         ui_fixture.build(d)
         s = load(d)
         prompt, items = render_audit(s, "T1")
         kinds = {x["kind"] for x in items}
         assert kinds == {"condition", "open", "criterion"}, items
-        assert [x["label"] for x in items if x["kind"] == "condition"] == ["하이퍼파라미터", "보고된 결과"]
+        assert [x["label"] for x in items if x["kind"] == "condition"] == ["하이퍼파라미터", "보고된 결과", "모델", "방법"]
         assert all(f"{x['id']} | " in prompt for x in items) and "읽기만 하세요" in prompt
+        assert "'방법' 항목은 코드가 실제로 그 일을 그렇게 하는지로" in prompt and "outside:" in prompt
         assert {x["id"] for x in items if x["kind"] == "criterion"} == {"C1", "C2"}
         assert AUDIT_SCHEMA["properties"]["items"]["items"]["properties"]["status"]["enum"] ==             ["followed", "differs", "missing", "unclear", "chosen"]
+        out = AUDIT_SCHEMA["properties"]["outside"]["items"]
+        assert "outside" in AUDIT_SCHEMA["required"] and sorted(out["required"]) == sorted(out["properties"])
+        assert out["properties"]["kind"]["enum"] == ["method", "scope"]
+        # the paper's value goes to the desktop with each condition: Pablo checks the verdict against it (desktop/where.js)
+        assert [x["value"] for x in items if x["kind"] == "condition"] == ["5", "63.70%", "all-mpnet-base-v2", ""]
+
+
+# ---- A1/A2 (0.8): desktop/where.js, run with node on the same tables the Python rule uses ----
+WHERE_JS = os.path.join(HERE, "..", "..", "desktop", "where.js")
+NODE = """const w = require(process.argv[1]);
+const calls = JSON.parse(require("fs").readFileSync(0, "utf8"));
+console.log(JSON.stringify(calls.map(([f, ...a]) => { try { return w[f](...a); } catch (e) { return { error: e.code || e.message }; } })));"""
+
+
+def node(calls):
+    r = subprocess.run(["node", "-e", NODE, WHERE_JS], input=json.dumps(calls), capture_output=True, encoding="utf-8")
+    assert r.returncode == 0, r.stderr[-800:]
+    return json.loads(r.stdout)
+
+
+def no_node(name):
+    if shutil.which("node"):
+        return False
+    print(f"skip {name}: no node")
+    return True
+
+
+WHERE = [  # what models write for a place in the work folder -> (path, from, to)
+    ("config.yaml:5", ("config.yaml", 5, 5)),
+    ("config.yaml:10-11", ("config.yaml", 10, 11)),
+    ("logs\\2wiki.log:1", ("logs/2wiki.log", 1, 1)),                       # Windows separators
+    ("C:\\work\\repro\\config.yaml:5", ("C:/work/repro/config.yaml", 5, 5)),  # absolute (the folder check is read's)
+    ("/home/u/repro/config.yaml:5", ("/home/u/repro/config.yaml", 5, 5)),
+    ("src/run.py#L5", ("src/run.py", 5, 5)),
+    ("src/run.py#L5-L7", ("src/run.py", 5, 7)),
+    ("config.yaml", ("config.yaml", None, None)),                           # no line
+    ("config.yaml:5:3", ("config.yaml", 5, 5)),                             # line:column
+    ("`config.yaml` (line 5)", ("config.yaml", 5, 5)),
+    ("config.yaml, lines 10-11", ("config.yaml", 10, 11)),
+    ("config.yaml 12행", ("config.yaml", 12, 12)),
+    ("./config.yaml:5, run.py:3", ("config.yaml", 5, 5)),                   # several: the first
+    ("config.yaml:5 (top_k)", ("config.yaml", 5, 5)),
+    ("run notes.txt", ("run notes.txt", None, None)),
+    ("preprocess.py:6,15", ("preprocess.py", 6, 6)),                        # several lines (0.8 bench): the first range
+    ("evaluate.py:5-6, 18", ("evaluate.py", 5, 6)),
+    ("config.yaml:3; run.py:16,25; evaluate.py:11", ("config.yaml", 3, 3)),  # several files: the first
+    ("", None), ("없음", None), ("(none)", None), ("코드 전체", None),       # no place
+]
+VALUES = [  # (text, the paper's value, is it there) — numbers by value, never inside a word
+    ("top_k: 10", "5", False), ("top_k: 5", "5", True), ("lr: 0.5", "5", False), ("epochs: 15", "5", False),
+    ("questions_per_dataset: 1000", "1,000", True), ("gpt_acc=63.70", "63.70%", True), ("acc 63.7", "63.70%", True),
+    ("dataset=2wikimultihopqa", "2", False), ("embedding_model: all-mpnet-base-v2", "2", False),
+    ("llm: gpt-4o-mini", "GPT-4o-mini", True), ("uses Personalized  PageRank", "personalized pagerank", True),
+    ("lr = 0.0001", "1e-4", True), ("LinearRAG (Ours) 249.78 0.093", "249.78", True), ("split: test", "validation", False),
+    ("model = 'gpt-4o-mini-v2'", '"gpt-4o-mini-v2"', True),  # quote style: the same in both rules
+]
+CHECKABLE = [("5", True), ("1,000", True), ("63.70%", True), ("GPT-4o-mini", True), ("all-mpnet-base-v2", True),
+             ("Personalized PageRank", False), ("punctuation", False), ("GPT-ACC", False), ("SpaCy", False),  # concepts
+             ("HotpotQA; MuSiQue", False), ("entity, sentence, and passage", False),
+             ("NVIDIA GeForce RTX 4090 D (24GB VRAM)", False), ("", False)]
+
+
+def test_where_and_value_rule():
+    """where() takes the forms models write; the value rule is the same in Python (spec) and JS (audit)."""
+    if no_node("test_where_and_value_rule"):
+        return
+    got = node([["where", raw] for raw, _ in WHERE])
+    assert [None if g is None else (g["path"], g["from"], g["to"]) for g in got] == [w for _, w in WHERE], got
+    many = {raw: g for (raw, _), g in zip(WHERE, got) if g and (len(g["ranges"]) > 1 or g["also"])}
+    assert {raw: (g["ranges"], [(x["path"], x["ranges"]) for x in g["also"]]) for raw, g in many.items()} == {
+        "./config.yaml:5, run.py:3": ([[5, 5]], [("run.py", [[3, 3]])]),
+        "preprocess.py:6,15": ([[6, 6], [15, 15]], []), "evaluate.py:5-6, 18": ([[5, 6], [18, 18]], []),
+        "config.yaml:3; run.py:16,25; evaluate.py:11": ([[3, 3]], [("run.py", [[16, 16], [25, 25]]), ("evaluate.py", [[11, 11]])])}
+    js = node([["hasValue", t, v] for t, v, _ in VALUES] + [["checkable", v] for v, _ in CHECKABLE])
+    assert js == [x for *_, x in VALUES] + [x for _, x in CHECKABLE], js
+    assert [has_value(t, v) for t, v, _ in VALUES] == [x for *_, x in VALUES]
+    assert [checkable(v) for v, _ in CHECKABLE] == [x for _, x in CHECKABLE]
+
+
+def link_out(link, target):
+    """A directory link inside the work folder to one outside it (Windows without privilege: a junction)."""
+    try:
+        os.symlink(target, link, target_is_directory=True)
+    except OSError:
+        subprocess.run(["cmd", "/c", "mklink", "/J", link, target], capture_output=True, check=True)
+
+
+def test_read_and_verify():
+    """read: only text files inside the task's folder (also after links); verify: the six states of the audit check."""
+    if no_node("test_read_and_verify"):
+        return
+    with tempfile.TemporaryDirectory() as d:
+        w, out = os.path.join(d, "work"), os.path.join(d, "outside")
+        shutil.copytree(ui_fixture.DEMO, w)
+        os.makedirs(out)
+        open(os.path.join(out, "secret.txt"), "w").write("token\n")
+        open(os.path.join(w, "model.bin"), "wb").write(b"\x00\x01weights")
+        open(os.path.join(w, "big.log"), "w").write("x" * (1 << 20) + "\n")
+        open(os.path.join(w, "long.py"), "w").write("".join(f"line {i}\n" for i in range(1, 6001)))
+        wide = "x = f(" + ", ".join(f"weight_{i}" for i in range(80)) + ")"  # one line longer than main's 300-char cut
+        open(os.path.join(w, "wide.py"), "w").write(wide + "\n")
+        link = os.path.join(w, "link")
+        link_out(link, out)
+        try:
+            r = node([["read", w, "config.yaml"], ["read", w, "long.py", 5800], ["read", w, "../outside/secret.txt"],
+                      ["read", w, os.path.join(out, "secret.txt")], ["read", w, "link/secret.txt"], ["read", w, "model.bin"],
+                      ["read", w, "big.log"], ["read", w, "nope.txt"], ["read", w, "logs"]])
+            cfg, long = r[0], r[1]
+            assert (cfg["path"], cfg["first"], cfg["total"], cfg["truncated"], cfg["lines"][4]) == ("config.yaml", 1, 12, False, "  top_k: 10")
+            assert (long["first"], len(long["lines"]), long["total"], long["truncated"], long["lines"][0]) == (1001, 5000, 6000, True, "line 1001")
+            assert [x["error"] for x in r[2:]] == ["outside", "outside", "outside", "binary", "large", "missing", "missing"], r[2:]
+            V = lambda status, where, found, value="": ["verify", w, {"status": status, "where": where, "found": found}, value]  # noqa: E731
+            got = node([
+                V("differs", "config.yaml:5", "top_k: 10", "5"),                                       # verified
+                V("followed", "config.yaml:10-11", "split: validation / questions_per_dataset: 1000", "1,000"),
+                V("differs", "logs\\2wiki.log:1", "gpt_acc=61.20", "63.70%"),
+                V("differs", "logs/2wiki.log:1", "dataset=2wikimultihopqa", "2"),                      # not "2" of 2wiki
+                V("followed", "config.yaml:3,12", "llm: gpt-4o-mini; seed: 42"),                       # several lines
+                V("followed", "config.yaml:3; run.py:3", "llm: gpt-4o-mini; print('top_k'"),           # several files
+                V("followed", "run.py:2", "cfg = yaml.safe_load(open('config.yaml'))", "Personalized PageRank"),  # a concept
+                V("followed", "config.yaml:3", "llm: gpt-4o..."),                                      # cut by the model
+                V("followed", "wide.py:1", wide[:300]), V("followed", "wide.py:1", wide[:10] + "…"),   # cut by main / model
+                V("followed", "run.py:3", 'print("top_k", cfg["retrieval"]["top_k"])'),               # the other quotes
+                V("chosen", "config.yaml:2", "seed: 42"),                                              # moved
+                V("chosen", "config.yaml", "seed: 42"),                                                # no line: where it is
+                V("followed", "logs/2wiki.log:3", "gpt_acc=63.70", "63.70%"),                          # not_found
+                V("followed", "config.yaml:40", ""),
+                V("differs", "config.yaml:3", "llm: gpt-4o"), V("followed", "config.yaml:5", "top_k: 1"),  # only the
+                V("followed", "config.yaml:7", "damping: 0"), V("followed", "wide.py:1", wide[:10]),   # start of a token
+                V("followed", "missing.py:1", "x"), V("followed", "../outside/secret.txt:1", "token"),  # no_file
+                V("followed", "link/secret.txt:1", "token"), V("followed", "missing.py:6,15", "x"),
+                V("followed", "config.yaml:5", "top_k: 10", "5"),                                      # value_mismatch
+                V("differs", "config.yaml:9", "damping: 0.85", "0.85"),
+                V("missing", "", ""), V("followed", "model.bin:1", "weights"), V("followed", "config.yaml:5", "")])  # unchecked
+            assert wide[9:11] == "gh" and len(wide) > 300  # wide[:10] stops inside "weight_0"
+            assert got == [{"check": "verified"}] * 11 + [{"check": "moved", "line_found": 12}, {"check": "verified", "line_found": 12}] + \
+                [{"check": "not_found"}] * 6 + [{"check": "no_file"}] * 4 + [{"check": "value_mismatch"}] * 2 + [{"check": "unchecked"}] * 3, got
+        finally:
+            try:
+                os.unlink(link)
+            except OSError:
+                os.rmdir(link)  # a junction: the link only, never what it points to
+
+
+def test_audit_fixture_is_what_main_stores():
+    """The UI fixture's audit checks are exactly what where.verify gives on its repro folder (no hand-made states)."""
+    if no_node("test_audit_fixture_is_what_main_stores"):
+        return
+    with tempfile.TemporaryDirectory() as d:
+        ui_fixture.build(d)
+        s = load(d)
+        audits = [c for c in json.load(open(os.path.join(d, "chat.json"), encoding="utf-8"))["T1"] if c["role"] == "audit"]
+        values, repro = {c.id: c.spec.get("value", "") for c in s.checks("T1") if c.spec}, os.path.join(d, "repro")
+        items = [x for a in audits for x in a["items"]]
+        got = node([["verify", repro, x, values.get(x["id"], "")] for x in items])
+        assert got == [{k: x[k] for k in ("check", "line_found") if k in x} for x in items], got
+        assert {x["check"] for x in items} == {"unchecked", "verified", "not_found", "value_mismatch", "moved"}
+        got = node([["follow", repro, x, values.get(x["id"], "")] for x in items])  # ⑤ via: what main stores too
+        assert got == [x.get("via") for x in items], got
+        got = node([["scan", repro, x, values.get(x["id"], "")] for x in items])  # ⑥ seen, too
+        assert got == [x.get("seen") for x in items], got
+        got = node([["verify", repro, x, ""] for x in audits[0]["outside"]])  # no paper value outside the items
+        assert got == [{k: x[k] for k in ("check", "line_found") if k in x} for x in audits[0]["outside"]], got
+
+
+def test_scan_what_the_model_missed():
+    """⑥ an item the model called missing: its value, when it is one name, is looked for as a whole word in the folder's
+    code and config (not logs, not a comment); a number or a phrase is not looked for."""
+    if no_node("test_scan_what_the_model_missed"):
+        return
+    with tempfile.TemporaryDirectory() as d:
+        w = os.path.join(d, "work")
+        shutil.copytree(ui_fixture.DEMO, w)
+        open(os.path.join(w, "preprocess.py"), "w").write("# spacy_lite is not used\nimport spacy\nnlp = spacy.load('en')\n")
+        M, F = "missing", "followed"
+        got = node([["scan", w, {"status": s}, v] for s, v in [
+            (M, "SpaCy"),                 # preprocess.py:2 (line 1 is a comment, and spacy_lite is another word)
+            (M, "GPT-4o-mini"),           # config.yaml:3
+            (M, "2wikimultihopqa"),       # config.yaml (a log names it too: logs are not looked in)
+            (M, "5"), (M, "Personalized PageRank"), (M, "NLTK"),  # a number, a phrase: not looked for; not there
+            (F, "SpaCy"),                 # not called missing: nothing to look for
+        ]])
+        assert got == [{"where": "preprocess.py:2", "found": "import spacy"}, {"where": "config.yaml:3", "found": "llm: gpt-4o-mini"},
+                       {"where": "config.yaml:8", "found": "datasets: [hotpotqa, 2wikimultihopqa, musique]"}, None, None, None, None], got
+
+
+def test_follow_a_setting():
+    """⑤ the line that reads a setting -> the config line that sets it (under its parent key; one place only), so the value
+    check looks where the value is. A line that has the value itself, or a key two config files both set, gets none."""
+    if no_node("test_follow_a_setting"):
+        return
+    with tempfile.TemporaryDirectory() as d:
+        w = os.path.join(d, "work")
+        shutil.copytree(ui_fixture.DEMO, w)
+        os.makedirs(os.path.join(w, "configs"))
+        open(os.path.join(w, "configs", "base.json"), "w").write('{\n  "retrieval": {\n    "top_k": 5\n  },\n  "rerank": {\n    "top_k": 3\n  }\n}\n')
+        open(os.path.join(w, "configs", "train.toml"), "w").write('[optim]\nlr = 0.001  # 1e-3\n[eval]\nlr = 0\n')
+        open(os.path.join(w, ".pablo.yaml"), "w").write("seed: 7\n")
+        os.makedirs(os.path.join(w, "node_modules", "x"))
+        open(os.path.join(w, "node_modules", "x", "c.yaml"), "w").write("damping: 0.5\n")
+        F, D = "followed", "differs"
+        got = node([["follow", w, {"status": s, "found": f}, v] for s, f, v in [
+            (D, "print('top_k', cfg['retrieval']['top_k'])", "5"),    # config.yaml (top_k: 10) and base.json (5): two places
+            (F, "llm = cfg.get('llm')", "GPT-4o-mini"),
+            (F, "lr = cfg['optim']['lr']", "1e-3"),                   # TOML section; the comment's number is not the value
+            (D, "args.damping", "0.85"),                              # node_modules is not the project's config
+            (F, "k = conf['rerank']['top_k']", "3"),
+            (F, "top_k: 10", "10"),                                   # the line has the value itself
+            (F, "cfg['missing_key']", "5"),
+            ("missing", "cfg['llm']", "gpt-4o-mini"),                  # 아직 없음: nothing to hold the value to
+        ]])
+        assert got == [None, {"where": "config.yaml:3", "found": "llm: gpt-4o-mini", "agrees": True},
+                       {"where": "configs/train.toml:2", "found": "lr = 0.001  # 1e-3", "agrees": True},
+                       {"where": "config.yaml:7", "found": "damping: 0.85", "agrees": False},
+                       {"where": "configs/base.json:6", "found": '"top_k": 3', "agrees": True}, None, None, None], got
+
+
+class QuoteJudge:  # one value in its quote, one the model read wrong (70.20 is the paper's other number)
+    def extract_spec(self, pages):
+        return {"items": [
+            {"category": "result", "statement": "LinearRAG의 색인 시간은 249.78초이다", "value": "249.78",
+             "quote": "LinearRAG (Ours) 249.78 0.093 0 0 66.95", "page": 9},
+            {"category": "result", "statement": "2Wiki에서 GPT 정확도는 70.20%이다", "value": "70.20%",
+             "quote": "LinearRAG achieves 63.70% GPT-based accuracy on 2Wiki", "page": 8}], "missing": []}
+
+
+def test_spec_value_in_quote():
+    """A condition whose value is not in the quote Pablo anchored is kept, and marked (the card says so)."""
+    if not os.path.exists(PDF):
+        print("skip test_spec_value_in_quote: LinearRAG.pdf not here")
+        return
+    s = PabloSkill(IntentEngine(), QuoteJudge())
+    t = s.start_task("LinearRAG 재현", [])
+    stated, _, dropped = s.spec(t.id, s.capture_pdf(PDF).id)
+    assert not dropped and [c.spec.get("value_in_quote", True) for c in stated] == [True, False]
+    assert model(s, t.id)["checks"][stated[1].id]["spec"]["value_in_quote"] is False
 
 
 def test_page_script_parses():

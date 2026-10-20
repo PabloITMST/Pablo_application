@@ -1,0 +1,240 @@
+{
+ "pdf": "../../../../.pablo/gold/papers/arxiv-2406.03150v1.pdf",
+ "note": "The second run on Sample-specific Masks for Visual Reprogramming-based Prompting the same day: check.js --spec --paper=sample_specific_masks (9bdefc2, the check window minimized on purpose before [1], to test that fix), the account's model. 27 items, 2 dropped, 4 settings the paper does not state. Unedited. Scored in sample_specific_masks.2026-10-20b.score.json.",
+ "items": [
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "주요 실험의 첫 번째 대상 데이터셋들은 CIFAR10, CIFAR100, SVHN, GTSRB, Flowers102이다.",
+   "value": "",
+   "quote": "target tasks include CIFAR10, CIFAR100 (Krizhevsky, 2009), SVHN (Yuval, 2011), GTSRB (Houben et al., 2013), Flowers102",
+   "page": 6
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "주요 실험의 나머지 대상 데이터셋들은 DTD, UCF101, Food101, EuroSAT, OxfordPets, SUN397이다.",
+   "value": "",
+   "quote": "DTD (Cim- poi et al., 2014), UCF101 (Soomro et al., 2012), Food101 (Bossard et al., 2014), EuroSAT (Helber et al., 2019), Ox- fordPets",
+   "page": 6
+  },
+  {
+   "category": "split",
+   "kind": "setting",
+   "statement": "CIFAR10은 학습 50000개와 테스트 10000개로 분할한다.",
+   "value": "50000/10000",
+   "quote": "CIFAR10 32× 32 50000 10000 10",
+   "page": 17
+  },
+  {
+   "category": "split",
+   "kind": "setting",
+   "statement": "Flowers102는 학습 4093개와 테스트 2463개로 분할한다.",
+   "value": "4093/2463",
+   "quote": "FLOWERS 102 128× 128 4093 2463 102",
+   "page": 17
+  },
+  {
+   "category": "split",
+   "kind": "setting",
+   "statement": "OxfordPets는 학습 2944개와 테스트 3669개로 분할한다.",
+   "value": "2944/3669",
+   "quote": "OXFORD PETS 128× 128 2944 3669 37",
+   "page": 17
+  },
+  {
+   "category": "model",
+   "kind": "setting",
+   "statement": "ResNet-18, ResNet-50, ViT-B32를 ImageNet-1K 사전학습 분류기로 사용한다.",
+   "value": "ResNet-18, ResNet-50, ViT-B32 / ImageNet-1K",
+   "quote": "All these models are pre-trained on ImageNet-1K (Deng et al., 2009)",
+   "page": 6
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "SMM은 각 타깃 이미지를 먼저 크기 조정한 뒤 마스크 생성기로 처리해 3채널 마스크를 만든다.",
+   "value": "",
+   "quote": "SMM starts by resizing target images, followed by their processing through the mask generator to create corresponding three- channel masks.",
+   "page": 4
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "마스크 생성기는 입력 이미지마다 샘플별 마스크를 생성하는 경량 CNN이다.",
+   "value": "",
+   "quote": "The mask generator is a lightweight convolutional neural network (CNN) that takes resized individual target-domain images",
+   "page": 2
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "패치별 보간 모듈은 생성된 마스크를 패치 단위로 업샘플링해 패턴 크기에 맞춘다.",
+   "value": "",
+   "quote": "For generated masks smaller than the pattern size, the patch-wise interpolation module performs upsam- pling",
+   "page": 4
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "패치별 보간은 각 픽셀을 해당 패치 전체에 같은 값으로 복사한다.",
+   "value": "",
+   "quote": "each sized 2l× 2l, ensuring the same values within each patch",
+   "page": 4
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "공유 노이즈 패턴은 모든 이미지에 공유되고 마스크 생성기는 이미지별 다채널 마스크를 만든다.",
+   "value": "",
+   "quote": "δ is shared by all images in the dataset following Bahng et al. (2022) and Chen et al. (2023), while fmask uniquely generates sample-specific multi-channel masks",
+   "page": 4
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "마스크를 패턴과 픽셀별로 곱한 뒤 이미지에 더하고 고정된 사전학습 분류기에 입력한다.",
+   "value": "",
+   "quote": "the learnable pattern δ is multiplied with the mask on a pixel-wise basis and added to the image",
+   "page": 4
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "출력 라벨 매핑은 학습 파라미터가 없는 매핑으로 처리한다.",
+   "value": "",
+   "quote": "We focus on fin, while treating fout as a non-parametric mapping",
+   "page": 3
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "주요 결과에서는 매 학습 반복마다 현재 타깃 학습 샘플로 iterative label mapping을 갱신한다.",
+   "value": "",
+   "quote": "Ilm updates fout(·) after each training iteration",
+   "page": 14
+  },
+  {
+   "category": "preprocessing",
+   "kind": "setting",
+   "statement": "타깃 이미지는 사전학습 모델 입력 크기로 bilinear interpolation 업샘플링한다.",
+   "value": "bilinear interpolation",
+   "quote": "typically im- plemented as bilinear interpolation upsampling",
+   "page": 4
+  },
+  {
+   "category": "model",
+   "kind": "setting",
+   "statement": "ResNet용 마스크 생성기는 5개 3×3 합성곱 층과 3개의 2×2 최대풀링 층을 사용한다.",
+   "value": "5 / 3×3 / 3",
+   "quote": "Both models have 3 Max-Pooling layers.",
+   "page": 13
+  },
+  {
+   "category": "model",
+   "kind": "setting",
+   "statement": "마스크 생성기의 마지막 층 채널 수는 3이다.",
+   "value": "3",
+   "quote": "The number of channels of the last layer is set to 3 to produce a three-channel mask.",
+   "page": 12
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "SMM의 패치 크기는 모든 데이터셋에서 8로 설정한다.",
+   "value": "8",
+   "quote": "We thus have set the patch size to be 8 across all datasets.",
+   "page": 8
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "공유 패턴과 마스크 생성기는 총 200 epoch 동안 학습한다.",
+   "value": "200",
+   "quote": "Two hundred epochs are run in total",
+   "page": 7
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "학습률 마일스톤은 100번째와 145번째 epoch이다.",
+   "value": "100, 145",
+   "quote": "the 100th and the 145th epochs are the milestones.",
+   "page": 7
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "ResNet 실험의 초기 학습률은 0.01이고 학습률 감쇠값은 0.1이다.",
+   "value": "0.01 / 0.1",
+   "quote": "with 0.01 being the initial learning rate and 0.1 being the learning rate decay.",
+   "page": 7
+  },
+  {
+   "category": "training",
+   "kind": "fact",
+   "statement": "실험은 단일 A100 GPU에서 세 개의 시드로 수행한다.",
+   "value": "3 seeds / A100",
+   "quote": "Experiments are run with three seeds on a single A100 GPU",
+   "page": 7
+  },
+  {
+   "category": "metric",
+   "kind": "setting",
+   "statement": "성능은 평균 테스트 정확도로 보고한다.",
+   "value": "test accuracy",
+   "quote": "the averaged test accuracy is reported.",
+   "page": 7
+  },
+  {
+   "category": "baseline",
+   "kind": "scope",
+   "statement": "비교 기준선은 Pad, Narrow, Medium, Full 워터마크 방식이다.",
+   "value": "Pad, Narrow, Medium, Full",
+   "quote": "including: (1) Pad: centering the origi- nal image and adding the noise pattern around the images, (2) Narrow",
+   "page": 7
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "ResNet-18에서 SMM의 11개 데이터셋 평균 테스트 정확도는 52.53%이다.",
+   "value": "52.53%",
+   "quote": "AVERAGE 43.91 43.48 45.04 46.85 52.53",
+   "page": 6
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "ResNet-50에서 SMM의 11개 데이터셋 평균 테스트 정확도는 56.35%이다.",
+   "value": "56.35%",
+   "quote": "AVERAGE 49.15 46.76 49.39 52.10 56.35",
+   "page": 6
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "ViT-B32에서 SMM의 11개 데이터셋 평균 테스트 정확도는 72.4%이다.",
+   "value": "72.4%",
+   "quote": "AVERAGE 53.1 63.7 65.2 64.7 72.4",
+   "page": 7
+  }
+ ],
+ "missing": [
+  {
+   "category": "training",
+   "statement": "옵티마이저의 종류와 구체적인 설정은 명시되지 않았다."
+  },
+  {
+   "category": "training",
+   "statement": "데이터 증강과 정규화 방식은 명시되지 않았다."
+  },
+  {
+   "category": "model",
+   "statement": "마스크 생성기 각 합성곱 층의 채널 수는 본문에 완전히 명시되지 않았다."
+  },
+  {
+   "category": "hyperparameter",
+   "statement": "공유 패턴 δ와 생성기 파라미터 ϕ에 각각 적용되는 학습률의 구분은 명확히 명시되지 않았다."
+  }
+ ]
+}

@@ -1,0 +1,335 @@
+{
+ "pdf": "../../../../.pablo/gold/papers/arxiv-2402.01868v2.pdf",
+ "note": "The third run on Challenges in Training PINNs: A Loss Landscape Perspective the same day, with the appendix pass (bd33ff5): check.js --spec --paper=pinns_loss_landscape, the account's model, 96 s. 37 items (7 from the appendix pass), 0 dropped, 4 settings the paper does not state. Unedited. Scored in pinns_loss_landscape.2026-10-20c.score.json before any alt was paired from it.",
+ "items": [
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "실험은 convection PDE, wave PDE, reaction ODE의 세 문제에서 수행된다.",
+   "value": "convection PDE, wave PDE, reaction ODE",
+   "quote": "We conduct experiments on optimizing PINNs for convection, wave PDEs, and a reaction ODE.",
+   "page": 2
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "convection 실험의 계수는 β=40이다.",
+   "value": "β = 40",
+   "quote": "We setβ = 40 in our experiments.",
+   "page": 14
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "reaction 실험의 계수는 ρ=5이다.",
+   "value": "ρ = 5",
+   "quote": "We set ρ = 5 in our experiments.",
+   "page": 14
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "wave 실험의 계수는 β=5이다.",
+   "value": "β = 5",
+   "quote": "We set β = 5 in our experi- ments.",
+   "page": 14
+  },
+  {
+   "category": "split",
+   "kind": "setting",
+   "statement": "내부 PDE 잔차에는 255×100 격자에서 무작위로 샘플한 10000개 점을 사용한다.",
+   "value": "10000 residual points",
+   "quote": "We use 10000 residual points randomly sampled from a 255× 100 grid on the interior",
+   "page": 3
+  },
+  {
+   "category": "split",
+   "kind": "setting",
+   "statement": "초기 조건에는 균등 간격 점 257개를 사용한다.",
+   "value": "257",
+   "quote": "We use 257 equally spaced points for the initial conditions",
+   "page": 3
+  },
+  {
+   "category": "split",
+   "kind": "setting",
+   "statement": "각 경계 조건에는 균등 간격 점 101개를 사용한다.",
+   "value": "101",
+   "quote": "and 101 equally spaced points for each boundary condition.",
+   "page": 3
+  },
+  {
+   "category": "model",
+   "kind": "setting",
+   "statement": "PINN 해는 tanh 활성화를 사용하는 3개 은닉층 MLP로 모델링한다.",
+   "value": "MLP, tanh, 3 hidden layers",
+   "quote": "We use multilayer perceptrons (MLPs) with tanh activations and three hidden layers.",
+   "page": 3
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "MLP 은닉층 폭은 50, 100, 200, 400을 사용한다.",
+   "value": "50, 100, 200, 400",
+   "quote": "These MLPs have widths 50, 100, 200, or 400.",
+   "page": 3
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "네트워크는 Xavier normal 초기화와 0인 모든 편향으로 초기화한다.",
+   "value": "Xavier normal; zero biases",
+   "quote": "We initialize these networks with the Xavier normal initialization (Glorot & Bengio, 2010) and all biases equal to zero.",
+   "page": 3
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "Adam 학습률은 {10⁻⁵,10⁻⁴,10⁻³,10⁻²,10⁻¹}에서 그리드 탐색한다.",
+   "value": "{10⁻⁵, 10⁻⁴, 10⁻³, 10⁻², 10⁻¹}",
+   "quote": "For Adam, we tune the learning rate by a grid search on{10−5, 10−4, 10−3, 10−2, 10−1}.",
+   "page": 3
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "L-BFGS의 학습률은 1.0, 메모리 크기는 100, 선형 탐색은 strong Wolfe를 사용한다.",
+   "value": "learning rate 1.0; memory 100; strong Wolfe",
+   "quote": "For L-BFGS, we use the default learning rate 1.0, memory size 100, and strong Wolfe line search.",
+   "page": 3
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "Adam+L-BFGS의 전환 시점은 1000, 11000, 31000 반복을 탐색한다.",
+   "value": "1000, 11000, 31000 iterations",
+   "quote": "also vary the switch from Adam to L-BFGS (after 1000, 11000, 31000 iterations).",
+   "page": 3
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "모든 최적화 방법은 총 41000회 반복한다.",
+   "value": "41000 iterations",
+   "quote": "All three methods are run for a total of 41000 iterations.",
+   "page": 3
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "각 PDE·최적화기·MLP 조합은 무작위 시드 5개로 실행한다.",
+   "value": "5 random seeds",
+   "quote": "Each combination of PDE, optimizer, and MLP architecture is run with 5 random seeds.",
+   "page": 3
+  },
+  {
+   "category": "preprocessing",
+   "kind": "setting",
+   "statement": "실험은 PyTorch 2.0.0과 Python 3.10.12로 구현한다.",
+   "value": "PyTorch 2.0.0; Python 3.10.12",
+   "quote": "We develop our experiments in PyTorch 2.0.0 (Paszke et al., 2019) with Python 3.10.12.",
+   "page": 3
+  },
+  {
+   "category": "metric",
+   "kind": "setting",
+   "statement": "PINN 해와 정답의 오차는 ℓ2 상대 오차 L2RE로 평가한다.",
+   "value": "L2RE",
+   "quote": "We assess the discrepancy between the PINN solution and the ground truth usingℓ2 relative error (L2RE)",
+   "page": 3
+  },
+  {
+   "category": "protocol",
+   "kind": "setting",
+   "statement": "L2RE는 내부 255×100 격자와 초기·경계 조건 점 전체에서 계산한다.",
+   "value": "all evaluation points",
+   "quote": "We compute the L2RE using all points in the255×100 grid on the interior of the problem domain",
+   "page": 3
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "PINN의 목적함수는 내부 PDE 잔차 손실과 경계·초기 조건 손실의 평균 제곱합이다.",
+   "value": "",
+   "quote": "The first loss term measures how much u(x;w) fails to satisfy the PDE, while the second term measures how muchu(x;w) fails to satisfy the bound- ary/initial conditions.",
+   "page": 2
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "Adam을 먼저 실행해 최적화한 뒤 L-BFGS로 전환한다.",
+   "value": "",
+   "quote": "By running Adam first, we avoid saddle points that would attract L-BFGS.",
+   "page": 6
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "NNCG는 Hessian-vector product와 Nyström-PCG로 감쇠된 Newton 방향을 계산한다.",
+   "value": "",
+   "quote": "Instead, we run a Newton-CG algorithm that solves for the Newton step using preconditioned conjugate gradient (PCG).",
+   "page": 6
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "NNCG의 단계 크기는 Armijo 선형 탐색으로 정해 손실 감소를 보장한다.",
+   "value": "",
+   "quote": "After computing the Newton step, we compute the step sizeηk using Armijo line search — this guarantees that the loss will decrease",
+   "page": 18
+  },
+  {
+   "category": "baseline",
+   "kind": "setting",
+   "statement": "주요 비교 최적화기는 Adam, L-BFGS, Adam+L-BFGS이다.",
+   "value": "Adam; L-BFGS; Adam+L-BFGS",
+   "quote": "We compare three optimizers frequently used for train- ing PINNs: (i) Adam, (ii) L-BFGS, and (iii) Adam followed by L-BFGS",
+   "page": 2
+  },
+  {
+   "category": "baseline",
+   "kind": "scope",
+   "statement": "Adam+L-BFGS 이후의 추가 비교에는 gradient descent와 NNCG를 사용한다.",
+   "value": "GD; NNCG",
+   "quote": "Performance of NNCG and GD after Adam+L-BFGS.",
+   "page": 7
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "Convection에서 Adam+L-BFGS의 최저 loss는 5.95e-6이고 L2RE는 4.19e-3이다.",
+   "value": "loss 5.95e-6; L2RE 4.19e-3",
+   "quote": "Adam+L-BFGS 5.95e-6 4.19e-3 3.26e-6 1.92e-2 1.12e-3 5.52e-2",
+   "page": 5
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "Reaction에서 Adam+L-BFGS의 최저 loss는 3.26e-6이고 L2RE는 1.92e-2이다.",
+   "value": "loss 3.26e-6; L2RE 1.92e-2",
+   "quote": "Adam+L-BFGS 5.95e-6 4.19e-3 3.26e-6 1.92e-2 1.12e-3 5.52e-2",
+   "page": 5
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "Wave에서 Adam+L-BFGS의 최저 loss는 1.12e-3이고 L2RE는 5.52e-2이다.",
+   "value": "loss 1.12e-3; L2RE 5.52e-2",
+   "quote": "Adam+L-BFGS 5.95e-6 4.19e-3 3.26e-6 1.92e-2 1.12e-3 5.52e-2",
+   "page": 5
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "NNCG 미세조정 후 Convection의 loss와 L2RE는 각각 3.63e-7과 1.94e-3이다.",
+   "value": "loss 3.63e-7; L2RE 1.94e-3",
+   "quote": "Adam+L-BFGS+NNCG 3.63e-7 1.94e-3 2.89e-7 9.92e-3 6.13e-5 1.27e-2",
+   "page": 8
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "NNCG 미세조정 후 Reaction의 loss와 L2RE는 각각 2.89e-7과 9.92e-3이다.",
+   "value": "loss 2.89e-7; L2RE 9.92e-3",
+   "quote": "Adam+L-BFGS+NNCG 3.63e-7 1.94e-3 2.89e-7 9.92e-3 6.13e-5 1.27e-2",
+   "page": 8
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "NNCG 미세조정 후 Wave의 loss와 L2RE는 각각 6.13e-5와 1.27e-2이다.",
+   "value": "loss 6.13e-5; L2RE 1.27e-2",
+   "quote": "Adam+L-BFGS+NNCG 3.63e-7 1.94e-3 2.89e-7 9.92e-3 6.13e-5 1.27e-2",
+   "page": 8
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "Convection 문제는 x ∈ (0, 2π), t ∈ (0, 1)에서 초기조건과 주기 경계조건을 갖는 다음 PDE로 정의된다.",
+   "value": "∂u/∂t + β∂u/∂x = 0, x ∈ (0, 2π), t ∈ (0, 1), u(x, 0) = sin(x), x ∈ [0, 2π], u(0,t) = u(2π,t), t ∈ [0, 1].",
+   "quote": "The convection PDE we study is ∂u ∂t +β∂u ∂x = 0, x ∈ (0, 2π),t∈ (0, 1), u(x, 0) = sin(x)",
+   "page": 14,
+   "fills": 0,
+   "from": "appendix"
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "Reaction 문제는 x ∈ (0, 2π), t ∈ (0, 1)에서 주어진 초기조건과 주기 경계조건을 갖는 다음 ODE로 정의된다.",
+   "value": "∂u/∂t − ρu(1−u) = 0, x ∈ (0, 2π), t ∈ (0, 1), u(x, 0) = exp(−(x−π)^2/[2(π/4)^2]), x ∈ [0, 2π], u(0,t) = u(2π,t), t ∈ [0, 1].",
+   "quote": "The reaction ODE we study is ∂u ∂t −ρu(1−u) = 0, x ∈ (0, 2π),t∈ (0, 1) u(x, 0) = exp",
+   "page": 14,
+   "fills": 0,
+   "from": "appendix"
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "Wave 문제는 x ∈ (0, 1), t ∈ (0, 1)에서 초기 변위·속도와 양 끝의 Dirichlet 경계조건을 갖는 다음 PDE로 정의된다.",
+   "value": "∂²u/∂t² − 4∂²u/∂x² = 0, x ∈ (0, 1), t ∈ (0, 1), u(x, 0) = sin(πx) + 1/2 sin(βπx), ∂u(x, 0)/∂t = 0, u(0,t) = u(1,t) = 0.",
+   "quote": "The wave PDE we study is ∂2u ∂t2− 4∂2u ∂x2 = 0, x ∈ (0, 1),t∈ (0, 1), u(x, 0) = sin(πx) + 1 2 sin(βπx)",
+   "page": 14,
+   "fills": 0,
+   "from": "appendix"
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "실험에서 PINN 목적함수의 경계조건 항 가중치는 1로 설정된다.",
+   "value": "λ = 1",
+   "quote": "λ can be any positive real number; we setλ = 1 in our experiments.",
+   "page": 21,
+   "fills": 0,
+   "from": "appendix"
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "scope",
+   "statement": "NNCG 실험에서는 최대 학습률, 반복 횟수, Nyström 스케치 크기, 갱신 주기, CG 허용오차·최대 반복 횟수와 Armijo 파라미터를 다음과 같이 설정한다.",
+   "value": "η = 1, K = 2000, s = 60, F = 20, ϵ = 10⁻¹⁶, M = 1000, α = 0.1, β = 0.5",
+   "quote": "In our experiments, we set η = 1,K = 2000,s = 60,F = 20,ϵ = 10−16,M = 1000,α = 0.1, andβ = 0.5.",
+   "page": 18,
+   "fills": 0,
+   "from": "appendix"
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "scope",
+   "statement": "NNCG의 감쇠 파라미터 μ는 주어진 격자에서 탐색하며, 실험적으로 가장 잘 작동한 값은 10⁻²와 10⁻¹이다.",
+   "value": "μ ∈ [10⁻⁵, 10⁻⁴, 10⁻³, 10⁻², 10⁻¹]; μ = 10⁻², 10⁻¹",
+   "quote": "We tune µ∈ [10−5, 10−4, 10−3, 10−2, 10−1]; we find thatµ = 10−2, 10−1 work best in practice.",
+   "page": 18,
+   "fills": 0,
+   "from": "appendix"
+  },
+  {
+   "category": "protocol",
+   "kind": "setting",
+   "statement": "Figure 8은 각 네트워크 폭과 최적화 전략에서 모든 무작위 시드에 대해 최저 loss 또는 L2RE를 내는 학습률을 선택하고, 그 학습률의 시드별 최솟값·중앙값·최댓값을 보고한다.",
+   "value": "η⋆에서 모든 무작위 시드에 대한 loss 또는 L2RE의 min, median, max; 막대는 median, 오차 막대의 위·아래는 max·min",
+   "quote": "The min, median, and max loss (L2RE) are calculated by taking the min, median, and max",
+   "page": 18,
+   "fills": 0,
+   "from": "appendix"
+  }
+ ],
+ "missing": [
+  {
+   "category": "training",
+   "statement": "무작위 시드의 구체적인 값이 명시되지 않았다."
+  },
+  {
+   "category": "hyperparameter",
+   "statement": "Adam 그리드에서 각 PDE와 네트워크 폭에 최종 선택된 학습률이 명시되지 않았다."
+  },
+  {
+   "category": "training",
+   "statement": "Adam의 optimizer 세부 설정과 학습률 스케줄이 명시되지 않았다."
+  },
+  {
+   "category": "protocol",
+   "statement": "주요 표의 최종 보고값을 어떤 시드 집계 방식으로 선택했는지 명시되지 않았다."
+  }
+ ],
+ "appendix": 14
+}

@@ -1,0 +1,171 @@
+{
+ "meta": {
+  "date": "2026-10-14",
+  "model": "gpt-5.6-luna",
+  "n": 2,
+  "seed": 7,
+  "set": "enc",
+  "conditions": "frozen",
+  "avg_ms": 68276,
+  "tag": "enc"
+ },
+ "summary": {
+  "recall": 100.0,
+  "exact_status": 100.0,
+  "false_alarm_rate": 0.0,
+  "followed_confirmed": 100.0,
+  "unclear_on_followed": 0.0,
+  "file_accuracy": 100.0,
+  "line_accuracy": 100.0,
+  "open_chosen": 100.0,
+  "planted": 3,
+  "followed_items": 48,
+  "variants": 3,
+  "method_recall": 100.0,
+  "method_false_alarm_rate": 0.0
+ },
+ "planted": {
+  "n": 3,
+  "detected": 3,
+  "exact": 3,
+  "file": 3,
+  "line": 3,
+  "line_n": 3,
+  "missed_as": {}
+ },
+ "followed": {
+  "n": 48,
+  "followed": 48,
+  "false_alarm": 0,
+  "unclear": 0,
+  "other": 0
+ },
+ "open": {
+  "n": 6,
+  "exact": 6
+ },
+ "method": {
+  "gap": 9,
+  "found": 9,
+  "missed_as": {},
+  "ok": 5,
+  "false_alarm": 0,
+  "unclear": 0,
+  "per": {
+   "m_graph": {
+    "gap": 0,
+    "found": 0,
+    "ok": 0,
+    "false_alarm": 0
+   },
+   "m_match": {
+    "gap": 3,
+    "found": 3,
+    "ok": 0,
+    "false_alarm": 0
+   },
+   "m_propagate": {
+    "gap": 3,
+    "found": 3,
+    "ok": 0,
+    "false_alarm": 0
+   },
+   "m_prune": {
+    "gap": 3,
+    "found": 3,
+    "ok": 0,
+    "false_alarm": 0
+   },
+   "m_seed_ppr": {
+    "gap": 0,
+    "found": 0,
+    "ok": 3,
+    "false_alarm": 0
+   },
+   "m_rank": {
+    "gap": 0,
+    "found": 0,
+    "ok": 2,
+    "false_alarm": 0
+   }
+  }
+ },
+ "per_drift": {
+  "enc_damping": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "enc_topk": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "enc_lambda": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  }
+ },
+ "false_alarms": {},
+ "rows": [
+  {
+   "variant": "v00-clean",
+   "planted": [],
+   "found": [],
+   "missed": [],
+   "false": [],
+   "ms": 74827,
+   "error": null
+  },
+  {
+   "variant": "v01",
+   "planted": [
+    "enc_damping",
+    "enc_topk"
+   ],
+   "found": [
+    "enc_damping",
+    "enc_topk"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 71907,
+   "error": null
+  },
+  {
+   "variant": "v02",
+   "planted": [
+    "enc_lambda"
+   ],
+   "found": [
+    "enc_lambda"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 58094,
+   "error": null
+  }
+ ],
+ "verify": {
+  "drift": {
+   "verified": 3
+  },
+  "followed": {
+   "verified": 48
+  },
+  "method": {
+   "verified": 18
+  },
+  "rule": "desktop/where.js로 다시 계산 (변형을 씨앗에서 다시 만들어)",
+  "control": {
+   "not_found": 3
+  }
+ }
+}

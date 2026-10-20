@@ -1,0 +1,377 @@
+{
+ "meta": {
+  "date": "2026-10-13",
+  "model": "gpt-5.6-luna",
+  "n": 8,
+  "seed": 7,
+  "avg_ms": 70579,
+  "tag": "method2"
+ },
+ "summary": {
+  "recall": 88.9,
+  "exact_status": 88.9,
+  "false_alarm_rate": 0.0,
+  "followed_confirmed": 100.0,
+  "unclear_on_followed": 0.0,
+  "file_accuracy": 100.0,
+  "line_accuracy": 100.0,
+  "open_chosen": 100.0,
+  "planted": 18,
+  "followed_items": 131,
+  "variants": 9,
+  "method_recall": 100.0,
+  "method_false_alarm_rate": 0.0
+ },
+ "planted": {
+  "n": 18,
+  "detected": 16,
+  "exact": 16,
+  "file": 16,
+  "line": 15,
+  "line_n": 15,
+  "missed_as": {
+   "followed": 2
+  }
+ },
+ "followed": {
+  "n": 131,
+  "followed": 131,
+  "false_alarm": 0,
+  "unclear": 0,
+  "other": 0
+ },
+ "open": {
+  "n": 18,
+  "exact": 18
+ },
+ "method": {
+  "gap": 29,
+  "found": 29,
+  "missed_as": {},
+  "ok": 14,
+  "false_alarm": 0,
+  "unclear": 0,
+  "per": {
+   "m_graph": {
+    "gap": 0,
+    "found": 0,
+    "ok": 0,
+    "false_alarm": 0
+   },
+   "m_match": {
+    "gap": 9,
+    "found": 9,
+    "ok": 0,
+    "false_alarm": 0
+   },
+   "m_propagate": {
+    "gap": 9,
+    "found": 9,
+    "ok": 0,
+    "false_alarm": 0
+   },
+   "m_prune": {
+    "gap": 9,
+    "found": 9,
+    "ok": 0,
+    "false_alarm": 0
+   },
+   "m_seed_ppr": {
+    "gap": 1,
+    "found": 1,
+    "ok": 8,
+    "false_alarm": 0
+   },
+   "m_rank": {
+    "gap": 1,
+    "found": 1,
+    "ok": 6,
+    "false_alarm": 0
+   }
+  }
+ },
+ "per_drift": {
+  "contain_missing": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 0
+  },
+  "ppr_degree": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "segment_window": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "embedding": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "delta": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "damping": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "split_test": {
+   "n": 1,
+   "detected": 0,
+   "exact": 0,
+   "file": 0,
+   "line": 0
+  },
+  "medical_both": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "result_gpt_low": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "questions_500": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "datasets_drop": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "topk_hardcoded": {
+   "n": 1,
+   "detected": 0,
+   "exact": 0,
+   "file": 0,
+   "line": 0
+  },
+  "lambda": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "topk_config": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "ner_regex": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "result_contain_low": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "llm": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  },
+  "graph_no_sentences": {
+   "n": 1,
+   "detected": 1,
+   "exact": 1,
+   "file": 1,
+   "line": 1
+  }
+ },
+ "false_alarms": {},
+ "rows": [
+  {
+   "variant": "v00-clean",
+   "planted": [],
+   "found": [],
+   "missed": [],
+   "false": [],
+   "ms": 62071,
+   "error": null
+  },
+  {
+   "variant": "v01",
+   "planted": [
+    "contain_missing",
+    "ppr_degree",
+    "segment_window"
+   ],
+   "found": [
+    "contain_missing",
+    "ppr_degree",
+    "segment_window"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 73792,
+   "error": null
+  },
+  {
+   "variant": "v02",
+   "planted": [
+    "embedding",
+    "delta",
+    "damping"
+   ],
+   "found": [
+    "embedding",
+    "delta",
+    "damping"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 66219,
+   "error": null
+  },
+  {
+   "variant": "v03",
+   "planted": [
+    "split_test",
+    "medical_both"
+   ],
+   "found": [
+    "medical_both"
+   ],
+   "missed": [
+    "split_test(followed)"
+   ],
+   "false": [],
+   "ms": 81514,
+   "error": null
+  },
+  {
+   "variant": "v04",
+   "planted": [
+    "result_gpt_low",
+    "questions_500"
+   ],
+   "found": [
+    "result_gpt_low",
+    "questions_500"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 62274,
+   "error": null
+  },
+  {
+   "variant": "v05",
+   "planted": [
+    "datasets_drop",
+    "topk_hardcoded"
+   ],
+   "found": [
+    "datasets_drop"
+   ],
+   "missed": [
+    "topk_hardcoded(followed)"
+   ],
+   "false": [],
+   "ms": 73376,
+   "error": null
+  },
+  {
+   "variant": "v06",
+   "planted": [
+    "lambda",
+    "topk_config"
+   ],
+   "found": [
+    "lambda",
+    "topk_config"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 72262,
+   "error": null
+  },
+  {
+   "variant": "v07",
+   "planted": [
+    "ner_regex",
+    "result_contain_low"
+   ],
+   "found": [
+    "ner_regex",
+    "result_contain_low"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 64268,
+   "error": null
+  },
+  {
+   "variant": "v08",
+   "planted": [
+    "llm",
+    "graph_no_sentences"
+   ],
+   "found": [
+    "llm",
+    "graph_no_sentences"
+   ],
+   "missed": [],
+   "false": [],
+   "ms": 79437,
+   "error": null
+  }
+ ],
+ "verify": {
+  "drift": {
+   "verified": 16
+  },
+  "followed": {
+   "verified": 130,
+   "not_found": 1
+  },
+  "method": {
+   "verified": 54
+  },
+  "rule": "desktop/where.js로 다시 계산 (변형을 씨앗에서 다시 만들어)",
+  "control": {
+   "not_found": 14,
+   "moved": 1,
+   "verified": 1
+  }
+ }
+}

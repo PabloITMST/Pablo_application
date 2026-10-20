@@ -34,6 +34,62 @@ def pages(data: bytes) -> list[str]:
     return [re.sub(r"\s+", " ", p.extract_text() or "").strip() for p in PdfReader(io.BytesIO(data)).pages]
 
 
+ARXIV_STAMP = re.compile(r"arXiv:(\d{4}\.\d{4,5})(v\d+)")
+
+
+CODE_HOSTS = re.compile(r"^https?://(?:www\.)?(github\.com|gitlab\.com|huggingface\.co|bitbucket\.org|codeberg\.org)/[^\s]+$", re.I)
+OURS = re.compile(r"\b(our|the)\s+(code|implementation|source)|implementation\s+of|code\s+(is|are|and\s+\w+\s+are)\s+(publicly\s+)?available"
+                  r"|available\s+at|code\s+for\s+our|we\s+(release|open-source|provide)|open[- ]?source", re.I)
+
+
+def code_links(data: bytes, ps: list[str]) -> list[dict]:
+    """⑪ the code repositories a paper links (its PDF link annotations; the text breaks URLs, "opt for pinns"), each with
+    the page and whether the text around it says it is the paper's own code ("Our code is available at …") — the first
+    such link is official. -> [{url, page, official}]"""
+    import pypdf
+    seen, out = set(), []
+    try:
+        for n, pg in enumerate(pypdf.PdfReader(io.BytesIO(data)).pages, 1):
+            for a in pg.get("/Annots") or []:
+                act = a.get_object().get("/A")
+                uri = str(act.get_object().get("/URI") or "") if act else ""
+                if not CODE_HOSTS.match(uri):
+                    continue
+                url = re.sub(r"(\.git)?/*[.,;:)]*$", "", uri.strip())
+                if url.lower() in seen:
+                    continue
+                seen.add(url.lower())
+                tail = re.sub(r"[^a-z0-9]", "", url.lower().split("://", 1)[-1])
+                flat = re.sub(r"[^a-z0-9]", "", (ps[n - 1] if n <= len(ps) else "").lower())
+                at, around = flat.find(tail[len("githubcom"):] if tail.startswith("githubcom") else tail), ""
+                if at >= 0:  # the words before the link in the page text (the text index maps back roughly)
+                    raw = ps[n - 1]
+                    i = max(0, int(at * len(raw) / max(1, len(flat))) - 240)
+                    around = raw[i:i + 320]
+                out.append({"url": url, "page": n, "official": False, "_ours": bool(OURS.search(around))})
+    except Exception:  # a PDF pypdf cannot walk: no links rather than no paper
+        return []
+    first = next((x for x in sorted(out, key=lambda x: x["page"]) if x["_ours"]), None)
+    for x in out:
+        x["official"] = x is first
+        del x["_ours"]
+    return out
+
+
+def meta(data: bytes, ps: list[str]) -> dict:
+    """C2: what the file says about itself -> {title (the PDF's /Title, "" if none), short (the name before ":" in it,
+    "LinearRAG" for "LinearRAG: Linear Graph ..."), arxiv, version} (arXiv stamps "arXiv:2510.10114v4 [cs.CL]" on p.1)."""
+    from pypdf import PdfReader
+    try:
+        title = re.sub(r"\s+", " ", str((PdfReader(io.BytesIO(data)).metadata or {}).get("/Title") or "")).strip()
+    except Exception:  # a damaged info dictionary costs the title, never the capture
+        title = ""
+    head = title.split(":")[0].strip()
+    m = ARXIV_STAMP.search(ps[0] if ps else "")
+    return {"title": title, "short": head if 0 < len(head) <= 40 else title[:60],
+            "arxiv": m[1] if m else None, "version": m[2] if m else None}
+
+
 def key(text: str) -> tuple[str, list[int]]:
     """-> (key, idx): key[i] comes from text[idx[i]]."""
     out, idx = [], []
@@ -69,6 +125,49 @@ def locate(ps: list[str], exact: str, page: int | None = None) -> tuple[int, int
     return hits[0]
 
 
+GAP_RUNS, GAP_CHARS = 2, 40
+_GAP_OK = re.compile(r"[\d.,%±×+\-−]+|[(\[][^()\[\]]{1,14}[)\]]")  # numbers only (a table's other column group) | a short bracketed aside
+
+
+def locate_gapped(ps: list[str], exact: str, page: int | None = None) -> tuple[int, int, int]:
+    """D3: a quote the model shortened inside one span of the page: its words in order, with at most GAP_RUNS
+    stretches left out, each only numbers (a table row whose other column group the text runs into the same line:
+    'AVERAGE 43.91 ... 52.53 49.15 ... 56.35' quoted as 'AVERAGE 49.15 ... 56.35') or one bracketed aside
+    ('standard deviation (SD) estimates' without '(SD)'), never words, so a left-out 'not' can never match.
+    -> the whole span, verbatim from the page, when exactly one place fits; AnchorRejected otherwise."""
+    words = [k for k in (key(w)[0] for w in exact.split()) if k]
+    if len(words) < 4:
+        raise AnchorRejected(f"quote too short to match with gaps: {exact!r}")
+    budget = min(GAP_CHARS, sum(map(len, words)))
+    hits = {}
+    for n, t in enumerate(ps, 1):
+        if page not in (None, n):
+            continue
+        tk, idx = key(t)
+        i = tk.find(words[0])
+        while i >= 0:
+            pos, gaps, used = i + len(words[0]), 0, 0
+            for w in words[1:]:
+                j = tk.find(w, pos)
+                if j < 0 or j - pos > budget - used:
+                    break
+                gap = t[idx[pos - 1] + 1:idx[j]] if j > pos else ""  # whole words of the page ('25' never in '256')
+                if gap and not (_GAP_OK.fullmatch(tk[pos:j]) and gap[0].isspace() and gap[-1].isspace()):
+                    break
+                gaps, used, pos = gaps + (j > pos), used + j - pos, j + len(w)
+                if gaps > GAP_RUNS:
+                    break
+            else:
+                if gaps:  # the tightest start for each end: an earlier copy of the first word is not another place
+                    hits[(n, idx[pos - 1] + 1)] = max(hits.get((n, idx[pos - 1] + 1), -1), idx[i])
+            i = tk.find(words[0], i + 1)
+    if len(hits) != 1:
+        raise AnchorRejected(f"quote not found in the captured PDF{f' page {page}' if page else ''}, even with numbers "
+                             f"or a bracketed aside left out ({len(hits)} places): {exact!r}")
+    (n, e), s = next(iter(hits.items()))
+    return n, s, e
+
+
 def resolve(quote: dict, selector: dict, old_hash: str, data: bytes) -> dict:
     """Find the anchor in the current file at the source's path."""
     new_hash = content_hash(data)
@@ -89,9 +188,10 @@ def resolve(quote: dict, selector: dict, old_hash: str, data: bytes) -> dict:
     return {**out, "status": "UNRESOLVED", "reason": "not_found"}
 
 
-def anchor(ps: list[str], exact: str, page: int | None = None) -> tuple[dict, dict]:
-    """-> (quote {exact, prefix, suffix} from the page text, selector {type: pdf_text, page, start, end})."""
-    n, s, e = locate(ps, exact, page)
+def anchor(ps: list[str], exact: str, page: int | None = None, gapped: bool = False) -> tuple[dict, dict]:
+    """-> (quote {exact, prefix, suffix} from the page text, selector {type: pdf_text, page, start, end}).
+    gapped: locate_gapped instead (the caller tried the exact quote first)."""
+    n, s, e = (locate_gapped if gapped else locate)(ps, exact, page)
     return context(ps[n - 1], s, e), {"type": "pdf_text", "page": n, "start": s, "end": e}
 
 
