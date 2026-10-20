@@ -1,0 +1,288 @@
+{
+ "note": "score.py against sample_specific_masks.json at 2554bb5 for the run in sample_specific_masks.2026-10-20c.spec.json; as check.js wrote it.",
+ "gold": 30,
+ "extracted": 29,
+ "place_only": [],
+ "aside": 4,
+ "kind_misses": [],
+ "recall": 0.533,
+ "precision": 0.552,
+ "matched": [
+  {
+   "gold": "G5",
+   "check": "SC1",
+   "how": "place",
+   "statement": "데이터셋 분할은 Chen et al. (2023)을 따른다."
+  },
+  {
+   "gold": "G3",
+   "check": "SC2",
+   "how": "place",
+   "statement": "모든 사전학습 모델은 ImageNet-1K로 사전학습된 가중치를 쓴다."
+  },
+  {
+   "gold": "G12",
+   "check": "SC4",
+   "how": "alt",
+   "statement": "마스크 생성기는 리사이즈된 이미지를 입력받는 CNN이며, 마지막 층의 채널 수를 3으로 두어 3채널 마스크를 출력한다."
+  },
+  {
+   "gold": "G6",
+   "check": "SC5",
+   "how": "place",
+   "statement": "목표 이미지는 일반적으로 쌍선형 보간 업샘플링으로 구현되는 리사이징 함수를 통해 사전학습 모델의 입력 크기에 맞게 조정된다."
+  },
+  {
+   "gold": "G9",
+   "check": "SC7",
+   "how": "place",
+   "statement": "학습 가능한 패턴 δ를 생성된 마스크와 픽셀 단위로 곱한 뒤 리사이즈된 이미지에 더한다(f_in(x)=r(x)+δ⊙f_mask(r(x)))."
+  },
+  {
+   "gold": "G13",
+   "check": "SC10",
+   "how": "place",
+   "statement": "마스크 생성기는 ResNet용 5층, ViT용 6층 CNN이며, 합성곱은 3×3 커널(padding 1, stride 1)이고 2×2 Max-Pooling 층이 3개다."
+  },
+  {
+   "gold": "G12",
+   "check": "SC11",
+   "how": "place",
+   "statement": "마스크 생성기는 리사이즈된 이미지를 입력받는 CNN이며, 마지막 층의 채널 수를 3으로 두어 3채널 마스크를 출력한다."
+  },
+  {
+   "gold": "G15",
+   "check": "SC14",
+   "how": "place",
+   "statement": "마스크 패치 크기 2^l은 모든 데이터셋에서 8(l=3)이다."
+  },
+  {
+   "gold": "G17",
+   "check": "SC15",
+   "how": "place",
+   "statement": "주 결과의 출력 라벨 매핑은 반복 라벨 매핑(Ilm)으로, 매 에폭 현재 패턴을 적용한 학습 샘플의 예측 빈도로 일대일 매핑을 갱신한다."
+  },
+  {
+   "gold": "G18",
+   "check": "SC17",
+   "how": "place",
+   "statement": "ResNet 실험의 초기 학습률은 0.01이다."
+  },
+  {
+   "gold": "G19",
+   "check": "SC17",
+   "how": "place",
+   "statement": "ResNet 실험의 학습률 감쇠 계수는 0.1이다."
+  },
+  {
+   "gold": "G20",
+   "check": "SC18",
+   "how": "place",
+   "statement": "총 200 에폭을 학습하며, 100번째와 145번째 에폭이 학습률 감쇠 마일스톤이다."
+  },
+  {
+   "gold": "G25",
+   "check": "SC19",
+   "how": "place",
+   "statement": "실험은 3개의 시드로 반복한다."
+  },
+  {
+   "gold": "G26",
+   "check": "SC19",
+   "how": "place",
+   "statement": "평가 지표는 테스트 정확도(%)이며 시드 평균을 보고한다."
+  },
+  {
+   "gold": "G26",
+   "check": "SC20",
+   "how": "place",
+   "statement": "평가 지표는 테스트 정확도(%)이며 시드 평균을 보고한다."
+  },
+  {
+   "gold": "G22",
+   "check": "SC26",
+   "how": "place",
+   "statement": "DTD와 OxfordPets의 배치 크기는 64이다."
+  },
+  {
+   "gold": "G21",
+   "check": "SC27",
+   "how": "place",
+   "statement": "DTD와 OxfordPets를 제외한 데이터셋의 배치 크기는 256이다."
+  },
+  {
+   "gold": "G8",
+   "check": "SC31",
+   "how": "place",
+   "statement": "ViT-B32의 입력 이미지 크기는 384×384이다."
+  }
+ ],
+ "missed": [
+  {
+   "gold": "G1",
+   "category": "model",
+   "statement": "사전학습 모델로 ResNet-18과 ResNet-50을 사용한다.",
+   "page": 6
+  },
+  {
+   "gold": "G2",
+   "category": "model",
+   "statement": "사전학습 ViT-B32에서도 SMM을 실험한다.",
+   "page": 6
+  },
+  {
+   "gold": "G4",
+   "category": "dataset",
+   "statement": "목표 과제는 CIFAR10, CIFAR100, SVHN, GTSRB, Flowers102, DTD, UCF101, Food101, SUN397, EuroSAT, OxfordPets의 11개 데이터셋이다.",
+   "page": 17
+  },
+  {
+   "gold": "G7",
+   "category": "preprocessing",
+   "statement": "ResNet-18/50의 입력 이미지 크기는 224×224이다.",
+   "page": 14
+  },
+  {
+   "gold": "G10",
+   "category": "method",
+   "statement": "패턴 δ는 데이터셋의 모든 이미지가 공유하고, 마스크는 f_mask가 샘플마다 따로 생성한다.",
+   "page": 4
+  },
+  {
+   "gold": "G11",
+   "category": "method",
+   "statement": "사전학습 분류기는 고정하고, 학습하는 것은 패턴 δ와 마스크 생성기 파라미터 ϕ뿐이다.",
+   "page": 4
+  },
+  {
+   "gold": "G14",
+   "category": "method",
+   "statement": "패치 단위 보간은 CNN이 출력한 마스크의 각 픽셀 값을 2^l×2^l 패치에 그대로 복사해 원래 크기 H×W로 키운다.",
+   "page": 5
+  },
+  {
+   "gold": "G16",
+   "category": "training",
+   "statement": "δ는 학습 전에 0 행렬로 초기화하고, ϕ는 무작위로 초기화한다.",
+   "page": 5
+  },
+  {
+   "gold": "G23",
+   "category": "hyperparameter",
+   "statement": "ViT-B32 실험에 사용된 6층 마스크 생성기의 초기 학습률은 0.001이며, 학습률 감쇠계수 γ는 1로 설정되었다.",
+   "page": 18
+  },
+  {
+   "gold": "G24",
+   "category": "protocol",
+   "statement": "데이터셋별로 조정하지 않고 하나의 통일된 학습 파라미터를 모든 데이터셋에 쓴다.",
+   "page": 17
+  },
+  {
+   "gold": "G27",
+   "category": "result",
+   "statement": "ResNet-18에서 SMM의 11개 데이터셋 평균 정확도는 52.53%이다.",
+   "page": 6
+  },
+  {
+   "gold": "G28",
+   "category": "result",
+   "statement": "ResNet-50에서 SMM의 11개 데이터셋 평균 정확도는 56.35%이다.",
+   "page": 6
+  },
+  {
+   "gold": "G29",
+   "category": "result",
+   "statement": "ViT-B32에서 SMM의 11개 데이터셋 평균 정확도는 72.4%이다.",
+   "page": 7
+  },
+  {
+   "gold": "G30",
+   "category": "result",
+   "statement": "통일된 학습 파라미터로 얻은 ViT-B32의 UCF101 SMM 정확도는 42.6%이다.",
+   "page": 7
+  }
+ ],
+ "partial": [],
+ "unmatched": [
+  {
+   "check": "SC3",
+   "category": "method",
+   "statement": "사전학습 분류기와 출력 매핑은 고정하고 입력 공간의 VR 모듈만 학습한다.",
+   "page": 12
+  },
+  {
+   "check": "SC6",
+   "category": "method",
+   "statement": "mask generator는 리사이즈된 이미지마다 샘플별 마스크를 생성한다.",
+   "page": 2
+  },
+  {
+   "check": "SC8",
+   "category": "model",
+   "statement": "ResNet용 mask generator는 5개 CNN 층으로 구성된다.",
+   "page": 12
+  },
+  {
+   "check": "SC9",
+   "category": "model",
+   "statement": "ViT용 mask generator는 6개 CNN 층으로 구성된다.",
+   "page": 13
+  },
+  {
+   "check": "SC12",
+   "category": "method",
+   "statement": "CNN 마스크가 작으면 patch-wise interpolation으로 각 채널을 원래 크기로 업샘플링한다.",
+   "page": 4
+  },
+  {
+   "check": "SC13",
+   "category": "method",
+   "statement": "patch-wise interpolation은 각 패치 안의 값을 동일하게 복사하고 역전파 미분을 생략한다.",
+   "page": 4
+  },
+  {
+   "check": "SC21",
+   "category": "result",
+   "statement": "ResNet-18에서 SMM은 SVHN 정확도를 기준선보다 6.1% 향상시킨다.",
+   "page": 7
+  },
+  {
+   "check": "SC22",
+   "category": "result",
+   "statement": "ResNet-50에서 SMM은 SVHN 정확도를 기준선보다 3.1% 향상시킨다.",
+   "page": 7
+  },
+  {
+   "check": "SC23",
+   "category": "result",
+   "statement": "ViT-B32의 Flowers102 테스트 정확도는 SMM에서 79.1%이다.",
+   "page": 7
+  },
+  {
+   "check": "SC24",
+   "category": "result",
+   "statement": "ViT-B32의 Food101 테스트 정확도는 SMM에서 64.8%이다.",
+   "page": 7
+  },
+  {
+   "check": "SC25",
+   "category": "result",
+   "statement": "ViT-B32의 SUN397 테스트 정확도는 SMM에서 36.7%이다.",
+   "page": 7
+  },
+  {
+   "check": "SC28",
+   "category": "hyperparameter",
+   "statement": "ViT-B32의 초기 학습률과 감쇠값은 CIFAR10에서 수행한 학습 파라미터 탐색으로 선택된다.",
+   "page": 17
+  },
+  {
+   "check": "SC29",
+   "category": "training",
+   "statement": "Algorithm 4는 마스크 생성기 파라미터를 학습률 α를 사용하는 경사하강 업데이트로 갱신한다.",
+   "page": 16
+  }
+ ],
+ "unanchored_gold": []
+}
