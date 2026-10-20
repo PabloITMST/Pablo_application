@@ -5,6 +5,10 @@
 // Control: --inspect (main: stubs the OS file dialog) + --remote-debugging-port (renderer: DOM, screenshots).
 // A: new task + criteria -> folder -> request -> WARN [진행] -> executed -> review -> 왜? -> delete keep.txt (BLOCK)
 // B: new task -> PDF -> question -> [n] -> p.9 Table 2 row highlight -> restart -> tasks, conversation and thread restored
+// C (0.8): LinearRAG + the drifted demo folder -> 📋 재현 조건 -> 🔎 재현 점검 -> the top-k row's file:line -> the code panel
+//    on `top_k: 10`; the folder unchanged
+// D (0.8): two papers in one task (LinearRAG + --paper2, default a D3 gold paper) -> 📊 비교표 -> a located cell opens
+//    highlighted on its page
 const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
@@ -23,6 +27,12 @@ fs.mkdirSync(U); fs.mkdirSync(W);
 for (const f of ["Local State", "credentials.bin", "host.json"]) fs.copyFileSync(path.join(login, f), path.join(U, f));
 fs.writeFileSync(path.join(W, "hello.txt"), "hello\n"); fs.writeFileSync(path.join(W, "keep.txt"), "keep me\n");
 const PDF = path.join(root, "LinearRAG.pdf"); fs.copyFileSync(path.join(__dirname, "../LinearRAG.pdf"), PDF);
+const paper2 = (process.argv.find(a => a.startsWith("--paper2=")) || "").slice(9) || path.join(__dirname, "../.pablo/gold/papers/arxiv-2406.03150v1.pdf");
+assert.ok(onlyB || fs.existsSync(paper2), `D needs a second paper PDF: ${paper2} (--paper2=<pdf>)`);
+const R = path.join(root, "repro"), P2 = path.join(root, "SampleSpecificMasks.pdf");
+if (!onlyB) { fs.cpSync(path.join(__dirname, "../release/0.7.0/demo-repro"), R, { recursive: true }); fs.copyFileSync(paper2, P2); }
+const repro = () => Object.fromEntries(fs.readdirSync(R, { recursive: true }).filter(f => fs.statSync(path.join(R, f)).isFile()).sort()
+  .map(f => [f, fs.readFileSync(path.join(R, f), "utf8")]));
 const files = () => Object.fromEntries(fs.readdirSync(W).sort().map(f => [f, fs.readFileSync(path.join(W, f), "utf8")]));
 const RES = path.join(path.dirname(exe), "resources");
 const tree = d => fs.readdirSync(d, { recursive: true }).sort().map(f => { const s = fs.statSync(path.join(d, f)); return `${f} ${s.size} ${s.mtimeMs}`; }).join("\n");
@@ -57,7 +67,11 @@ async function start(tag) {
   main = await cdp((await targets(pi, () => true)).webSocketDebuggerUrl);
   page = await cdp((await targets(pr, t => t.type === "page")).webSocketDebuggerUrl);
   js = page.run;
-  await main.run(`require("electron").dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [globalThis.picked] }); 1`, { includeCommandLineAPI: true });
+  await main.run(`require("electron").dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [].concat(globalThis.picked) }); 1`, { includeCommandLineAPI: true });
+  // a hidden or minimized window stops pdf.js (requestAnimationFrame never runs; the 0.8.0 rc's B stayed LOADING):
+  // the switches above do not cover it, the per-window throttling flag does (check.js does the same, 9bdefc2)
+  await main.run(`(e => { for (const w of e.BrowserWindow.getAllWindows()) w.webContents.setBackgroundThrottling(false);
+    e.app.on("browser-window-created", (_, w) => w.webContents.setBackgroundThrottling(false)); 1 })(require("electron"))`, { includeCommandLineAPI: true });
   await until(`$("acct").dataset.state === "connected" && $("chat").querySelector(".composer").dataset.agent === "Ready" || ($("acct").dataset.state === "connected" && !V)`, 120000);
   console.log(`   ${tag}: window + ChatGPT connected in ${Date.now() - t0} ms`);
 }
@@ -149,7 +163,7 @@ const quit = async () => { await main.run(`require("electron").app.quit(); 1`, {
   for (let i = 0; i < k && !hit; i++) {
     await js(`close(); document.querySelectorAll(".asked")[${k0}].querySelectorAll(".cite")[${i}].click()`);
     const live = await until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`, 30000)
-      .catch(async () => "TIMEOUT " + await js(`JSON.stringify({ live: $("panel").dataset.live, cls: document.body.className, text: $("panel").innerText.slice(0, 200) })`));
+      .catch(async () => "TIMEOUT " + await js(`JSON.stringify({ live: $("panel").dataset.live, hidden: document.hidden, cls: document.body.className, text: $("panel").innerText.slice(0, 200) })`));
     const r = await js(COVER).catch(() => null);
     console.log(`     [${i + 1}] ${live} page ${r && r.page} boxes ${r && r.boxes} ratio ${r && r.ratio} ${r && r.ms} ms: ${r && r.got.slice(0, 90)}`);
     hit = live === "FOUND" && !!r && r.page === 9 && /249\.78/.test(r.got);
@@ -158,12 +172,61 @@ const quit = async () => { await main.run(`require("electron").app.quit(); 1`, {
   assert.ok(hit, "p.9 Table 2 row highlighted"); await noIds();
   if (onlyB) { await quit(); return console.log("B OK", root); }
 
+  // C (0.8): the reproduction check on the drifted demo folder, and Pablo's own file:line -> the code panel
+  const r0 = repro();
+  await newTask("LinearRAG 재현 점검", "c0-new-task.png");
+  await pick(PDF); await js(`[...$("adder").querySelectorAll(".link")].find(b => /PDF 파일/.test(b.textContent)).click()`);
+  await until(`!/없음/.test($("src").textContent)`, 120000);
+  await pick(R); await js(`$("dir").querySelector("button").click()`);
+  await until(`$("dir").textContent.includes("repro")`, 30000);
+  await until(`!!document.querySelector("#specs .link") && $("chat").querySelector(".composer").dataset.agent === "Ready"`, 120000);
+  let t2 = Date.now(); await js(`document.querySelector("#specs .link").click()`);
+  await until(`!!document.querySelector("#live [data-spec] .head") || !!document.querySelector("#live .call.block")`, 600000);
+  assert.ok(!(await js(`(b => b && b.textContent)(document.querySelector("#live .call.block"))`)), "spec failed");
+  console.log(`   C 조건 ${Date.now() - t2} ms: ${(await js(`document.querySelector("#live [data-spec] .head").innerText`)).replace(/\s+/g, " ").slice(0, 120)}`);
+  await until(`!!document.querySelector("#audits .link") && $("chat").querySelector(".composer").dataset.agent === "Ready"`, 120000);
+  t2 = Date.now(); await js(`document.querySelector("#audits .link").click()`);
+  await until(`!!document.querySelector("#live [data-audit]")`, 900000);
+  console.log(`   C 점검 ${Date.now() - t2} ms: ${(await js(`document.querySelector("#live [data-audit]").innerText`)).replace(/\s+/g, " ").slice(0, 160)}`);
+  await shot("c1-audit.png");
+  const topk = await js(`(li => li && li.dataset.id)([...document.querySelectorAll("#live [data-audit] li[data-id]")].find(li => /top-?k/i.test(li.innerText) && li.querySelector("button.file")))`);
+  assert.ok(topk, "the top-k row comes with a file:line");
+  await js(`document.querySelector('#live [data-audit] li[data-id="' + ${JSON.stringify(topk)} + '"] button.file').click()`);
+  assert.strictEqual(await until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`, 30000), "FOUND");
+  const line = await js(`document.querySelector("#panel .ln.on .t").textContent`);
+  console.log("   C 코드 패널:", line);
+  assert.match(line, /top_k:\s*10/);
+  await shot("c2-code-line.png"); await js(`close()`);
+  assert.deepStrictEqual(repro(), r0, "read-only: the demo folder unchanged");
+  await noIds();
+
+  // D (0.8): two papers in one task -> 📊 비교표 -> a located cell on its page
+  await newTask("두 논문 비교", "d0-new-task.png");
+  await pick([PDF, P2]); await js(`[...$("adder").querySelectorAll(".link")].find(b => /PDF 파일/.test(b.textContent)).click()`);
+  await until(`document.querySelectorAll("#src .paper").length === 2`, 180000);
+  await until(`!!document.querySelector("#compares .link") && !document.querySelector("#chat .composer input").disabled`, 120000);
+  t2 = Date.now(); await js(`document.querySelector("#compares .link").click()`);
+  await until(`!!$("compare-go")`); await js(`$("compare-go").click()`);
+  await until(`!!document.querySelector("#live [data-matrix]:not([data-compare-form])") || (b => b && b.textContent)(document.querySelector("[data-compare-form] .call.block"))`, 900000);
+  const cerr = await js(`(b => b && b.textContent)(document.querySelector("[data-compare-form] .call.block"))`);
+  assert.ok(!cerr, "compare failed: " + cerr);
+  const cells = await js(`document.querySelectorAll("#live [data-matrix]:not([data-compare-form]) [data-cell] .cite").length`);
+  console.log(`   D 비교표 ${Date.now() - t2} ms, 위치를 찾은 칸 ${cells}`);
+  await shot("d1-compare.png");
+  assert.ok(cells > 0, "at least one located cell");
+  await js(`close(); document.querySelector("#live [data-matrix]:not([data-compare-form]) [data-cell] .cite").click()`);
+  assert.strictEqual(await until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`, 30000), "FOUND");
+  await shot("d2-cell.png"); await js(`close()`); await noIds();
+
   // restart: the same userData -> both tasks, B's conversation, A's thread
   const thread0 = JSON.parse(fs.readFileSync(path.join(U, "thread.json"), "utf8")).threads;
   await quit();
   await start("launch 2 (restart)");
   const side = await js(`$("side").innerText`);
   assert.ok(/인사말 파일 정리/.test(side) && /LinearRAG 논문/.test(side), "both tasks listed");
+  // 0.8: C and D came after B, so the app reopens on D; open B first
+  await js(`[...$("side").querySelectorAll("button.t")].find(b => /LinearRAG 논문 효율성/.test(b.textContent)).click()`);
+  await until(`/249\.78/.test($("log").innerText)`, 30000);
   // the stored answer and its [n] come back, under the question that was asked (M7 chat log)
   assert.ok(await js(`/249\.78/.test($("log").innerText) && $("log").querySelectorAll(".cite").length > 0`), "B's answer restored");
   assert.ok(await js(`$("log").innerText.includes(${JSON.stringify(q)})`), "B's question restored");
