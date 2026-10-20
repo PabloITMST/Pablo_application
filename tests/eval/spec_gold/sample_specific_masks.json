@@ -67,7 +67,15 @@
     "how": "bulk",
     "verdict": "ok",
     "at": "2026-10-20T02:30:01.757Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "target tasks include CIFAR10, CIFAR100 (Krizhevsky, 2009), SVHN (Yuval, 2011), GTSRB",
+     "page": 6,
+     "status": "candidate",
+     "note": "the 11 target datasets named in Sec 5 (the gold quotes App C's count); quoted by the 2026-10-20 run (item 1), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G5",
@@ -196,7 +204,21 @@
     "how": "bulk",
     "verdict": "ok",
     "at": "2026-10-20T02:30:01.758Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "The mask generator is a lightweight convolutional neural network (CNN) that takes resized individual target-domain images",
+     "page": 2,
+     "status": "candidate",
+     "note": "the mask generator is a CNN taking the resized image; quoted by the 2026-10-20 run (item 11), paired by the measuring session"
+    },
+    {
+     "quote": "The last layer of the generator is designed to generate a three-channel mask",
+     "page": 2,
+     "status": "candidate",
+     "note": "its last layer gives a three-channel mask; quoted by the 2026-10-20 run (item 12), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G13",
@@ -228,7 +250,15 @@
     "how": "bulk",
     "verdict": "ok",
     "at": "2026-10-20T02:30:01.759Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "For generated masks smaller than the pattern size, the patch-wise interpolation module performs upsampling",
+     "page": 4,
+     "status": "candidate",
+     "note": "patch-wise interpolation upsamples the generated mask; quoted by the 2026-10-20 run (item 13), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G15",
@@ -276,7 +306,15 @@
     "how": "bulk",
     "verdict": "ok",
     "at": "2026-10-20T02:30:01.759Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "Ilm evolves with iterations, being an improved version of Flm",
+     "page": 15,
+     "status": "candidate",
+     "note": "Ilm, updated with iterations (App A.4); quoted by the 2026-10-20 run (item 17), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G18",
@@ -421,7 +459,15 @@
     "how": "bulk",
     "verdict": "ok",
     "at": "2026-10-20T02:30:01.760Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "Mean % ± Std %, the average results across all datasets are highlighted in grey",
+     "page": 6,
+     "status": "candidate",
+     "note": "Table 1's caption: mean ± std over seeds; quoted by the 2026-10-20 run (item 23), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G27",

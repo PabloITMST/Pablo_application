@@ -35,7 +35,21 @@
     "how": "bulk",
     "verdict": "ok",
     "at": "2026-10-20T02:30:04.515Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "In the “batch” step, we draw a batch of samples from the current approximation to the target",
+     "page": 2,
+     "status": "candidate",
+     "note": "the batch step in the introduction; quoted by the 2026-10-20 run (item 2), paired by the measuring session"
+    },
+    {
+     "quote": "Sample batch zb∼N (µt, Σt) for b = 1,...,B",
+     "page": 6,
+     "status": "candidate",
+     "note": "Algorithm 1: sample a batch from N(µt, Σt); quoted by the 2026-10-20 run (item 8), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G3",
@@ -51,7 +65,15 @@
     "how": "bulk",
     "verdict": "ok",
     "at": "2026-10-20T02:30:04.515Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "we computeqt+1 by minimizing theregularized objective function L BaM(q) := bDqt(q;p) + 2 λt KL(qt;q)",
+     "page": 5,
+     "status": "candidate",
+     "note": "the regularized objective L_BaM with the 2/λt KL term; quoted by the 2026-10-20 run (item 5), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G4",
@@ -67,7 +89,21 @@
     "how": "rule 2",
     "verdict": "ok",
     "at": "2026-10-20T02:30:04.516Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "The quadratic matrix equation in eq. (9) has a symmetric and positive-definite solution",
+     "page": 6,
+     "status": "candidate",
+     "note": "the covariance update solves the quadratic matrix equation; quoted by the 2026-10-20 run (item 6), paired by the measuring session"
+    },
+    {
+     "quote": "Note that the update forµt+1 depends on Σt+1, so these updates must be performed in the order shown above",
+     "page": 6,
+     "status": "candidate",
+     "note": "µ is updated after Σ, in that order; quoted by the 2026-10-20 run (item 7), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G5",
@@ -211,7 +247,15 @@
     "how": "rule 1",
     "verdict": "ok",
     "at": "2026-10-20T02:30:04.517Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "The sinh-arcsinh normal distribution trans-forms a Gaussian random variable via the hyperbolic sine function and its inverse",
+     "page": 10,
+     "status": "candidate",
+     "note": "the sinh-arcsinh normal target; quoted by the 2026-10-20 run (item 15), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G14",

@@ -86,6 +86,36 @@ def test_review_rules():
     assert "값이 다른 결과" in md and "(값 58.2, 정답 61.5)" in md and "정밀도 분모 밖" in md, md
 
 
+def test_alts_and_parts():
+    """D3 runs: the same condition quoted from another page matches the gold's alt (a candidate alt only with alts=True,
+    a confirmed one always); a bundled result row taken apart: each part is right, the row is found only when the
+    parts cover all its numbers (otherwise partial); a result whose numbers are the gold's, all of them, matches."""
+    pages = pdf.pages(tiny_pdf(TINY_A, "TinyRAG: A Tiny Graph RAG"))
+    span = lambda q, p: score._span(pages, q, p)  # noqa: E731
+    row = "TinyRAG reaches 61.5 accuracy on HotpotQA. Indexing takes 12 seconds"
+    gold = {"paper": "TinyRAG", "conditions": [
+        {"id": "G1", "category": "protocol", "kind": "setting", "statement": "동의어 무시", "value": "",
+         "quote": "entity linking ignores synonyms", "page": 2, "status": "confirmed",
+         "alts": [{"quote": "We evaluate on HotpotQA and", "page": 1, "status": "candidate"}]},
+        {"id": "G2", "category": "result", "kind": "result", "statement": "61.5와 12초", "value": "61.5 / 12",
+         "quote": row, "page": 2, "status": "confirmed"}]}
+    e1 = {"id": "E1", "category": "protocol", "kind": "setting", "statement": "다른 자리", "value": "",
+          "at": span("We evaluate on HotpotQA and", 1)}
+    e2 = {"id": "E2", "category": "result", "kind": "result", "statement": "61.5", "value": "61.5", "at": span(row, 2)}
+    e3 = {"id": "E3", "category": "result", "kind": "result", "statement": "12초", "value": "12 seconds", "at": span(row, 2)}
+    r = score.score(gold, pages, [e1, e2])
+    assert (r["recall"], r["precision"], r["partial"]) == (0.0, 0.5, [{"gold": "G2", "numbers": "1/2"}]), r
+    assert [m["how"] for m in r["matched"]] == ["part"] and r["place_only"] == [] and r["missed"][1]["partial"] == "1/2"
+    assert "숫자 1/2만 뽑음" in score.markdown("TinyRAG", r)
+    r = score.score(gold, pages, [e1, e2, e3], alts=True)
+    assert (r["recall"], r["precision"], r["partial"]) == (1.0, 1.0, []), r
+    assert sorted((m["gold"], m["how"]) for m in r["matched"]) == [("G1", "alt"), ("G2", "part"), ("G2", "part")]
+    gold["conditions"][0]["alts"][0]["status"] = "confirmed"  # a person confirmed the alt: it counts without the flag
+    assert score.score(gold, pages, [e1])["recall"] == 0.5
+    both = {**e2, "id": "E4", "value": "61.5; 12"}  # a loss/L2RE-like pair: the same numbers, written differently
+    assert [m["how"] for m in score.score(gold, pages, [both])["matched"]] == ["place"]
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

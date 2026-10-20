@@ -355,7 +355,15 @@
     "how": "bulk",
     "verdict": "ok",
     "at": "2026-10-20T02:30:05.854Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "Instead, we run a Newton-CG algorithm that solves for the Newton step using preconditioned conjugate gradient (PCG).",
+     "page": 6,
+     "status": "candidate",
+     "note": "the Newton step by preconditioned CG; quoted by the 2026-10-20 run (item 19), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G23",
@@ -371,7 +379,15 @@
     "how": "asked",
     "verdict": "ok",
     "at": "2026-10-20T02:37:21.359Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "NNCG can significantly improve the solution returned by Adam+L-BFGS",
+     "page": 2,
+     "status": "candidate",
+     "note": "NNCG improves the solution returned by Adam+L-BFGS; quoted by the 2026-10-20 run (item 18), paired by the measuring session"
+    }
+   ]
   },
   {
    "id": "G24",
