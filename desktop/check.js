@@ -1560,7 +1560,8 @@ async function specCheck() {
   const win = open(fx.view);
   await new Promise(r => win.webContents.once("did-finish-load", r));
   const js = code => win.webContents.executeJavaScript(code);
-  const until = async (code, ms = 30000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
+  const until = async (code, ms = 30000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); }
+    throw new Error(`timeout: ${code} (document.hidden ${await js("document.hidden")}: a hidden window stops pdf.js)`); };
   await until(`!!document.querySelector("#specs .link") && !document.querySelector("#chat .composer input").disabled`, 60000);
   const t0 = Date.now();
   await js(`document.querySelector("#specs .link").click()`);
@@ -1882,9 +1883,12 @@ async function shotCheck() {
 if (["--agent", "--guard", "--ask", "--demo", "--app", "--spec", "--audit", "--audit-bench", "--compare"].some(f => process.argv.includes(f))) app.setPath("userData", path.join(app.getPath("appData"), require("./package.json").name));
 // a check window covered by other windows for minutes stops painting (Windows occlusion): pdf.js render() never resolves
 // and capturePage returns an old frame. A user looks at the window, so this is for the unattended checks only.
+// A minimized one stops too (D3 --spec SSM, 10/20: document.hidden, pdf.js's requestAnimationFrame never runs, the panel
+// stays LOADING); the switches below do not cover that, the per-window throttling flag does.
 app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
 app.commandLine.appendSwitch("disable-renderer-backgrounding");
 app.commandLine.appendSwitch("disable-background-timer-throttling");
+app.on("browser-window-created", (_, w) => w.webContents.setBackgroundThrottling(false));
 app.removeAllListeners("window-all-closed");
 app.whenReady().then(async () => {
   const srv = http.createServer((q, s) => { const k = q.url.slice(1); s.writeHead(FIX[k] ? 200 : 404, { "content-type": "text/html" }); s.end(FIX[k] ? page(k) : ""); });
