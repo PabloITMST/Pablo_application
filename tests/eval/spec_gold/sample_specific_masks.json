@@ -72,8 +72,24 @@
     {
      "quote": "target tasks include CIFAR10, CIFAR100 (Krizhevsky, 2009), SVHN (Yuval, 2011), GTSRB",
      "page": 6,
-     "status": "candidate",
-     "note": "the 11 target datasets named in Sec 5 (the gold quotes App C's count); quoted by the 2026-10-20 run (item 1), paired by the measuring session"
+     "status": "confirmed",
+     "note": "the 11 target datasets named in Sec 5 (the gold quotes App C's count); quoted by the 2026-10-20 run (item 1), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "names the 11 target datasets the condition lists"
+     }
+    },
+    {
+     "quote": "DTD (Cim- poi et al., 2014), UCF101 (Soomro et al., 2012), Food101 (Bossard et al., 2014), EuroSAT (Helber et al., 2019), Ox- fordPets",
+     "page": 6,
+     "status": "confirmed",
+     "note": "quoted by the 2026-10-20b run (item 2)",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "the rest of the 11 target datasets, in the same Sec 5 sentence"
+     }
     }
    ]
   },
@@ -188,7 +204,20 @@
     "how": "bulk",
     "verdict": "ok",
     "at": "2026-10-20T02:30:01.758Z"
-   }
+   },
+   "alts": [
+    {
+     "quote": "The parameters δ and ϕ are iteratively updated in each epoch",
+     "page": 5,
+     "status": "rejected",
+     "note": "quoted by the 2026-10-20 run (item 16)",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "differ",
+      "why": "δ and ϕ are updated, but not that only they are and the classifier stays fixed"
+     }
+    }
+   ]
   },
   {
    "id": "G12",
@@ -209,14 +238,35 @@
     {
      "quote": "The mask generator is a lightweight convolutional neural network (CNN) that takes resized individual target-domain images",
      "page": 2,
-     "status": "candidate",
-     "note": "the mask generator is a CNN taking the resized image; quoted by the 2026-10-20 run (item 11), paired by the measuring session"
+     "status": "confirmed",
+     "note": "the mask generator is a CNN taking the resized image; quoted by the 2026-10-20 run (item 11), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "the CNN that takes the resized image: one part of the condition, stated exactly"
+     }
     },
     {
      "quote": "The last layer of the generator is designed to generate a three-channel mask",
      "page": 2,
-     "status": "candidate",
-     "note": "its last layer gives a three-channel mask; quoted by the 2026-10-20 run (item 12), paired by the measuring session"
+     "status": "confirmed",
+     "note": "its last layer gives a three-channel mask; quoted by the 2026-10-20 run (item 12), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "the three-channel last layer: the other part"
+     }
+    },
+    {
+     "quote": "SMM starts by resizing target images, followed by their processing through the mask generator to create corresponding three- channel masks.",
+     "page": 4,
+     "status": "confirmed",
+     "note": "quoted by the 2026-10-20b run (item 7)",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "images resized, then the generator makes a three-channel mask"
+     }
     }
    ]
   },
@@ -255,8 +305,24 @@
     {
      "quote": "For generated masks smaller than the pattern size, the patch-wise interpolation module performs upsampling",
      "page": 4,
-     "status": "candidate",
-     "note": "patch-wise interpolation upsamples the generated mask; quoted by the 2026-10-20 run (item 13), paired by the measuring session"
+     "status": "rejected",
+     "note": "patch-wise interpolation upsamples the generated mask; quoted by the 2026-10-20 run (item 13), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "differ",
+      "why": "names the module and that it upsamples, not how (each pixel copied into a 2^l patch); a reimplementation could follow it and still interpolate otherwise"
+     }
+    },
+    {
+     "quote": "each sized 2l× 2l, ensuring the same values within each patch",
+     "page": 4,
+     "status": "confirmed",
+     "note": "quoted by the 2026-10-20b run (item 10)",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "the same value within each 2^l x 2^l patch: the mechanism, stated on p.4"
+     }
     }
    ]
   },
@@ -311,8 +377,13 @@
     {
      "quote": "Ilm evolves with iterations, being an improved version of Flm",
      "page": 15,
-     "status": "candidate",
-     "note": "Ilm, updated with iterations (App A.4); quoted by the 2026-10-20 run (item 17), paired by the measuring session"
+     "status": "confirmed",
+     "note": "Ilm, updated with iterations (App A.4); quoted by the 2026-10-20 run (item 17), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "App A.4: Ilm updated every epoch with the current pattern, the mechanism the condition states"
+     }
     }
    ]
   },
@@ -464,8 +535,13 @@
     {
      "quote": "Mean % ± Std %, the average results across all datasets are highlighted in grey",
      "page": 6,
-     "status": "candidate",
-     "note": "Table 1's caption: mean ± std over seeds; quoted by the 2026-10-20 run (item 23), paired by the measuring session"
+     "status": "confirmed",
+     "note": "Table 1's caption: mean ± std over seeds; quoted by the 2026-10-20 run (item 23), paired by the measuring session",
+     "review": {
+      "by": "session (delegated by the user, 2026-10-20)",
+      "verdict": "same",
+      "why": "Table 1 reports the mean over seeds (± std): the reporting rule"
+     }
     }
    ]
   },
