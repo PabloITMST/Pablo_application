@@ -1,0 +1,276 @@
+{
+ "note": "score.py (8949985, default rules) against batch_and_match.json for the run in batch_and_match.2026-10-20b.spec.json; as check.js wrote it.",
+ "gold": 30,
+ "extracted": 27,
+ "place_only": [],
+ "aside": 1,
+ "kind_misses": [],
+ "recall": 0.5,
+ "precision": 0.556,
+ "matched": [
+  {
+   "gold": "G2",
+   "check": "SC4",
+   "how": "place",
+   "statement": "batch 단계: 현재 근사 q_t=N(µ_t,Σ_t)에서 B개 표본 z_b를 뽑아 목표 score g_b=∇log p(z_b)를 계산하고, 표본과 score의 배치 평균(z̄, ḡ)과 공분산(C, Γ)을 구한다."
+  },
+  {
+   "gold": "G3",
+   "check": "SC6",
+   "how": "place",
+   "statement": "match 단계: 경험적 score 기반 발산 D̂_{q_t}(q;p)에 KL(q_t;q)의 2/λ_t 배를 정규화항으로 더한 목적함수 L_BaM(q)를 최소화해 q_{t+1}을 구한다(λ_t는 학습률 역할)."
+  },
+  {
+   "gold": "G5",
+   "check": "SC9",
+   "how": "place",
+   "statement": "가우시안 목표분포의 차원은 D = 4, 16, 64, 256이다."
+  },
+  {
+   "gold": "G11",
+   "check": "SC10",
+   "how": "place",
+   "statement": "합성 목표(가우시안·sinh-arcsinh) 실험의 평가지표는 forward KL(p;q)와 reverse KL(q;p)의 경험적 추정치이다."
+  },
+  {
+   "gold": "G8",
+   "check": "SC13",
+   "how": "place",
+   "statement": "가우시안 목표 실험에서 BaM은 상수 학습률 λ_t = BD를 쓴다."
+  },
+  {
+   "gold": "G10",
+   "check": "SC14",
+   "how": "place",
+   "statement": "가우시안 목표 실험의 곡선은 10회 실행의 평균이다."
+  },
+  {
+   "gold": "G14",
+   "check": "SC16",
+   "how": "place",
+   "statement": "sinh-arcsinh 목표분포의 차원은 D = 10이다."
+  },
+  {
+   "gold": "G17",
+   "check": "SC17",
+   "how": "place",
+   "statement": "sinh-arcsinh 목표에서 BaM은 감소 학습률 λ_t = BD/(t+1)을 쓴다."
+  },
+  {
+   "gold": "G19",
+   "check": "SC18",
+   "how": "place",
+   "statement": "posteriordb의 첫 번째 목표는 거의 가우시안인 arK 모델(D = 7)이다."
+  },
+  {
+   "gold": "G20",
+   "check": "SC18",
+   "how": "place",
+   "statement": "posteriordb의 비가우시안 목표는 GP 포아송 회귀 gp-pois-regr(D = 13)와 8-schools 계층 모델 eight-schools-centered(D = 10)이다."
+  },
+  {
+   "gold": "G23",
+   "check": "SC20",
+   "how": "place",
+   "statement": "posteriordb 실험의 배치 크기는 B = 8과 B = 32이다."
+  },
+  {
+   "gold": "G25",
+   "check": "SC21",
+   "how": "place",
+   "statement": "신경망은 CIFAR-10으로 학습하며, 이미지를 연속값 x_n ∈ R^3072로, 잠재변수를 z_n ∈ R^256으로 둔다."
+  },
+  {
+   "gold": "G25",
+   "check": "SC22",
+   "how": "place",
+   "statement": "신경망은 CIFAR-10으로 학습하며, 이미지를 연속값 x_n ∈ R^3072로, 잠재변수를 z_n ∈ R^256으로 둔다."
+  },
+  {
+   "gold": "G24",
+   "check": "SC23",
+   "how": "place",
+   "statement": "심층 생성모델은 z_n~N(0,I), x_n|z_n~N(Ω(z_n,θ̂), σ²I)이고 σ² = 0.1로 둔다."
+  },
+  {
+   "gold": "G27",
+   "check": "SC24",
+   "how": "place",
+   "statement": "심층 생성모델의 지표는 사후 기댓값 E[z′|x′]을 신경망 Ω에 넣어 얻은 x′ 복원의 평균제곱오차(MSE)이다."
+  },
+  {
+   "gold": "G28",
+   "check": "SC25",
+   "how": "place",
+   "statement": "심층 생성모델 실험에서 BaM은 T = 100 반복의 파일럿 실행으로 학습률을 고른 뒤 T = 1000 반복 실행한다."
+  }
+ ],
+ "missed": [
+  {
+   "gold": "G1",
+   "category": "model",
+   "statement": "변분 분포족은 완전 공분산(full covariance)을 갖는 가우시안이며, 분해형(mean-field) 분포족을 쓰지 않는다.",
+   "page": 2
+  },
+  {
+   "gold": "G4",
+   "category": "method",
+   "statement": "match 단계는 닫힌 형태로 푼다: U=λ_tΓ+λ_t/(1+λ_t)ḡḡᵀ, V=Σ_t+λ_tC+λ_t/(1+λ_t)(µ_t−z̄)(µ_t−z̄)ᵀ로 Σ_{t+1}=2V[I+(I+4UV)^{1/2}]^{-1}을 먼저 구하고, 그 Σ_{t+1}로 µ_{t+1}=µ_t/(1+λ_t)+λ_t/(1+λ_t)(Σ_{t+1}ḡ+z̄)를 계산한다.",
+   "page": 6
+  },
+  {
+   "gold": "G6",
+   "category": "dataset",
+   "statement": "가우시안 목표분포는 무작위로 생성하며, 공분산은 D×D 행렬 A를 생성해 Σ* = AAᵀ로 만든다.",
+   "page": 44
+  },
+  {
+   "gold": "G7",
+   "category": "training",
+   "statement": "가우시안 목표 실험에서 모든 알고리즘은 µ0 ~ uniform[0, 0.1], Σ0 = I로 초기화한다.",
+   "page": 44
+  },
+  {
+   "gold": "G9",
+   "category": "hyperparameter",
+   "statement": "가우시안 목표 실험의 BaM 배치 크기는 그림 5.1 범례 기준 D=4에서 B=2와 5, D=16에서 2와 15, D=64에서 2와 40, D=256에서 2와 150이다.",
+   "page": 10
+  },
+  {
+   "gold": "G12",
+   "category": "protocol",
+   "statement": "알고리즘 비용은 gradient evaluation 횟수로 측정하며, 지표를 이 횟수에 대해 그린다.",
+   "page": 43
+  },
+  {
+   "gold": "G13",
+   "category": "dataset",
+   "statement": "비가우시안 목표는 y~N(µ,Σ)를 z = sinh((1/τ)(sinh⁻¹(y) + s))로 변환한 sinh-arcsinh 분포이며, s는 skew, τ>0는 꼬리 두께를 정한다(s=0, τ=1이면 가우시안).",
+   "page": 10
+  },
+  {
+   "gold": "G15",
+   "category": "dataset",
+   "statement": "skew 실험은 꼬리 τ = 1로 고정하고 s = 0.2, 1.0, 1.8로 바꾼다.",
+   "page": 10
+  },
+  {
+   "gold": "G16",
+   "category": "dataset",
+   "statement": "꼬리 실험은 s = 0으로 고정하고 τ = 0.1, 0.9, 1.7로 바꾼다.",
+   "page": 11
+  },
+  {
+   "gold": "G18",
+   "category": "hyperparameter",
+   "statement": "sinh-arcsinh 실험의 BaM 배치 크기는 그림 5.2 범례 기준 B = 5와 B = 10이다.",
+   "page": 11
+  },
+  {
+   "gold": "G21",
+   "category": "metric",
+   "statement": "posteriordb 실험의 지표는 HMC 참조 표본에서 얻은 사후 평균·표준편차에 대한 변분 추정치의 상대 평균 오차와 상대 SD 오차이다.",
+   "page": 11
+  },
+  {
+   "gold": "G22",
+   "category": "hyperparameter",
+   "statement": "posteriordb 실험에서 BaM은 감소 학습률 λ_t = BD/(t+1)을 쓴다.",
+   "page": 11
+  },
+  {
+   "gold": "G26",
+   "category": "protocol",
+   "statement": "사후분포를 추정할 새 관측 x′는 테스트 세트에서 뽑은 이미지이며, 모든 VI 알고리즘은 표준 가우시안에서 초기화한다.",
+   "page": 48
+  },
+  {
+   "gold": "G29",
+   "category": "result",
+   "statement": "가우시안 목표에서 BaM은 ADVI보다 수 자릿수(orders of magnitude) 빠르게 수렴한다.",
+   "page": 10
+  },
+  {
+   "gold": "G30",
+   "category": "result",
+   "statement": "심층 생성모델에서 배치 크기가 잠재 차원과 비슷한 B = 300일 때 BaM은 ADVI와 GSM보다 한 자릿수 이상 빠르게 수렴한다.",
+   "page": 12
+  }
+ ],
+ "partial": [],
+ "unmatched": [
+  {
+   "check": "SC1",
+   "category": "model",
+   "statement": "변분 분포는 전체 공분산을 갖는 다변량 가우시안이어야 한다.",
+   "page": 3
+  },
+  {
+   "check": "SC2",
+   "category": "protocol",
+   "statement": "목표 분포의 로그 밀도는 미분 가능하고 그 도함수를 효율적으로 계산할 수 있어야 한다.",
+   "page": 3
+  },
+  {
+   "check": "SC3",
+   "category": "method",
+   "statement": "점수 기반 발산은 목표 분포와 변분 분포의 score agreement를 측정해야 한다.",
+   "page": 2
+  },
+  {
+   "check": "SC5",
+   "category": "method",
+   "statement": "match 단계에서는 배치 샘플에서 계산한 통계로 변분 근사를 갱신해야 한다.",
+   "page": 5
+  },
+  {
+   "check": "SC7",
+   "category": "method",
+   "statement": "공분산 갱신은 quadratic matrix equation의 대칭 양의 정부호 해를 사용해야 한다.",
+   "page": 6
+  },
+  {
+   "check": "SC8",
+   "category": "method",
+   "statement": "공분산을 갱신한 뒤 그 결과를 사용해 평균을 갱신해야 한다.",
+   "page": 6
+  },
+  {
+   "check": "SC12",
+   "category": "training",
+   "statement": "모든 알고리즘은 JAX로 구현해야 한다.",
+   "page": 9
+  },
+  {
+   "check": "SC15",
+   "category": "dataset",
+   "statement": "비가우시안 합성 목표는 sinh-arcsinh 정규분포로 구성해야 한다.",
+   "page": 10
+  },
+  {
+   "check": "SC19",
+   "category": "protocol",
+   "statement": "posteriordb의 정확도 비교에는 HMC 기준 샘플의 posterior 평균과 표준편차를 사용해야 한다.",
+   "page": 11
+  },
+  {
+   "check": "SC26",
+   "category": "hyperparameter",
+   "statement": "깊은 생성 모델에서 BaM의 배치 크기는 10, 100, 300을 비교해야 한다.",
+   "page": 12
+  },
+  {
+   "check": "SC27",
+   "category": "training",
+   "statement": "VAE의 encoder와 decoder는 5개 층의 convolution network로 학습해야 한다.",
+   "page": 48
+  },
+  {
+   "check": "SC28",
+   "category": "training",
+   "statement": "VAE 사전 학습은 100 epoch 동안 수행해야 한다.",
+   "page": 48
+  }
+ ],
+ "unanchored_gold": []
+}

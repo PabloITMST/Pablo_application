@@ -1,0 +1,260 @@
+{
+ "pdf": "../../../../.pablo/gold/papers/arxiv-2402.14758v2.pdf",
+ "note": "The second run on Batch and Match: Black-Box Variational Inference with a Score-Based Divergence the same day: check.js --spec --paper=batch_and_match (9bdefc2, the check window as it was), the account's model. 29 items, 1 dropped, 5 settings the paper does not state. Unedited. Scored in batch_and_match.2026-10-20b.score.json.",
+ "items": [
+  {
+   "category": "model",
+   "kind": "setting",
+   "statement": "변분 분포는 전체 공분산을 갖는 다변량 가우시안이어야 한다.",
+   "value": "full-covariance Gaussian",
+   "quote": "Here we focus on a Gaussian variational family, i.e., Q ={N (µ, Σ) :µ∈ RD, Σ∈ SD ++}",
+   "page": 3
+  },
+  {
+   "category": "protocol",
+   "kind": "setting",
+   "statement": "목표 분포의 로그 밀도는 미분 가능하고 그 도함수를 효율적으로 계산할 수 있어야 한다.",
+   "value": "",
+   "quote": "the log target density is differentiable, and its derivatives can be efficiently evaluated",
+   "page": 3
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "점수 기반 발산은 목표 분포와 변분 분포의 score agreement를 측정해야 한다.",
+   "value": "",
+   "quote": "we introduce a novel score-based divergence that measures the agreement of the scores",
+   "page": 2
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "배치 단계에서는 현재 근사 분포에서 샘플을 뽑고 각 샘플에서 목표 점수를 계산해야 한다.",
+   "value": "",
+   "quote": "This step begins by sampling z1,z 2,...,z B ∼ qt and computing the scores gb =∇ logp(zb) at each sample",
+   "page": 5
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "match 단계에서는 배치 샘플에서 계산한 통계로 변분 근사를 갱신해야 한다.",
+   "value": "",
+   "quote": "We refer to the minimization of L BaM(q) in eq. (5) as the match step",
+   "page": 5
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "match 단계는 현재 분포와 새 분포의 KL 차이를 정규화 항으로 사용해야 한다.",
+   "value": "",
+   "quote": "we penalize large differences between qt and qt+1 by their KL divergence",
+   "page": 5
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "공분산 갱신은 quadratic matrix equation의 대칭 양의 정부호 해를 사용해야 한다.",
+   "value": "",
+   "quote": "The quadratic matrix equation in eq. (9) has a symmetric and positive-definite solution",
+   "page": 6
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "공분산을 갱신한 뒤 그 결과를 사용해 평균을 갱신해야 한다.",
+   "value": "",
+   "quote": "the update forµt+1 depends on Σt+1, so these updates must be performed in the order shown above",
+   "page": 6
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "합성 가우시안 목표 분포의 차원은 4, 16, 64, 256으로 설정해야 한다.",
+   "value": "4, 16, 64, 256",
+   "quote": "We construct Gaussian targets of increasing dimension withD =4, 16, 64, 256.",
+   "page": 10
+  },
+  {
+   "category": "metric",
+   "kind": "setting",
+   "statement": "합성 목표 분포 실험은 forward KL과 reverse KL을 모두 평가해야 한다.",
+   "value": "forward KL and reverse KL",
+   "quote": "As evaluation metrics, we use empirical estimates of the KL divergence in both the forward direction,KL(p;q), and the reverse direction, KL(q;p).",
+   "page": 10
+  },
+  {
+   "category": "baseline",
+   "kind": "setting",
+   "statement": "주요 비교 기준선은 ADVI와 GSM이어야 한다.",
+   "value": "ADVI and GSM",
+   "quote": "The first of these is automatic differentiation VI (ADVI) (Kucukelbir et al., 2017), which is based on ELBO maximization, and the second is GSM",
+   "page": 9
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "모든 알고리즘은 JAX로 구현해야 한다.",
+   "value": "JAX",
+   "quote": "We implement all algorithms using JAX (Bradbury et al., 2018)",
+   "page": 9
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "가우시안 목표 실험에서 BaM의 학습률은 λt=BD로 고정해야 한다.",
+   "value": "λt =BD",
+   "quote": "In all of these experiments, we use a constant learning rateλt =BD for BaM.",
+   "page": 10
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "가우시안 목표 실험의 곡선은 10회 실행의 평균으로 계산해야 한다.",
+   "value": "10",
+   "quote": "Solid curves indicate the mean over 10 runs (transparent curves).",
+   "page": 10
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "비가우시안 합성 목표는 sinh-arcsinh 정규분포로 구성해야 한다.",
+   "value": "sinh-arcsinh normal distribution",
+   "quote": "The sinh-arcsinh normal distribution transforms a Gaussian random variable via the hyperbolic sine function and its inverse",
+   "page": 10
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "비가우시안 합성 실험에서는 차원 D=10을 사용해야 한다.",
+   "value": "10",
+   "quote": "Here we again consider the sinh-arcsinh distribution with D = 10",
+   "page": 45
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "비가우시안 목표 실험에서 BaM의 학습률은 λt=BD/(t+1)로 감쇠해야 한다.",
+   "value": "λt = BD/(t+1)",
+   "quote": "Here we use a decaying learning rateλt = BD/(t+1) for BaM",
+   "page": 11
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "계층 베이지안 실험은 posteriordb의 arK, gp-pois-regr, eight-schools-centered 모델을 사용해야 한다.",
+   "value": "arK, gp-pois-regr, eight-schools-centered",
+   "quote": "The first target is nearly Gaussian (arK, D =7). The other two targets are non-Gaussian: one is a Gaussian process (GP) Poisson regression model (gp-pois-regr, D =13), and the other is the 8-schools hierarchical Bayesian model (eight-schools-centered, D =10).",
+   "page": 11
+  },
+  {
+   "category": "protocol",
+   "kind": "setting",
+   "statement": "posteriordb의 정확도 비교에는 HMC 기준 샘플의 posterior 평균과 표준편차를 사용해야 한다.",
+   "value": "HMC",
+   "quote": "reference samples generated using Hamiltonian Monte Carlo (HMC)",
+   "page": 11
+  },
+  {
+   "category": "metric",
+   "kind": "setting",
+   "statement": "계층 베이지안 실험은 HMC 샘플에 대한 posterior 평균과 표준편차의 상대 오차로 평가해야 한다.",
+   "value": "relative mean and standard deviation errors",
+   "quote": "we evaluate BaM, ADVI, and GSM by computing the relative errors of the posterior mean and standard deviation estimates with respect to those from HMC samples",
+   "page": 11
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "posteriordb 실험은 BaM 배치 크기 8과 32를 비교해야 한다.",
+   "value": "8 and 32",
+   "quote": "Figure 5.3 compares the relative mean errors of BaM, ADVI, and GSM for batch sizesB =8 and B =32.",
+   "page": 11
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "깊은 생성 모델 실험은 CIFAR-10 이미지 데이터셋을 사용해야 한다.",
+   "value": "CIFAR-10",
+   "quote": "We train the neural network on the CIFAR-10 image data set (Krizhevsky, 2009).",
+   "page": 12
+  },
+  {
+   "category": "model",
+   "kind": "setting",
+   "statement": "CIFAR-10 이미지는 3072차원 연속 벡터이고 잠재 표현은 256차원이어야 한다.",
+   "value": "3072 and 256",
+   "quote": "We model the images as continuous, withxn∈ R3072, and learn a latent representationzn∈ R256",
+   "page": 12
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "깊은 생성 모델의 관측 잡음 분산은 σ²=0.1이어야 한다.",
+   "value": "0.1",
+   "quote": "For this example, we setσ2 = 0.1.",
+   "page": 12
+  },
+  {
+   "category": "metric",
+   "kind": "setting",
+   "statement": "이미지 복원 평가는 posterior 평균 잠재변수를 decoder에 넣은 뒤 MSE로 계산해야 한다.",
+   "value": "MSE",
+   "quote": "The quality of the reconstruction is assessed visually and using the mean squared error (MSE, Figure 5.4)",
+   "page": 12
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "깊은 생성 모델의 BaM과 ADVI는 100회 pilot iteration 후 1000회 iteration을 실행해야 한다.",
+   "value": "100 and 1000",
+   "quote": "For ADVI and BaM, we use a pilot run ofT = 100iterations to find a suitable learning rate; we then run the algorithms forT = 1000iterations.",
+   "page": 12
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "깊은 생성 모델에서 BaM의 배치 크기는 10, 100, 300을 비교해야 한다.",
+   "value": "10, 100, 300",
+   "quote": "BaM performs poorly when the batch size is very small (B = 10) relative to the dimension of the latent variablez′",
+   "page": 12
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "VAE의 encoder와 decoder는 5개 층의 convolution network로 학습해야 한다.",
+   "value": "5",
+   "quote": "For the decoder and the encoder, we use a convolution network with 5 layers.",
+   "page": 48
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "VAE 사전 학습은 100 epoch 동안 수행해야 한다.",
+   "value": "100",
+   "quote": "The optimization is performed over 100 epochs, after which the ELBO converges",
+   "page": 48
+  }
+ ],
+ "missing": [
+  {
+   "category": "training",
+   "statement": "합성 및 posteriordb 실험의 난수 seed가 명시되지 않아 재현을 위해 결정해야 한다."
+  },
+  {
+   "category": "training",
+   "statement": "BaM의 초기 평균과 공분산 설정이 모든 주요 실험에 대해 일관되게 명시되지 않아 결정해야 한다."
+  },
+  {
+   "category": "training",
+   "statement": "합성 및 posteriordb 실험의 정확한 종료 iteration 또는 수렴 판정 기준이 명시되지 않아 결정해야 한다."
+  },
+  {
+   "category": "training",
+   "statement": "VAE의 convolution layer별 구조와 optimizer 설정이 명시되지 않아 결정해야 한다."
+  },
+  {
+   "category": "training",
+   "statement": "실험에 사용한 구체적인 CPU 또는 GPU 하드웨어가 명시되지 않아 결정해야 한다."
+  }
+ ]
+}
