@@ -1,0 +1,12 @@
+# LinearRAG reproduction
+embedding_model: all-mpnet-base-v2
+llm: gpt-4o-mini
+retrieval:
+  top_k: 10
+pagerank:
+  damping: 0.85
+datasets: [hotpotqa, 2wikimultihopqa, musique]
+eval:
+  split: validation
+  questions_per_dataset: 1000
+seed: 42

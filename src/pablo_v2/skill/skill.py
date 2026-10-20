@@ -14,6 +14,7 @@ Pablo never executes anything; the host agent does, depending on the verdict.
 """
 from __future__ import annotations
 
+import hashlib
 import http.client
 import json
 import os
@@ -155,7 +156,7 @@ class PabloSkill:
 
     # --- Action Proposal + Guard -------------------------------------------------
     def propose_action(self, task_id: str, description: str, plan_step: str | None = None,
-                       justification: str | None = None) -> ActionProposal:
+                       justification: str | None = None, rewrites: list[dict] = ()) -> ActionProposal:
         self.get_task(task_id)
         step = self._step(task_id, plan_step)
         constraints = {i.id: (i.strength or "soft", i.statement) for i in self.get_applicable_intent(task_id)["constraints"]}
@@ -164,20 +165,25 @@ class PabloSkill:
         sources = {c.id: c for c in self.checks(task_id)}
         sources |= {c.id: c for c in map(self._find_check, basis) if c}
         done = [c for c in sources.values() if c.research_state == "completed"]
-        analysis = self.judge.analyze_action(
-            description, justification, step and step["action"],
-            "\n".join(f"{k} [{st}] {text}" for k, (st, text) in constraints.items()),
-            "\n".join(f"{'*' if c.id in basis else ''}{c.id} [{c.outcome}] {c.requirement} -> {c.conclusion}"
-                      for c in done))
+        said = (description, justification, step and step["action"],
+                "\n".join(f"{k} [{st}] {text}" for k, (st, text) in constraints.items()),
+                "\n".join(f"{'*' if c.id in basis else ''}{c.id} [{c.outcome}] {c.requirement} -> {c.conclusion}"
+                          for c in done))
+        # the judge already answered exactly this (same action, step, criteria and facts): its facts are reused, the
+        # verdict is decided again by the rules. Saves a model call on repeated reads; never skips the Guard.
+        key = hashlib.sha256(json.dumps(said, ensure_ascii=False).encode("utf-8")).hexdigest()[:24]
+        prev = next((a for a in reversed(self.state.actions) if a.analysis_key == key and a.analysis), None)
+        analysis = dict(prev.analysis) if prev else self.judge.analyze_action(*said)
         cited = (analysis.get("justification") or {}).get("supported_by", [])
         verdict, reasons = guard.decide(
             pending_required=self.pending_required(task_id), step=step,
             unverified=self._unverified(step) if step else [], analysis=analysis,
             constraints={k: st for k, (st, _) in constraints.items()},
             sources={c.id: c.outcome for c in sources.values()},
-            valid_support=[c.id for c in done if c.id in cited and c.outcome in guard.SUPPORTING_OUTCOMES])
+            valid_support=[c.id for c in done if c.id in cited and c.outcome in guard.SUPPORTING_OUTCOMES],
+            rewrites=list(rewrites))
         act = ActionProposal(self._next_id("ACT"), task_id, description, step and step["id"], justification,
-                             analysis, verdict, reasons)
+                             analysis, verdict, reasons, analysis_key=key, analysis_from=prev and prev.id)
         self.state.actions.append(act)
         self.save()
         return act
@@ -345,6 +351,45 @@ class PabloSkill:
             self.link_evidence(a.id, sc.id, "supports", role)
         return sc, dropped
 
+    def spec(self, task_id: str, src_id: str | None = None) -> tuple[list[SourceCheck], list[SourceCheck], list[dict]]:
+        """The paper's reproduction conditions (data, split, model, hyperparameters, metrics, baselines, results,
+        evaluation rules), each a completed check whose evidence is its verbatim quote anchored on its page: the Guard
+        reads them like any verified fact (an action against one is S01), the agent gets them in its brief.
+        A quote Pablo cannot find is dropped, never kept unanchored. Settings the paper does not state become pending
+        checks ("decide, and say on what basis"). Extracting again replaces the task's earlier conditions from that
+        paper. -> (stated, missing, dropped)"""
+        src = self.get_source(src_id) if src_id else next((x for x in reversed(self.state.sources) if x.kind == "pdf"), None)
+        if not src or src.kind != "pdf":
+            raise KeyError("no captured PDF to read the conditions from")
+        self.get_task(task_id)
+        r = self.judge.extract_spec(self.snapshot_text(src).split("\f"))
+        for c in self.checks(task_id):
+            if c.spec and c.spec.get("source_id") == src.id and c.research_state != "waived" and c.task_id == task_id:
+                c.research_state, c.waived_by, c.waive_reason = "waived", "pablo", "replaced by a new extraction"
+        stated, missing, dropped = [], [], []
+        for it in r["items"]:
+            try:
+                try:
+                    a = self.add_anchor(src.id, it["quote"], page=it["page"])
+                except evidence.AnchorRejected:  # wrong page: unique anywhere in the paper is still exact
+                    a = self.add_anchor(src.id, it["quote"])
+            except evidence.AnchorRejected as e:
+                dropped.append({**it, "why": str(e)})
+                continue
+            sc = self.add_check(task_id, it["statement"], "USEFUL")
+            sc.spec = {"category": it["category"], "value": it["value"], "source_id": src.id}
+            self.complete_check(sc.id, "VERIFIED", it["statement"] + " [1]",
+                                [{"tier": 4, "type": "pdf", "title": src.title, "url": src.locator, "supports": [a.id]}])
+            self.link_evidence(a.id, sc.id, "supports", it["category"])
+            stated.append(sc)
+        for it in r["missing"]:
+            sc = self.add_check(task_id, it["statement"], "USEFUL",
+                                "논문에 없는 설정: 정하면 그 근거(저자 저장소, 관례, 실험)를 남긴다")
+            sc.spec = {"category": it["category"], "value": "", "source_id": src.id, "missing": True}
+            missing.append(sc)
+        self.save()
+        return stated, missing, dropped
+
     def resolve_anchor(self, e_id: str) -> EvidenceAnchor:
         """Re-fetch the live source and find the anchor in it. Never moves the anchor; records where it is now."""
         a = self.get_anchor(e_id)
@@ -496,16 +541,20 @@ class PabloSkill:
         if x.id in self._intent_refs(task_id):
             return True
         if hasattr(x, "features"):
-            scope = x.features.get("scope", "project")
+            f = x.features
         else:
             c = next((c for c in self.intent.get_current_intent().candidates if c.item_id == x.id), None)
-            scope = (c.features.get("scope", "project") if c
-                     else "task" if x.kind in ("assumption", "open_question", "decision") else "project")
+            f = c.features if c else {"scope": "task" if x.kind in ("assumption", "open_question", "decision") else "project"}
+        scope = f.get("scope", "project")
         if scope not in ("task", "action"):
             return True
-        # ponytail: time window, breaks if tasks overlap; backlog: store scope_ref/task_id on the intent
+        if f.get("task"):  # said in a named task (desktop chat, new-task criteria): that task only, whatever the time
+            return f["task"] == task_id
+        # no task named (CLI say): said while this task was the latest one. The window ends where the next task in the
+        # list starts (list order, so two tasks made in the same instant do not share a window).
         t = self.get_task(task_id)
-        end = min((o.created_at for o in self.state.tasks if o.created_at > t.created_at), default=None)
+        i = self.state.tasks.index(t)
+        end = self.state.tasks[i + 1].created_at if i + 1 < len(self.state.tasks) else None
         return t.created_at <= x.created_at and (end is None or x.created_at < end)
 
     def _intent_refs(self, task_id: str) -> set:
@@ -596,6 +645,103 @@ def render_task(s: PabloSkill, task_id: str) -> str:
         out.append("\n## Research issues")
         out += [f"- [{i.id}] {i.type} {i.source_check_id or '-'}: {i.note} ({i.review_id})" for i in issues]
     return "\n".join(out)
+
+
+BRIEF_FACT_CHARS = 400
+SPEC_LABEL = {"dataset": "데이터셋", "split": "데이터 분할", "preprocessing": "전처리", "model": "모델",
+              "hyperparameter": "하이퍼파라미터", "training": "학습", "metric": "평가 지표", "baseline": "비교 대상",
+              "result": "보고된 결과", "protocol": "평가 규칙"}
+
+
+def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
+    """What the desktop agent is told before it works on the task: the user's criteria for it and the facts Pablo has
+    located in a source, each citation [n] replaced by where it is ("LinearRAG p.9") so the agent can say where.
+    -> (text, basis): basis = the completed supporting checks, for the plan step the request becomes. Empty text when
+    there is nothing to tell."""
+    ai = s.get_applicable_intent(task_id)
+    must = [c.statement for c in ai["constraints"] if c.strength == "hard"]
+    prefer = [c.statement for c in ai["constraints"] if c.strength != "hard"]
+    facts, basis, open_, paper = [], [], [], False
+    for c in s.checks(task_id):
+        if c.spec and c.spec.get("missing") and c.research_state == "pending":
+            open_.append(f"- [{SPEC_LABEL.get(c.spec['category'], c.spec['category'])}] {c.requirement.strip()}")
+            continue
+        if c.research_state != "completed" or c.outcome not in guard.SUPPORTING_OUTCOMES or not c.conclusion:
+            continue
+        where = []
+        for _, a in s.evidence_for(c.id):
+            src = s.get_source(a.source_id)
+            where.append(f"{src.title} p.{a.selector['page']}" if "page" in a.selector else src.title)
+        text = re.sub(r"\[(\d+)\]", lambda m: f"({where[int(m[1]) - 1]})" if 0 < int(m[1]) <= len(where) else "",
+                      c.conclusion)
+        if not re.search(r"\[\d+\]", c.conclusion) and where:
+            text += f" ({', '.join(dict.fromkeys(where))})"
+        text = text if len(text) <= BRIEF_FACT_CHARS else text[:BRIEF_FACT_CHARS] + "…"
+        if c.spec:  # a paper's reproduction condition: the statement is the fact
+            paper = True
+            facts.append(f"- [{SPEC_LABEL.get(c.spec['category'], c.spec['category'])}] {text}")
+        else:
+            facts.append(f"- {c.requirement.strip()} → {text}" + (" (일부만 확인됨)" if c.outcome != "VERIFIED" else ""))
+        basis.append(c.id)
+    if not (must or prefer or facts or open_):
+        return "", []
+    out = ["[Pablo] 이 작업에서 사용자가 정한 기준과 확인된 근거입니다. 기준과 어긋나는 일은 하기 전에 말하고, "
+           "근거를 쓸 때는 괄호 안의 출처와 쪽을 함께 밝히세요."]
+    out += [f"반드시: {x}" for x in must] + [f"가능하면: {x}" for x in prefer]
+    if facts:
+        out += ["확인된 근거:"] + facts
+    if paper:
+        out.append("논문에 적힌 조건은 근거 없이 바꾸지 마세요. 결과를 맞추려고 바꾸면 재현이 아닙니다.")
+    if open_:
+        out += ["논문에 없는 설정 (정하면 무엇을 근거로 정했는지 밝히세요):"] + open_
+    return "\n".join(out), basis
+
+
+AUDIT_STATUS = ["followed", "differs", "missing", "unclear", "chosen"]
+AUDIT_SCHEMA = {
+    "type": "object", "additionalProperties": False, "required": ["items", "summary"],
+    "properties": {
+        "summary": {"type": "string"},
+        "items": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False, "required": ["id", "status", "where", "found", "note"],
+            "properties": {"id": {"type": "string"}, "status": {"enum": AUDIT_STATUS}, "where": {"type": "string"},
+                           "found": {"type": "string"}, "note": {"type": "string"}}}}}}
+
+
+def render_audit(s: PabloSkill, task_id: str) -> tuple[str, list[dict]]:
+    """The 재현 점검 the desktop agent runs read-only over the work folder: every stated paper condition, every setting
+    the paper leaves open and every criterion of the task, each to be judged against the code, configs and run logs
+    (a reported result against the value a log shows). -> (prompt, items [{id, kind, label, text}])."""
+    items = []
+    for c in s.checks(task_id):
+        if not c.spec or c.research_state == "waived":
+            continue
+        label = SPEC_LABEL.get(c.spec["category"], c.spec["category"])
+        if c.spec.get("missing"):
+            items.append({"id": c.id, "kind": "open", "label": "논문에 없는 설정", "text": c.requirement.strip()})
+            continue
+        pages = [a.selector.get("page") for _, a in s.evidence_for(c.id)]
+        where = f" (논문 p.{pages[0]})" if pages and pages[0] else ""
+        items.append({"id": c.id, "kind": "condition", "label": label,
+                      "text": re.sub(r"\s*\[\d+\]", "", c.conclusion or c.requirement).strip() + where})
+    for i in s.get_applicable_intent(task_id)["constraints"]:
+        items.append({"id": i.id, "kind": "criterion", "label": "작업 기준" + (" (반드시)" if i.strength == "hard" else ""),
+                      "text": i.statement})
+    prompt = "\n".join([
+        "[Pablo 재현 점검] 작업 폴더의 코드, 설정 파일, 실행 로그를 읽고 아래 항목마다 지금 상태를 판정하세요. "
+        "파일을 고치거나 프로그램을 실행하지 말고 읽기만 하세요. 항목마다 하나씩, id를 그대로 써서 답하세요.",
+        "status:",
+        "- followed: 코드나 설정이 이 조건(기준)을 그대로 따른다. 보고된 결과라면 실행 로그의 값이 논문 값과 같다.",
+        "- differs: 다르게 되어 있다(기준이라면 어긴다). 보고된 결과라면 로그의 값이 논문 값과 다르다.",
+        "- missing: 아직 구현되거나 실행되지 않았다.",
+        "- unclear: 읽은 것만으로는 판단할 수 없다.",
+        "- chosen: 논문에 없는 설정에만 쓴다. 코드가 정해 둔 값이 있다.",
+        "where: 근거가 된 파일과 줄(예: configs/base.yaml:12). 없으면 빈 문자열.",
+        "found: 그 자리에 실제로 있는 값이나 코드 한 줄(짧게, 바꾸지 말고 그대로).",
+        "note: 판단 이유 한 문장. summary: 전체를 두세 문장으로.",
+        "항목 (id | 분류 | 내용):",
+        *[f"{x['id']} | {x['label']} | {x['text']}" for x in items]])
+    return prompt, items
 
 
 def render_evidence(s: PabloSkill, e_id: str) -> str:

@@ -31,6 +31,7 @@ python pablo.py <command> ... --json
 python pablo.py say "<사용자 문장 원문>" --llm --json
 ```
 - 사용자 문장만 넘깁니다. 너의 제안이나 요약은 Intent가 아닙니다.
+- 작업 중에 나온 기준이면 `--task T1`을 붙입니다. "이번 작업에서는 ~" 같은 기준은 그 작업에만 적용되고, 나중에 다른 작업을 열어도 섞이지 않습니다.
 - 사용자 요구를 반박하는 제안을 했다면 그 제안을 `say "<제안>" --agent`로 남깁니다. 다음 사용자 교정을 해석하는 데 쓰입니다.
 - 작업 시작 전에 `show --json`으로 현재 constraint를 확인합니다. hard는 어기면 안 됩니다.
 
@@ -143,6 +144,17 @@ python pablo.py resolve E1 --json
 - `resolve`가 STALE이나 UNRESOLVED면 원문이 바뀐 것입니다. 그 근거에 기대기 전에 다시 조사합니다.
 - VALID는 문구가 원문에 있다는 뜻입니다. 그 문구가 결론을 뒷받침하는지는 따로 판단해야 합니다.
 - 사용자가 근거를 직접 보려면 `view T1 --html`을 실행하고 출력된 파일 경로 뒤에 `#E1`을 붙여 전달합니다.
+
+## 8. 논문 재현 조건
+논문을 재현하는 작업이면 PDF를 캡처한 뒤 재현 조건을 뽑습니다.
+```bash
+python pablo.py source paper.pdf --json
+python pablo.py spec T1 --json
+```
+- 데이터셋, 분할, 모델, 하이퍼파라미터, 지표, 비교 대상, 보고된 결과, 평가 규칙이 원문 쪽에 고정된 VERIFIED check가 됩니다. 위치를 못 찾은 조건은 빠집니다.
+- 이 조건과 다르게 구현하려면 `act`의 `--why`에 근거(SC ID)를 적습니다. 결과를 맞추려고 바꾸는 것은 근거가 되지 않습니다. 검증된 조건과 모순되면 BLOCK(S01)입니다.
+- 논문에 없는 설정(시드 등)은 pending check로 남습니다. 정하면 무엇을 근거로 정했는지 사용자에게 알리고 `check`로 기록합니다.
+- 사용자에게 줄 요약이 필요하면 `python pablo.py brief T1 --json`이 기준과 확인된 근거(쪽 포함)를 한 번에 줍니다.
 
 ## 상태 보기
 ```bash

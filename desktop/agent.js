@@ -21,6 +21,7 @@ const cwd = app.isPackaged ? os.tmpdir() : process.env.INIT_CWD || process.cwd()
 let proc = null, pend = {}, id = 0, buf = "", threadId = null, key = null, turn = null, ready = null, loaded = new Set(), failed = null;
 agent.status = "Connecting"; agent.spawns = 0; agent.launch = null; agent.stateFile = null; agent.model = null;
 agent.workspace = null; agent.onRequest = null;
+agent.network = false;  // the task's 인터넷 switch: Codex's workspace sandbox has no network unless this turn says so
 
 const set = (status, error) => { agent.status = status; agent.emit("event", { type: "status", status, error }); };
 const write = m => proc.stdin.write(JSON.stringify(m) + "\n");
@@ -61,13 +62,13 @@ function onLine(line) {
 function finish(status, error) {
   const t = turn; turn = null;
   if (!t) return;
-  const err = status === "completed" ? undefined : [t.error, error].filter(Boolean).join(" ") || status;
+  const err = status === "completed" || status === "interrupted" ? undefined : [t.error, error].filter(Boolean).join(" ") || status;
   // model at capacity: no automatic resend (it would repeat the message, and maybe its actions). The user may retry
   // on the next model, offered only when nothing ran. ponytail: the failed message stays in the thread history.
   const next = agent.models[agent.models.indexOf(agent.model) + 1];
   failed = status === "failed" && t.first == null && !t.acted && next && /serverOverloaded|at capacity/i.test(err) ? t : null;
   agent.emit("event", { type: "done", status, first: t.first, total: Date.now() - t.t0, error: err, retry: !!failed });
-  status === "completed" ? set("Ready") : set("Error", err);
+  err ? set("Error", err) : set("Ready");
 }
 // the user's "다른 모델로 다시 시도": the failed message once more, on the account's next model
 async function retry() {
@@ -75,7 +76,7 @@ async function retry() {
   if (!t || turn) throw new Error("다시 시도할 메시지가 없습니다.");
   setModel(agent.models[agent.models.indexOf(agent.model) + 1]);
   agent.emit("event", { type: "model", model: agent.model });
-  return send(t.input[0].text, t.task);
+  return send(t.input.at(-1).text, t.task, t.brief);
 }
 
 // task -> thread, kept across app restarts; a thread made for another folder or sandbox is not reused
@@ -84,10 +85,18 @@ const where = () => agent.workspace ? { cwd: agent.workspace, sandbox: "workspac
                                     : { cwd, sandbox: "read-only", approvalPolicy: "never" };
 function save() {
   if (!agent.stateFile) return;
-  const threads = state().threads || {};
-  if (key && threadId) threads[key] = { threadId, cwd: where().cwd, sandbox: where().sandbox };
+  const threads = state().threads || {}, old = threads[key];
+  if (key && threadId) threads[key] = { threadId, cwd: where().cwd, sandbox: where().sandbox,
+    ...(old && old.threadId === threadId && old.brief ? { brief: old.brief } : {}) };  // the brief this thread was last given
   fs.writeFileSync(agent.stateFile, JSON.stringify({ model: agent.model, threads }));
 }
+// Pablo's brief (criteria + located facts) goes before the message when this thread has not been given that version yet
+function told(hash) {
+  if (!agent.stateFile || !key || !threadId) return;
+  const st = state(), th = (st.threads || {})[key];
+  if (th && th.threadId === threadId) { th.brief = hash; fs.writeFileSync(agent.stateFile, JSON.stringify(st)); }
+}
+const given = () => ((state().threads || {})[key] || {}).brief;
 // user's pick from the account's models; used from the next turn on (turn/start model sticks to the thread)
 function setModel(m) { if (!agent.models.includes(m)) throw new Error("unknown model"); agent.model = m; save(); }
 function forget() { threadId = key = null; loaded.clear(); if (agent.stateFile) fs.rmSync(agent.stateFile, { force: true }); }
@@ -138,7 +147,7 @@ function start() {
     });
     p.on("error", e => console.error("[agent] spawn", e.message));
 
-    await call("initialize", { clientInfo: { name: "pablo", title: "Pablo", version: "0.4.2" }, capabilities: null });
+    await call("initialize", { clientInfo: { name: "pablo", title: "Pablo", version: require("./package.json").version }, capabilities: null });
     write({ method: "initialized" });
     // never trust the user's config.toml model; prefer app-server's default if the account offers it
     const ms = (await call("model/list", {})).data;
@@ -155,13 +164,37 @@ function start() {
   return ready;
 }
 
-async function send(text, task) {
+// brief: {text, hash} from `pablo brief` (or null): sent before the message once per thread and version.
+// note: a one-off line from Pablo for this turn (e.g. the user undid a change).
+// opts.readOnly: this turn reads only (재현 점검): read-only sandbox, no approvals; opts.outputSchema: its answer's JSON shape
+async function send(text, task, brief, note, opts = {}) {
   if (turn) throw new Error("busy");
   await start();
-  turn = { t0: Date.now(), first: null, item: null, task, items: {}, acted: false, input: [{ type: "text", text, text_elements: [] }] };
+  const t = turn = { t0: Date.now(), first: null, item: null, task, items: {}, acted: false, brief,
+                     input: [{ type: "text", text, text_elements: [] }] };
   set("Thinking");
-  try { await open(task); turn.threadId = threadId; await call("turn/start", { threadId, input: turn.input, model: agent.model }); }
-  catch (e) { finish("failed", e.message); }
+  try {
+    await open(task); t.threadId = threadId;
+    const tell = brief && brief.text && brief.hash !== given();
+    if (tell) t.input = [{ type: "text", text: brief.text, text_elements: [] }, ...t.input];
+    if (note) t.input = [{ type: "text", text: note, text_elements: [] }, ...t.input];
+    // a work folder: sandbox and approvals on every turn. app-server keeps a turn's overrides for the turns after it, so
+    // a read-only 점검 turn must never leave "no approvals" behind for a writing turn (writes always reach the Guard).
+    // 인터넷 takes effect on the next message.
+    const policy = !agent.workspace ? {} : opts.readOnly ? { sandboxPolicy: { type: "readOnly" }, approvalPolicy: "never" }
+      : { sandboxPolicy: { type: "workspaceWrite", networkAccess: !!agent.network }, approvalPolicy: "untrusted" };
+    t.id = (await call("turn/start", { threadId, input: t.input, model: agent.model, ...policy,
+      ...(opts.outputSchema ? { outputSchema: opts.outputSchema } : {}) })).turn.id;
+    if (tell) told(brief.hash);
+    if (t.stop && turn === t) interrupt();  // 중지 pressed before app-server named the turn
+  } catch (e) { finish("failed", e.message); }
+}
+// the user's 중지: app-server ends the turn with status "interrupted" (turn/completed), open WARN cards are cancelled
+function interrupt() {
+  const t = turn;
+  if (!t) return Promise.resolve(false);
+  if (!t.id) { t.stop = true; return Promise.resolve(true); }
+  return call("turn/interrupt", { threadId: t.threadId, turnId: t.id }).then(() => true, e => { console.error("[agent] interrupt", e.message); return false; });
 }
 
 // stdin EOF ends app-server cleanly; taskkill /T after 1.5 s. Resolves once the process is gone.
@@ -180,5 +213,5 @@ function stop() {
 const restart = () => stop().then(start);
 
 agent.models = [];
-Object.assign(agent, { start, send, retry, stop, restart, forget, setModel, busy: () => !!turn, thread: () => threadId, task: () => key, pid: () => proc && proc.pid });
+Object.assign(agent, { start, send, retry, interrupt, stop, restart, forget, setModel, busy: () => !!turn, thread: () => threadId, task: () => key, pid: () => proc && proc.pid });
 module.exports = agent;

@@ -52,6 +52,7 @@ class SourceCheck:
     intent_refs: list[str] = field(default_factory=list)
     waived_by: str | None = None  # "host" when the host dropped an over-generated check
     waive_reason: str | None = None
+    spec: dict | None = None  # a paper's reproduction condition (PabloSkill.spec): {category, value, source_id, missing}
 
 
 @dataclass
@@ -77,6 +78,8 @@ class ActionProposal:
     host_decision: str | None = None  # proceed | defer | reject, recorded by the host after the verdict
     decision_reason: str | None = None
     created_at: str = field(default_factory=now)
+    analysis_key: str = ""  # hash of what the judge was shown; the same input reuses that analysis
+    analysis_from: str | None = None  # the earlier action whose analysis was reused (no model call)
 
 
 @dataclass
