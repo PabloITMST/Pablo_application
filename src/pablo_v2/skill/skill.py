@@ -355,13 +355,14 @@ class PabloSkill:
         self.save()
         return src
 
-    def add_anchor(self, src_id: str, exact: str, near: str = "", page: int | None = None) -> EvidenceAnchor:
+    def add_anchor(self, src_id: str, exact: str, near: str = "", page: int | None = None,
+                   gapped: bool = False) -> EvidenceAnchor:
         """Raises evidence.AnchorRejected if the quote is missing or ambiguous in the captured version.
-        PDF sources: page narrows the search (near is for web pages)."""
+        PDF sources: page narrows the search (near is for web pages); gapped: pdf.locate_gapped."""
         src = self.get_source(src_id)
         text = self.snapshot_text(src)
         if src.kind == "pdf":
-            quote, selector = pdf.anchor(text.split("\f"), exact, page)
+            quote, selector = pdf.anchor(text.split("\f"), exact, page, gapped)
         else:
             start, end = evidence.locate(text, exact, near)
             quote, selector = evidence.context(text, start, end), {"type": "web_text", "start": start, "end": end}
@@ -488,7 +489,7 @@ class PabloSkill:
                 c.research_state, c.waived_by = "waived", "pablo"
                 c.waive_reason = "replaced by a new extraction" if c.spec.get("source_id") == src.id \
                     else f"replaced by the conditions of {src.id} ({src.title})"
-        stated, missing, dropped, again, still_out = [], [], [], [], []
+        stated, missing, dropped, again, still_out, filled = [], [], [], [], [], set()
         for it in r["items"]:
             try:
                 try:
@@ -496,12 +497,20 @@ class PabloSkill:
                 except evidence.AnchorRejected:  # wrong page: unique anywhere in the paper is still exact
                     a = self.add_anchor(src.id, it["quote"])
             except evidence.AnchorRejected as e:
-                dropped.append({**it, "why": str(e)})
-                continue
+                try:  # D3: a table row rebuilt from one column group, "(SD)" left out: the page's whole span, verbatim
+                    a = self.add_anchor(src.id, it["quote"], page=it["page"], gapped=True)
+                except evidence.AnchorRejected:
+                    dropped.append({**it, "why": str(e)})
+                    continue
+            if it.get("fills"):  # D3: the appendix pass found a setting the first pass called missing
+                filled.add(it["fills"])
             hit = next((c for c in kept + out if not c.spec.get("missing") and self._same_condition(c, it["category"], it["value"], a)), None)
             if hit:  # the user's own version of it is there (or they took it out): not twice, not back
                 (again if hit in kept else still_out).append(hit.id)
                 self.state.anchors.remove(a)
+                continue
+            if it.get("from") == "appendix" and any(self._restates(c, it["category"], it["value"], a) for c in stated):
+                self.state.anchors.remove(a)  # the first pass has it already
                 continue
             sc = self.add_check(task_id, it["statement"], "USEFUL")
             sc.spec = {"category": it["category"], "value": it["value"], "source_id": src.id}
@@ -522,7 +531,9 @@ class PabloSkill:
                           "new": [n.id for n in stated if not any(anchor(n) and self._same_condition(p, n.spec["category"], n.spec["value"], anchor(n)) for p in prev)],
                           "gone": [p.id for p in prev if p not in same], "kept": [c.id for c in kept],
                           "again": sorted(set(again)), "out": sorted(set(still_out))}
-        for it in r["missing"]:
+        for i, it in enumerate(r["missing"], 1):
+            if i in filled:
+                continue
             sc = self.add_check(task_id, it["statement"], "USEFUL",
                                 "논문에 없는 설정: 정하면 그 근거(저자 저장소, 관례, 실험)를 남긴다")
             sc.spec = {"category": it["category"], "value": "", "source_id": src.id, "missing": True}
@@ -591,6 +602,14 @@ class PabloSkill:
             sc.spec["dropped"][-1]["to"] = now()
         self.save()
         return sc
+
+    def _restates(self, c, category: str, value: str, a) -> bool:
+        """D3: an appendix-pass item the first pass has already: the same condition, unless both name a value and the
+        values differ (another column of the same table row)."""
+        v = c.spec.get("value", "")
+        if checkable(v) and checkable(value) and not (has_value(v, value) and has_value(value, v)):
+            return False
+        return self._same_condition(c, category, value, a)
 
     def _same_condition(self, c, category: str, value: str, a) -> bool:
         """The same condition of the same paper: their quotes overlap on a page, or one kind with one value."""

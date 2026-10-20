@@ -9,12 +9,14 @@ Judge contract (duck-typed; tests inject stubs):
     answer_from_pdf(question, pages) -> {"answer" with [n] markers, "citations": [{n, page, quote, role}]}  (M3.3)
     answer_from_sources(question, papers [{label, title, pages}]) -> same, each citation also has its paper's label (C1)
     extract_spec(pages) -> {"items": [{category, statement, value, quote, page}], "missing": [{category, statement}]}
+        (D3: items from the appendix pass also carry from="appendix" and fills, a missing setting's number or 0)
     compare_paper(columns, title, pages) -> {"cells": [{column, value, quote, page}]}  one paper's row of a table (C3)
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 
 TASK_SCHEMA = {
     "type": "object", "additionalProperties": False, "required": ["reuse", "checks"],
@@ -178,19 +180,22 @@ SPEC_PROMPT = """You extract what a faithful reproduction of this paper's main e
 text below. Pablo locates every quote in the PDF and highlights it; an item whose quote it cannot find verbatim is dropped.
 
 items: concrete conditions the paper states.
-- category: dataset (benchmarks, versions, sizes) | split (what is used for training / validation / testing, sizes) |
+- category: dataset (benchmarks, versions, sizes) | split (what is used for training / validation / testing, sizes;
+  a split the paper takes from other work is a setting too: "we follow X to split", value X) |
   preprocessing | model (architecture, backbone, embedding or language model names) | method (how the method works,
   where code can keep every value right and still differ: what a named value controls, how a score is computed or
   combined, which model computes what, what one stage hands to the next) | hyperparameter (named values: learning rate,
   top-k, thresholds, dimensions, ...) | training (steps, epochs, hardware, seeds when stated) | metric (how results are
   scored) | baseline (methods compared against) | result (a main reported number) | protocol (evaluation rules a
-  reproduction must not break, e.g. data used only for testing).
+  reproduction must not break, e.g. data used only for testing, which run a table reports (the best of a grid, the
+  median over seeds), what cost results are plotted against, on which points an error is computed).
 - kind: what a reproduction does with it.
   setting = what the code or its config fixes: data and split, preprocessing, the model, a method step, a
             hyperparameter, the metric, an evaluation rule, a training setting. 재현 점검 holds the folder to it.
   result  = a number the paper reports for the main experiments; a run should come close to it.
   fact    = a description no code sets: a dataset's size or origin, the hardware or runtime the authors had, what
-            other work did. Kept for the reader; never checked in the folder.
+            other work did. Kept for the reader; never checked in the folder. A table of each dataset's train / test
+            sizes is one fact at most, never one item per dataset.
   scope   = another experiment of the paper: a baseline's own settings, an ablation, an extra dataset or analysis a
             reproduction of the main result may leave out. Kept as the paper's scope; never checked in the folder.
 - statement: one short Korean sentence stating the condition with its exact value (e.g. "검색 단계의 top-k는 5이다").
@@ -199,7 +204,8 @@ items: concrete conditions the paper states.
 - value: the value alone ("5", "GPT-4o-mini", "Contriever"), or "" when it is not one value (always "" for method).
 - quote: copied verbatim from that page's text (same words and numbers, in order), 5-30 words, one contiguous span that
   appears only once in the paper and contains the value. For a result from a table: ONE row, its label followed by the
-  numbers, exactly as in the text (e.g. "MethodName 12.3 4.5"); never a whole table or a caption. For method: the
+  numbers, exactly as in the text (e.g. "MethodName 12.3 4.5"); never a whole table or a caption. When the text runs
+  two column groups of a row into one line, quote the line as it is, never the row rebuilt. For method: the
   sentence that says it in words, never a formula's symbols (formulas do not survive PDF text extraction).
   For a result: pair every number with its dataset and metric in the statement (e.g. "2Wiki의 GPT-Acc는 63.70이다").
   A table row's text rarely carries its column names (the header is lost in the PDF text), so prefer the sentence of
@@ -208,7 +214,7 @@ items: concrete conditions the paper states.
 At most 24 items besides method, and at most 10 method items. Prefer what changes results: data and splits, the
 model, key hyperparameters, metrics, the main baselines and main results. Method items: one per step of the main
 method that a reproduction could simplify or get wrong; never restate a value item. Never invent a value. Never
-paraphrase inside quote.
+paraphrase inside quote.{appendix}
 
 missing: settings a reproduction must decide that the paper does NOT state (e.g. random seed, learning rate schedule,
 number of runs, prompt templates, hardware), at most 6, each with a Korean statement naming what is missing. List
@@ -219,6 +225,75 @@ optimizer or batch size for it.
 PAPER (page text from the PDF, [p.N] = page N):
 {pages}
 """
+
+# D3 (10/20): two runs on three papers both missed 31 conditions; 16 were on the pages after the references (tables
+# of settings, problem definitions, reporting rules), where one pass over the whole paper rarely quotes. A second
+# pass reads only those pages, with what the first found, and may answer what it listed as missing.
+SPEC_APPENDIX_NOTE = """
+The pages from [p.{start}] on (after the references) are read again in a second pass for their tables and details:
+spend these items on the main text first."""
+
+SPEC_APPENDIX_SCHEMA = _obj(
+    items={"type": "array", "items": _obj(category={"enum": SPEC_CATEGORIES}, kind={"enum": SPEC_KINDS}, statement=_str,
+                                          value=_str, quote=_str, page={"type": "integer"},
+                                          fills={"type": "integer"})})
+
+SPEC_APPENDIX_PROMPT = """You read the APPENDIX of a paper (the pages after its references) for the reproduction
+conditions its main text left there. A first pass over the whole paper found the CONDITIONS below, and listed as
+MISSING the settings it thought the paper does not state. Pablo locates every quote in the PDF and highlights it; an
+item whose quote it cannot find verbatim is dropped.
+
+items: conditions these pages state that the CONDITIONS do not have yet (never one of them again, in other words).
+Look for:
+- tables of settings: per-dataset batch sizes, learning rates and schedules, input sizes, layer sizes. Quote ONE row,
+  its label followed by the numbers, exactly as in the text. The row's text rarely carries its column names: say in
+  the statement which column you read only when the caption, the header text or a sentence on these pages names it;
+  otherwise leave the row out. When rows share a value, one item says which rows it covers (e.g. "DTD와 OxfordPets를
+  뺀 모든 데이터셋의 배치 크기는 256이다").
+- definitions of the data or the problem: how a dataset or a target distribution is generated, an equation with its
+  domain and initial / boundary conditions. Quote the sentence that introduces it as the text has it; value = the
+  definition as the text writes it.
+- how the experiments are run and reported: initialization, how a hyperparameter is chosen (the best of a grid, by
+  which loss), which run a figure or table reports (min / median / max over seeds), what cost is counted, on which
+  points an error is computed. A caption may be quoted for a rule it states.
+- settings of the proposed method that the main text leaves to these pages: its hyperparameters, and any value set
+  "in our experiments", even inside a theory section.
+Fields:
+- category, kind, statement, value, quote, page: as in the first pass. kind: setting for what the main experiments
+  use; scope for another experiment's own settings, an ablation or an extra analysis; fact for dataset sizes,
+  hardware and runtimes. Never a proof step or a constant of a theorem that the experiments do not set.
+- quote: copied verbatim from one page's text (same words and numbers, in order), 5-30 words, one contiguous span that
+  appears only once in the paper and contains the value; for a definition, the words around the symbols as the text
+  has them.
+- fills: when the item states one of the MISSING settings, that setting's number; otherwise 0.
+At most 12 items; prefer what a reproduction would get wrong without them. Never invent a value. Never paraphrase
+inside quote.
+
+CONDITIONS (first pass):
+{found}
+
+MISSING (first pass):
+{missing}
+
+APPENDIX (page text from the PDF, [p.N] = page N of the paper):
+{pages}
+"""
+
+_REFS = re.compile(r"\b(?:References|REFERENCES|Bibliography|BIBLIOGRAPHY)\b")
+_YEAR = re.compile(r"\b(?:19|20)\d\d\b")
+
+
+def appendix_start(pages: list[str]) -> int | None:
+    """D3: the first page of the appendix (1-based): after the references heading (from the third page on, a
+    'References' followed by a year), past the reference pages (dense with years). None when there is no such page:
+    no references heading, nothing after the references, or an appendix placed before them (read once, as before)."""
+    for n, p in enumerate(pages[2:], 3):
+        if any(_YEAR.search(p, m.end(), m.end() + 300) for m in _REFS.finditer(p)):
+            while n < len(pages) and len(_YEAR.findall(pages[n])) * 1000 >= 3 * max(1, len(pages[n])):
+                n += 1  # pages[n] is page n + 1: still references
+            return n + 1 if n < len(pages) else None
+    return None
+
 
 TASK_PROMPT = """You are Pablo's task analyst. Decide which EXTERNAL facts / specifications this task depends on.
 
@@ -359,11 +434,22 @@ class LLMJudge:
         return self.provider.complete_json(ASK_SOURCES_PROMPT.format(papers=text, question=question), ASK_SOURCES_SCHEMA)
 
     def extract_spec(self, pages: list[str]) -> dict:
+        """One pass over the whole paper, then (D3) one over its appendix: those items come with from="appendix" and
+        fills (the number of the first pass's missing setting they state, 0 if none)."""
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
-        r = self.provider.complete_json(SPEC_PROMPT.format(pages=text), SPEC_SCHEMA)
+        start = appendix_start(pages)
+        r = self.provider.complete_json(
+            SPEC_PROMPT.format(pages=text, appendix=SPEC_APPENDIX_NOTE.format(start=start) if start else ""), SPEC_SCHEMA)
+        if start:
+            found = "\n".join(f"- [{it['category']}] {it['statement']} (p.{it['page']})" for it in r["items"]) or "(none)"
+            missing = "\n".join(f"{i}. [{m['category']}] {m['statement']}" for i, m in enumerate(r["missing"], 1)) or "(none)"
+            tail = "\n\n".join(f"[p.{n}] {pages[n - 1]}" for n in range(start, len(pages) + 1))
+            more = self.provider.complete_json(SPEC_APPENDIX_PROMPT.format(found=found, missing=missing, pages=tail),
+                                               SPEC_APPENDIX_SCHEMA)
+            r = {"items": r["items"] + [{**it, "from": "appendix"} for it in more["items"]], "missing": r["missing"]}
         if dump := os.environ.get("PABLO_SPEC_DUMP"):  # tests/eval: the answer as it came, frozen for later runs
             with open(dump, "w", encoding="utf-8") as f:
-                json.dump({"items": r["items"], "missing": r["missing"]}, f, ensure_ascii=False, indent=1)
+                json.dump({"items": r["items"], "missing": r["missing"], "appendix": start}, f, ensure_ascii=False, indent=1)
         return r
 
     def compare_paper(self, columns: list[str], title: str, pages: list[str]) -> dict:

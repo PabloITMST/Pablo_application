@@ -125,6 +125,49 @@ def locate(ps: list[str], exact: str, page: int | None = None) -> tuple[int, int
     return hits[0]
 
 
+GAP_RUNS, GAP_CHARS = 2, 40
+_GAP_OK = re.compile(r"[\d.,%±×+\-−]+|[(\[][^()\[\]]{1,14}[)\]]")  # numbers only (a table's other column group) | a short bracketed aside
+
+
+def locate_gapped(ps: list[str], exact: str, page: int | None = None) -> tuple[int, int, int]:
+    """D3: a quote the model shortened inside one span of the page: its words in order, with at most GAP_RUNS
+    stretches left out, each only numbers (a table row whose other column group the text runs into the same line:
+    'AVERAGE 43.91 ... 52.53 49.15 ... 56.35' quoted as 'AVERAGE 49.15 ... 56.35') or one bracketed aside
+    ('standard deviation (SD) estimates' without '(SD)'), never words, so a left-out 'not' can never match.
+    -> the whole span, verbatim from the page, when exactly one place fits; AnchorRejected otherwise."""
+    words = [k for k in (key(w)[0] for w in exact.split()) if k]
+    if len(words) < 4:
+        raise AnchorRejected(f"quote too short to match with gaps: {exact!r}")
+    budget = min(GAP_CHARS, sum(map(len, words)))
+    hits = {}
+    for n, t in enumerate(ps, 1):
+        if page not in (None, n):
+            continue
+        tk, idx = key(t)
+        i = tk.find(words[0])
+        while i >= 0:
+            pos, gaps, used = i + len(words[0]), 0, 0
+            for w in words[1:]:
+                j = tk.find(w, pos)
+                if j < 0 or j - pos > budget - used:
+                    break
+                gap = t[idx[pos - 1] + 1:idx[j]] if j > pos else ""  # whole words of the page ('25' never in '256')
+                if gap and not (_GAP_OK.fullmatch(tk[pos:j]) and gap[0].isspace() and gap[-1].isspace()):
+                    break
+                gaps, used, pos = gaps + (j > pos), used + j - pos, j + len(w)
+                if gaps > GAP_RUNS:
+                    break
+            else:
+                if gaps:  # the tightest start for each end: an earlier copy of the first word is not another place
+                    hits[(n, idx[pos - 1] + 1)] = max(hits.get((n, idx[pos - 1] + 1), -1), idx[i])
+            i = tk.find(words[0], i + 1)
+    if len(hits) != 1:
+        raise AnchorRejected(f"quote not found in the captured PDF{f' page {page}' if page else ''}, even with numbers "
+                             f"or a bracketed aside left out ({len(hits)} places): {exact!r}")
+    (n, e), s = next(iter(hits.items()))
+    return n, s, e
+
+
 def resolve(quote: dict, selector: dict, old_hash: str, data: bytes) -> dict:
     """Find the anchor in the current file at the source's path."""
     new_hash = content_hash(data)
@@ -145,9 +188,10 @@ def resolve(quote: dict, selector: dict, old_hash: str, data: bytes) -> dict:
     return {**out, "status": "UNRESOLVED", "reason": "not_found"}
 
 
-def anchor(ps: list[str], exact: str, page: int | None = None) -> tuple[dict, dict]:
-    """-> (quote {exact, prefix, suffix} from the page text, selector {type: pdf_text, page, start, end})."""
-    n, s, e = locate(ps, exact, page)
+def anchor(ps: list[str], exact: str, page: int | None = None, gapped: bool = False) -> tuple[dict, dict]:
+    """-> (quote {exact, prefix, suffix} from the page text, selector {type: pdf_text, page, start, end}).
+    gapped: locate_gapped instead (the caller tried the exact quote first)."""
+    n, s, e = (locate_gapped if gapped else locate)(ps, exact, page)
     return context(ps[n - 1], s, e), {"type": "pdf_text", "page": n, "start": s, "end": e}
 
 
