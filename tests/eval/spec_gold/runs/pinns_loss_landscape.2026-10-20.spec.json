@@ -1,0 +1,260 @@
+{
+ "pdf": "../../../../.pablo/gold/papers/arxiv-2402.01868v2.pdf",
+ "note": "The spec model's answer for Challenges in Training PINNs: A Loss Landscape Perspective (arXiv 2402.01868v2) as it came on 2026-10-20: check.js --spec --paper=pinns_loss_landscape (9435acc, PABLO_SPEC_DUMP), the account's model (thread.json said gpt-5.6-luna; the run does not record it). 30 items, 0 dropped (quote not found verbatim), 3 settings the paper does not state. Unedited. Scored in pinns_loss_landscape.2026-10-20.score.json.",
+ "items": [
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "실험 데이터는 convection PDE, wave PDE, reaction ODE의 세 문제로 구성된다.",
+   "value": "convection PDE, wave PDE, reaction ODE",
+   "quote": "We conduct experiments on optimizing PINNs for convection, wave PDEs, and a reaction ODE.",
+   "page": 2
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "Convection 문제의 계수는 β=40이다.",
+   "value": "β=40",
+   "quote": "We setβ = 40 in our experiments.",
+   "page": 14
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "Reaction 문제의 계수는 ρ=5이다.",
+   "value": "ρ=5",
+   "quote": "We set ρ = 5 in our experiments.",
+   "page": 14
+  },
+  {
+   "category": "dataset",
+   "kind": "setting",
+   "statement": "Wave 문제의 계수는 β=5이다.",
+   "value": "β=5",
+   "quote": "We set β = 5 in our experi- ments.",
+   "page": 14
+  },
+  {
+   "category": "preprocessing",
+   "kind": "setting",
+   "statement": "각 실험은 내부 문제 영역의 255×100 격자에서 무작위로 샘플링한 residual point 10000개를 사용한다.",
+   "value": "10000",
+   "quote": "We use 10000 residual points randomly sampled from a 255× 100 grid on the interior of the problem domain.",
+   "page": 3
+  },
+  {
+   "category": "preprocessing",
+   "kind": "setting",
+   "statement": "초기 조건에는 균일 간격 점 257개를 사용한다.",
+   "value": "257",
+   "quote": "We use 257 equally spaced points for the initial conditions and 101 equally spaced points for each boundary condition.",
+   "page": 3
+  },
+  {
+   "category": "preprocessing",
+   "kind": "setting",
+   "statement": "각 경계 조건에는 균일 간격 점 101개를 사용한다.",
+   "value": "101",
+   "quote": "101 equally spaced points for each boundary condition.",
+   "page": 3
+  },
+  {
+   "category": "model",
+   "kind": "setting",
+   "statement": "PINN 모델은 tanh 활성화를 사용하는 다층 퍼셉트론이며 은닉층은 세 개이다.",
+   "value": "MLP, tanh, 3 hidden layers",
+   "quote": "We use multilayer perceptrons (MLPs) with tanh activations and three hidden layers.",
+   "page": 3
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "MLP 은닉층 폭은 50, 100, 200, 400을 각각 실험한다.",
+   "value": "50, 100, 200, 400",
+   "quote": "These MLPs have widths 50, 100, 200, or 400.",
+   "page": 3
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "네트워크는 Xavier normal 초기화와 모든 bias 0으로 초기화한다.",
+   "value": "Xavier normal; zero biases",
+   "quote": "We initialize these networks with the Xavier normal initialization (Glorot & Bengio, 2010) and all biases equal to zero.",
+   "page": 3
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "각 PDE·optimizer·MLP 구조 조합은 무작위 seed 5개로 실행한다.",
+   "value": "5",
+   "quote": "Each combination of PDE, optimizer, and MLP architecture is run with 5 random seeds.",
+   "page": 3
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "Adam의 learning rate는 {10^-5,10^-4,10^-3,10^-2,10^-1} 격자에서 탐색한다.",
+   "value": "{10^-5, 10^-4, 10^-3, 10^-2, 10^-1}",
+   "quote": "For Adam, we tune the learning rate by a grid search on{10−5, 10−4, 10−3, 10−2, 10−1}.",
+   "page": 3
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "L-BFGS의 learning rate는 1.0, memory size는 100, line search는 strong Wolfe로 고정한다.",
+   "value": "learning rate 1.0; memory 100; strong Wolfe",
+   "quote": "For L-BFGS, we use the default learning rate 1.0, memory size 100, and strong Wolfe line search.",
+   "page": 3
+  },
+  {
+   "category": "hyperparameter",
+   "kind": "setting",
+   "statement": "Adam+L-BFGS의 전환 시점은 1000, 11000, 31000 iteration으로 탐색한다.",
+   "value": "1000, 11000, 31000",
+   "quote": "also vary the switch from Adam to L-BFGS (after 1000, 11000, 31000 iterations).",
+   "page": 3
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "모든 optimizer는 총 41000 iteration 동안 실행한다.",
+   "value": "41000",
+   "quote": "All three methods are run for a total of 41000 iterations.",
+   "page": 3
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "PINN 손실은 PDE residual 항과 boundary/initial-condition 항의 평균 제곱 오차를 합산한다.",
+   "value": "",
+   "quote": "The first loss term measures how much u(x;w) fails to satisfy the PDE, while the second term measures how muchu(x;w) fails to satisfy the bound- ary/initial conditions.",
+   "page": 2
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "Adam+L-BFGS는 먼저 Adam을 실행한 뒤 지정된 iteration에서 L-BFGS로 전환한다.",
+   "value": "",
+   "quote": "By running Adam first, we avoid saddle points that would attract L-BFGS.",
+   "page": 6
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "NNCG는 Adam+L-BFGS 이후에 실행되어 손실과 PINN 해를 추가로 개선한다.",
+   "value": "",
+   "quote": "NNCG can significantly improve the solution returned by Adam+L-BFGS",
+   "page": 2
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "NNCG는 Hessian-vector product를 이용하는 preconditioned conjugate-gradient 방식으로 Newton step을 계산한다.",
+   "value": "",
+   "quote": "Instead, we run a Newton-CG algorithm that solves for the Newton step using preconditioned conjugate gradient (PCG).",
+   "page": 6
+  },
+  {
+   "category": "method",
+   "kind": "setting",
+   "statement": "L-BFGS는 strong Wolfe line search를 사용하며 조건을 만족하는 양의 step을 찾지 못하면 조기 종료할 수 있다.",
+   "value": "",
+   "quote": "L-BFGS often terminates because it cannot find a positive step size satisfying these conditions",
+   "page": 6
+  },
+  {
+   "category": "metric",
+   "kind": "setting",
+   "statement": "정확도는 내부 격자와 초기·경계 조건 점 전체에서 ℓ2 relative error로 평가한다.",
+   "value": "L2RE",
+   "quote": "We assess the discrepancy between the PINN solution and the ground truth usingℓ2 relative error (L2RE), a standard metric in the PINN literature.",
+   "page": 3
+  },
+  {
+   "category": "metric",
+   "kind": "setting",
+   "statement": "L2RE는 예측값과 정답의 차이 제곱합을 정답 제곱합으로 나눈 상대 제곱근이다.",
+   "value": "L2RE",
+   "quote": "Define L2RE = sPn i=1(yi−y′ i)2 Pn i=1y′2 i",
+   "page": 3
+  },
+  {
+   "category": "baseline",
+   "kind": "setting",
+   "statement": "주요 비교 optimizer는 Adam, L-BFGS, Adam+L-BFGS이다.",
+   "value": "Adam; L-BFGS; Adam+L-BFGS",
+   "quote": "We compare three optimizers frequently used for train- ing PINNs: (i) Adam, (ii) L-BFGS, and (iii) Adam followed by L-BFGS",
+   "page": 2
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "Convection에서 Adam의 최저 loss는 1.40e-4이고 L2RE는 5.96e-2이다.",
+   "value": "1.40e-4; 5.96e-2",
+   "quote": "Adam 1.40e-4 5.96e-2 4.73e-6 2.12e-2 2.03e-2 3.49e-1",
+   "page": 5
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "Convection에서 Adam+L-BFGS의 최저 loss는 5.95e-6이고 L2RE는 4.19e-3이다.",
+   "value": "5.95e-6; 4.19e-3",
+   "quote": "Adam+L- BFGS 5.95e-6 4.19e-3 3.26e-6 1.92e-2 1.12e-3 5.52e-2",
+   "page": 5
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "Wave에서 Adam+L-BFGS의 최저 loss는 1.12e-3이고 L2RE는 5.52e-2이다.",
+   "value": "1.12e-3; 5.52e-2",
+   "quote": "Adam+L- BFGS 5.95e-6 4.19e-3 3.26e-6 1.92e-2 1.12e-3 5.52e-2",
+   "page": 5
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "NNCG fine-tuning 후 Convection의 loss는 3.63e-7이고 L2RE는 1.94e-3이다.",
+   "value": "3.63e-7; 1.94e-3",
+   "quote": "Adam+L-BFGS+NNCG 3.63e-7 1.94e-3 2.89e-7 9.92e-3 6.13e-5 1.27e-2",
+   "page": 8
+  },
+  {
+   "category": "result",
+   "kind": "result",
+   "statement": "NNCG fine-tuning 후 Wave의 loss는 6.13e-5이고 L2RE는 1.27e-2이다.",
+   "value": "6.13e-5; 1.27e-2",
+   "quote": "Adam+L-BFGS+NNCG 3.63e-7 1.94e-3 2.89e-7 9.92e-3 6.13e-5 1.27e-2",
+   "page": 8
+  },
+  {
+   "category": "training",
+   "kind": "fact",
+   "statement": "실험은 NVIDIA Titan V GPU 한 개에서 실행되었다.",
+   "value": "single NVIDIA Titan V GPU",
+   "quote": "Each experiment is run on a single NVIDIA Titan V GPU using CUDA 11.8.",
+   "page": 3
+  },
+  {
+   "category": "training",
+   "kind": "setting",
+   "statement": "실험 구현은 PyTorch 2.0.0과 Python 3.10.12를 사용한다.",
+   "value": "PyTorch 2.0.0; Python 3.10.12",
+   "quote": "We develop our experiments in PyTorch 2.0.0 (Paszke et al., 2019) with Python 3.10.12.",
+   "page": 3
+  }
+ ],
+ "missing": [
+  {
+   "category": "training",
+   "statement": "무작위 seed 5개의 구체적인 seed 값은 명시되지 않았다."
+  },
+  {
+   "category": "training",
+   "statement": "Adam 학습률 격자에서 최종 선택할 learning rate의 선택 규칙이 실험별로 완전히 명시되지 않았다."
+  },
+  {
+   "category": "protocol",
+   "statement": "각 PDE와 네트워크 폭에 대해 보고된 값이 단일 실행인지 seed 평균인지 표의 집계 방식이 완전히 명시되지 않았다."
+  }
+ ]
+}
