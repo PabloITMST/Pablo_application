@@ -13,8 +13,13 @@
    "value": "ResNet-18, ResNet-50",
    "quote": "Following Chen et al. (2023), we use ResNet-18, and ResNet-50 (He et al., 2016) as the pre-trained model.",
    "page": 6,
-   "status": "candidate",
-   "note": "Sec 5 'Pre-trained Models and Target Tasks'. Table 1 covers these two backbones."
+   "status": "confirmed",
+   "note": "Sec 5 'Pre-trained Models and Target Tasks'. Table 1 covers these two backbones.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.754Z"
+   }
   },
   {
    "id": "G2",
@@ -24,8 +29,13 @@
    "value": "ViT-B32",
    "quote": "Performance on pre-trained ViT-B32 (Dosovitskiy et al., 2020) is also tested.",
    "page": 6,
-   "status": "candidate",
-   "note": "Sec 5. Table 2 covers this backbone."
+   "status": "confirmed",
+   "note": "Sec 5. Table 2 covers this backbone.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.756Z"
+   }
   },
   {
    "id": "G3",
@@ -35,8 +45,13 @@
    "value": "ImageNet-1K",
    "quote": "All these models are pre-trained on ImageNet-1K (Deng et al., 2009)",
    "page": 6,
-   "status": "candidate",
-   "note": "Sec 5. Applies to ResNet-18, ResNet-50 and ViT-B32 (also in Table 1/2 headers)."
+   "status": "confirmed",
+   "note": "Sec 5. Applies to ResNet-18, ResNet-50 and ViT-B32 (also in Table 1/2 headers).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.757Z"
+   }
   },
   {
    "id": "G4",
@@ -46,8 +61,13 @@
    "value": "11",
    "quote": "The 11 datasets used for the experiments are summarized in Table 6",
    "page": 17,
-   "status": "candidate",
-   "note": "App C. The dataset names are listed in Sec 5 (p.6) and Table 6; the full name list is too long for one quote. StanfordCars is only discussed in App D.4 and is not part of Tables 1/2."
+   "status": "confirmed",
+   "note": "App C. The dataset names are listed in Sec 5 (p.6) and Table 6; the full name list is too long for one quote. StanfordCars is only discussed in App D.4 and is not part of Tables 1/2.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.757Z"
+   }
   },
   {
    "id": "G5",
@@ -57,19 +77,30 @@
    "value": "Chen et al. (2023)",
    "quote": "We follow Chen et al. (2023) to split the datasets.",
    "page": 6,
-   "status": "candidate",
-   "note": "Sec 5. The split itself is only given by reference; Table 6 lists train/test sizes. No validation split is mentioned."
+   "status": "confirmed",
+   "note": "Sec 5. The split itself is only given by reference; Table 6 lists train/test sizes. No validation split is mentioned.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.757Z"
+   }
   },
   {
    "id": "G6",
    "category": "preprocessing",
    "kind": "setting",
-   "statement": "목표 이미지는 쌍선형 보간 업샘플링으로 사전학습 모델의 입력 크기에 맞게 리사이즈한다.",
+   "statement": "목표 이미지는 일반적으로 쌍선형 보간 업샘플링으로 구현되는 리사이징 함수를 통해 사전학습 모델의 입력 크기에 맞게 조정된다.",
    "value": "bilinear interpolation",
    "quote": "is the resizing function, typically im- plemented as bilinear interpolation upsampling (Wikipedia contributors, 2023) that scales image dimension from dT todP",
    "page": 4,
-   "status": "candidate",
-   "note": "Sec 3.1, Eq. (3), resizing function r. The paper says 'typically'; reviewer may confirm this is the implementation actually used."
+   "status": "confirmed",
+   "note": "Sec 3.1, Eq. (3), resizing function r. The paper says 'typically'; reviewer may confirm this is the implementation actually used.",
+   "draft_statement": "목표 이미지는 쌍선형 보간 업샘플링으로 사전학습 모델의 입력 크기에 맞게 리사이즈한다.",
+   "review": {
+    "how": "asked",
+    "verdict": "fix",
+    "at": "2026-10-20T02:32:19.157Z"
+   }
   },
   {
    "id": "G7",
@@ -79,8 +110,13 @@
    "value": "224×224",
    "quote": "RESNET-50 224 ×224×3 5 26,499 17.60% 0.10%",
    "page": 14,
-   "status": "candidate",
-   "note": "Table 4, ResNet-50 row (input image size column). The ResNet-18 row prints '224 ×224×2', apparently a typo for ×3, so the ResNet-50 row is quoted."
+   "status": "confirmed",
+   "note": "Table 4, ResNet-50 row (input image size column). The ResNet-18 row prints '224 ×224×2', apparently a typo for ×3, so the ResNet-50 row is quoted.",
+   "review": {
+    "how": "asked",
+    "verdict": "ok",
+    "at": "2026-10-20T02:32:21.083Z"
+   }
   },
   {
    "id": "G8",
@@ -90,8 +126,13 @@
    "value": "384×384",
    "quote": "VIT-B32 384 ×384×3 6 102,339 23.13% 0.12%",
    "page": 14,
-   "status": "candidate",
-   "note": "Table 4, ViT-B32 row (input image size column)."
+   "status": "confirmed",
+   "note": "Table 4, ViT-B32 row (input image size column).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.757Z"
+   }
   },
   {
    "id": "G9",
@@ -101,8 +142,13 @@
    "value": "",
    "quote": "the learnable pattern δ is multiplied with the mask on a pixel-wise basis and added to the image",
    "page": 4,
-   "status": "candidate",
-   "note": "Sec 3.1; same as Eq. (3)/(4). The result is fed to the fixed pre-trained classifier."
+   "status": "confirmed",
+   "note": "Sec 3.1; same as Eq. (3)/(4). The result is fed to the fixed pre-trained classifier.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.757Z"
+   }
   },
   {
    "id": "G10",
@@ -112,8 +158,13 @@
    "value": "",
    "quote": "Note thatδ is shared by all images in the dataset following Bahng et al. (2022) and Chen et al. (2023), while fmask uniquely generates sample-specific multi-channel masks",
    "page": 4,
-   "status": "candidate",
-   "note": "Sec 3.1, after Eq. (4)."
+   "status": "confirmed",
+   "note": "Sec 3.1, after Eq. (4).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.758Z"
+   }
   },
   {
    "id": "G11",
@@ -123,8 +174,13 @@
    "value": "",
    "quote": "The resulting image is fed into the fixed pre- trained classifier.",
    "page": 4,
-   "status": "candidate",
-   "note": "Sec 3.1. Trainable parameters θ={ϕ,δ} (Eq. 4); Algorithm 1 (p.5) updates only δ and ϕ, with separate learning rates α1 (δ) and α2 (ϕ)."
+   "status": "confirmed",
+   "note": "Sec 3.1. Trainable parameters θ={ϕ,δ} (Eq. 4); Algorithm 1 (p.5) updates only δ and ϕ, with separate learning rates α1 (δ) and α2 (ϕ).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.758Z"
+   }
   },
   {
    "id": "G12",
@@ -134,8 +190,13 @@
    "value": "3",
    "quote": "The number of channels of the last layer is set to 3 to produce a three-channel mask.",
    "page": 12,
-   "status": "candidate",
-   "note": "App A.2; Sec 3.2 (p.4) states the CNN input is the resized image r(x)."
+   "status": "confirmed",
+   "note": "App A.2; Sec 3.2 (p.4) states the CNN input is the resized image r(x).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.758Z"
+   }
   },
   {
    "id": "G13",
@@ -145,8 +206,13 @@
    "value": "",
    "quote": "Each of them contains 5 or 6 CNN layers with 3× 3 kernels of padding size 1 and stride 1. Both models have 3 Max-Pooling layers.",
    "page": 13,
-   "status": "candidate",
-   "note": "App A.2, Fig 8 (5-layer, ResNet) / Fig 9 (6-layer, ViT); figures show BatchNorm+ReLU after conv layers except the last. Intermediate channel widths are NOT stated; Table 4 gives 26,499 (5-layer) and 102,339 (6-layer) parameters as a check."
+   "status": "confirmed",
+   "note": "App A.2, Fig 8 (5-layer, ResNet) / Fig 9 (6-layer, ViT); figures show BatchNorm+ReLU after conv layers except the last. Intermediate channel widths are NOT stated; Table 4 gives 26,499 (5-layer) and 102,339 (6-layer) parameters as a check.",
+   "review": {
+    "how": "rule 1",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.758Z"
+   }
   },
   {
    "id": "G14",
@@ -156,8 +222,13 @@
    "value": "",
    "quote": "enlarge each pixel to 2l× 2l pixels by padding the same value of a pixel to its surrounding areas within the patch",
    "page": 5,
-   "status": "candidate",
-   "note": "Sec 3.3 (sentence starts at the bottom of p.4, quoted part is on p.5). '2l' in the extracted text is 2^l. Non-divisible cases mirror the closest patches; the module needs no gradient computation (App A.3)."
+   "status": "confirmed",
+   "note": "Sec 3.3 (sentence starts at the bottom of p.4, quoted part is on p.5). '2l' in the extracted text is 2^l. Non-divisible cases mirror the closest patches; the module needs no gradient computation (App A.3).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
   },
   {
    "id": "G15",
@@ -167,8 +238,13 @@
    "value": "8",
    "quote": "We thus have set the patch size to be 8 across all datasets.",
    "page": 8,
-   "status": "candidate",
-   "note": "Sec 5 'Impact of Patch Size'. Consistent with the 3 Max-Pooling layers in App A.2."
+   "status": "confirmed",
+   "note": "Sec 5 'Impact of Patch Size'. Consistent with the 3 Max-Pooling layers in App A.2.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
   },
   {
    "id": "G16",
@@ -178,8 +254,13 @@
    "value": "0",
    "quote": "To mitigate the impact of initialization,δ is set to be a zero matrix before training, noted as{0}dP.",
    "page": 5,
-   "status": "candidate",
-   "note": "Sec 3.4; Algorithm 1 line 3 ('Initialize ϕ randomly; set δ←{0}'). The random-init scheme for ϕ is not specified."
+   "status": "confirmed",
+   "note": "Sec 3.4; Algorithm 1 line 3 ('Initialize ϕ randomly; set δ←{0}'). The random-init scheme for ϕ is not specified.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
   },
   {
    "id": "G17",
@@ -189,8 +270,13 @@
    "value": "Ilm",
    "quote": "Due to page limits, we report here only the results obtained with the output mappingfIlm out",
    "page": 7,
-   "status": "candidate",
-   "note": "Sec 5 Baselines paragraph. Ilm procedure is in App A.4 / Algorithm 4 (from Chen et al. 2023); f_out is non-parametric (Sec 3). Rlm/Flm results are only in App D.1."
+   "status": "confirmed",
+   "note": "Sec 5 Baselines paragraph. Ilm procedure is in App A.4 / Algorithm 4 (from Chen et al. 2023); f_out is non-parametric (Sec 3). Rlm/Flm results are only in App D.1.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
   },
   {
    "id": "G18",
@@ -200,8 +286,13 @@
    "value": "0.01",
    "quote": "with 0.01 being the initial learning rate",
    "page": 7,
-   "status": "candidate",
-   "note": "Sec 5 Baselines paragraph, stated for training the shared noise pattern δ (all methods, following Chen et al. 2023). Table 9 gives α=0.01 for the 5-layer mask generator as well."
+   "status": "confirmed",
+   "note": "Sec 5 Baselines paragraph, stated for training the shared noise pattern δ (all methods, following Chen et al. 2023). Table 9 gives α=0.01 for the 5-layer mask generator as well.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
   },
   {
    "id": "G19",
@@ -211,8 +302,13 @@
    "value": "0.1",
    "quote": "and 0.1 being the learning rate decay",
    "page": 7,
-   "status": "candidate",
-   "note": "Sec 5; decay applied at the milestones (G20). Table 9 gives γ=0.1 for the 5-layer mask generator."
+   "status": "confirmed",
+   "note": "Sec 5; decay applied at the milestones (G20). Table 9 gives γ=0.1 for the 5-layer mask generator.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
   },
   {
    "id": "G20",
@@ -222,8 +318,13 @@
    "value": "200",
    "quote": "Two hundred epochs are run in total, and the 100th and the 145th epochs are the milestones.",
    "page": 7,
-   "status": "candidate",
-   "note": "Sec 5. The quote spells the number out ('Two hundred'). Table 9 lists milestones [0, 100, 145] for both mask generators. Milestones folded into this condition; reviewer may split. The sentence sits in the Baselines paragraph but describes the common schedule; that ViT-B32 also runs 200 epochs is implied, not restated. [value not in quote]"
+   "status": "confirmed",
+   "note": "Sec 5. The quote spells the number out ('Two hundred'). Table 9 lists milestones [0, 100, 145] for both mask generators. Milestones folded into this condition; reviewer may split. The sentence sits in the Baselines paragraph but describes the common schedule; that ViT-B32 also runs 200 epochs is implied, not restated. [value not in quote]",
+   "review": {
+    "how": "rule 2·3",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.759Z"
+   }
   },
   {
    "id": "G21",
@@ -233,8 +334,13 @@
    "value": "256",
    "quote": "CIFAR10 256 [0, 100, 145] 0.01 0.1 0.001 1",
    "page": 18,
-   "status": "candidate",
-   "note": "Table 9, CIFAR10 row (columns: b, milestones, α/γ for 5-layer, α/γ for 6-layer). All rows except DTD and OxfordPets use 256."
+   "status": "confirmed",
+   "note": "Table 9, CIFAR10 row (columns: b, milestones, α/γ for 5-layer, α/γ for 6-layer). All rows except DTD and OxfordPets use 256.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
   },
   {
    "id": "G22",
@@ -244,19 +350,30 @@
    "value": "64",
    "quote": "DTD 64 [0, 100, 145] 0.01 0.1 0.001 1",
    "page": 18,
-   "status": "candidate",
-   "note": "Table 9, DTD row; the OXFORD PETS row also has b=64."
+   "status": "confirmed",
+   "note": "Table 9, DTD row; the OXFORD PETS row also has b=64.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
   },
   {
    "id": "G23",
    "category": "hyperparameter",
    "kind": "setting",
-   "statement": "ViT-B32(6층 생성기) 실험은 초기 학습률 0.001, 학습률 감쇠 1(감쇠 없음)을 쓴다.",
+   "statement": "ViT-B32 실험에 사용된 6층 마스크 생성기의 초기 학습률은 0.001이며, 학습률 감쇠계수 γ는 1로 설정되었다.",
    "value": "0.001",
    "quote": "CIFAR100 256 [0, 100, 145] 0.01 0.1 0.001 1",
    "page": 18,
-   "status": "candidate",
-   "note": "Table 9 6-layer columns (α=0.001, γ=1), same for all datasets; chosen by a search on CIFAR10 (Table 7). Double-check: Table 9 is titled for the mask generator; App C implies the same α, γ are used for ViT-B32 training overall, but δ's ViT learning rate is not stated separately."
+   "status": "confirmed",
+   "note": "Table 9 6-layer columns (α=0.001, γ=1), same for all datasets; chosen by a search on CIFAR10 (Table 7). Double-check: Table 9 is titled for the mask generator; App C implies the same α, γ are used for ViT-B32 training overall, but δ's ViT learning rate is not stated separately.",
+   "draft_statement": "ViT-B32(6층 생성기) 실험은 초기 학습률 0.001, 학습률 감쇠 1(감쇠 없음)을 쓴다.",
+   "review": {
+    "how": "asked",
+    "verdict": "fix",
+    "at": "2026-10-20T02:32:44.932Z"
+   }
   },
   {
    "id": "G24",
@@ -266,8 +383,13 @@
    "value": "",
    "quote": "Nevertheless, for uniformity and fairness in this paper, we still use a single set of unified training parameters for all datasets.",
    "page": 17,
-   "status": "candidate",
-   "note": "App C. The 49.9% ViT-B32 UCF101 result with dataset-specific α=0.01, γ=0.1 (Table 8) is not the main-table number."
+   "status": "confirmed",
+   "note": "App C. The 49.9% ViT-B32 UCF101 result with dataset-specific α=0.01, γ=0.1 (Table 8) is not the main-table number.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
   },
   {
    "id": "G25",
@@ -277,8 +399,13 @@
    "value": "3",
    "quote": "Experiments are run with three seeds on a single A100 GPU",
    "page": 7,
-   "status": "candidate",
-   "note": "Sec 5 Baselines paragraph. The quote spells the number out ('three'). Specific seed values are not given. [value not in quote]"
+   "status": "confirmed",
+   "note": "Sec 5 Baselines paragraph. The quote spells the number out ('three'). Specific seed values are not given. [value not in quote]",
+   "review": {
+    "how": "rule 3",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
   },
   {
    "id": "G26",
@@ -288,8 +415,13 @@
    "value": "test accuracy",
    "quote": "and the aver- aged test accuracy is reported",
    "page": 7,
-   "status": "candidate",
-   "note": "Sec 5. Table 1 reports mean ± std over seeds; Table 2 reports the mean only."
+   "status": "confirmed",
+   "note": "Sec 5. Table 1 reports mean ± std over seeds; Table 2 reports the mean only.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
   },
   {
    "id": "G27",
@@ -299,8 +431,13 @@
    "value": "52.53",
    "quote": "AVERAGE 43.91 43.48 45.04 46.85 52.53 49.15 46.76 49.39 52.10 56.35",
    "page": 6,
-   "status": "candidate",
-   "note": "Table 1 AVERAGE row, 5th number (ResNet-18, OURS), Ilm mapping. Same row as G28 (the row holds both backbones)."
+   "status": "confirmed",
+   "note": "Table 1 AVERAGE row, 5th number (ResNet-18, OURS), Ilm mapping. Same row as G28 (the row holds both backbones).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
   },
   {
    "id": "G28",
@@ -310,8 +447,13 @@
    "value": "56.35",
    "quote": "AVERAGE 43.91 43.48 45.04 46.85 52.53 49.15 46.76 49.39 52.10 56.35",
    "page": 6,
-   "status": "candidate",
-   "note": "Table 1 AVERAGE row, last number (ResNet-50, OURS). Shares its quote with G27; reviewer may merge the two into one row-level condition."
+   "status": "confirmed",
+   "note": "Table 1 AVERAGE row, last number (ResNet-50, OURS). Shares its quote with G27; reviewer may merge the two into one row-level condition.",
+   "review": {
+    "how": "rule 2",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.760Z"
+   }
   },
   {
    "id": "G29",
@@ -321,8 +463,13 @@
    "value": "72.4",
    "quote": "AVERAGE 53.1 63.7 65.2 64.7 72.4",
    "page": 7,
-   "status": "candidate",
-   "note": "Table 2 AVERAGE row, last number (OURS)."
+   "status": "confirmed",
+   "note": "Table 2 AVERAGE row, last number (OURS).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.761Z"
+   }
   },
   {
    "id": "G30",
@@ -332,8 +479,13 @@
    "value": "42.6",
    "quote": "UCF101 33.6 44.5 44.8 40.9 42.6",
    "page": 7,
-   "status": "candidate",
-   "note": "Table 2 UCF101 row, last number (OURS). Picked because the text also cites 49.9% (dataset-specific lr, App C Table 8), which is not the main-table number."
+   "status": "confirmed",
+   "note": "Table 2 UCF101 row, last number (OURS). Picked because the text also cites 49.9% (dataset-specific lr, App C Table 8), which is not the main-table number.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:01.761Z"
+   }
   }
  ]
 }

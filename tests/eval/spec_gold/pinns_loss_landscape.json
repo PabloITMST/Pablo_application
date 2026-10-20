@@ -13,8 +13,13 @@
    "value": "u_t + βu_x = 0, x∈(0,2π), t∈(0,1), u(x,0)=sin(x)",
    "quote": "The convection PDE we study is ∂u ∂t +β∂u ∂x = 0, x ∈ (0, 2π),t∈ (0, 1), u(x, 0) = sin(x),",
    "page": 14,
-   "status": "candidate",
-   "note": "App. A.1. Sec 2.2 says formulations follow Krishnapriyan et al. (2021) / Wang et al. (2022b). Periodic BC is in G2's quote."
+   "status": "confirmed",
+   "note": "App. A.1. Sec 2.2 says formulations follow Krishnapriyan et al. (2021) / Wang et al. (2022b). Periodic BC is in G2's quote.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.849Z"
+   }
   },
   {
    "id": "G2",
@@ -24,8 +29,13 @@
    "value": "β = 40",
    "quote": "u(0,t ) =u(2π,t ), t ∈ [0, 1]. The analytical solution to this PDE isu(x,t ) = sin(x−βt). We setβ = 40 in our experiments.",
    "page": 14,
-   "status": "candidate",
-   "note": "App. A.1. The analytical solution serves as ground truth for L2RE."
+   "status": "confirmed",
+   "note": "App. A.1. The analytical solution serves as ground truth for L2RE.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.851Z"
+   }
   },
   {
    "id": "G3",
@@ -35,8 +45,13 @@
    "value": "u_t − ρu(1−u) = 0, x∈(0,2π), t∈(0,1)",
    "quote": "The reaction ODE we study is ∂u ∂t −ρu(1−u) = 0, x ∈ (0, 2π),t∈ (0, 1) u(x, 0) = exp",
    "page": 14,
-   "status": "candidate",
-   "note": "App. A.2. Quote stops at 'exp' because the extracted text has control characters inside the IC formula; reviewer: confirm IC u(x,0)=exp(-(x-π)^2/(2(π/4)^2)) and periodic BC u(0,t)=u(2π,t) on p.14."
+   "status": "confirmed",
+   "note": "App. A.2. Quote stops at 'exp' because the extracted text has control characters inside the IC formula; reviewer: confirm IC u(x,0)=exp(-(x-π)^2/(2(π/4)^2)) and periodic BC u(0,t)=u(2π,t) on p.14.",
+   "review": {
+    "how": "asked",
+    "verdict": "ok",
+    "at": "2026-10-20T02:37:18.109Z"
+   }
   },
   {
    "id": "G4",
@@ -46,8 +61,13 @@
    "value": "ρ = 5",
    "quote": "We set ρ = 5 in our experiments.",
    "page": 14,
-   "status": "candidate",
-   "note": "App. A.2. Analytical solution u = h(x)e^{ρt}/(h(x)e^{ρt}+1−h(x)) is given on the same page."
+   "status": "confirmed",
+   "note": "App. A.2. Analytical solution u = h(x)e^{ρt}/(h(x)e^{ρt}+1−h(x)) is given on the same page.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.851Z"
+   }
   },
   {
    "id": "G5",
@@ -57,8 +77,13 @@
    "value": "u_tt − 4u_xx = 0, x∈(0,1), t∈(0,1), u(x,0)=sin(πx)+½sin(βπx)",
    "quote": "The wave PDE we study is ∂2u ∂t2− 4∂2u ∂x2 = 0, x ∈ (0, 1),t∈ (0, 1), u(x, 0) = sin(πx) + 1 2 sin(βπx),",
    "page": 14,
-   "status": "candidate",
-   "note": "App. A.3. Also on p.14 (not in quote): u_t(x,0)=0 and Dirichlet BC u(0,t)=u(1,t)=0."
+   "status": "confirmed",
+   "note": "App. A.3. Also on p.14 (not in quote): u_t(x,0)=0 and Dirichlet BC u(0,t)=u(1,t)=0.",
+   "review": {
+    "how": "rule 3",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.851Z"
+   }
   },
   {
    "id": "G6",
@@ -68,8 +93,13 @@
    "value": "β = 5",
    "quote": "We set β = 5 in our experi- ments.",
    "page": 14,
-   "status": "candidate",
-   "note": "App. A.3. Analytical solution u = sin(πx)cos(2πt) + ½sin(βπx)cos(2βπt) is the ground truth."
+   "status": "confirmed",
+   "note": "App. A.3. Analytical solution u = sin(πx)cos(2πt) + ½sin(βπx)cos(2βπt) is the ground truth.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.851Z"
+   }
   },
   {
    "id": "G7",
@@ -79,8 +109,13 @@
    "value": "10000",
    "quote": "We use 10000 residual points randomly sampled from a 255× 100 grid on the interior of the problem domain.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2. Whether the sample is fixed for the whole run (not resampled) is not stated explicitly."
+   "status": "confirmed",
+   "note": "Sec 2.2. Whether the sample is fixed for the whole run (not resampled) is not stated explicitly.",
+   "review": {
+    "how": "rule 1",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.852Z"
+   }
   },
   {
    "id": "G8",
@@ -90,8 +125,13 @@
    "value": "257 / 101",
    "quote": "We use 257 equally spaced points for the initial conditions and 101 equally spaced points for each boundary condition.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2."
+   "status": "confirmed",
+   "note": "Sec 2.2.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.852Z"
+   }
   },
   {
    "id": "G9",
@@ -101,8 +141,13 @@
    "value": "tanh, 3 hidden layers",
    "quote": "We use multilayer perceptrons (MLPs) with tanh activations and three hidden layers.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2."
+   "status": "confirmed",
+   "note": "Sec 2.2.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.852Z"
+   }
   },
   {
    "id": "G10",
@@ -112,8 +157,13 @@
    "value": "50, 100, 200, 400",
    "quote": "These MLPs have widths 50, 100, 200, or 400.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2."
+   "status": "confirmed",
+   "note": "Sec 2.2.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.852Z"
+   }
   },
   {
    "id": "G11",
@@ -123,8 +173,13 @@
    "value": "Xavier normal, bias = 0",
    "quote": "We initialize these networks with the Xavier normal initialization (Glorot & Bengio, 2010) and all biases equal to zero.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2."
+   "status": "confirmed",
+   "note": "Sec 2.2.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.852Z"
+   }
   },
   {
    "id": "G12",
@@ -134,8 +189,13 @@
    "value": "",
    "quote": "The first loss term measures how much u(x;w) fails to satisfy the PDE, while the second term measures how muchu(x;w) fails to satisfy the bound- ary/initial conditions.",
    "page": 2,
-   "status": "candidate",
-   "note": "Sec 2.1, eq. (2). The 1/(2n_res) and 1/(2n_bc) scalings come from eq. (2) itself (math, not quoted)."
+   "status": "confirmed",
+   "note": "Sec 2.1, eq. (2). The 1/(2n_res) and 1/(2n_bc) scalings come from eq. (2) itself (math, not quoted).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.853Z"
+   }
   },
   {
    "id": "G13",
@@ -145,8 +205,13 @@
    "value": "λ = 1",
    "quote": "λ can be any positive real number; we setλ = 1 in our experiments.",
    "page": 21,
-   "status": "candidate",
-   "note": "App. F.1 (theory appendix, stated for the general linear-PDE objective). Consistent with the unweighted eq. (2); reviewer: confirm it is meant for the main experiments."
+   "status": "confirmed",
+   "note": "App. F.1 (theory appendix, stated for the general linear-PDE objective). Consistent with the unweighted eq. (2); reviewer: confirm it is meant for the main experiments.",
+   "review": {
+    "how": "asked",
+    "verdict": "ok",
+    "at": "2026-10-20T02:37:19.827Z"
+   }
   },
   {
    "id": "G14",
@@ -156,8 +221,13 @@
    "value": "{1e-5, 1e-4, 1e-3, 1e-2, 1e-1}",
    "quote": "For Adam, we tune the learning rate by a grid search on{10−5, 10−4, 10−3, 10−2, 10−1}.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2. Other Adam hyperparameters (betas, eps) are not stated."
+   "status": "confirmed",
+   "note": "Sec 2.2. Other Adam hyperparameters (betas, eps) are not stated.",
+   "review": {
+    "how": "rule 1",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.853Z"
+   }
   },
   {
    "id": "G15",
@@ -167,8 +237,13 @@
    "value": "lr 1.0, memory 100, strong Wolfe",
    "quote": "For L-BFGS, we use the default learning rate 1.0, memory size 100, and strong Wolfe line search.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2 (memory m = 100 repeated in App. C.2). 'default' suggests PyTorch's torch.optim.LBFGS; other tolerances not stated."
+   "status": "confirmed",
+   "note": "Sec 2.2 (memory m = 100 repeated in App. C.2). 'default' suggests PyTorch's torch.optim.LBFGS; other tolerances not stated.",
+   "review": {
+    "how": "rule 1",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.853Z"
+   }
   },
   {
    "id": "G16",
@@ -178,8 +253,13 @@
    "value": "1000, 11000, 31000",
    "quote": "For Adam+L-BFGS, we tune the learn- ing rate for Adam as before, and also vary the switch from Adam to L-BFGS (after 1000, 11000, 31000 iterations).",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2; labelled Adam+L-BFGS (1k), (11k), (31k) in figures."
+   "status": "confirmed",
+   "note": "Sec 2.2; labelled Adam+L-BFGS (1k), (11k), (31k) in figures.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.853Z"
+   }
   },
   {
    "id": "G17",
@@ -189,8 +269,13 @@
    "value": "41000",
    "quote": "All three methods are run for a total of 41000 iterations.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2. For Adam+L-BFGS the total includes both phases."
+   "status": "confirmed",
+   "note": "Sec 2.2. For Adam+L-BFGS the total includes both phases.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.853Z"
+   }
   },
   {
    "id": "G18",
@@ -200,8 +285,13 @@
    "value": "5",
    "quote": "Each combination of PDE, optimizer, and MLP architecture is run with 5 random seeds.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2."
+   "status": "confirmed",
+   "note": "Sec 2.2.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.853Z"
+   }
   },
   {
    "id": "G19",
@@ -211,8 +301,13 @@
    "value": "",
    "quote": "We find the learning rateη⋆ for each network width and optimization strategy that attains the lowest loss (L2RE) across all random seeds.",
    "page": 18,
-   "status": "candidate",
-   "note": "Figure 8 caption, App. D."
+   "status": "confirmed",
+   "note": "Figure 8 caption, App. D.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.853Z"
+   }
   },
   {
    "id": "G20",
@@ -222,8 +317,13 @@
    "value": "",
    "quote": "Lowest loss for Adam, L-BFGS, and Adam+L-BFGS across all network widths after hyperparameter tuning.",
    "page": 5,
-   "status": "candidate",
-   "note": "Table 1 caption. Reviewer: unclear whether the L2RE column is the L2RE of the min-loss run or the separately minimized L2RE."
+   "status": "confirmed",
+   "note": "Table 1 caption. Reviewer: unclear whether the L2RE column is the L2RE of the min-loss run or the separately minimized L2RE.",
+   "review": {
+    "how": "asked",
+    "verdict": "ok",
+    "at": "2026-10-20T02:37:20.397Z"
+   }
   },
   {
    "id": "G21",
@@ -233,8 +333,13 @@
    "value": "",
    "quote": "We can avoid premature termination by using a damped version of Newton’s method with Armijo line search.",
    "page": 6,
-   "status": "candidate",
-   "note": "Sec 7.2; full algorithm in App. E.2 (Algorithms 4-7)."
+   "status": "confirmed",
+   "note": "Sec 7.2; full algorithm in App. E.2 (Algorithms 4-7).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.854Z"
+   }
   },
   {
    "id": "G22",
@@ -244,8 +349,13 @@
    "value": "",
    "quote": "From here, the Newton stepdk is computed using Nystr¨omPCG; we warm start the PCG algorithm using the Newton stepdk−1 from the previous iteration.",
    "page": 18,
-   "status": "candidate",
-   "note": "App. E.2; Hessian-vector products are used for both the Nyström sketch and the PCG matvecs (Algorithms 5-6)."
+   "status": "confirmed",
+   "note": "App. E.2; Hessian-vector products are used for both the Nyström sketch and the PCG matvecs (Algorithms 5-6).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.854Z"
+   }
   },
   {
    "id": "G23",
@@ -255,8 +365,13 @@
    "value": "",
    "quote": "Consequently, we should run Adam+L-BFGS to make as much progress as possible before switching to NNCG.",
    "page": 8,
-   "status": "candidate",
-   "note": "Sec 7.4; Table 2 is 'fine-tuning by NNCG'. Sec 7.1/Fig 4 suggest the starting point is the Adam+L-BFGS run with smallest L2RE per PDE — reviewer check. Whether NNCG's K=2000 iterations are on top of the 41000 is not stated explicitly."
+   "status": "confirmed",
+   "note": "Sec 7.4; Table 2 is 'fine-tuning by NNCG'. Sec 7.1/Fig 4 suggest the starting point is the Adam+L-BFGS run with smallest L2RE per PDE — reviewer check. Whether NNCG's K=2000 iterations are on top of the 41000 is not stated explicitly.",
+   "review": {
+    "how": "asked",
+    "verdict": "ok",
+    "at": "2026-10-20T02:37:21.359Z"
+   }
   },
   {
    "id": "G24",
@@ -266,8 +381,13 @@
    "value": "η=1, K=2000, s=60, F=20, ε=1e-16, M=1000, α=0.1, β=0.5",
    "quote": "In our experiments, we set η = 1,K = 2000,s = 60,F = 20,ϵ = 10−16,M = 1000,α = 0.1, andβ = 0.5.",
    "page": 18,
-   "status": "candidate",
-   "note": "App. E.2. Symbol meanings from Algorithm 4 input list (p.19): η max learning rate, K iterations, s sketch size, F preconditioner update frequency, ϵ CG tolerance, M CG max iterations, α/β backtracking."
+   "status": "confirmed",
+   "note": "App. E.2. Symbol meanings from Algorithm 4 input list (p.19): η max learning rate, K iterations, s sketch size, F preconditioner update frequency, ϵ CG tolerance, M CG max iterations, α/β backtracking.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.854Z"
+   }
   },
   {
    "id": "G25",
@@ -277,8 +397,13 @@
    "value": "{1e-5, 1e-4, 1e-3, 1e-2, 1e-1}",
    "quote": "We tune µ∈ [10−5, 10−4, 10−3, 10−2, 10−1]; we find thatµ = 10−2, 10−1 work best in practice.",
    "page": 18,
-   "status": "candidate",
-   "note": "App. E.2. The reported NNCG run is the one with the lowest loss after tuning μ (next sentence on p.18)."
+   "status": "confirmed",
+   "note": "App. E.2. The reported NNCG run is the one with the lowest loss after tuning μ (next sentence on p.18).",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.854Z"
+   }
   },
   {
    "id": "G26",
@@ -288,8 +413,13 @@
    "value": "L2RE",
    "quote": "We assess the discrepancy between the PINN solution and the ground truth usingℓ2 relative error (L2RE), a standard metric in the PINN literature.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2; formula given right after the quote. Tables 1-2 report both Loss and L2RE."
+   "status": "confirmed",
+   "note": "Sec 2.2; formula given right after the quote. Tables 1-2 report both Loss and L2RE.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.854Z"
+   }
   },
   {
    "id": "G27",
@@ -299,8 +429,13 @@
    "value": "255×100 grid + 257 + 101 points",
    "quote": "using all points in the255×100 grid on the interior of the problem domain, along with the 257 and 101 points used for the initial and boundary conditions.",
    "page": 3,
-   "status": "candidate",
-   "note": "Sec 2.2."
+   "status": "confirmed",
+   "note": "Sec 2.2.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.854Z"
+   }
   },
   {
    "id": "G28",
@@ -310,8 +445,13 @@
    "value": "convection 3.63e-7 / 1.94e-3; reaction 2.89e-7 / 9.92e-3; wave 6.13e-5 / 1.27e-2",
    "quote": "Adam+L-BFGS+NNCG 3.63e-7 1.94e-3 2.89e-7 9.92e-3 6.13e-5 1.27e-2",
    "page": 8,
-   "status": "candidate",
-   "note": "Table 2, row Adam+L-BFGS+NNCG; columns Convection (Loss, L2RE), Reaction (Loss, L2RE), Wave (Loss, L2RE). Single best run (after μ tuning), no seed spread."
+   "status": "confirmed",
+   "note": "Table 2, row Adam+L-BFGS+NNCG; columns Convection (Loss, L2RE), Reaction (Loss, L2RE), Wave (Loss, L2RE). Single best run (after μ tuning), no seed spread.",
+   "review": {
+    "how": "bulk",
+    "verdict": "ok",
+    "at": "2026-10-20T02:30:05.854Z"
+   }
   },
   {
    "id": "G29",
@@ -321,8 +461,13 @@
    "value": "convection 5.95e-6 / 4.19e-3; reaction 3.26e-6 / 1.92e-2; wave 1.12e-3 / 5.52e-2",
    "quote": "Adam+L-BFGS 5.95e-6 4.19e-3 3.26e-6 1.92e-2 1.12e-3 5.52e-2",
    "page": 5,
-   "status": "candidate",
-   "note": "Table 1, row Adam+L-BFGS (best over widths, seeds, lr and switch point). Reaction loss here is 3.26e-6 but Table 2's Adam+L-BFGS row says 5.26e-6 (all other cells identical) — likely a typo in one table; reviewer decide."
+   "status": "confirmed",
+   "note": "Table 1, row Adam+L-BFGS (best over widths, seeds, lr and switch point). Reaction loss here is 3.26e-6 but Table 2's Adam+L-BFGS row says 5.26e-6 (all other cells identical) — likely a typo in one table; reviewer decide.",
+   "review": {
+    "how": "asked",
+    "verdict": "ok",
+    "at": "2026-10-20T02:37:22.782Z"
+   }
   },
   {
    "id": "G30",
@@ -332,8 +477,13 @@
    "value": "convection 5.95e-6 / 4.19e-3; reaction 5.26e-6 / 1.92e-2; wave 1.12e-3 / 5.52e-2",
    "quote": "Adam+L-BFGS 5.95e-6 4.19e-3 5.26e-6 1.92e-2 1.12e-3 5.52e-2",
    "page": 8,
-   "status": "candidate",
-   "note": "Table 2, row Adam+L-BFGS (the reference NNCG improves on). Differs from Table 1 only in reaction loss (5.26e-6 vs 3.26e-6). Table 2's Adam+L-BFGS+GD row has the same numbers."
+   "status": "confirmed",
+   "note": "Table 2, row Adam+L-BFGS (the reference NNCG improves on). Differs from Table 1 only in reaction loss (5.26e-6 vs 3.26e-6). Table 2's Adam+L-BFGS+GD row has the same numbers.",
+   "review": {
+    "how": "asked",
+    "verdict": "ok",
+    "at": "2026-10-20T02:37:23.331Z"
+   }
   }
  ]
 }
