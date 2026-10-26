@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "summarize", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -893,6 +893,16 @@ async function uiCheck() {
   await js(`pabloHost.setUi("T1", "view", "stage").then(() => ${redraw})`); await sleep(300);
   assert.strictEqual(await js(`document.querySelectorAll("#log > .stagegroup").length`), names, "단계별: one box per stage of the task's kind");
   assert.strictEqual(await js(`document.querySelector('#viewbar [data-view="stage"]').classList.contains("on")`), true);
+  // the model's summary, as pablo:summarize keeps it (desktop.json auto: text + the messages it read): shown with its tag,
+  // behind once the stage has more; no ✦ 요약 쓰기 while signed out (the fixture is)
+  const dj = path.join(S, "desktop.json"), d0 = fs.readFileSync(dj, "utf8");
+  const busy = await js(`[...document.querySelectorAll("#log > .stagegroup")].find(g => g.querySelectorAll(".sg-msgs .msg").length > 1).dataset.stage`);
+  fs.writeFileSync(dj, JSON.stringify({ ...JSON.parse(d0), auto: { T1: { [busy]: { text: "모델이 쓴 요약", n: 1, at: "2026-10-26T00:00:00Z" } } } }));
+  await js(redraw); await sleep(300);
+  assert.deepStrictEqual(await js(`(g => [g.querySelector("[data-auto-summary]").textContent, g.querySelector(".sg-sum").textContent.includes("모델이 쓴 요약"),
+    +g.querySelector("[data-behind]").dataset.behind === g.querySelectorAll(".sg-msgs .msg").length - 1, !document.querySelector("[data-summarize]")])(document.querySelector('#log > .stagegroup[data-stage="${busy}"]'))`),
+    ["모델 요약", true, true, true]);
+  fs.writeFileSync(dj, d0); await js(redraw); await sleep(300);
   if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "ui-stage.png"), (await win.capturePage()).toPNG());
   await js(`pabloHost.setUi("T1", "view", "target").then(() => ${redraw})`); await sleep(300);
   assert.ok(await js(`document.querySelectorAll("#log > .targetgroup").length >= 2 && !!document.querySelector('#log > .targetgroup[data-target="파일 · config.yaml"]')`), "대상별: grouped by file / [n]");
