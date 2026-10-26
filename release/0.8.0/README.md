@@ -105,7 +105,7 @@ Python, Node.js, Codex CLI는 필요 없습니다.
 
 ## 빌드 재현
 
-저장소 `README.md`의 Packaging (M6) 절을 따릅니다.
+저장소 `README.md`의 "패키징" 절을 따릅니다. 자세한 기록은 `docs/reference.md`의 Packaging (M6) 단락에 있습니다.
 
 ```bash
 npm --prefix desktop run backend

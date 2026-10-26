@@ -1,109 +1,319 @@
-# Pablo_v2 — Intent Engine (M1) + Skill (M2)
+<div align="center">
 
-기존 Pablo(`Documents/Pablo/Pablo`)와 별개 프로젝트입니다.
+<img src="assets/character/preview/icon-128.png" width="96" alt="Pablo" />
 
-Python 3.11, stdlib + `pypdf==6.19.0`(M3.3 PDF만, `pip install -r requirements.txt`; 다른 버전이면 PDF 텍스트 추출을 거부합니다). repo root에서 `python pablo.py ...`로 실행합니다(`src/`에서는 `python -m pablo_v2`).
-Host agent 사용법은 [.claude/skills/pablo/SKILL.md](.claude/skills/pablo/SKILL.md)에 있습니다.
-옵션(`--json`, `--dir`, `--llm`, `--model`)은 subcommand 뒤에 붙입니다.
+# Pablo
 
+**처음 정한 기준을 지키는 연구 에이전트 작업대**
+
+논문을 재현할 때 조건은 원문 쪽에 고정하고, 코드가 그 조건에서 벗어난 곳은 파일:줄로 짚습니다.<br/>
+에이전트가 기준과 부딪히는 작업을 하려 하면 실행 전에 막습니다.
+
+[![test](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml/badge.svg)](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml)
+![version](https://img.shields.io/badge/version-0.8.0-111111)
+![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-111111)
+![python](https://img.shields.io/badge/python-3.11-111111)
+![electron](https://img.shields.io/badge/electron-41-111111)
+
+**한국어** · [English](README.en.md)
+
+</div>
+
+<p align="center">
+  <img src="docs/images/task-criteria.png" alt="Pablo 작업 화면: 단계 막대, 태그가 붙은 대화, 오른쪽의 작업 기준 패널" />
+</p>
+
+---
+
+## 목차
+
+- [왜 Pablo인가](#왜-pablo인가)
+- [주요 기능](#주요-기능)
+- [작동 방식](#작동-방식)
+- [설치](#설치)
+- [처음 쓰기](#처음-쓰기)
+- [소스에서 실행하기](#소스에서-실행하기)
+- [테스트](#테스트)
+- [패키징](#패키징)
+- [저장소 구조](#저장소-구조)
+- [평가](#평가)
+- [보안과 개인정보](#보안과-개인정보)
+- [알려진 제한](#알려진-제한)
+- [문서](#문서)
+- [라이선스](#라이선스)
+
+## 왜 Pablo인가
+
+LLM 에이전트가 추천하는 대로 조금씩 고치다 보면 처음 생각과 다른 결과물이 나옵니다. 왜 그렇게 됐는지 모르는 채로 다시 고치게 됩니다. 연구 코드에서는 이런 어긋남이 실제 사고로 이어집니다.
+
+- 평가 데이터가 학습이나 튜닝에 섞여 성능이 좋게 나옵니다.
+- 논문에 적힌 설정값이 근거 없이 바뀝니다.
+- 결과 수치를 실행 로그가 아닌 곳에서 가져옵니다.
+
+Pablo는 ChatGPT 계정으로 Codex 에이전트를 쓰는 Windows 데스크톱 앱입니다. 에이전트 위에 세 가지를 얹습니다.
+
+| | 하는 일 |
+|---|---|
+| **의도를 고정합니다** | 대화에서 말한 기준을 "반드시 / 가능하면"으로 기록합니다. 애매한 말은 사람이 정할 때까지 보류합니다. |
+| **행동을 판정합니다** | 에이전트의 쓰기 행동은 모두 Guard를 거칩니다. 판정은 허용, 확인 필요, 막음 셋 중 하나입니다. |
+| **근거를 원문에 묶습니다** | 인용은 Pablo가 원문에서 위치를 찾은 것만 남습니다. 못 찾은 인용은 답에서 뺍니다. |
+
+## 주요 기능
+
+> 아래 화면은 Figma의 최종 디자인(A2)입니다. 실제 앱과 세부가 다를 수 있습니다.
+
+### 대화 속 기준과 단계
+
+"test 셋은 튜닝에 절대 쓰지 마"처럼 지속 표시가 있는 문장은 작업 기준이 됩니다. "PyTorch가 좀 편할 것 같긴 한데"처럼 애매한 말은 **[기준으로 추가] / [무시]** 를 물어봅니다. 기준으로 읽지 못한 줄도 조용히 버리지 않고 알려 줍니다. 논문 재현 작업은 세 기준을 처음부터 "반드시"로 깔고 시작합니다. 평가 데이터 분리, 논문 설정 유지, 결과는 실행에서만 가져오기입니다.
+
+작업은 단계 막대(논문 재현은 준비 → 조건 확정 → 구현·실행 → 재현 점검 → 보고서)로 진행 상황을 보여 줍니다. 단계는 순서를 강제하지 않고, 기록에서 계산합니다.
+
+### Guard: 실행 전에 막기
+
+<img src="docs/images/guard.png" alt="Guard가 기준과 충돌하는 작업을 막고, 다른 작업은 diff와 함께 확인을 요청하는 화면" />
+
+- **허용**은 조용히 실행합니다. **확인 필요**는 바뀌는 내용(diff 또는 명령)을 보여 주고 [진행] / [취소]를 기다립니다. **막음**은 이유와 함께 거절하고 아무것도 바꾸지 않습니다.
+- **왜?** 패널에서 판단 과정을 다시 볼 수 있습니다. 사용자 요청, 적용된 기준, 원문 근거, 계획 단계, 판정, 사용자 결정 순서입니다.
+- 작업 폴더가 있는 턴은 앞뒤를 shadow git으로 남깁니다. 바뀐 파일은 **변경 보기**로 보고 **되돌리기**로 되돌립니다. 사용자의 `.git`은 건드리지 않습니다.
+- 인터넷은 작업마다 따로 켭니다(기본 차단). 켜도 명령은 하나하나 Guard를 거칩니다.
+
+### 논문 질문과 원문 근거
+
+<img src="docs/images/paper-evidence.png" alt="논문 질문에 대한 답과 인용 번호, 오른쪽 PDF 패널에서 표의 행이 강조된 화면" />
+
+- PDF, arXiv 번호·링크, OpenReview, DOI, 웹 페이지를 자료로 붙입니다. 한 작업에 여러 편을 둘 수 있습니다.
+- 답의 [n]을 누르면 그 논문의 그 쪽이 열리고 인용 문장이나 표의 한 행이 칠해집니다.
+- 정량 주장과 표 수치를 함께 인용하면 답이 둘을 대조하고 어긋남을 밝힙니다.
+
+### 재현 조건
+
+<img src="docs/images/repro-conditions.png" alt="논문에서 뽑은 재현 조건 25개가 분류별로 쪽 번호와 함께 보이는 화면" />
+
+- 논문에서 데이터셋, 분할, 전처리, 모델, 하이퍼파라미터, 학습, 지표, 비교 대상, 보고된 결과, 평가 규칙을 원문 쪽과 함께 뽑습니다. 참고문헌 뒤의 부록도 읽습니다.
+- Pablo가 그 쪽에서 위치를 확인한 조건만 남깁니다. 시드처럼 논문에 없는 설정은 "정할 일"로 남깁니다.
+- 사람이 PDF에서 문장을 골라 조건을 더하거나, 이유를 적고 뺄 수 있습니다. **◇ 의도한 차이**는 논문과 일부러 다르게 하는 이유를 남깁니다. 다시 뽑아도 사람이 고친 것은 그대로입니다.
+- 이 조건은 에이전트에게 근거로 전달되고, Guard는 조건과 모순되는 행동을 막습니다.
+
+### 재현 점검: 코드가 논문에서 벗어난 곳
+
+<img src="docs/images/repro-audit.png" alt="재현 점검표에서 다름 항목의 파일과 줄을 누르면 오른쪽 코드 패널에 그 줄이 강조된 화면" />
+
+- 에이전트가 코드, 설정, 실행 로그를 읽고 조건마다 **따름 / 다름 / 아직 없음 / 판단 못 함**을 판정합니다. 이 턴은 읽기 전용 샌드박스에서 돕니다.
+- **Pablo가 판정을 직접 확인합니다.** 모델이 댄 파일:줄을 열어 그 값이 있는지 봅니다. 있으면 "Pablo가 코드에서 확인", 몇 줄 옆이면 "위치 보정", 없으면 경고를 붙입니다.
+- 파일:줄을 누르면 코드 패널이 그 줄을 강조합니다. **VS Code에서 열기**도 됩니다.
+- 점검 뒤에 파일이 바뀌면 카드가 "오래됨"을 알립니다.
+
+### 비교표와 보고서
+
+| 비교표 | 재현 보고서 |
+|---|---|
+| <img src="docs/images/compare.png" alt="두 논문의 데이터셋, 지표, 결과를 나란히 놓은 비교표" /> | <img src="docs/images/report.png" alt="재현 보고서 내보내기 대화상자" /> |
+| 논문마다 같은 항목(데이터셋, 지표, 주요 결과, 효율, 한계)을 따로 읽어 나란히 놓습니다. 칸마다 원문 쪽이 붙고, 위치를 못 찾은 칸은 "근거 없음"으로 비웁니다. | 재현 작업을 보고서로 저장합니다. 조건마다 논문 쪽, 의도한 차이와 뺀 이유, 마지막 점검과 그 뒤의 변경, 점검 시각·폴더 스냅숏·git HEAD가 들어갑니다. |
+
+## 작동 방식
+
+```mermaid
+flowchart TD
+  user([사용자]) --> ui["Electron 앱<br/>viewer · 패널"]
+  ui <--> main["main process<br/>로그인 · 자료 · 체크포인트"]
+  main <--> agent["codex app-server<br/>작업마다 thread"]
+  agent -- "승인 요청" --> ctrl["Controller"]
+  ctrl -- "gate" --> backend
+  subgraph backend["Pablo backend (Python)"]
+    intent["Intent Engine<br/>기준 · 보류 · 범위"]
+    judge["Judge (LLM)<br/>사실만 판정"]
+    guard["Guard<br/>결정적 규칙"]
+    evidence["Evidence<br/>원문 · PDF 앵커"]
+  end
+  ctrl -- "허용 / 확인 / 막음" --> agent
+  main -- "ask · spec · compare · brief" --> backend
 ```
-python pablo.py login [--device]      # Codex(ChatGPT) 브라우저 로그인, --device는 헤드리스용
-python pablo.py status
-python pablo.py demo [--llm]          # M1.1 acceptance 대화
-python pablo.py say "메시지" [--llm] [--agent] [--scope task]
-python pablo.py show | candidates | history | promote K4 | reject K4
 
-python pablo.py task "<작업>" [--checks JSON]       # 완료된 check 재사용 + 빠진 SourceCheck만 생성 (없으면 Codex analyzer)
-python pablo.py waive SC3 --reason "<이유>"          # 불필요한 check를 흔적과 함께 제외
-python pablo.py search SC1 "<target>" "<query>" --tier 1 --found|--not-found
-python pablo.py check SC1 VERIFIED "<결론>" [--sources JSON] [--stop-reason R]
-python pablo.py plan T1 --steps JSON
-python pablo.py act T1 "<행동>" [--step P1.1] [--why "<근거>"]   # ALLOW | WARN | BLOCK
-python pablo.py decide ACT1 proceed|defer|reject [--reason "<이유>"]   # host 결정 기록
-python pablo.py gate T1 "<행동>"                  # desktop host용 act: 현재 plan step + 사람이 읽는 이유(규칙/ID 없음) + 적용 intent
-python pablo.py record ACT1 "<한 일>" [--not-executed] [--files ...] [--test "name=pass"] [--observe "..."] [--error "..."]
-python pablo.py review EX1                       # PostReview: 관찰 + update proposal (Intent/Plan은 안 바꿈)
-python pablo.py view T1 [--html]           # --html: 읽기 전용 대화형 화면 (작업 목록 | 대화 | Context Panel), view-T1.html#E1로 근거 바로 열기
-python pablo.py source <url>                     # 원문 캡처 + 스냅샷 -> SRC1 (version = 정규화 텍스트 hash)
-python pablo.py anchor SRC1 "<원문 구절>" [--near "<옆 문구>"]   # -> E1 (없거나 모호하면 거절)
-python pablo.py link E1 SC1 supports             # supports|contradicts|verifies|implements|derived_from
-python pablo.py resolve E1 | --all               # live 원문에서 다시 찾기 -> VALID | STALE | UNRESOLVED
-python pablo.py evidence E1
-python pablo.py source paper.pdf               # M3.3: PDF 사본 + 쪽별 텍스트(pypdf) -> SRC1 (version = 파일 bytes hash)
-python pablo.py anchor SRC1 "<원문 구절>" [--page 9]   # PDF: 공백·하이픈 무시하고 매칭, 쪽/쪽 안 위치 저장
-python pablo.py ask T1 "<질문>" [--source SRC1]  # M3.3: judge가 인용을 고르고 Pablo가 anchor -> 답 + [n] (못 찾은 인용은 뺀다)
+- **모델은 사실을 보고, 판정은 규칙이 냅니다.** judge는 "이 행동이 어떤 기준과 관련 있는가" 같은 사실만 답하고, 허용·확인·막음은 Guard의 결정적 규칙이 정합니다.
+- **근거는 위치로 확인합니다.** 모델이 고른 인용은 Pablo가 원문(웹 캡처 또는 PDF 쪽 텍스트)에서 다시 찾습니다. 못 찾거나 여러 곳에서 찾으면 거절합니다. 원문이 바뀌면 근거는 `STALE`이 됩니다.
+- **토큰은 main process에만 있습니다.** 화면(renderer)은 연결 상태만 받습니다. 앱은 Pablo 전용 `CODEX_HOME`으로 Codex를 띄우고, 사용자의 `codex login`이나 `config.toml`을 쓰지 않습니다.
+
+같은 엔진을 CLI(`python pablo.py ...`)와 다른 에이전트용 스킬([`.claude/skills/pablo/SKILL.md`](.claude/skills/pablo/SKILL.md))로도 씁니다.
+
+## 설치
+
+### 필요한 것
+
+- Windows 10/11 x64, 디스크 여유 2 GB
+- 인터넷 연결과 ChatGPT 계정
+- (선택) git: 변경 되돌리기에만 필요합니다.
+- (권장) PowerShell 7: 한글이 든 코드를 정확히 읽는 데 필요합니다.
+
+  ```powershell
+  winget install Microsoft.PowerShell
+  ```
+
+Python, Node.js, Codex CLI는 필요 없습니다. 설치본에 들어 있습니다.
+
+### 설치 순서
+
+1. [Releases](https://github.com/PabloITMST/Pablo_application/releases)에서 `PabloSetup.exe`를 받습니다.
+2. 해시를 확인합니다. 0.8.0의 SHA-256은 `95f1f5398936fe9d54e0a1fc7766d28f577a1089a1d6d5bf53c37dc4dad6999c`입니다.
+
+   ```powershell
+   Get-FileHash .\PabloSetup.exe -Algorithm SHA256
+   ```
+
+3. `PabloSetup.exe`를 실행합니다. 설치 파일에 코드 서명이 없어서 "Windows의 PC 보호" 창이 뜨면 **추가 정보 → 실행**을 누릅니다.
+4. 관리자 권한 없이 현재 사용자에게만 설치되고, 끝나면 Pablo가 열립니다.
+
+| 경로 | 내용 |
+|---|---|
+| `%LOCALAPPDATA%\Pablo\app-<버전>` | 앱 (읽기 전용으로 씁니다) |
+| `%APPDATA%\pablo-desktop` | 사용자 데이터: 로그인 정보, 작업 기록, 대화, 체크포인트 |
+
+이전 버전에서 올리면 작업, 대화, 로그인이 그대로 이어집니다.
+
+## 처음 쓰기
+
+1. **ChatGPT로 계속하기**를 누르고 시스템 브라우저에서 승인합니다.
+2. **+ 새 작업**에서 목표와 기준을 적습니다. 논문 재현이면 **논문 재현 작업**을 고릅니다.
+3. 머리줄에서 자료(PDF, arXiv, DOI)와 작업 폴더를 고릅니다.
+4. **재현 조건 뽑기** → 에이전트에게 요청 → **재현 점검** → 파일:줄을 눌러 코드를 확인합니다.
+5. **보고서**로 재현 기록을 저장합니다.
+
+18분짜리 시연 순서는 [`release/0.8.0/DEMO_SCENARIO.md`](release/0.8.0/DEMO_SCENARIO.md)에 있습니다. 일부러 논문과 다르게 만든 시연 폴더 [`release/0.7.0/demo-repro/`](release/0.7.0/demo-repro/)를 씁니다.
+
+## 소스에서 실행하기
+
+개발 환경: Windows, Python 3.11, Node.js LTS, git
+
+```bash
+git clone https://github.com/PabloITMST/Pablo_application.git
+cd Pablo_application
+pip install -r requirements.txt
+npm --prefix desktop install
+npm --prefix desktop start
 ```
 
-JSON 인자는 inline 또는 `@file.json`. 출력은 `--json`이면 `{"ok": ...}`, exit 2 = Pablo가 거절.
-State: `--dir`(기본 `.pablo/`)의 `intent.json`, `skill.json`. Test: `python tests/intent/test_engine.py`, `python tests/skill/test_skill.py` (`PABLO_LLM=1`이면 Codex acceptance도 실행), `python tests/skill/test_evidence.py` (`PABLO_NET=1`이면 live 문서도 확인).
+`requirements.txt`는 `pypdf==6.19.0` 하나입니다. 다른 버전이면 PDF 텍스트 추출을 거부합니다(앵커 위치가 버전마다 달라질 수 있어서입니다). 개발 모드의 앱은 `python -m pablo_v2`로 백엔드를 부릅니다.
 
-| file | role |
-|------|------|
-| `src/pablo_v2/auth.py` | Auth: Codex 로그인 / 상태 / 로그아웃 |
-| `src/pablo_v2/llm.py` | LLM Provider: `CodexProvider.complete_json(prompt, schema)` |
-| `src/pablo_v2/intent/models.py` | Intent Spec schema |
-| `src/pablo_v2/intent/extract.py` | LLM prompt + 휴리스틱 extractor |
-| `src/pablo_v2/intent/policy.py` | commit / pending / ignore 규칙 |
-| `src/pablo_v2/intent/engine.py` | `IntentEngine` — M2가 호출하는 경계 |
-| `src/pablo_v2/intent/render.py` | 사람용 뷰 |
-| `src/pablo_v2/skill/models.py` | M2 contract: `SourceCheck`, `Plan`, `ActionProposal` |
-| `src/pablo_v2/skill/judge.py` | LLM semantic judge (사실만 판정, verdict 없음) |
-| `src/pablo_v2/skill/guard.py` | 결정적 규칙: research 완료 조건(R01-R04), action verdict(G01-G10) |
-| `src/pablo_v2/skill/evidence.py` | M3.1 결정적 anchor: 텍스트 정규화, hash, locate, resolve(VALID/STALE/UNRESOLVED) |
-| `src/pablo_v2/skill/pdf.py` | M3.3 PDF anchor: 쪽 텍스트, 매칭 key(NFKC, 공백·하이픈 제거), locate/resolve |
-| `src/pablo_v2/skill/viewer.py` | 읽기 전용 대화형 화면: 작업 목록 | 대화(Research/Guard/실행을 메시지로, 인용 [1]) | Context Panel 하나(Source 캡처 원문 highlight + 원본 ↗ text fragment, Intent, Plan, 왜? Trace 교체) |
-| `src/pablo_v2/skill/skill.py` | `PabloSkill` — host agent가 호출하는 경계 |
-| `desktop/main.js` | M3.2.3 desktop host(Electron): viewer를 띄우고 Source panel만 `<webview>`로 실제 원문을 연다 |
-| `desktop/agent.js` | M4.0 상주 `codex app-server` 하나: `initialize` → 작업마다 자기 thread(`thread/start` 또는 저장된 thread `thread/resume`) → 메시지마다 `turn/start`, delta streaming, crash 시 Error 후 다음 메시지에서 재시작 + `thread/resume`. 승인 요청은 Controller로 |
-| `desktop/controller.js` | M4.2 Pablo Controller: 승인 요청 → 행동 설명 한 줄 → `gate`(Guard) → accept/decline, WARN은 대화의 [진행]/[취소]를 기다린다. 끝난 item → `record` + `review` |
-| `desktop/siwc.js` | M4.1 Sign in with ChatGPT(main process 전용): PKCE + state + nonce, loopback callback, ID token(JWKS) 검증, 발급된 `client_id` 재사용, safeStorage 암호화 저장, 만료 5분 전 refresh(single flight), plan usage 확인(모델 목록 + 짧은 추론 1회), revoke 후 삭제 |
-| `desktop/locate.js` | 원문에 주입하는 유일한 script: 근거 탐색(FOUND/AMBIGUOUS/NOT_FOUND), highlight, scroll, 결과 반환 |
-| `desktop/checkpoint.js` | M7 작업 폴더 체크포인트: 상태 폴더 안 shadow git(`state/checkpoints/<task>.git`, 작업 폴더를 work tree로) — 턴 전후 tree, 바뀐 파일, diff, 되돌리기. 사용자 `.git`은 건드리지 않는다 |
+CLI만 쓸 때는 저장소 루트에서 실행합니다.
 
-Desktop (저장소 루트에서): `npm --prefix desktop install`, `npm --prefix desktop start`. 인자 없이 띄우면 앱 상태 폴더(`userData/state`)를 쓴다. 마지막 작업을 다시 열고, 작업이 없으면 빈 화면을 보여 준다. 작업은 앱에서 만든다(+ 새 작업). 첫 줄이 작업 목표(이름)이고, 나머지 줄은 그 작업만의 기준이 된다(`say --scope task`, 다른 작업에는 적용되지 않음). 작업마다 📎 PDF(M3.3 `source`)와 📁 작업 폴더(Pablo 저장소와 겹치지 않는 폴더)를 고른다. 이 선택은 `state/desktop.json`에 남는다. 입력창은 하나다. PDF만 있으면 `ask`, 폴더만 있으면 agent, 둘 다 있으면 사용자에게 묻는다. 작업 폴더가 있는 작업은 요청마다 그 요청을 plan 단계로 기록한다. Guard·실행·PostReview가 끝나면 앱이 `state`를 다시 읽어 기준/계획/왜?를 갱신한다(화면 재생성 없음). `npm --prefix desktop start -- <view.html>`은 debug/export용으로 남는다(경로는 `desktop/` 기준). App acceptance(M5.1, 실제 계정): `npm --prefix desktop run check -- --app <shot-dir>`. Check: `npm --prefix desktop run check -- ../.pablo/host2/view-T2.html` (live 문서 필요). SIWC check(offline, 가짜 OAuth/API 서버): 끝에 `--auth`. Agent check(실제 계정, 수 분): 먼저 `npm start`로 앱에서 ChatGPT에 연결하고 앱을 닫은 뒤 끝에 `--agent`. 두 번 돌리면 두 번째가 이전 thread를 resume한다. Guard check(실제 계정, 수 분, 임시 fixture 폴더): 끝에 `--guard` — ALLOW 실행, WARN은 [진행] 전까지 대기, BLOCK은 부작용 없음, record/review, 작업별 thread, 재시작 후 resume. `--guard --coverage`: git fixture에서 읽기/쓰기/삭제/이동/셸 쓰기 명령 10개를 보내고, 승인 요청 없이 실행된 명령과 바뀐 파일을 표로 찍는다. Guard를 안 거친 부작용이 하나라도 있으면 실패한다.
+```bash
+python pablo.py login                                  # Codex(ChatGPT) 브라우저 로그인
+python pablo.py say "평가 데이터는 절대 학습에 쓰지 마"      # 기준 기록 (애매하면 보류)
+python pablo.py task "LinearRAG baseline 재현"            # 작업 T1
+python pablo.py act T1 "data/test.jsonl을 학습 데이터에 추가"   # ALLOW | WARN | BLOCK
+python pablo.py source paper.pdf                       # 자료 SRC1
+python pablo.py ask T1 "효율 주장의 근거는?" --source SRC1
+```
 
-Desktop은 `codex login`을 쓰지 않는다. Continue with ChatGPT → 시스템 브라우저 승인 → Connected · Plan usage enabled → `codex app-server`를 SIWC access token(`ACCESS_TOKEN`, `openai_chatgpt_plan` provider)과 Pablo 전용 `CODEX_HOME`으로 띄운다. 토큰은 main process에만 있고 renderer는 `{state, error}`만 받는다. userData(`%APPDATA%/pablo-desktop`): `host.json`(host id, 발급된 client_id, 계정 — 비밀 아님), `credentials.bin`(토큰, DPAPI 암호화), `thread.json`(작업(state 폴더#task id)별 thread id·cwd·sandbox, 고른 모델), `codex/`(app-server 상태, Windows는 `config.toml`에 `[windows] sandbox = "unelevated"` — 없으면 셸 읽기가 전부 "blocked by policy"). 모델 목록은 계정 카탈로그(`/v1/models`, `visibility:"list"`)를 `display_name`으로 보여 준다. 모델이 붐비면(serverOverloaded) 자동으로 다시 보내지 않는다. 아무 행동도 실행되지 않은 실패에만 "다른 모델로 다시 시도" 링크를 보여 준다. 토큰 갱신이나 401이면 app-server를 새 토큰으로 다시 띄우고 `thread/resume`한다. 연결 해제는 refresh token을 revoke하고 credential·thread를 지운 뒤 agent를 멈춘다. 대화는 기본으로 읽기 전용 sandbox이고 승인 요청은 거절한다. `PABLO_WORKSPACE=<버릴 수 있는 폴더>`를 주면 그 폴더에서만 `workspace-write` + `untrusted`로 돌고, 모든 승인 요청이 Pablo Guard를 거친다: ALLOW는 조용히 실행, WARN은 "이 작업은 현재 기준과 충돌할 가능성이 있습니다. [진행] [취소]", BLOCK은 이유와 함께 거절. 실행/거절 모두 ExecutionRecord + PostReview를 남긴다. Task 범위 제약이 project 제약과 conflict면 그 task에서만 덮는다(soft만; hard는 deviation). 다른 task와 전역 상태는 그대로다. Pablo 저장소나 프로젝트 폴더(또는 그 상위)는 workspace로 받지 않는다. 작업 폴더 밖 권한 요청은 Guard 없이 거절한다. `pablo login`/`codex exec` 경로(`auth.py`, `llm.py`)는 CLI fallback으로 남는다. 브라우저로 그냥 열면 기존 캡처 원문 + ↗ 동작 그대로다.
+명령 전체와 상태 파일 형식은 [개발 참고서](docs/reference.md)에 있습니다.
 
-M3.3 PDF Evidence: PDF를 캡처한 대화에서는 composer 질문이 `ask`로 간다. 답의 [n]을 누르면 Source panel이 pdf.js(`pdfjs-dist`)로 캡처한 PDF를 그 쪽에서 그리고, 인용 문장이나 표의 한 행(그 행 text item bbox의 합)을 칠한다. 위치를 못 찾으면(NOT_FOUND/AMBIGUOUS/오류) 추출 텍스트 snapshot으로 돌아간다. PDF와 pdf.js 파일은 `pablo://`(기본 session, 화이트리스트, 읽기 전용)로만 읽는다. 평가: `python tests/skill/test_pdf.py`, `python tests/eval/linearrag_eval.py`(keyword baseline), `npm --prefix desktop run check -- --pdf [shot-dir]`(A: gold 19개 → 쪽/하이라이트/noise/latency, offline), 끝에 `--ask`를 붙이면 실제 계정으로 10문항을 composer에 넣고 B 평가 표를 찍는다. Gold: `tests/eval/linearrag_gold.json`. M3.3.1: 정량 주장과 표 수치를 함께 인용하면 답이 수치를 직접 대조하고 어긋남을 밝힌다(ask 프롬프트의 일반 규칙). 채점은 `consistency`(불일치를 말했나)와 `need_all`(양쪽 근거를 다 인용했나)을 본다.
+## 테스트
 
-Packaging (M6, Windows x64, 서명 없음): build venv를 한 번 만든다. `python -m venv build/venv`, `build/venv/Scripts/python -m pip install -r requirements-build.txt`. 그다음 `npm --prefix desktop run backend`(PyInstaller onedir → `build/dist/pablo-backend`), `npm --prefix desktop run package`(→ `desktop/out/Pablo-win32-x64/Pablo.exe`), `npm --prefix desktop run make`(→ `desktop/out/make/squirrel.windows/x64/PabloSetup.exe`). 설치본은 `resources/`의 backend와 고정된 Codex(`@openai/codex@0.152.0-win32-x64`)만 실행한다. 시스템 Python·PATH의 codex·저장소는 쓰지 않는다. 쓰기는 userData(`%APPDATA%/pablo-desktop`)에만 한다. Release check(실제 계정, 수 분, 먼저 앱에서 로그인): `ELECTRON_RUN_AS_NODE=1 desktop/node_modules/electron/dist/electron.exe desktop/rc.js <Pablo.exe> <shot-dir>`. 빈 PATH·임시 userData로 A(WARN/BLOCK/review)·B(PDF p.9 하이라이트)·C(0.8: 시연 폴더 재현 점검 → top-k 행의 파일:줄 → 코드 패널)·D(0.8: PDF 두 편 → 비교표 → 칸의 쪽, 두 번째 논문은 `--paper2=<pdf>`, 기본은 D3 정답 세트의 논문)·재시작 복원을 확인한다.
+```bash
+# 테스트용 논문 (저장소에 넣지 않습니다. arXiv가 같은 파일을 줍니다)
+curl -sSL -o LinearRAG.pdf https://arxiv.org/pdf/2510.10114v4
+echo "1df0bd67b590f331d7928c65bbdc0a086ce6c41195428a8f3670683dcd3de533  LinearRAG.pdf" | sha256sum -c
 
-## M7 제품 다듬기 (desktop, 0.7.0)
+# Python 테스트 (GitHub Actions와 같은 루프)
+for t in tests/*/test_*.py; do python "$t" || break; done
 
-릴리스 문서·시연 시나리오·알려진 제한·깨끗한 PC 체크리스트는 `release/0.7.0/`에 있다. 시연용 재현 폴더는 `release/0.7.0/demo-repro/`(일부러 논문과 다른 값: top_k 10, Medical 없음, 2Wiki 61.20). 0.8.0(아래의 "0.8" 항목들)의 문서는 `release/0.8.0/`에 있고, 시연 폴더는 0.7.0 것을 그대로 쓴다.
+# 앱 화면 점검 (오프라인)
+npm --prefix desktop run check -- --ui
 
-- 대화 기록: `state/chat.json`(main.js만 쓴다, `viewer.py`가 읽는다)에 사용자 메시지, 에이전트 답(중지/오류 포함), PDF 질문과 답한 check id, 변경/되돌리기가 남는다. 앱을 다시 열면 기록과 Guard 카드가 일어난 순서대로 하나의 대화로 보인다.
-- 중지: 에이전트가 일하는 동안 보내기 버튼이 ■가 된다. `turn/interrupt`로 턴을 끝내고, 열린 WARN 카드는 취소로 답한다. 답 아래에 "중지했습니다."가 남는다.
-- WARN/BLOCK 카드는 바뀌는 내용 자체를 보여 준다: 파일 변경은 diff(Guard가 읽는 1500자보다 길게, 새 파일은 +, 지운 파일은 −), 명령은 셸 래퍼를 뺀 명령.
-- 🌐 인터넷(작업마다, 기본 차단): Codex의 workspace sandbox는 네트워크가 꺼져 있다(실측: 연결 거부). 허용하면 턴마다 `sandboxPolicy: {type: "workspaceWrite", networkAccess: true}`를 보낸다(실측: HTTPS 200). 허용해도 명령은 하나하나 Guard를 거친다. 승인된 명령도 작업 폴더와 TEMP 밖에는 쓰지 못한다(실측: Permission denied). `npm --prefix desktop run check -- --guard --sandbox`(실제 계정, `PABLO_NET=1`이면 허용)로 다시 잴 수 있다.
-- 체크포인트와 되돌리기: 작업 폴더가 있는 턴은 시작 전과 끝난 뒤의 폴더를 shadow git tree로 남긴다. 바뀐 파일이 있으면 대화에 "📝 파일 N개가 바뀌었습니다" 카드가 붙고 [변경 보기](diff)와 [되돌리기]를 준다. 그 뒤에 같은 파일이 다시 바뀌었으면 덮어쓰지 않고 거절한다. 되돌린 사실은 다음 요청 때 에이전트에게 한 번 알린다. `node_modules/`, 가상환경, 캐시, 가중치·배열 데이터(`*.pt`, `*.ckpt`, `*.safetensors`, `*.npy`, `*.parquet` 등)는 체크포인트에 넣지 않는다. git이 없으면 이 기능만 꺼진다.
-- 에이전트에게 주는 근거(`pablo brief T1`): 그 작업의 기준(반드시/가능하면)과 Pablo가 원문에서 위치를 확인한 사실(인용 [n]은 "LinearRAG p.9" 같은 출처로 바꿈)을 요청 앞에 붙인다. 같은 thread에 같은 내용은 다시 보내지 않는다(`thread.json`에 hash). 그 사실들의 check는 요청이 되는 plan 단계의 basis가 되어 Guard가 근거로 읽는다. 진행 중 WARN/BLOCK 카드에도 관련 근거 [n]이 붙어 누르면 원문이 열린다.
-- 대화 속 기준: 앱에서 보낸 메시지는 문장별로 `say --request --task T1`을 거친다. "X 해줘"는 목표가 되지 않는다(요청은 plan 단계). 요청과 함께 쓴 금지·조건("…알려줘. 파일은 읽지 마.")은 그 요청에만 딸린 것으로 보고 남기지 않는다. "절대/앞으로/항상/가능하면" 같은 지속 표시가 있거나 기준만 따로 말한 메시지만 그 작업의 intent가 된다(`extract.standing_criteria`). 패키징한 앱의 rc 실행에서 "파일은 읽지 마"가 hard 기준으로 남던 것을 보고 이렇게 바꿨다. 에이전트가 시작하기 전에 기록되므로 같은 턴의 Guard와 brief가 바로 쓴다. 대화에 "📌 작업 기준에 추가했습니다"가 붙는다. 휴리스틱 금지 표현에 "~지 마", "~지 말고", "안 돼", "금지"를 더했다.
-- 보류된 기준(B4): "PyTorch가 좀 편할 것 같긴 한데"처럼 애매하게 말한 기준은 M1 정책대로 보류(pending)된다. 앱은 그 메시지 아래와 대화 끝 "결정이 필요합니다" 카드에 [기준으로 추가] / [무시]를 보여 준다(`promote` / `reject`). 정한 뒤에는 버튼이 사라진다.
-- 작업 범위: `--task`로 말한 작업을 기준에 직접 남긴다(Candidate features `task`). 예전 작업으로 돌아가 말해도 그 작업에만 적용된다. 작업 이름 없이 말한 기준(CLI `say`)은 작업 목록 순서로 구간을 정하고, 기록 시각은 밀리초까지 남긴다(같은 초에 만든 두 작업이 구간을 나눠 갖던 문제).
-- 논문 재현 조건(A2, `spec T1 [--source SRC1]`, 앱 도구 막대 "📋 재현 조건 뽑기"): judge가 논문에서 데이터셋, 분할, 전처리, 모델, 하이퍼파라미터, 학습, 지표, 비교 대상, 보고된 결과, 평가 규칙을 원문 발췌와 쪽으로 뽑는다. Pablo가 그 쪽에서 위치를 찾은 것만 VERIFIED check(tier 4, `spec` 필드)로 남기고 못 찾은 것은 뺀다(ReproAgent는 바꿔 쓴 근거도 허용한다 — 여기서는 거절). 논문에 없는 설정(시드 등)은 pending check로 남는다. 다시 뽑으면 이전 목록을 대체한다. 이 조건들은 brief로 에이전트에 가고("근거 없이 바꾸지 말 것"), Guard는 검증된 결론과 모순되는 행동을 S01로 막는다. 대화에는 분류별 조건 카드([n] → PDF 쪽 하이라이트)가, 기준 패널에는 "논문 조건"이 보인다.
-- 재현 작업(A3): 새 작업에서 "논문 재현 작업"을 고르면 세 기준이 그 작업의 hard 기준으로 함께 들어간다 — 평가(test) 데이터는 학습·튜닝·모델 선택에 쓰지 않는다, 논문에 적힌 설정값은 근거 없이 바꾸지 않는다, 결과 수치는 실행 결과에서만 가져온다.
-- 재현 점검(A5/A6, `audit T1`, 앱 도구 막대 "🔎 재현 점검"): 작업 폴더가 있는 작업에서, 에이전트가 코드·설정·실행 로그를 읽고 논문 조건(쪽 포함), 논문에 없는 설정, 작업 기준을 하나씩 판정한다(따름/다름/아직 없음/판단 못 함/코드가 정함, 파일:줄과 그 자리의 값). 보고된 결과는 로그의 값과 대조한다. 답은 `outputSchema`로 받은 JSON이고 대화에는 표로 남는다(다름이 맨 위, 따르는 항목은 접힘, 조건마다 [n] → 논문 쪽). 이 턴은 `readOnly` 샌드박스 + `approvalPolicy: never`라 아무것도 바꿀 수 없어서 읽기마다 Guard를 거치지 않는다. app-server는 턴의 sandbox/approval 덮어쓰기를 이후 턴에도 유지하므로, 일반 턴은 매번 `workspaceWrite` + `untrusted`를 다시 보낸다(쓰기는 항상 Guard). 실측 시나리오: `npm --prefix desktop run check -- <shot-dir> --audit`.
-- 점검 결과 확인(0.8 A2, `desktop/where.js`): 점검이 끝나면 Pablo가 항목마다 모델이 댄 파일:줄을 직접 연다. 파일이 작업 폴더에 있는지, 그 줄(앞뒤 2줄)에 `found`가 있는지(공백 정규화, `a / b`·`a; b`·`...`로 나눈 조각은 순서대로, 조각 끝은 토큰 경계라 `llm: gpt-4o`는 `gpt-4o-mini` 줄에서 찾은 것으로 치지 않음; `...`로 끊었거나 main이 300자에서 자른 끝은 예외), 없으면 같은 파일 다른 줄에 있는지, 그리고 조건의 논문 값이 판정과 맞는지(따름인데 값이 없음, 다름인데 값이 그대로 있음)를 본다. 값 확인은 숫자와 숫자가 든 식별자(`GPT-4o-mini`, `all-mpnet-base-v2`)에만 한다. "punctuation", "Personalized PageRank" 같은 개념은 코드가 이름 없이 구현하기 때문이다(0.8 벤치에서 거짓 경고 29건). 여러 줄(`a.py:6,15`, `a.py:5-6,18`)과 여러 파일(`a.py:3; b.py:7`)은 모든 범위를 이어 한 텍스트로 보고 찾는다. 결과는 `chat.json` 항목의 `check`(verified/moved/not_found/no_file/value_mismatch/unchecked)와 `line_found`이다. 표에는 "✓ Pablo가 코드에서 확인", "위치 보정: 12줄", "⚠ 모델이 댄 위치에서 찾지 못함", "⚠ 논문 값(5)이 이 자리에 없음"이 붙고, ⚠ 항목은 판정과 상관없이 접지 않고 맨 위에 둔다. 재현 조건을 뽑을 때도 모델이 읽은 값이 고정한 인용 안에 없으면 `spec.value_in_quote = false`로 남기고 카드에 표시한다. 숫자는 값으로 비교한다("1,000" = 1000, "63.70%" = 63.7, "2wiki"의 2는 숫자가 아님). 같은 규칙이 Python(`skill.has_value`)과 JS(`where.hasValue`)에 있고 테스트가 한 표로 둘을 대조한다.
-- 코드 패널(0.8 A3): 점검표의 파일:줄, 변경 카드의 파일 이름, WARN/BLOCK 카드의 "지금 파일 보기"를 누르면 오른쪽 패널에 그 파일이 줄 번호와 함께 열리고 그 줄이 강조된다(읽기 전용, 고치는 일은 에이전트나 외부 편집기). "VS Code에서 열기"(`vscode://file/<경로>:<줄>`, 안 되면 기본 프로그램, 그다음 폴더)와 "폴더에서 보기"가 있다. 파일은 main의 `pablo:read-file`/`pablo:open-file`로만 읽고, 그 작업의 폴더 안(심볼릭 링크·junction을 따라간 뒤에도), 텍스트, 1 MB 이하만 연다. 화면에는 폴더 기준 상대 경로만 간다. 받는 위치 형식: `a.py:5`, `a.py:10-11`, `a.py:5:3`, `logs\x.log:1`, 절대 경로, `a.py#L5-L7`, `a.py (line 5)`, `a.py 5행`, 줄 없는 경로.
-- 여러 논문(0.8 C1): 작업마다 PDF를 여러 편 둔다(`desktop.json`의 `pdf[task]`가 목록이다. 0.7의 `{id, title}` 하나는 목록 하나로 읽고, 다음 저장 때 목록으로 쓴다). 도구 막대 "📎 자료: LinearRAG v4 (주 논문) × · HippoRAG2 주 논문으로 × · + 추가". 빼도 그 논문에서 찾은 근거 기록은 남는다.
-  - 논문 질문: 작업의 논문 전부에 한 번에 묻는다(`ask T1 "<q>" --source SRC1 --source SRC2`). judge에는 `[A p.N]`처럼 논문을 구분해 주고, 인용마다 어느 논문인지 받는다. 그 논문의 그 쪽에서 위치를 찾으므로, 두 논문에 같은 문장이 있어도 답이 인용한 논문에 고정된다. 길이 상한은 논문당 앞 40쪽, 전체 25만 자다. 넘으면 "○○에만 묻기" 버튼으로 고르게 한다.
-  - 재현 조건: 주 논문 한 편에서만 뽑는다. 다른 논문에서 다시 뽑으면 이전 조건은 waived로 남고 새 조건이 대체한다. 두 논문의 설정을 Guard·brief·재현 점검이 함께 강제하지 않게 하려는 것이다(비교 논문의 top-k가 재현을 막으면 안 된다). 조건 카드에는 논문 제목이 붙는다.
-- arXiv 가져오기(0.8 C2): "+ 추가"에 `arXiv:2510.10114`, `https://arxiv.org/abs/2510.10114v4` 같은 번호나 링크를 넣는다. 내려받기는 main이 한다(에이전트는 하지 않음). 대상은 `https://arxiv.org/pdf/<id>`뿐이다. 리다이렉트는 같은 출처 안에서만 직접 따라가고, 50 MB·60초 상한을 두며, `%PDF`로 시작해야 받는다. 제목과 버전은 PDF 자체(`/Title`, 1쪽의 arXiv 도장)에서 읽고, 버전과 sha256은 그 논문 항목에 남는다. 논문마다 파일 하나(`state/papers/arxiv-<id>.pdf`)라서 새 버전을 받으면 새 source가 되고, 이전 버전 근거를 `resolve --source`로 새 파일에 대조해 "그대로 / 문맥 바뀜 / 찾을 수 없음"으로 알린다.
-- 비교표(0.8 C3, `compare T1 --source SRC1 --source SRC2 [--columns JSON]`, 도구 막대 "📊 비교표"): 행은 논문이고 열은 항목이다. 기본 항목은 데이터셋, 평가 지표, 주요 결과, 효율, 한계이고 바꿀 수 있다. judge는 논문마다 한 번씩, 같은 열로, 다른 논문 없이 읽는다(`COMPARE_PROMPT`). 칸마다 짧은 값과 원문 인용을 받고, Pablo가 그 논문에서 인용의 위치를 찾은 칸만 채운다. 못 찾은 칸은 "근거 없음"으로 비우고, 모델이 댄 값은 툴팁에만 둔다. 칸 하나가 check 하나다(`matrix: {id, column, source_id}` + 앵커). 비교표는 비교용이라 Guard와 brief는 이 칸을 읽지 않는다. 대화의 표 카드와 패널 확대 보기가 있고, 칸의 [n]을 누르면 그 논문의 그 쪽이 열린다.
-- 대규모 재작성(A4, Guard W01, LLM 없음): 40줄 이상인 기존 파일의 절반 넘는 줄을 지우는 편집은 WARN. controller가 편집 전 파일과 diff로 잰다(ReproAgent repair regression guard에서 가져온 생각, 기준은 연구 스크립트에 맞게 낮춤).
-- Judge 재사용(D5): 행동·계획 단계·적용 기준·근거가 모두 같으면 이전 judge 분석을 그대로 쓰고 판정은 규칙이 다시 낸다(`ActionProposal.analysis_key`/`analysis_from`). 반복 읽기에서 모델 호출이 빠진다. Guard를 건너뛰지 않는다.
-- 계획 단계: 요청의 단계가 완료된 뒤에도 같은 요청의 후속 행동(추가 수정, 테스트 실행)은 그 단계를 따른다(`current_step`). 예전에는 "no plan step" WARN이 행동마다 붙었다.
-- Guard check(`--guard`)는 C–H를 brief 없이(`PABLO_BRIEF=0`, Guard가 안전망인 경우) 돌리고, 마지막에 brief를 켠 새 작업에서 에이전트가 hard 기준을 스스로 지키는지 본다(실측: "기준상 삭제하지 않겠습니다", Guard에 행동이 가지 않음).
-- 보낼 곳: PDF와 작업 폴더가 둘 다 있으면 메시지마다 "어디에서 처리할까요?"를 묻던 것을 없앴다. 작업마다 `desktop.json`의 `route`를 따른다(기본 에이전트 — 논문 조건은 brief로 이미 안다. 또는 논문 질문). 도구 막대 "💬 보낼 곳"에서 바꾼다.
-- 처음 상태를 읽기 전에 보낸 메시지가 "먼저 자료나 작업 폴더를 정해 주세요"로 빠지던 경합을 고쳤다.
-- 실제 계정 check: `--spec`(LinearRAG에서 조건 추출 — 실측 25개 고정, 0개 탈락, 논문에 없는 설정 4개, 43초), `--audit`(위 재현 점검), `--shot <view.html> [selector]`(저장된 화면 캡처, offline).
-- 로컬 CI: `npm --prefix desktop run ci`. GitHub workflow의 Python 테스트 루프(`build/venv`가 있으면 그것)와 `check -- --ui`를 차례로 돌린다. `-- --python`, `-- --ui`로 한쪽만 돌린다. Actions를 못 쓸 때 쓴다.
-- Check: `npm --prefix desktop run check -- --ui`(offline: 대화 순서, diff/명령 카드, 중지 표시, 체크포인트 diff·되돌리기·거절·CRLF 보존, 점검 확인 표시, 점검표·변경 카드 → 코드 패널, VS Code 열기 가로채기, 폴더 밖 경로 거절, 자료 두 편·비교표 카드·칸 → 그 논문의 쪽·넓은 패널, 주 논문 바꾸기, 가짜 arxiv.org로 가져오기·새 버전·거절 4가지, 자료 빼기). `--agent`에 중지 시나리오를 더했다. Python: `python tests/skill/test_product.py` (화면 스크립트를 `node --check`로도 검사한다 — 문법 오류 하나가 앱 전체를 빈 화면으로 만든다).
+# 위 둘을 차례로: Actions를 못 쓸 때의 로컬 CI
+npm --prefix desktop run ci
+```
 
-## Backlog (infra)
+| 점검 | 계정 | 확인하는 것 |
+|---|---|---|
+| `tests/*/test_*.py` | 필요 없음 | 기준 추출·정책, Guard 규칙, 앵커, PDF, 화면 스크립트 문법 |
+| `check -- --ui` | 필요 없음 | 대화 순서, diff 카드, 체크포인트·되돌리기, 점검표 → 코드 패널, 비교표, 자료 가져오기 |
+| `check -- --auth`, `--pdf` | 필요 없음 | 가짜 OAuth 서버로 로그인 흐름, PDF 근거 19개의 쪽·하이라이트 |
+| `check -- --guard`, `--agent`, `--spec`, `--audit` | 실제 계정 | 에이전트 실행, Guard 판정, 조건 뽑기, 재현 점검 (수 분) |
+| `desktop/rc.js <Pablo.exe>` | 실제 계정 | 패키징한 앱을 빈 PATH·새 userData로 끝까지 |
 
-- 읽기 명령도 Guard를 거친다(`untrusted`). M5.0 실측: 읽기 ALLOW 10.9초, 읽기 WARN 6.0초+사용자 클릭, 수정 WARN 약 19초(클릭 포함), BLOCK 10.1초. judge가 단순 읽기(`Get-Item`)를 soft 제약과 엮어 WARN을 내기도 한다. 결정적 read-only fast path(`Get-Content`/`Get-ChildItem`/`git status`/`git diff` 허용 목록)는 검토 후 보류했다: `-Command` 문자열은 `;`·파이프·리다이렉트·`$()`로 연결될 수 있고, `git status`/`git diff`는 저장소 설정(fsmonitor, diff/textconv driver)으로 코드를 실행할 수 있으며, Guard를 건너뛰면 "X는 읽지 마" 같은 intent 제약 검사도 빠져 정책 변경이 된다. backlog로 남긴다.
-  - 0.8 (540f1e3, 실제 `--guard` 근거): 단순 읽기 세 번(`Get-Content`, `git diff`/`git status`, `Get-Item`)이 judge의 "계획 이탈"(D01)로 WARN을 받아, 읽기 명령으로만 된 명령에는 **계획 이탈 규칙(G01/G02/D01)만** 걸지 않는다. Guard를 건너뛰는 fast path가 아니다: judge는 그대로 보고, "X는 읽지 마" 같은 기준 충돌(G04/G05/G07)과 출처 충돌(S 규칙) 판정도 그대로다. 읽기로 보는 것은 리디렉션·`--output`·스크립트 블록·`$()` 없이 읽기 cmdlet과 git 읽기 하위 명령(diff/status/log/show 등, branch는 목록 보기만)으로만 된 명령이다. 위의 저장소 설정(fsmonitor 등) 위험은 이 변경 전과 같다(judge가 ALLOW하던 읽기는 전에도 그대로 실행됐다).
-- Intent scope 소유자: 앱에서 말한 기준은 이제 작업 id를 남긴다(Candidate features `task`). 작업 이름 없이 말한 CLI `say`는 여전히 작업 목록 순서 구간이다. Host agent도 `--task`를 쓰게 SKILL.md를 바꿀지 검토한다.
-- 인증/호출 경로 전환: 상주 `codex app-server`는 M4.0에서 desktop에 붙였다(`desktop/agent.js`). M4.1에서 in-app Sign in with ChatGPT와 토큰 갱신 시 재시작 + `thread/resume`을 붙였다. M4.2에서 승인 요청에 Guard를 붙였다(`desktop/controller.js`). 근거: https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server
+실제 계정 점검을 둘 이상 동시에 돌리지 마세요. 같은 refresh token을 둘이 갱신하면 로그인 정보가 지워질 수 있습니다.
+
+## 패키징
+
+Windows x64 설치 파일을 만듭니다. build venv는 한 번만 만듭니다.
+
+```bash
+python -m venv build/venv
+build/venv/Scripts/python -m pip install -r requirements-build.txt
+
+npm --prefix desktop run backend   # PyInstaller onedir → build/dist/pablo-backend
+npm --prefix desktop run make      # → desktop/out/make/squirrel.windows/x64/PabloSetup.exe
+```
+
+설치본은 `resources/`의 백엔드와 고정한 Codex(`@openai/codex@0.152.0-win32-x64`)만 실행합니다. 시스템 Python, PATH의 codex, 저장소는 쓰지 않습니다. 쓰기는 userData에만 합니다.
+
+## 저장소 구조
+
+```text
+Pablo_application/
+├── pablo.py                 # CLI 진입점
+├── src/pablo_v2/
+│   ├── intent/              # Intent Engine: 기준 추출, 보류·확정 정책, 범위
+│   └── skill/               # judge, Guard, 근거 앵커, PDF, 화면(viewer), 보고서
+├── desktop/                 # Electron 앱
+│   ├── main.js              # 창, 자료, 파일 읽기, 체크포인트 연결
+│   ├── agent.js             # codex app-server (작업마다 thread)
+│   ├── controller.js        # 승인 요청 → Guard → 허용/확인/막음
+│   ├── siwc.js              # Sign in with ChatGPT (PKCE, 토큰 암호화 저장)
+│   ├── checkpoint.js        # shadow git 체크포인트·되돌리기
+│   ├── papers.js, where.js  # 여러 논문, 점검 파일:줄 확인
+│   └── check.js, rc.js      # 앱 점검, 설치본 점검
+├── tests/                   # intent · skill · eval (정답 세트와 벤치)
+├── docs/                    # 개발 참고서, 계획, 평가 기록, 이미지
+├── release/<버전>/          # 릴리스 노트, 알려진 제한, 시연 시나리오, 깨끗한 PC 점검표
+└── assets/character/        # 마스코트와 앱 아이콘 원본
+```
+
+## 평가
+
+정량 평가의 방법, 원본, 다시 돌리는 법은 [`docs/eval/README.md`](docs/eval/README.md)에 있습니다.
+
+| 항목 | 결과 |
+|---|---|
+| 재현 점검: 처음 보는 어긋남 12종 | Pablo 11/12 보고. 같은 모델에 그냥 물으면 10/12 |
+| 재현 점검: 읽을 보고량 | Pablo 50건, 그냥 묻기 119건 |
+| 조건 뽑기: 다른 논문 세 편, 사람이 확인한 정답 90개 | 재현율 43–73% |
+| PDF 근거: LinearRAG 정답 19개 | 쪽·하이라이트 오프라인 점검 통과 |
+
+탐지율은 그냥 묻는 것과 비슷합니다. Pablo가 나은 점은 답의 꼴입니다. 읽을 양이 절반 이하이고, 판정마다 원문 쪽이 붙고, Pablo가 파일:줄을 직접 확인합니다.
+
+## 보안과 개인정보
+
+- **로그인:** Sign in with ChatGPT(PKCE, state, nonce, ID token 검증)를 씁니다. 토큰은 Windows DPAPI로 암호화해 `credentials.bin`에 저장합니다. 연결 해제는 refresh token을 폐기하고 로컬 정보를 지웁니다.
+- **에이전트 권한:** 대화는 작업 폴더 안에서만 쓸 수 있고, 모든 승인 요청이 Guard를 거칩니다. 작업 폴더 밖 권한 요청은 Guard 없이 거절합니다. Pablo 저장소나 그 상위 폴더는 작업 폴더로 받지 않습니다.
+- **네트워크:** 에이전트의 샌드박스는 기본으로 네트워크가 꺼져 있습니다. 작업마다 켤 수 있습니다.
+- **바깥 서비스:** 논문 가져오기(arXiv, OpenReview, Crossref)는 입력한 번호나 검색어를 그 서비스로 보냅니다. 앱은 무엇을 어디로 보냈는지 화면에 적습니다.
+- **파일 읽기:** 코드 패널은 그 작업의 폴더 안(링크를 따라간 뒤에도), 텍스트, 1 MB 이하 파일만 엽니다.
+
+## 알려진 제한
+
+- 설치 파일에 코드 서명이 없고, 자동 업데이트가 없습니다. Windows x64 전용입니다.
+- 재현 조건 고르기와 점검 판정은 모델이 합니다. Pablo는 위치와 값이 있는지 확인하지만, 판정 자체를 다시 확인하지는 않습니다.
+- 조건 뽑기가 부록까지 읽어 느립니다. LinearRAG 기준 약 3–4분입니다.
+- 표의 숫자는 열 짝이 틀릴 수 있어서, 확인 전에는 "? 열 짝 확인 필요"로 보입니다.
+- 긴 학습 실행은 앱 밖에서 돌리는 것을 권합니다.
+
+전체 목록: [`release/0.8.0/KNOWN_LIMITATIONS.md`](release/0.8.0/KNOWN_LIMITATIONS.md)
+
+## 문서
+
+| 문서 | 내용 |
+|---|---|
+| [개발 참고서](docs/reference.md) | CLI 명령, 상태 파일, 앱 점검 시나리오, 마일스톤별 설계 결정 |
+| [릴리스 0.8.0](release/0.8.0/README.md) | 바뀐 것, 검증 결과, 설치 |
+| [시연 시나리오](release/0.8.0/DEMO_SCENARIO.md) | 18분 시연 순서와 말할 것 |
+| [깨끗한 PC 점검표](release/0.8.0/CLEAN_MACHINE_TEST.md) | 개발 도구 없는 PC에서 설치본 확인 |
+| [평가](docs/eval/README.md) | 재현 점검·조건 뽑기 정량 평가 |
+| [Pablo 스킬](.claude/skills/pablo/SKILL.md) | 다른 에이전트가 Pablo를 부르는 법 |
+| [UI 계획](docs/plan-ui-a2.md) | 최종 디자인(A2) 적용 계획 |
+
+## 라이선스
+
+아직 저장소에 라이선스 파일이 없습니다. 함께 배포하는 서드파티 구성 요소(Electron, Codex, pdf.js, pypdf 등)의 고지는 [`desktop/THIRD_PARTY_NOTICES.txt`](desktop/THIRD_PARTY_NOTICES.txt)에 있습니다.
+
+Pablo는 OpenAI와 제휴하지 않은 독립 프로젝트입니다. ChatGPT와 Codex는 OpenAI의 상표입니다.
