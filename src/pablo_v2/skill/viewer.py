@@ -805,6 +805,10 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
 .pill { border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white); padding:5px 14px; font-weight:500; }
 .pill:hover:not(:disabled) { background:var(--a4); }
 .pill.on { background:var(--primary); color:var(--on-primary); border-color:var(--primary); }
+::-webkit-scrollbar { width:10px; height:10px; } ::-webkit-scrollbar-button { display:none; height:0; width:0; }
+::-webkit-scrollbar-track { background:none; } ::-webkit-scrollbar-corner { background:none; }
+::-webkit-scrollbar-thumb { background:var(--a12); border-radius:999px; border:3px solid transparent; background-clip:padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color:rgba(13,14,16,.24); }
 /* A2 · sidebar, header, state chips, stage bar, view bar  (agent A) */
 /* sidebar: the brand mark, 새 작업 as the one filled button, the search field, task rows as soft cards */
 #side { padding:12px 8px 8px; }
@@ -876,7 +880,7 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
   align-content:start; align-items:center; padding:0 0 2px; border:0; border-radius:var(--r-ctl); background:none; opacity:1; }
 #stages .stage::before { content:""; grid-column:1 / -1; height:3px; margin-bottom:8px; border-radius:2px; background:rgba(13,14,16,.1); }
 #stages .stage:hover { background:var(--a4); box-shadow:0 0 0 4px var(--a4); }
-#stages .stage.picked { outline:2px solid var(--ink); outline-offset:3px; }
+#stages .stage.picked, #stages .stage.picked:hover { outline:0; background:var(--a5); box-shadow:0 0 0 4px var(--a5); }
 #stages .st-done::before { background:var(--ink); } #stages .st-current::before { background:var(--signal); }
 #stages .st-stale::before { background:rgba(13,14,16,.35); }
 #stages .st-t { display:contents; }
