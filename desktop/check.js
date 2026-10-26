@@ -150,9 +150,11 @@ async function chat() {
   assert.deepStrictEqual([agent.thread(), agent.pid(), agent.spawns], [thread, pid, 1], "same thread, same process, one spawn");
   console.log("ok same thread", thread, "pid", pid, "spawns", agent.spawns);
 
+  const blocks = await js(`document.querySelectorAll("#live .call.block").length`);  // a failed command's card may be there already
   execFileSync("taskkill", ["/pid", String(pid), "/T", "/F"]);  // crash
   await until(`$("chat").querySelector(".composer").dataset.agent === "Error"`, 10000);
-  const err = await js(`document.querySelector("#live .call.block").textContent`);
+  // the card the crash adds (QA 10/26: the first .call.block was an earlier failed git status, and passed for it)
+  const err = await until(`(l => l.length > ${blocks} && l.at(-1).textContent)([...document.querySelectorAll("#live .call.block")])`, 10000);
   console.log("ok crash -> UI:", err);
   await turn("내가 처음에 뭘 물어봤는지 한 문장으로 말해줘. 파일은 보지 마.");
   assert.deepStrictEqual([agent.thread(), agent.spawns], [thread, 2], "restart resumes the same thread");

@@ -861,7 +861,9 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
 #side details[open] > summary > .ico { transform:rotate(90deg); }
 #side summary .cnt { padding:3px 7px; border-radius:999px; background:var(--a6); color:var(--ink-2); font:500 11px/1 var(--mono); }
 /* header: no rule under it (the stage bar draws the hairline); icon buttons for rename and the mobile menu */
-#bar { min-height:56px; padding:0 16px 0 20px; gap:8px; border-bottom:0; }
+/* a narrow header wraps: the state chip goes to its own line, right-aligned, instead of the name and the chip both
+   cut to "…" (QA 10/26: "LinearRAG 논문 재현 (Q…" and "r…" once 완료 풀기 joined the row) */
+#bar { min-height:56px; padding:8px 16px 8px 20px; gap:8px; row-gap:6px; flex-wrap:wrap; border-bottom:0; }
 #bar h1 { flex:0 1 auto; min-width:min(7em, 30%); font:600 17px/1.3 var(--sans); letter-spacing:-0.015em; color:var(--ink); }
 #bar h1 .rn-in { height:32px; padding:0 10px; border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white);
   font:500 15px/1 var(--sans); letter-spacing:0; }
@@ -876,7 +878,7 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
 #menu { padding:6px; border-radius:var(--r-ctl); line-height:0; color:var(--ink-2); }
 #menu:hover { background:var(--a5); color:var(--ink); }
 /* the state chip (자료 · 폴더 · 인터넷 as segments) and the source card it opens */
-#chips { flex:0 1 auto; min-width:0; margin-left:4px; }
+#chips { flex:0 1 auto; min-width:0; margin-left:auto; }
 .statechip { display:inline-flex; align-items:center; max-width:100%; height:30px; padding:0 10px; border:1px solid var(--a8);
   border-radius:var(--r-ctl); background:var(--white); color:var(--ink); font:500 12px/1 var(--sans); box-shadow:var(--sh-sm); }
 .statechip:hover, .statechip[aria-expanded="true"] { background:linear-gradient(var(--a4), var(--a4)), var(--white); }
@@ -1799,6 +1801,8 @@ function stageOfRole(role, kind) {
   return r === "start" ? "준비" : r === "report" ? "검토" : "작업";
 }
 const STAGE_LIST = { repro: ["준비", "조건 확정", "구현·실행", "재현 점검", "보고서"], read: ["준비", "질문", "비교표", "정리"], general: ["준비", "작업", "검토"] };
+const STAGE_KEY = { "준비": "prep", "조건 확정": "spec", "구현·실행": "run", "재현 점검": "audit", "보고서": "report",  // the stage bar's data-stage
+  "질문": "ask", "비교표": "compare", "정리": "wrap", "작업": "work", "검토": "review" };
 // o: the person's override for this message (P5: {stage, decision}); auto: the stage Pablo computed
 function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
   const body = el.children && el.children[1]; if (!body || body.querySelector(":scope > .tags")) return;
@@ -1865,13 +1869,16 @@ function byStage(log, rows, kind, D) {
     const mine = rows.filter(r => r[1] === n), msgs = mine.filter(r => r[0].classList && r[0].classList.contains("msg")), decs = mine.filter(r => r[2].decision);
     const files = new Set(mine.flatMap(r => [...r[0].querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))).size;
     const facts = msgs.length ? [`메시지 ${msgs.length}`, decs.length ? `결정 ${decs.length}` : null, files ? `파일 ${files}` : null].filter(Boolean).join(" · ") : "아직 대화가 없습니다";
-    // a stage with messages is never 아직, whatever the stage bar computes from the material (진행: talked about, not done)
-    const state = i === ci ? "지금" : !msgs.length ? (ci >= 0 && i < ci ? "완료" : "아직") : ci >= 0 && i < ci ? "완료" : "진행", own = (D.summary || {})[n];
+    // a stage with messages is never 아직, whatever the stage bar computes from the material (진행: talked about, not done);
+    // one the bar marks done (✓) is 완료 here too (QA 10/26: ✓ above, 진행 below for the same stage)
+    const done = !!document.querySelector(`#stages .stage.st-done[data-stage="${STAGE_KEY[n] || ""}"]`);
+    const state = i === ci ? "지금" : done || (ci >= 0 && i < ci) ? "완료" : !msgs.length ? "아직" : "진행", own = (D.summary || {})[n];
     // the model's summary, written on request; behind once the stage has more messages than it read. A person's text wins
     const auto = (D.auto || {})[n], behind = auto ? msgs.length - auto.n : 0;
     const write = can && pabloHost.summarize && !own && msgs.length && ($("acct") || { dataset: {} }).dataset.state === "connected";
-    const sum = h("div", { class: "sg-sum" }, own ? [h("span", { class: "tg manual" }, "사람이 고침"), " ", own]
-      : auto ? [h("span", { class: "tg", "data-auto-summary": "1" }, ico("sparkle", 12), "모델 요약"), " ", auto.text,
+    // `x` in a summary is code, as in the cards (QA 10/26: the model's backticks showed as they are)
+    const sum = h("div", { class: "sg-sum" }, own ? [h("span", { class: "tg manual" }, "사람이 고침"), " ", rich(own)]
+      : auto ? [h("span", { class: "tg", "data-auto-summary": "1" }, ico("sparkle", 12), "모델 요약"), " ", rich(auto.text),
         behind > 0 ? h("small", { class: "muted", "data-behind": behind }, ` · 그 뒤 메시지 ${behind}개`) : null]
       : h("span", { class: "muted" }, "기록 요약 — " + facts),
       write ? [" ", h("button", { class: "link", "data-summarize": n, on: () => summarize(sum, n, msgs) }, ico("sparkle", 12), auto ? " 다시 쓰기" : " 요약 쓰기")] : null,
@@ -2867,14 +2874,15 @@ if (window.pabloHost && pabloHost.chat) {
       step("wrap", "정리", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)]
     : [step("prep", "준비", d.folder ? "done" : "todo", d.folder ? "폴더" : "폴더 필요"),
       step("work", "작업", reported ? "done" : "todo", waiting ? "확인 기다림" : changedFiles ? `바뀐 파일 ${changedFiles}` : "—", specEl),
-      step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)];
+      // the audit of the folder against the task's criteria is part of 검토 (QA 10/26: it floated past the last stage)
+      step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—", [auditEl, reportEl].filter(Boolean))];
     const cur = steps.find(s => s.state === "todo"); if (cur) cur.state = "current";
     // the composer says which stage a new message will be tagged with: its record's role, read as the tags read it (QA
     // 10/26: it showed the stage bar's current step, so "조건 확정" for a message the log then tagged 구현·실행). A message
     // goes to the paper question (ask) or the agent (user) as send() decides; with neither, it is not recorded
     const next = ps.length && (!d.folder || d.route === "ask") ? "ask" : "user";
     box.dataset.stage = ps.length || d.folder ? stageOfRole(next, kind) : ""; gate();
-    const used = new Set(steps.map(s => s.act).filter(Boolean)), more = [specEl, compEl, auditEl, reportEl].filter(x => x && !used.has(x));
+    const used = new Set(steps.flatMap(s => [].concat(s.act || []))), more = [specEl, compEl, auditEl, reportEl].filter(x => x && !used.has(x));
     // A2: each stage is a column under a 3px progress bar (.stage::before); no connector lines. The mark: a check when
     // done, ↻ when stale, a lock when blocked, else the number as "01"
     const stMark = (s, i) => s.state === "done" ? ico("check", 12) : s.state === "stale" ? ico("rotate", 12) : s.state === "blocked" ? ico("lock", 12)
