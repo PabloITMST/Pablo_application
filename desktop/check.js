@@ -431,7 +431,11 @@ async function guardCheck() {
   await new Promise(r => win.webContents.once("did-finish-load", r));
   const js = code => win.webContents.executeJavaScript(code);
   const until = async (code, ms = 300000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
-  const cards = () => js(`document.querySelectorAll("#live [data-verdict]").length`);
+  // the Guard's cards; a command that ran and failed gets its own card (controller.js: ERROR, "실행에 실패했습니다.")
+  // that tells how it went, not what the Guard decided, so it is counted apart (QA 10/26: an ALLOW `git status` in the
+  // fixture folder, not a repository, failed and made "ALLOW is silent" fail on the model's choice of command)
+  const ranFailed = `[...document.querySelectorAll("#live [data-verdict=ERROR]")].filter(c => c.textContent.includes("실행에 실패했습니다."))`;
+  const cards = () => js(`document.querySelectorAll("#live [data-verdict]").length - ${ranFailed}.length`);
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`, 60000);
   // one message; each WARN card goes to warn(text) -> true = [진행]; by default [취소] (the agent may also read files first)
   const turn = async (task, text, warn = async () => false) => {
@@ -452,6 +456,8 @@ async function guardCheck() {
     const shown = await js(`[...document.querySelectorAll("#live .stream")].at(-1).textContent`);
     console.log(`   [${task}] "${text}" -> ${ev.status}: ${shown.replace(/\s+/g, " ").slice(0, 200)}`);
     traces.slice(n).forEach(t => console.log("   trace", JSON.stringify(t)));
+    const failedRuns = await js(`${ranFailed}.length`);
+    if (failedRuns) console.log("   (commands that ran and failed so far:", failedRuns + ")");
     return { acts: traces.slice(n).filter(x => x.verdict), cards: await cards() - c0 };
   };
   const edit = x => /^파일 (수정|생성|삭제)/.test(x.action);
