@@ -30,12 +30,15 @@ const web = url => /^https?:\/\//i.test(url);
 protocol.registerSchemesAsPrivileged([{ scheme: "pablo", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 const PDFJS = path.join(__dirname, "node_modules", "pdfjs-dist");
 const TYPES = { ".mjs": "text/javascript", ".pdf": "application/pdf", ".wasm": "application/wasm", ".bcmap": "application/octet-stream",
-  ".pfb": "application/octet-stream", ".ttf": "font/ttf" };
+  ".pfb": "application/octet-stream", ".ttf": "font/ttf", ".woff2": "font/woff2" };
+const FONTS = path.join(__dirname, "assets", "fonts");  // UI renewal: Pretendard, Geist, Geist Mono (SIL OFL 1.1)
+const fontFiles = () => { try { return fs.readdirSync(FONTS).filter(f => /^[\w.-]+\.woff2$/.test(f)); } catch { return []; } };
 function served(u) {
   const { host, pathname } = new URL(u), p = decodeURIComponent(pathname);
   if (host === "pdfjs" && /^\/build\/pdf(\.worker)?\.mjs$/.test(p)) return path.join(PDFJS, p);
   if (host === "pdfjs" && /^\/(standard_fonts|cmaps|wasm)\/[\w.-]+$/.test(p)) return path.join(PDFJS, p);
   if (host === "source" && /^\/SRC\d+\.pdf$/.test(p) && ctl.dir) return path.join(ctl.dir, "sources", p);
+  if (host === "fonts" && /^\/[\w.-]+\.woff2$/.test(p)) return path.join(FONTS, p);
   return null;
 }
 function serve(req) {
@@ -155,7 +158,7 @@ ipcMain.handle("pablo:state", async e => {
         arxiv: x.arxiv || null, primary: !!p && x.id === p.id })),  // arxiv: a search result already here says so
       route: (d.route || {})[t.id] === "ask" ? "ask" : "agent", archived: !!(d.archived || {})[t.id] }]; }));  // names only, no paths
   m.last = d.last;
-  m.host = { shell: agent.shell(), noticed: !!(d.noticed || {}).shell };  // ⑤ 5.1: the notice, once
+  m.host = { shell: agent.shell(), noticed: !!(d.noticed || {}).shell, fonts: fontFiles() };  // ⑤ 5.1: the notice, once
   return m;
 });
 // A3: a reproduction task starts with the research-integrity criteria (task scope, editable like any other; Python

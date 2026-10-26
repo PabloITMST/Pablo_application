@@ -426,13 +426,17 @@ PAGE = r"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{TITLE}}</title>
 <style>
-:root { --bg:#fff; --side:#f7f7f8; --fg:#1f2328; --muted:#6b7280; --faint:#9ca3af; --line:#ececf0; --hover:#f0f0f3;
-        --accent:#2563eb; --ok:#16a34a; --warn:#b45309; --warnbg:#fffbeb; --warnline:#f5c46b; --bad:#b91c1c;
-        --badbg:#fef2f2; --badline:#f3a4a4; --hl:#fde68a; --code:#f3f4f6; --shade:rgba(0,0,0,.35); --lineon:#fef3c7; }
-@media (prefers-color-scheme: dark) { :root { --bg:#1e1f22; --side:#18191b; --fg:#e8e8ea; --muted:#9ca3af;
-        --faint:#6b7280; --line:#2e3035; --hover:#2a2c30; --accent:#7aa7ff; --ok:#4ade80; --warn:#fbbf24;
-        --warnbg:#2d2410; --warnline:#7a5b17; --bad:#f87171; --badbg:#2d1414; --badline:#7f2a2a; --hl:#8a6d10;
-        --code:#2a2c30; --shade:rgba(0,0,0,.6); --lineon:#3d3415; } }
+/* UI renewal, concept A (정밀 계측), light only: the tokens of the Figma collection "Pablo · 시안 토큰" (mode A).
+   One signal colour (orange) for what needs a person's judgement; everything else is ink on cool grey. */
+:root { color-scheme:light;
+        --canvas:#E3E7EB; --surface:#F3F5F7; --raised:#D3D9DF; --ink:#0D0E10; --ink-2:#4A515C; --ink-3:#8A929D;
+        --line-soft:rgba(13,14,16,.16); --primary:#0D0E10; --on-primary:#fff; --signal:#FF4D00; --signal-soft:#FFE1D2;
+        --sans:"Geist", "Pretendard", system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+        --mono:"Geist Mono", ui-monospace, Consolas, monospace;
+        --bg:var(--surface); --side:var(--canvas); --fg:var(--ink); --muted:var(--ink-2); --faint:var(--ink-3); --line:#1C1F23;
+        --hover:var(--raised); --accent:var(--ink); --ok:var(--ink-2); --warn:var(--signal); --warnbg:var(--signal-soft);
+        --warnline:var(--signal); --bad:var(--ink); --badbg:var(--raised); --badline:var(--ink); --hl:var(--signal-soft);
+        --code:var(--raised); --shade:rgba(13,14,16,.45); --lineon:var(--signal-soft); }
 * { box-sizing:border-box; }
 html, body { height:100%; margin:0; }
 body { background:var(--bg); color:var(--fg); font:15px/1.65 system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
@@ -648,6 +652,32 @@ body.dropping #log::before { content:"PDF를 놓으면 이 작업의 자료로 �
 @keyframes bob { 50% { transform:translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { #agent .mascot { animation:none; } }
 ::highlight(evidence) { background-color:var(--hl); color:var(--fg); }
+/* concept A: hard structural lines, soft inner dividers, 2px corners, Geist / Geist Mono for Latin (Pretendard for Hangul) */
+body { font-family:var(--sans); }
+code, pre.diff, pre.cmd, details.tech pre, #doc .pre, #pbody.code, .who small, .pnum, #side .t small, .cite { font-family:var(--mono); }
+#side .new, #side .t, #task-search, .pill, .composer, .composer button, .call, .spec, .audit, .changes, .matrix, .audit .stale,
+.audit .ps51, #goal, .cols, #adder #arxiv, .rn-in, code, pre.diff, pre.cmd, details.tech pre, #doc .pre, .url, ul.ck .edits .why,
+#pick input, #pick select, .pg .hl { border-radius:2px; }
+.audit li, ol.steps li, .matrix th, .matrix td, .cols, ul.ck .edits .why, .rn-in, #pick input, #pick select { border-color:var(--line-soft); }
+.tl li::before { border-left-color:var(--raised); }
+.link, .cite, button.file, .ext, .info a { color:var(--ink); text-decoration:underline; text-underline-offset:2px;
+  text-decoration-color:var(--ink-3); }
+.link:hover, .cite:hover, .cite.on, button.file:hover { text-decoration-color:var(--ink); }
+.pill.on, .msg.pablo .av { background:var(--primary); color:var(--on-primary); border-color:var(--primary); }
+#side .t.on { background:var(--surface); box-shadow:inset 2px 0 var(--ink); }
+.call { border:1px dashed var(--signal); border-left:3px solid var(--signal); background:var(--surface); border-radius:2px; }
+.call .head { color:var(--signal); }
+.call.block { border:1px solid var(--ink); border-left:3px solid var(--ink); background:var(--raised); }
+.call.block .head { color:var(--ink); }
+.call.block .head::before { content:"막음"; background:var(--signal); color:#fff; font:600 11px/1.6 var(--sans); padding:1px 6px;
+  margin-right:8px; border-radius:2px; vertical-align:1px; }
+.spec, .audit, .matrix, .changes { border:1px solid var(--line-soft); border-left:3px solid var(--ink); background:var(--surface); }
+.audit .st-differs b, .audit .st-pairing b { color:var(--signal); } .audit .st-missing b, .audit .st-unclear b { color:var(--ink-2); }
+.spec ul.open li { color:var(--ink-2); } .chk { color:var(--ink-2); }
+.pg .hl { background:rgba(255,77,0,.28); }
+.pg .textLayer ::selection { background:rgba(255,77,0,.25); }
+body.dropping #log { outline-color:var(--signal); } body.dropping #log::before { color:var(--signal); }
+.info.STALE, .info.UNRESOLVED, .info.broken { color:var(--ink); }
 @media (max-width:900px) {
   body, body.panel { display:block; }
   #side { display:none; position:fixed; inset:0 30% 0 0; z-index:3; box-shadow:0 0 0 100vmax var(--shade); }
@@ -1832,7 +1862,7 @@ if (window.pabloHost && pabloHost.chat) {
   let q = Promise.resolve();
   refresh = to => (q = q.then(() => pabloHost.state()).then(m => {
     const open = hi >= 0 && document.body.classList.contains("panel") ? hist[hi] : null;
-    M = m; shellNote();
+    M = m; shellNote(); webFonts();
     if (to === undefined && !V && $("goal")) return sidebar();  // the new task form stays
     if (to !== undefined || !V || !M.views[V.task.id]) return (select(to || (V && V.task.id)), gate());
     V = M.views[V.task.id]; V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
@@ -1848,6 +1878,15 @@ if (window.pabloHost && pabloHost.chat) {
       const o = offer({ ...a, task: v.task.id }, v); if (o) c.after(o);  // ⑦ a BLOCK on a paper condition: 의도한 차이로 두기
     }));
   }).catch(e => console.error("[pablo] state", e)));
+  // UI renewal: the bundled fonts (desktop/assets/fonts, served as pablo://fonts/*), only the files main says exist,
+  // so a missing file never becomes a console error; without them the stacks fall back to system fonts
+  let fontsAdded = false;
+  const webFonts = () => { if (fontsAdded || !M.host || !Array.isArray(M.host.fonts)) return; fontsAdded = true;
+    const want = { "PretendardVariable.woff2": ["Pretendard", { weight: "45 920" }],
+      "Geist-Variable.woff2": ["Geist", { weight: "100 900", unicodeRange: "U+0000-024F, U+2000-206F, U+20A0-20CF, U+2190-21FF" }],
+      "GeistMono-Variable.woff2": ["Geist Mono", { weight: "100 900" }] };
+    M.host.fonts.forEach(f => { const w = want[f]; if (!w) return;
+      new FontFace(w[0], "url(pablo://fonts/" + f + ")", w[1]).load().then(x => document.fonts.add(x), () => {}); }); };
   const bar = $("chat").insertBefore(h("div", { id: "tools" }), box);
   let srcOpen = false, shownTask = null;  // ② the source list, when it is folded into "자료 N개"; the task the box belongs to
   const attach = kind => pabloHost[kind](V.task.id).then(name => name && refresh(),
