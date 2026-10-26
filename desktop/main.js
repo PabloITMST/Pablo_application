@@ -97,7 +97,7 @@ let preparing = null;
 async function chatTurn(text, task, prep) {
   const at = Date.now();
   logChat(task, { role: "user", text, at: new Date(at).toISOString() });
-  reply = { task, at: new Date(at + 2).toISOString(), text: "" };  // the agent's answer sorts right after the message
+  reply = { task, at: new Date(at + 2).toISOString(), user: new Date(at).toISOString(), text: "" };  // the agent's answer sorts right after the message
   // criteria said in the message ("..., X는 건드리지 마") become this task's intent before the agent starts: Guard and
   // the brief below already use them. The request itself is the plan step, never a goal.
   const said = await ctl.py("say", text, "--request", "--task", task).catch(err => { console.error("[pablo] say", err.message); return null; });
@@ -706,7 +706,12 @@ agent.on("event", ev => {
       if (ev.error) entry.error = short(ev.error);
       logChat(r.task, entry);
       broadcast("pablo:agent", { type: "audit", task: r.task, ...entry });
-    } else logChat(r.task, { role: "agent", text: r.text, at: r.at, status: ev.status, ...(ev.error ? { error: short(ev.error) } : {}) });
+    } else {
+      logChat(r.task, { role: "agent", text: r.text, at: r.at, status: ev.status, ...(ev.error ? { error: short(ev.error) } : {}) });
+      // the page tags the turn's live messages right away with these keys (role@time) instead of after the next state
+      // read, which waits behind the turn's reviews (QA 10/26: ~7 s without ✎ 태그 / 📌 기준으로); the broadcast below sends ev
+      ev.logged = { task: r.task, user: r.user || null, agent: r.at };
+    }
   } catch (err) { console.error("[pablo] chat log", err.message); }
 });
 // the turn's last agent message is the answer (outputSchema shapes only that one; earlier ones are progress notes)

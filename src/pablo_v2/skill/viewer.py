@@ -1992,12 +1992,16 @@ function settleLive() {
   if (![...mine, ...replies].some(m => !m.dataset.key)) return;
   const D = (M.desk || {})[V.task.id] || {};
   if ((D.view || (M.settings || {}).view || "time") !== "time") return conversation();
-  const drawn = new Set([...document.querySelectorAll("#log .msg[data-key]")].map(m => m.dataset.key)), kind = kindOf();
+  const drawn = new Set([...document.querySelectorAll("#log .msg[data-key]")].map(m => m.dataset.key));
   const fresh = roles => (V.chat || []).filter(c => roles.includes(c.role) && !drawn.has(c.role + "@" + c.at));
-  const put = (els, cs) => els.slice().reverse().forEach((el, i) => { const c = cs[cs.length - 1 - i]; if (!c || el.dataset.key) return;
-    const key = c.role + "@" + c.at, s = stageOfRole(c.role, kind), o = (D.tags || {})[key] || {};
-    el.dataset.stage = o.stage || s; el.dataset.key = key; tagRow(el, o.stage || s, key, o, s, (M.settings || {}).tags === "all"); });
+  const put = (els, cs) => els.slice().reverse().forEach((el, i) => { const c = cs[cs.length - 1 - i]; if (c) tagLive(el, c.role, c.at); });
   put(mine, fresh(["user", "ask"])); put(replies, fresh(["agent"]));
+}
+// one live message as the log will draw it: its key (role@time), its stage, the person's tag if any
+function tagLive(el, role, at) {
+  if (!el || el.dataset.key || !V) return;
+  const key = role + "@" + at, s = stageOfRole(role, kindOf()), o = (((M.desk || {})[V.task.id] || {}).tags || {})[key] || {};
+  el.dataset.stage = o.stage || s; el.dataset.key = key; tagRow(el, o.stage || s, key, o, s, (M.settings || {}).tags === "all");
 }
 function select(tid) {
   V = M.views[tid] || M.views[M.current] || null; lastEv = null;
@@ -2567,6 +2571,11 @@ if (window.pabloHost && pabloHost.chat) {
     else if (ev.type === "done") {
       refresh(); turning = stopping = false; busy = null; gate();
       if (out && ev.status === "interrupted") out.after(h("p", { class: "muted", "data-stopped": "1" }, "중지했습니다."));
+      const lg = ev.logged;  // the keys main just wrote: the turn's messages get their tag row now, not after the next state read
+      if (lg && V && lg.task === V.task.id && lives[lg.task]) {
+        if (lg.user) tagLive([...lives[lg.task].querySelectorAll(":scope > .msg.user")].at(-1), "user", lg.user);
+        if (out) tagLive(out.closest(".msg"), "agent", lg.agent);
+      }
       if (out) { out.title = `첫 토큰 ${ev.first ?? "-"} ms · 전체 ${ev.total} ms`; out = null; }
       if (ev.retry) setTimeout(() => { const b = link("다른 모델로 다시 시도", () => { b.remove(); stream(talk); pabloHost.retry().catch(e => { status("Error", e.message); out = null; }); });
         live(talk).append(msg("Pablo", null, h("p", null, b))); scroll(); });  // after the Error card
