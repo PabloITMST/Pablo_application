@@ -908,6 +908,8 @@ async function uiCheck() {
   if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "ui-stage.png"), (await win.capturePage()).toPNG());
   await js(`pabloHost.setUi("T1", "view", "target").then(() => ${redraw})`); await sleep(300);
   assert.ok(await js(`document.querySelectorAll("#log > .targetgroup").length >= 2 && !!document.querySelector('#log > .targetgroup[data-target="파일 · config.yaml"]')`), "대상별: grouped by file / [n]");
+  // QA 10/26 (D5): the audit card's other files get their group, with a line back to the card under its first target
+  assert.ok(await js(`!!document.querySelector('#log > .targetgroup[data-target="파일 · logs/2wiki.log"] [data-also]')`), "대상별: a message's other targets lead to it");
   await js(`pabloHost.setUi("T1", "view", "time").then(() => ${redraw})`); await sleep(300);
   const key = await js(`document.querySelector("#log .msg[data-key] [data-tag-edit]").closest(".msg").dataset.key`);
   await js(`(m => { m.querySelector("[data-tag-edit]").click(); const ed = m.querySelector(".tagedit");
@@ -919,6 +921,18 @@ async function uiCheck() {
   await js(`pabloHost.setUi("T1", "tags", {}).then(() => ${redraw})`); await sleep(300);
   assert.ok(await js(`!document.querySelector("#log [data-decision]")`), "a person's tag goes away when cleared");
   console.log("ok views: 단계별 (one box per stage), 대상별 (by file / [n]), back to 시간순; a person's stage + 결정 kept in desktop.json and shown, then cleared");
+  // QA 10/26 (D4): the panel as this task left it, when the task is opened again in the same run (before the next state read)
+  await js(`show({ mode: "plan" })`); await sleep(200);
+  await js(`select(V.task.id)`); await sleep(200);
+  assert.deepStrictEqual(await js(`[document.body.classList.contains("panel"), hist[hi] && hist[hi].mode]`), [true, "plan"], "the panel is remembered within a run");
+  await js(`close()`); await sleep(200);
+  // (D6): Esc closes the source card first and leaves the right column as it was
+  await js(`show({ mode: "intent" })`); await js(`document.querySelector(".statechip").click()`);
+  await js(`dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+  assert.deepStrictEqual(await js(`[$("srccard").hidden, document.body.classList.contains("panel")]`), [true, true], "Esc: the card, not the panel");
+  await js(`dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+  assert.ok(await js(`!document.body.classList.contains("panel")`), "Esc again: the panel");
+  console.log("ok panel remembered within a run; Esc closes the source card, then the panel");
   const order = await js(`[...document.querySelectorAll("#log .msg")].map(m => { const c = m.querySelector(".call[data-id]"),
     s = m.querySelector(".stream"), a = m.querySelector(".asked");
     return c ? "CARD " + c.dataset.id : s ? "AGENT " + s.textContent : a ? "ASK " + a.textContent.trim() : m.querySelector("[data-spec]") ? "SPEC" : m.querySelector("[data-audit]") ? "AUDIT"
