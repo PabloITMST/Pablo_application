@@ -808,6 +808,110 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
 /* A2 · sidebar, header, state chips, stage bar, view bar  (agent A) */
 /* end A2 · sidebar */
 /* A2 · conversation, cards, composer  (agent B) */
+/* messages: a 680 column, 28px avatars (Pablo is the one black fill), name 13 / time mono 11, body 14/22 */
+#log { padding:28px 24px 40px; }
+.msg { max-width:680px; grid-template-columns:28px minmax(0, 1fr); gap:12px; margin:0 auto 24px; font-size:14px; line-height:22px; }
+.av { width:28px; height:28px; font:600 11px/1 var(--sans); background:var(--a8); color:var(--ink-2); }
+.msg.pablo .av { background:var(--primary); color:var(--on-primary); border-color:var(--primary); font-size:12px; }
+.who { display:flex; align-items:center; gap:8px; min-height:28px; font-size:13px; font-weight:600; line-height:20px; color:var(--ink); }
+.who small { margin-left:0; font:400 11px/1 var(--mono); color:var(--ink-3); }
+.msg p { margin:2px 0 8px; } .msg .muted { font-size:13px; line-height:20px; }
+/* tags: stage on ink 6%, targets white with a hairline, a person's 결정 orange-edged, Pablo's suggestion on signal-soft */
+.tags { gap:6px; margin:10px 0 0; }
+.tg { display:inline-flex; align-items:center; gap:4px; font:500 11px/16px var(--sans); padding:2px 7px; border-radius:var(--r-tag);
+  background:var(--white); color:var(--ink-2); border:1px solid var(--a12); vertical-align:1px; }
+.tg.stage { background:var(--a6); color:var(--ink-2); border-color:transparent; }
+.tg.stage.mine { border-color:var(--signal); box-shadow:none; }
+.tg.manual { background:var(--white); border-color:var(--signal); color:var(--ink); font-weight:600; }
+.tg[data-auto-summary] { background:var(--signal-soft); border-color:transparent; color:var(--ink); }
+.tg[data-auto-summary] .ico { color:var(--signal); }
+.tagbtn, .tags .more { font-size:11px; line-height:16px; color:var(--ink-3); }
+.tagbtn { display:inline-flex; align-items:center; gap:3px; padding:3px 5px; border-radius:var(--r-tag); }
+.tagbtn:hover { color:var(--ink); background:var(--a5); text-decoration:none; }
+/* the stage divider: a pill with a dot (orange = the task's current stage), the time, a hairline */
+.divider { max-width:680px; gap:8px; margin:4px auto 20px; }
+.divider .tg.stage { gap:6px; border-radius:999px; padding:2px 10px 2px 8px; font-weight:600; }
+.divider .dot, .stagehint .dot { flex:none; width:6px; height:6px; border-radius:50%; background:var(--ink-3); }
+.divider[data-now] .dot { background:var(--signal); }
+.divider small { font:400 11px/1 var(--mono); color:var(--ink-3); white-space:nowrap; }
+.divider::after { background:var(--a8); }
+/* WARN cards (확인 필요 · 결정이 필요): white, an orange 3px left edge, no dashes; BLOCK (막음): ink 4%, no border */
+.call { background:var(--white); border:0; border-left:3px solid var(--signal); border-radius:var(--r-card); box-shadow:var(--sh-md);
+  padding:12px 16px; margin:10px 0; }
+.call .head { color:var(--ink); font-size:13px; font-weight:600; line-height:20px; margin:0 0 6px; }
+.call.block { background:var(--a4); border:0; box-shadow:none; }
+.call.block .head { color:var(--ink); }
+.call.block .head::before { border-radius:var(--r-tag); padding:2px 7px; font:600 11px/16px var(--sans); vertical-align:1px; }
+#acct .call, #shell-note .call { margin:0 0 8px; }
+/* records: conditions, 재현 점검, 비교표, changed files — white cards, hairline rows */
+.spec, .audit, .matrix, .changes { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); box-shadow:var(--sh-sm);
+  padding:12px 16px; margin:10px 0; }
+.spec .head, .audit .head, .matrix .head { font-size:14px; font-weight:600; line-height:22px; margin:0 0 6px; }
+.spec h4 { font-size:11px; font-weight:600; color:var(--ink-3); margin:10px 0 4px; padding-top:10px; border-top:1px solid var(--a6); }
+.spec li { margin:3px 0; }
+.audit li { padding:8px 0; border-top:1px solid var(--a6); }
+.audit .stale, .audit .ps51 { background:var(--signal-soft); border:0; border-radius:var(--r-in); padding:8px 12px; margin:6px 0 8px; }
+.audit .stale.same { background:var(--a4); }
+.audit .outside h4 { font-size:11px; font-weight:600; color:var(--ink-3); }
+.changes p { font-size:13px; }
+.matrix.wide { box-shadow:none; border:0; background:none; padding:0; margin:0; }
+.matrix .scroll { border:1px solid var(--a6); border-radius:var(--r-card); margin:8px 0; }
+.matrix table { border-style:hidden; }
+.matrix th, .matrix td { border:1px solid var(--a6); padding:7px 10px; }
+.matrix thead th { background:var(--a4); font-weight:600; color:var(--ink-2); }
+/* 단계별 · 대상별 views, the stage filter banner, the tag editor */
+.stagegroup, .targetgroup { max-width:680px; margin:0 auto 12px; padding:14px 16px; background:var(--white); border:1px solid var(--a8);
+  border-radius:var(--r-card); }
+.stagegroup.st-now { border-color:var(--a12); box-shadow:var(--sh-sm); }
+.stagegroup.st-later, .stagegroup.st-past { background:var(--a4); border-style:solid; border-color:transparent; }
+.sg-head { align-items:center; } .sg-head b { font-size:13px; font-weight:600; }
+.sg-sum { line-height:22px; } .sg-msgs > summary, .targetgroup > summary { color:var(--ink-2); }
+.stagegroup .msg { margin-bottom:16px; }
+.sg-edit, .ce-text { background:var(--white); border:1px solid var(--a12); border-radius:var(--r-in); padding:8px 10px; }
+#filter-banner { max-width:680px; background:var(--a4); border:0; border-radius:var(--r-in); padding:8px 14px; }
+.tagedit { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); box-shadow:var(--sh-lg); padding:14px 16px; }
+.tagedit > b { font-size:13px; font-weight:600; }
+/* [n]: a small orange-soft pill */
+.cite { background:var(--signal-soft); border-radius:5px; padding:1px 5px; font:600 11px/16px var(--mono); color:var(--ink);
+  text-decoration:none; margin-left:2px; vertical-align:1px; }
+.cite:hover { text-decoration:none; box-shadow:inset 0 0 0 1px var(--signal); }
+.cite.on { text-decoration:none; background:var(--signal); color:var(--white); }
+pre.diff, pre.cmd { background:var(--a4); border-radius:var(--r-ctl); }
+/* the composer: a white floating box; the text on top, 보낼 곳 · stage · model · send below */
+#chat > .composer { max-width:680px; width:calc(100% - 48px); margin:0 auto 16px; flex-wrap:wrap; gap:8px; align-items:center;
+  background:var(--white); border:1px solid var(--a12); border-radius:var(--r-panel); box-shadow:var(--sh-lg); padding:12px 12px 10px 16px; }
+#chat > .composer > input { order:-5; flex:1 1 100%; font-size:14px; line-height:22px; padding:2px 0 4px; }
+#chat > .composer > input::placeholder { color:var(--ink-3); }
+#chat > .composer > button:not(.modelbtn) { order:5; flex:none; width:32px; height:32px; border-radius:50%; display:grid; place-items:center;
+  background:var(--primary); color:var(--on-primary); }
+#chat > .composer > input + button { margin-left:auto; }
+#chat > .composer[data-running="1"] > button:not(.modelbtn) .ico { fill:currentColor; }
+#chat > .composer #route { order:1; display:inline-flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-3); }
+.composer #route .seg { display:inline-flex; gap:2px; padding:2px; background:var(--a5); border-radius:var(--r-ctl); }
+.composer #route .seg > b, .composer #route .seg > button { border-radius:var(--r-tag); padding:4px 10px; font:500 12px/16px var(--sans);
+  color:var(--ink-2); background:none; text-decoration:none; }
+.composer #route .seg > button:hover { color:var(--ink); background:var(--a5); }
+.composer #route .seg > b[data-route] { background:var(--white); color:var(--ink); box-shadow:var(--sh-sm); font-weight:600; }
+#chat > .composer > .stagehint { order:2; flex:1 1 0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:12px; line-height:22px; color:var(--ink-3); }  /* basis 0: the hint never pushes send onto a third row */
+#chat > .composer > .stagehint[hidden] { display:none; }
+.stagehint .tg.stage { gap:5px; border-radius:999px; padding:2px 8px 2px 7px; font-weight:600; }
+.stagehint .dot { width:5px; height:5px; background:var(--signal); }
+#chat > .composer > #agent { order:3; margin-left:auto; display:inline-flex; align-items:center; font-size:12px; color:var(--ink-3); }
+#chat > .composer > button.modelbtn { order:4; display:inline-flex; align-items:center; gap:4px; border-radius:var(--r-ctl); padding:5px 8px;
+  font:500 12px/16px var(--mono); color:var(--ink-2); background:none; }
+#chat > .composer > button.modelbtn:hover { background:var(--a5); color:var(--ink); }
+#chat > .composer > button.modelbtn[hidden] { display:none; }
+#chat > .composer > .mmenu { right:52px; bottom:calc(100% + 8px); padding:4px; background:var(--white); border:1px solid var(--a8);
+  border-radius:var(--r-card); box-shadow:var(--sh-lg); }
+.composer .mmenu button.mopt { border-radius:var(--r-ctl); padding:8px 10px; font:500 12px/16px var(--mono); color:var(--ink); }
+.composer .mmenu button.mopt.on, .composer .mmenu button.mopt:hover { background:var(--a5); }
+.composer .mmenu button.mopt.on { font-weight:600; }
+/* above the composer: the account card, the PowerShell note, the + 추가 box */
+#acct, #shell-note, #adder { max-width:680px; width:calc(100% - 48px); }
+#acct { margin:0 auto 8px; font-size:12px; color:var(--ink-3); }
+#adder #arxiv { border:1px solid var(--a12); border-radius:var(--r-in); background:var(--white); padding:6px 10px; }
+#adder #arxiv:focus { outline:none; border-color:var(--ink-3); }
 /* end A2 · conversation */
 /* A2 · right column, panels, dialogs, empty state  (agent C) */
 /* end A2 · right column */
@@ -822,7 +926,7 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
 <body>
 <nav id="side"></nav>
 <section id="chat"><header id="bar"></header><div id="log"></div>
-  <div class="composer"><input disabled placeholder="Pablo에게 물어보세요… (읽기 전용 미리보기)"><button disabled>↑</button></div></section>
+  <div class="composer"><input disabled placeholder="Pablo에게 물어보세요… (읽기 전용 미리보기)"><button disabled title="보내기" aria-label="보내기"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7M12 19V5"/></svg></button></div></section>
 <div id="right"><nav id="ptabs"></nav><aside id="panel"></aside></div>
 <script type="application/json" id="data">{{DATA}}</script>
 <script>
@@ -1460,9 +1564,9 @@ function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
     o.decision ? h("span", { class: "tg manual", "data-decision": "1" }, "결정") : null, ...shown.map(t => h("span", { class: "tg tgt" }, t)),
     more ? h("small", { class: "more" }, `· ${more}개 더`) : null);
   if (key && window.pabloHost && pabloHost.setUi) row.append(h("button", { class: "tagbtn", "data-tag-edit": "1", title: "이 메시지의 태그 고치기",
-    on: () => tagEdit(row, key, stage, o) }, "✎ 태그"));
+    on: () => tagEdit(row, key, stage, o) }, ico("pencil", 12), "태그"));
   if (window.pabloHost && pabloHost.makeCriterion && el.classList.contains("msg")) row.append(h("button", { class: "tagbtn", "data-crit-make": "1",
-    title: "이 메시지의 글을 작업 기준으로", on: () => critMake(row, el) }, "📌 기준으로"));
+    title: "이 메시지의 글을 작업 기준으로", on: () => critMake(row, el) }, ico("pin", 12), "기준으로"));
   body.append(row);
 }
 // a message's words made a criterion of this task by the person, in a sentence they trim: a rule (반드시 / 가능하면), never
@@ -1517,11 +1621,11 @@ function byStage(log, rows, kind, D) {
     const auto = (D.auto || {})[n], behind = auto ? msgs.length - auto.n : 0;
     const write = can && pabloHost.summarize && !own && msgs.length && ($("acct") || { dataset: {} }).dataset.state === "connected";
     const sum = h("div", { class: "sg-sum" }, own ? [h("span", { class: "tg manual" }, "사람이 고침"), " ", own]
-      : auto ? [h("span", { class: "tg", "data-auto-summary": "1" }, "모델 요약"), " ", auto.text,
+      : auto ? [h("span", { class: "tg", "data-auto-summary": "1" }, ico("sparkle", 12), "모델 요약"), " ", auto.text,
         behind > 0 ? h("small", { class: "muted", "data-behind": behind }, ` · 그 뒤 메시지 ${behind}개`) : null]
       : h("span", { class: "muted" }, "기록 요약 — " + facts),
-      write ? [" ", h("button", { class: "link", "data-summarize": n, on: () => summarize(sum, n, msgs) }, auto ? "✦ 다시 쓰기" : "✦ 요약 쓰기")] : null,
-      can && msgs.length ? [" ", h("button", { class: "link", "data-summary-edit": n, on: () => summaryEdit(sum, n, own || (auto && auto.text) || "") }, "✎ 요약 고치기")] : null);
+      write ? [" ", h("button", { class: "link", "data-summarize": n, on: () => summarize(sum, n, msgs) }, ico("sparkle", 12), auto ? " 다시 쓰기" : " 요약 쓰기")] : null,
+      can && msgs.length ? [" ", h("button", { class: "link", "data-summary-edit": n, on: () => summaryEdit(sum, n, own || (auto && auto.text) || "") }, ico("pencil", 12), " 요약 고치기")] : null);
     log.append(h("div", { class: "stagegroup st-" + (state === "지금" || state === "진행" ? "now" : state === "아직" ? "later" : "past"), "data-stage": n },
       h("div", { class: "sg-head" }, h("span", { class: "tg stage" }, n), h("b", null, state), h("small", null, facts)), sum,
       decs.length ? h("ul", { class: "sg-dec" }, decs.map(r => h("li", null, h("span", { class: "tg manual" }, "결정"), " ", firstText(r[0])))) : null,
@@ -1586,16 +1690,17 @@ function conversation() {
   // P5: the person's tags win; P6: the view (시간순 by default; the task's choice, else the settings')
   const D = (M.desk || {})[V.task.id] || {}, over = D.tags || {}, view = D.view || (M.settings || {}).view || "time";
   const allTags = (M.settings || {}).tags === "all";
-  const rows = items.sort((x, y) => x[0] - y[0]).map(([, x, s, key]) => {  // stable sort: same time keeps the order above
+  const rows = items.sort((x, y) => x[0] - y[0]).map(([t, x, s, key]) => {  // stable sort: same time keeps the order above
     const o = over[key] || {}, st = o.stage || s;
     if (st && x.classList && x.classList.contains("msg")) { x.dataset.stage = st; x.dataset.key = key; tagRow(x, st, key, o, s, allTags); }
-    return [x, st, o]; });
+    return [x, st, o, t]; });
   if (view === "stage") byStage(log, rows, kind, D);
   else if (view === "target") byTarget(log, rows);
-  else { let prev = null;
-    rows.forEach(([x, s]) => {
+  else { let prev = null; const now = (document.querySelector("#stages .st-current b") || {}).textContent;  // A2: its dot is orange
+    rows.forEach(([x, s, , t]) => {
       if (s && x.classList && x.classList.contains("msg")) {
-        if (s !== prev) log.append(h("div", { class: "divider", "data-stage": s }, h("span", { class: "tg stage" }, s)));
+        if (s !== prev) log.append(h("div", { class: "divider", "data-stage": s, "data-now": s === now ? "1" : null },
+          h("span", { class: "tg stage" }, h("span", { class: "dot" }), s), t ? h("small", null, time(t)) : null));
         prev = s;
       }
       log.append(x); }); }
@@ -2093,7 +2198,9 @@ if (window.pabloHost && pabloHost.chat) {
   // Both come after the send button in the DOM (the first button stays send / stop) and CSS orders them on screen.
   const mbtn = box.appendChild(h("button", { class: "modelbtn", type: "button", title: "모델", hidden: true }));
   const mmenu = box.appendChild(h("div", { class: "mmenu", hidden: true }));
-  const mlabel = () => { const o = pick.options[pick.selectedIndex]; mbtn.textContent = (o ? o.textContent : "모델") + " ⌄"; };
+  const mlabel = () => { const o = pick.options[pick.selectedIndex]; mbtn.replaceChildren(o ? o.textContent : "모델", ico("chevron-down", 12)); };
+  // A2: where a new message is recorded, as the stage pill (it used to be the end of the placeholder)
+  const hint = box.appendChild(h("span", { class: "stagehint", hidden: true }));
   mbtn.addEventListener("click", () => { mmenu.hidden = !mmenu.hidden; if (mmenu.hidden) return; mmenu.textContent = "";
     [...pick.options].forEach(o => mmenu.append(h("button", { class: "mopt" + (o.value === pick.value ? " on" : ""), type: "button",
       on: () => { pick.value = o.value; pick.dispatchEvent(new Event("change")); mmenu.hidden = true; } }, o.textContent))); });
@@ -2111,9 +2218,11 @@ if (window.pabloHost && pabloHost.chat) {
     mbtn.hidden = pick.hidden; mbtn.disabled = pick.disabled; if (mbtn.hidden || mbtn.disabled) mmenu.hidden = true;
     inp.disabled = !on || !V || (agentSt !== "Ready" && agentSt !== "Error");  // Error: the next send restarts app-server
     btn.disabled = running ? stopping : inp.disabled;  // while the agent works, the send button is 중지
-    btn.textContent = running ? "■" : "↑"; btn.title = running ? "중지" : "보내기"; box.dataset.running = running ? "1" : "";
-    inp.placeholder = !on ? "ChatGPT에 연결하면 대화할 수 있습니다" : !V ? "새 작업을 만들면 대화할 수 있습니다"
-      : "Pablo에게 물어보세요…" + (box.dataset.stage ? ` · ${box.dataset.stage} 단계로 기록` : "");
+    btn.replaceChildren(ico(running ? "stop" : "arrow-up", 16)); btn.title = running ? "중지" : "보내기"; btn.setAttribute("aria-label", btn.title);
+    box.dataset.running = running ? "1" : "";
+    inp.placeholder = !on ? "ChatGPT에 연결하면 대화할 수 있습니다" : !V ? "새 작업을 만들면 대화할 수 있습니다" : "Pablo에게 물어보세요…";
+    hint.hidden = !on || !V || !box.dataset.stage;
+    hint.replaceChildren(...(hint.hidden ? [] : ["이 메시지는 ", h("span", { class: "tg stage" }, h("span", { class: "dot" }), box.dataset.stage), " 단계로 기록"]));
   };
   const status = (s, err) => { agentSt = s; st.title = err || ""; gate(); };
   const link = (text, on) => h("button", { class: "link", on }, text);
@@ -2408,8 +2517,8 @@ if (window.pabloHost && pabloHost.chat) {
         link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => hasSpec ? redo() : spec(V.task.id))) : null;
     const compEl = several && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null;
     const routeEl = ps.length && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
-        "보낼 곳 ", ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label]) =>
-          (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh())))) : null;
+        "보낼 곳 ", h("span", { class: "seg" }, ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label]) =>  // A2: a segmented control
+          (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh()))))) : null;
     const auditEl = d.folder && pabloHost.audit && (V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived") || V.intent.must.length || V.intent.prefer.length)
         ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null;
     const reportEl = pabloHost.report && (hasSpec || V.actions.length || V.chat.some(c => c.role === "audit")) ? h("span", { id: "reports" },  // ⑫
