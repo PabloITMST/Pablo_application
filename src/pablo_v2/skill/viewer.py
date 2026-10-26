@@ -286,6 +286,24 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
     out += [f"- 반드시: {x['text']}" for x in v["intent"]["must"]] + [f"- 가능하면: {x['text']}" for x in v["intent"]["prefer"]]
     if not v["intent"]["must"] and not v["intent"]["prefer"]:
         out.append("- 없음")
+    # P5: messages a person pinned as a decision (✎ 태그 → 결정으로 고정); the app sends their keys (role@time)
+    decided = []
+    for d in (now or {}).get("decisions") or []:
+        key = str((d or {}).get("key", ""))
+        role, _, at = key.partition("@")
+        if key == "start":
+            said, who, when = t.text, "나", None
+        elif key.startswith("act:"):
+            a = next((x for x in v["actions"] if x["id"] == key[4:]), None)
+            said, who, when = (a or {}).get("text"), "Pablo", (a or {}).get("at")
+        else:
+            c = next((x for x in v["chat"] if x.get("role") == role and x.get("at") == at), None) or {}
+            said, who, when = c.get("text") or c.get("summary"), "나" if role == "user" else "Pablo", c.get("at")
+        if said:
+            stage = f"[{d['stage']}] " if d.get("stage") else ""
+            decided.append(f"- {stage}{who}: {' '.join(str(said).split())[:400]}" + (f" · {_when(when)}" if when else ""))
+    if decided:
+        out += ["", "## 대화에서 정한 결정", ""] + decided
     # the last audit
     out += ["", "## 재현 점검", ""]
     if not last:
@@ -843,7 +861,9 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
 #side details[open] > summary > .ico { transform:rotate(90deg); }
 #side summary .cnt { padding:3px 7px; border-radius:999px; background:var(--a6); color:var(--ink-2); font:500 11px/1 var(--mono); }
 /* header: no rule under it (the stage bar draws the hairline); icon buttons for rename and the mobile menu */
-#bar { min-height:56px; padding:0 16px 0 20px; gap:8px; border-bottom:0; }
+/* a narrow header wraps: the state chip goes to its own line, right-aligned, instead of the name and the chip both
+   cut to "…" (QA 10/26: "LinearRAG 논문 재현 (Q…" and "r…" once 완료 풀기 joined the row) */
+#bar { min-height:56px; padding:8px 16px 8px 20px; gap:8px; row-gap:6px; flex-wrap:wrap; border-bottom:0; }
 #bar h1 { flex:0 1 auto; min-width:min(7em, 30%); font:600 17px/1.3 var(--sans); letter-spacing:-0.015em; color:var(--ink); }
 #bar h1 .rn-in { height:32px; padding:0 10px; border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white);
   font:500 15px/1 var(--sans); letter-spacing:0; }
@@ -858,7 +878,7 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
 #menu { padding:6px; border-radius:var(--r-ctl); line-height:0; color:var(--ink-2); }
 #menu:hover { background:var(--a5); color:var(--ink); }
 /* the state chip (자료 · 폴더 · 인터넷 as segments) and the source card it opens */
-#chips { flex:0 1 auto; min-width:0; margin-left:4px; }
+#chips { flex:0 1 auto; min-width:0; margin-left:auto; }
 .statechip { display:inline-flex; align-items:center; max-width:100%; height:30px; padding:0 10px; border:1px solid var(--a8);
   border-radius:var(--r-ctl); background:var(--white); color:var(--ink); font:500 12px/1 var(--sans); box-shadow:var(--sh-sm); }
 .statechip:hover, .statechip[aria-expanded="true"] { background:linear-gradient(var(--a4), var(--a4)), var(--white); }
@@ -1342,6 +1362,8 @@ function rememberPanel() {
   const v = { open, tab: !m ? (was.tab || "intent") : ["source", "code", "paper", "matrix"].includes(m) ? "evidence" : m }, k = JSON.stringify(v);
   if (panelSaved[V.task.id] === k) return; panelSaved[V.task.id] = k;
   pabloHost.setUi(V.task.id, "panel", v).catch(() => {});
+  // the page's copy too: select() reads M.desk when the task is opened again before the next state read (QA 10/26, D4)
+  if (M.desk) M.desk[V.task.id] = { ...(M.desk[V.task.id] || {}), panel: v };
 }
 function evidenceFor() { const d = (M.desk || {})[V.task.id] || {}, pp = (d.papers || []).find(p => p.primary && p.kind !== "web");
   return lastEv || (pp && (M.papers || {})[pp.id] ? { mode: "paper", src: pp.id } : null); }
@@ -1779,11 +1801,16 @@ function stageOfRole(role, kind) {
   return r === "start" ? "준비" : r === "report" ? "검토" : "작업";
 }
 const STAGE_LIST = { repro: ["준비", "조건 확정", "구현·실행", "재현 점검", "보고서"], read: ["준비", "질문", "비교표", "정리"], general: ["준비", "작업", "검토"] };
+const STAGE_KEY = { "준비": "prep", "조건 확정": "spec", "구현·실행": "run", "재현 점검": "audit", "보고서": "report",  // the stage bar's data-stage
+  "질문": "ask", "비교표": "compare", "정리": "wrap", "작업": "work", "검토": "review" };
 // o: the person's override for this message (P5: {stage, decision}); auto: the stage Pablo computed
 function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
   const body = el.children && el.children[1]; if (!body || body.querySelector(":scope > .tags")) return;
   const files = [...new Set([...el.querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))];
-  const refs = [...new Set([...el.querySelectorAll(".cite")].map(c => c.textContent))];
+  // a quote by its paper and page ("LinearRAG p.9"), not the chat's running [n] (QA 10/26: 대상별 grouped by "[1]")
+  const refName = c => { const a = M.anchors[c.dataset.e], s = a && M.sources[a.source];
+    return a && a.page && s && s.title ? `${s.title.length > 24 ? s.title.slice(0, 23) + "…" : s.title} p.${a.page}` : c.textContent; };
+  const refs = [...new Set([...el.querySelectorAll(".cite")].map(refName))];
   const targets = [...files.map(f => "파일 · " + f), ...refs.map(r => "근거 · " + r)]; el.dataset.targets = JSON.stringify(targets);
   const shown = all ? targets : [...files.slice(0, 2).map(f => "파일 · " + f), ...refs.slice(0, 2).map(r => "근거 · " + r)];
   const more = all ? 0 : Math.max(0, files.length - 2) + Math.max(0, refs.length - 2);
@@ -1842,13 +1869,16 @@ function byStage(log, rows, kind, D) {
     const mine = rows.filter(r => r[1] === n), msgs = mine.filter(r => r[0].classList && r[0].classList.contains("msg")), decs = mine.filter(r => r[2].decision);
     const files = new Set(mine.flatMap(r => [...r[0].querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))).size;
     const facts = msgs.length ? [`메시지 ${msgs.length}`, decs.length ? `결정 ${decs.length}` : null, files ? `파일 ${files}` : null].filter(Boolean).join(" · ") : "아직 대화가 없습니다";
-    // a stage with messages is never 아직, whatever the stage bar computes from the material (진행: talked about, not done)
-    const state = i === ci ? "지금" : !msgs.length ? (ci >= 0 && i < ci ? "완료" : "아직") : ci >= 0 && i < ci ? "완료" : "진행", own = (D.summary || {})[n];
+    // a stage with messages is never 아직, whatever the stage bar computes from the material (진행: talked about, not done);
+    // one the bar marks done (✓) is 완료 here too (QA 10/26: ✓ above, 진행 below for the same stage)
+    const done = !!document.querySelector(`#stages .stage.st-done[data-stage="${STAGE_KEY[n] || ""}"]`);
+    const state = i === ci ? "지금" : done || (ci >= 0 && i < ci) ? "완료" : !msgs.length ? "아직" : "진행", own = (D.summary || {})[n];
     // the model's summary, written on request; behind once the stage has more messages than it read. A person's text wins
     const auto = (D.auto || {})[n], behind = auto ? msgs.length - auto.n : 0;
     const write = can && pabloHost.summarize && !own && msgs.length && ($("acct") || { dataset: {} }).dataset.state === "connected";
-    const sum = h("div", { class: "sg-sum" }, own ? [h("span", { class: "tg manual" }, "사람이 고침"), " ", own]
-      : auto ? [h("span", { class: "tg", "data-auto-summary": "1" }, ico("sparkle", 12), "모델 요약"), " ", auto.text,
+    // `x` in a summary is code, as in the cards (QA 10/26: the model's backticks showed as they are)
+    const sum = h("div", { class: "sg-sum" }, own ? [h("span", { class: "tg manual" }, "사람이 고침"), " ", rich(own)]
+      : auto ? [h("span", { class: "tg", "data-auto-summary": "1" }, ico("sparkle", 12), "모델 요약"), " ", rich(auto.text),
         behind > 0 ? h("small", { class: "muted", "data-behind": behind }, ` · 그 뒤 메시지 ${behind}개`) : null]
       : h("span", { class: "muted" }, "기록 요약 — " + facts),
       write ? [" ", h("button", { class: "link", "data-summarize": n, on: () => summarize(sum, n, msgs) }, ico("sparkle", 12), auto ? " 다시 쓰기" : " 요약 쓰기")] : null,
@@ -1878,12 +1908,23 @@ function summaryEdit(sum, n, cur) {
 }
 // P6 대상별: grouped by what each message is about (its first file or [n]); the rest under 대상 없음
 function byTarget(log, rows) {
-  const groups = new Map(), rest = [];
+  // a message sits under its first target; each of its other targets gets a line that leads to it (QA 10/26: an audit
+  // card about config.yaml, logs/2wiki.log and run.py showed under config.yaml only, the other two had no group)
+  const groups = new Map(), also = new Map(), rest = [], add = (m, t, x) => { if (!m.has(t)) m.set(t, []); m.get(t).push(x); };
   rows.forEach(r => { const x = r[0]; if (!(x.classList && x.classList.contains("msg"))) return rest.push(x);
-    const t = JSON.parse(x.dataset.targets || "[]")[0] || "대상 없음"; if (!groups.has(t)) groups.set(t, []); groups.get(t).push(r); });
-  [...groups].sort((a, b) => (a[0] === "대상 없음") - (b[0] === "대상 없음") || b[1].length - a[1].length).forEach(([t, rs], i) =>
+    const ts = JSON.parse(x.dataset.targets || "[]"); add(groups, ts[0] || "대상 없음", r); ts.slice(1).forEach(t => add(also, t, x)); });
+  also.forEach((_, t) => groups.has(t) || groups.set(t, []));
+  const n = t => groups.get(t).length + (also.get(t) || []).length;
+  const lead = (x, home) => h("p", { class: "muted", "data-also": home }, "↳ ", h("button", { class: "link", title: `'${home}' 묶음에서 보기`,
+    on: () => { x.closest("details").open = true; x.scrollIntoView({ block: "center" }); } }, `${x.classList.contains("pablo") ? "Pablo" : "나"} · ${firstText(x).slice(0, 60)}`),
+    h("small", null, ` — '${home}' 묶음에 있음`));
+  // files first, then quotes by page, then 대상 없음 (one conditions card can quote a dozen pages: they would push the
+  // files down), each by how many messages it has
+  const rank = t => t === "대상 없음" ? 2 : t.startsWith("파일 · ") ? 0 : 1;
+  [...groups.keys()].sort((a, b) => rank(a) - rank(b) || n(b) - n(a)).forEach((t, i) => {
+    const rs = groups.get(t), more = (also.get(t) || []).map(x => lead(x, JSON.parse(x.dataset.targets)[0]));
     log.append(h("details", { class: "targetgroup", "data-target": t, open: i === 0 ? true : null },
-      h("summary", null, h("span", { class: "tg" + (t === "대상 없음" ? "" : " tgt") }, t), h("small", null, `대화 ${rs.length}`)), rs.map(r => r[0]))));
+      h("summary", null, h("span", { class: "tg" + (t === "대상 없음" ? "" : " tgt") }, t), h("small", null, `대화 ${n(t)}`)), rs.map(r => r[0]), more)); });
   rest.forEach(x => log.append(x));
 }
 // a stage in the stage bar: only that stage's messages (and its dividers) stay; again -> all
@@ -1944,16 +1985,41 @@ function finish() {
   if (!V.plan || !V.plan.steps.length || V.plan.steps.some(st => stepState(st)[0] !== "done") || $("log").querySelector(".finish")) return;
   live().append(h("div", { class: "finish" }, msg("Pablo", null, art("confident", "pose"), h("p", null, "작업을 마쳤습니다."))));
 }
+// QA 10/26 (D3): a finished turn's live messages (what was said, the agent's reply) get their tag row (✎ 태그, 📌 기준으로)
+// once the log has them, paired from the end with the log entries not drawn yet; the live part itself stays (the checks
+// read its stream). In 단계별 / 대상별 the view is drawn again so they join their group
+function settleLive() {
+  if (!V || busy === V.task.id) return;
+  const L = lives[V.task.id]; if (!L || !L.isConnected) return;
+  const mine = [...L.querySelectorAll(":scope > .msg.user")], replies = [...L.querySelectorAll(":scope > .msg.pablo")].filter(m => m.querySelector(".stream"));
+  if (![...mine, ...replies].some(m => !m.dataset.key)) return;
+  const D = (M.desk || {})[V.task.id] || {};
+  if ((D.view || (M.settings || {}).view || "time") !== "time") return conversation();
+  const drawn = new Set([...document.querySelectorAll("#log .msg[data-key]")].map(m => m.dataset.key));
+  const fresh = roles => (V.chat || []).filter(c => roles.includes(c.role) && !drawn.has(c.role + "@" + c.at));
+  const put = (els, cs) => els.slice().reverse().forEach((el, i) => { const c = cs[cs.length - 1 - i]; if (c) tagLive(el, c.role, c.at); });
+  put(mine, fresh(["user", "ask"])); put(replies, fresh(["agent"]));
+}
+// one live message as the log will draw it: its key (role@time), its stage, the person's tag if any
+function tagLive(el, role, at) {
+  if (!el || el.dataset.key || !V) return;
+  const key = role + "@" + at, s = stageOfRole(role, kindOf()), o = (((M.desk || {})[V.task.id] || {}).tags || {})[key] || {};
+  el.dataset.stage = o.stage || s; el.dataset.key = key; tagRow(el, o.stage || s, key, o, s, (M.settings || {}).tags === "all");
+}
 function select(tid) {
   V = M.views[tid] || M.views[M.current] || null; lastEv = null;
   panelQuiet = true; close(); panelQuiet = false; sidebar(); header(); tools();
   if (!V) return empty();
   V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
-  conversation();
-  const pp = ((M.desk || {})[V.task.id] || {}).panel;  // P7: the right column as this task left it
+  conversation(); panelBack();
+  document.title = "Pablo · " + nameOf(M.tasks.find(x => x.id === V.task.id) || V.task);
+}
+// P7: the right column as this task left it (on opening the task, and on the app's first state read, which brings the
+// desktop.json the first select() did not have yet)
+function panelBack() {
+  const pp = ((M.desk || {})[V.task.id] || {}).panel;
   panelSaved[V.task.id] = JSON.stringify(pp || { open: false, tab: "intent" });
   if (pp && pp.open) { const st = pp.tab === "evidence" ? evidenceFor() : pp.tab === "plan" && !V.plan ? null : { mode: pp.tab }; if (st) show(st); }
-  document.title = "Pablo · " + nameOf(M.tasks.find(x => x.id === V.task.id) || V.task);
 }
 // M5.1: no task yet -> an empty Pablo screen; the desktop makes tasks in the app (+ 새 작업)
 function empty() {
@@ -2416,7 +2482,17 @@ function picker(p, box, layer, sid, n) {
   return true;
 }
 
-addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+// Esc closes a floating box first (설정, the model menu, the source card), else the right column; a click outside the
+// model menu or the source card closes it (QA 10/26: they only closed from their own button)
+const floating = () => [$("settings"), document.querySelector(".composer > .mmenu:not([hidden])"), document.querySelector("#srccard:not([hidden])")].find(Boolean);
+addEventListener("keydown", e => { if (e.key !== "Escape" || e.isComposing) return;
+  const f = floating(); if (!f) return close();
+  if (f.id === "settings") f.remove(); else if (f.id === "srccard") document.querySelector(".statechip").click(); else f.hidden = true; });
+addEventListener("mousedown", e => {
+  const m = document.querySelector(".composer > .mmenu:not([hidden])"), c = document.querySelector("#srccard:not([hidden])");
+  if (m && !e.target.closest(".mmenu, .modelbtn")) m.hidden = true;
+  if (c && !e.target.closest("#srccard, .statechip")) document.querySelector(".statechip").click();
+}, true);
 
 // ---- M4.0/M4.1 desktop host only: ChatGPT connection + composer -> persistent Codex app-server thread (desktop/) ----
 if (window.pabloHost && pabloHost.chat) {
@@ -2498,6 +2574,11 @@ if (window.pabloHost && pabloHost.chat) {
     else if (ev.type === "done") {
       refresh(); turning = stopping = false; busy = null; gate();
       if (out && ev.status === "interrupted") out.after(h("p", { class: "muted", "data-stopped": "1" }, "중지했습니다."));
+      const lg = ev.logged;  // the keys main just wrote: the turn's messages get their tag row now, not after the next state read
+      if (lg && V && lg.task === V.task.id && lives[lg.task]) {
+        if (lg.user) tagLive([...lives[lg.task].querySelectorAll(":scope > .msg.user")].at(-1), "user", lg.user);
+        if (out) tagLive(out.closest(".msg"), "agent", lg.agent);
+      }
       if (out) { out.title = `첫 토큰 ${ev.first ?? "-"} ms · 전체 ${ev.total} ms`; out = null; }
       if (ev.retry) setTimeout(() => { const b = link("다른 모델로 다시 시도", () => { b.remove(); stream(talk); pabloHost.retry().catch(e => { status("Error", e.message); out = null; }); });
         live(talk).append(msg("Pablo", null, h("p", null, b))); scroll(); });  // after the Error card
@@ -2557,12 +2638,13 @@ if (window.pabloHost && pabloHost.chat) {
   // ---- M5.1 live state: after every Guard / review / answer the panels read the same records again (no view rebuild) ----
   let q = Promise.resolve();
   refresh = to => (q = q.then(() => pabloHost.state()).then(m => {
-    const open = hi >= 0 && document.body.classList.contains("panel") ? hist[hi] : null;
+    const open = hi >= 0 && document.body.classList.contains("panel") ? hist[hi] : null, firstDesk = !M.desk && !!m.desk;
     M = m; shellNote(); webFonts();
     if (to === undefined && !V && $("goal")) return sidebar();  // the new task form stays
     if (to !== undefined || !V || !M.views[V.task.id]) return (select(to || (V && V.task.id)), gate());
     V = M.views[V.task.id]; V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
     sidebar(); header(); tools(); gate(); finish();
+    if (firstDesk && !open) panelBack();  // the app reopened this task before it knew the task's panel (QA 10/26, D4)
     document.querySelectorAll("#log [data-audit]").forEach(b => b._c && aged(b));  // ⑤ a turn changed files since an audit
     if (open && !["source", "code", "paper"].includes(open.mode)) show(open, false);  // Intent / Plan / 왜? stay open and show the new state
     Object.values(lives).forEach(l => l.querySelectorAll(".crit:empty").forEach(c => {  // the live card's criteria, once stored
@@ -2573,6 +2655,7 @@ if (window.pabloHost && pabloHost.chat) {
       c.append(" ", ...[...new Set(a.criteria.flatMap(x => (v.checks[x.id] || {}).evidence || []))].filter(e => M.anchors[e]).map(e => cite(e)));
       const o = offer({ ...a, task: v.task.id }, v); if (o) c.after(o);  // ⑦ a BLOCK on a paper condition: 의도한 차이로 두기
     }));
+    settleLive();
   }).catch(e => console.error("[pablo] state", e)));
   // UI renewal: the bundled fonts (desktop/assets/fonts, served as pablo://fonts/*), only the files main says exist,
   // so a missing file never becomes a console error; without them the stacks fall back to system fonts
@@ -2615,6 +2698,9 @@ if (window.pabloHost && pabloHost.chat) {
       catch (e) { rows.push(["bad", `⚠ ${p.split(/[\\/]/).pop()}: ${fail(e)}`]); }
     }
     hold(false); report(rows, "PDF"); refresh();
+    // all added: the box goes (the header chip and the source card show them); a failure keeps it open with its reason
+    // (QA 10/26: it stayed over the conversation after every pick)
+    if (rows.length && rows.every(r => r[0] !== "bad")) adder.hidden = true;
   }
   const pickPdfs = () => pabloHost.pickPdfs(V.task.id).then(ps => ps && addPaths(ps), e => { adder.hidden = false; note.textContent = "⚠ " + fail(e); });
   // ⑬ an OpenReview link is a paper (its PDF); a DOI is looked up (arXiv's own DOI is an arXiv id: ARXIV takes it)
@@ -2800,10 +2886,15 @@ if (window.pabloHost && pabloHost.chat) {
       step("wrap", "정리", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)]
     : [step("prep", "준비", d.folder ? "done" : "todo", d.folder ? "폴더" : "폴더 필요"),
       step("work", "작업", reported ? "done" : "todo", waiting ? "확인 기다림" : changedFiles ? `바뀐 파일 ${changedFiles}` : "—", specEl),
-      step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)];
+      // the audit of the folder against the task's criteria is part of 검토 (QA 10/26: it floated past the last stage)
+      step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—", [auditEl, reportEl].filter(Boolean))];
     const cur = steps.find(s => s.state === "todo"); if (cur) cur.state = "current";
-    box.dataset.stage = (cur || steps[steps.length - 1]).label; gate();  // the composer says where a new message goes
-    const used = new Set(steps.map(s => s.act).filter(Boolean)), more = [specEl, compEl, auditEl, reportEl].filter(x => x && !used.has(x));
+    // the composer says which stage a new message will be tagged with: its record's role, read as the tags read it (QA
+    // 10/26: it showed the stage bar's current step, so "조건 확정" for a message the log then tagged 구현·실행). A message
+    // goes to the paper question (ask) or the agent (user) as send() decides; with neither, it is not recorded
+    const next = ps.length && (!d.folder || d.route === "ask") ? "ask" : "user";
+    box.dataset.stage = ps.length || d.folder ? stageOfRole(next, kind) : ""; gate();
+    const used = new Set(steps.flatMap(s => [].concat(s.act || []))), more = [specEl, compEl, auditEl, reportEl].filter(x => x && !used.has(x));
     // A2: each stage is a column under a 3px progress bar (.stage::before); no connector lines. The mark: a check when
     // done, ↻ when stale, a lock when blocked, else the number as "01"
     const stMark = (s, i) => s.state === "done" ? ico("check", 12) : s.state === "stale" ? ico("rotate", 12) : s.state === "blocked" ? ico("lock", 12)

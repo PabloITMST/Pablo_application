@@ -150,9 +150,11 @@ async function chat() {
   assert.deepStrictEqual([agent.thread(), agent.pid(), agent.spawns], [thread, pid, 1], "same thread, same process, one spawn");
   console.log("ok same thread", thread, "pid", pid, "spawns", agent.spawns);
 
+  const blocks = await js(`document.querySelectorAll("#live .call.block").length`);  // a failed command's card may be there already
   execFileSync("taskkill", ["/pid", String(pid), "/T", "/F"]);  // crash
   await until(`$("chat").querySelector(".composer").dataset.agent === "Error"`, 10000);
-  const err = await js(`document.querySelector("#live .call.block").textContent`);
+  // the card the crash adds (QA 10/26: the first .call.block was an earlier failed git status, and passed for it)
+  const err = await until(`(l => l.length > ${blocks} && l.at(-1).textContent)([...document.querySelectorAll("#live .call.block")])`, 10000);
   console.log("ok crash -> UI:", err);
   await turn("내가 처음에 뭘 물어봤는지 한 문장으로 말해줘. 파일은 보지 마.");
   assert.deepStrictEqual([agent.thread(), agent.spawns], [thread, 2], "restart resumes the same thread");
@@ -429,7 +431,11 @@ async function guardCheck() {
   await new Promise(r => win.webContents.once("did-finish-load", r));
   const js = code => win.webContents.executeJavaScript(code);
   const until = async (code, ms = 300000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
-  const cards = () => js(`document.querySelectorAll("#live [data-verdict]").length`);
+  // the Guard's cards; a command that ran and failed gets its own card (controller.js: ERROR, "실행에 실패했습니다.")
+  // that tells how it went, not what the Guard decided, so it is counted apart (QA 10/26: an ALLOW `git status` in the
+  // fixture folder, not a repository, failed and made "ALLOW is silent" fail on the model's choice of command)
+  const ranFailed = `[...document.querySelectorAll("#live [data-verdict=ERROR]")].filter(c => c.textContent.includes("실행에 실패했습니다."))`;
+  const cards = () => js(`document.querySelectorAll("#live [data-verdict]").length - ${ranFailed}.length`);
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`, 60000);
   // one message; each WARN card goes to warn(text) -> true = [진행]; by default [취소] (the agent may also read files first)
   const turn = async (task, text, warn = async () => false) => {
@@ -450,6 +456,8 @@ async function guardCheck() {
     const shown = await js(`[...document.querySelectorAll("#live .stream")].at(-1).textContent`);
     console.log(`   [${task}] "${text}" -> ${ev.status}: ${shown.replace(/\s+/g, " ").slice(0, 200)}`);
     traces.slice(n).forEach(t => console.log("   trace", JSON.stringify(t)));
+    const failedRuns = await js(`${ranFailed}.length`);
+    if (failedRuns) console.log("   (commands that ran and failed so far:", failedRuns + ")");
     return { acts: traces.slice(n).filter(x => x.verdict), cards: await cards() - c0 };
   };
   const edit = x => /^파일 (수정|생성|삭제)/.test(x.action);
@@ -906,6 +914,8 @@ async function uiCheck() {
   if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "ui-stage.png"), (await win.capturePage()).toPNG());
   await js(`pabloHost.setUi("T1", "view", "target").then(() => ${redraw})`); await sleep(300);
   assert.ok(await js(`document.querySelectorAll("#log > .targetgroup").length >= 2 && !!document.querySelector('#log > .targetgroup[data-target="파일 · config.yaml"]')`), "대상별: grouped by file / [n]");
+  // QA 10/26 (D5): the audit card's other files get their group, with a line back to the card under its first target
+  assert.ok(await js(`!!document.querySelector('#log > .targetgroup[data-target="파일 · logs/2wiki.log"] [data-also]')`), "대상별: a message's other targets lead to it");
   await js(`pabloHost.setUi("T1", "view", "time").then(() => ${redraw})`); await sleep(300);
   const key = await js(`document.querySelector("#log .msg[data-key] [data-tag-edit]").closest(".msg").dataset.key`);
   await js(`(m => { m.querySelector("[data-tag-edit]").click(); const ed = m.querySelector(".tagedit");
@@ -917,6 +927,18 @@ async function uiCheck() {
   await js(`pabloHost.setUi("T1", "tags", {}).then(() => ${redraw})`); await sleep(300);
   assert.ok(await js(`!document.querySelector("#log [data-decision]")`), "a person's tag goes away when cleared");
   console.log("ok views: 단계별 (one box per stage), 대상별 (by file / [n]), back to 시간순; a person's stage + 결정 kept in desktop.json and shown, then cleared");
+  // QA 10/26 (D4): the panel as this task left it, when the task is opened again in the same run (before the next state read)
+  await js(`show({ mode: "plan" })`); await sleep(200);
+  await js(`select(V.task.id)`); await sleep(200);
+  assert.deepStrictEqual(await js(`[document.body.classList.contains("panel"), hist[hi] && hist[hi].mode]`), [true, "plan"], "the panel is remembered within a run");
+  await js(`close()`); await sleep(200);
+  // (D6): Esc closes the source card first and leaves the right column as it was
+  await js(`show({ mode: "intent" })`); await js(`document.querySelector(".statechip").click()`);
+  await js(`dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+  assert.deepStrictEqual(await js(`[$("srccard").hidden, document.body.classList.contains("panel")]`), [true, true], "Esc: the card, not the panel");
+  await js(`dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+  assert.ok(await js(`!document.body.classList.contains("panel")`), "Esc again: the panel");
+  console.log("ok panel remembered within a run; Esc closes the source card, then the panel");
   const order = await js(`[...document.querySelectorAll("#log .msg")].map(m => { const c = m.querySelector(".call[data-id]"),
     s = m.querySelector(".stream"), a = m.querySelector(".asked");
     return c ? "CARD " + c.dataset.id : s ? "AGENT " + s.textContent : a ? "ASK " + a.textContent.trim() : m.querySelector("[data-spec]") ? "SPEC" : m.querySelector("[data-audit]") ? "AUDIT"
