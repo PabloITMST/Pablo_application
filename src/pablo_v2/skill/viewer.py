@@ -692,6 +692,22 @@ body.rail:not(.panel) { grid-template-columns:220px minmax(0, 1fr) 72px; }
 body:not(.panel) #ptabs { flex-direction:column; gap:4px; padding:12px 6px; border-bottom:0; }
 body:not(.panel) .ptab { border-bottom:0; border-radius:2px; padding:8px 2px; } body:not(.panel) .ptab b { font-size:13px; }
 body:not(.panel) .ptab .long { display:none; } body:not(.panel) .ptab .short { display:block; }
+/* P5 / P6: tag editing, the view bar, stage and target groups */
+.tg.manual { background:none; border:1px solid var(--signal); color:var(--ink); } .tg.stage.mine { box-shadow:inset 0 0 0 1px var(--signal); }
+.tagbtn { font-size:11px; color:var(--ink-3); padding:0 4px; } .tagbtn:hover { color:var(--ink); text-decoration:underline; }
+.tagedit { flex-basis:100%; margin-top:6px; padding:12px 14px; border:1px solid var(--signal); border-radius:2px; background:var(--surface);
+  display:flex; flex-direction:column; gap:8px; font-size:13px; } .te-st { display:flex; flex-wrap:wrap; gap:4px 14px; }
+.te-st small { color:var(--ink-3); } .te-foot { display:flex; gap:8px; justify-content:flex-end; }
+#viewbar { display:flex; gap:4px; align-items:center; margin-top:6px; font-size:12px; }
+#viewbar .vtab { padding:2px 10px; border-radius:2px; font-size:12px; color:var(--ink-2); } #viewbar .vtab.on { background:var(--primary); color:var(--on-primary); }
+#viewbar .vtab:hover:not(.on):not(:disabled) { background:var(--raised); }
+.stagegroup, .targetgroup { max-width:760px; margin:0 auto 16px; padding:12px 16px; border:1px solid var(--line-soft); border-radius:2px; background:var(--surface); }
+.stagegroup.st-now { border-color:var(--ink); } .stagegroup.st-later { border-style:dashed; color:var(--ink-3); } .stagegroup.st-past { background:var(--canvas); }
+.sg-head { display:flex; gap:8px; align-items:baseline; } .sg-head small, .targetgroup summary small { color:var(--ink-3); font:11px/1.4 var(--mono); }
+.sg-sum { margin:8px 0 0; font-size:14px; } .sg-dec { list-style:none; margin:8px 0 0; padding:0; font-size:13px; } .sg-dec li { margin:3px 0; }
+.sg-msgs { margin-top:10px; } .sg-msgs > summary, .targetgroup > summary { cursor:pointer; font-size:12px; color:var(--ink-2); display:flex; gap:8px; align-items:center; }
+.sg-msgs[open] > summary, .targetgroup[open] > summary { margin-bottom:14px; }
+.sg-edit { width:100%; border:1px solid var(--line-soft); border-radius:2px; padding:8px 10px; background:var(--surface); font:inherit; }
 /* P7: kinds in the new task form, the settings dialog */
 .kinds { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 4px; }
 .kind { flex:1 1 180px; display:grid; grid-template-columns:auto 1fr; gap:2px 8px; align-items:center; padding:10px 12px;
@@ -1373,14 +1389,76 @@ function stageOfRole(role, kind) {
   if (kind === "read") return r === "start" || /^spec/.test(r) ? "준비" : r === "compare" ? "비교표" : r === "report" ? "정리" : "질문";
   return r === "start" ? "준비" : r === "report" ? "검토" : "작업";
 }
-function tagRow(el, stage) {
+const STAGE_LIST = { repro: ["준비", "조건 확정", "구현·실행", "재현 점검", "보고서"], read: ["준비", "질문", "비교표", "정리"], general: ["준비", "작업", "검토"] };
+// o: the person's override for this message (P5: {stage, decision}); auto: the stage Pablo computed
+function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
   const body = el.children && el.children[1]; if (!body || body.querySelector(":scope > .tags")) return;
   const files = [...new Set([...el.querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))];
   const refs = [...new Set([...el.querySelectorAll(".cite")].map(c => c.textContent))];
-  const shown = [...files.slice(0, 2).map(f => "파일 · " + f), ...refs.slice(0, 2).map(r => "근거 · " + r)];
-  const more = Math.max(0, files.length - 2) + Math.max(0, refs.length - 2);
-  body.append(h("div", { class: "tags" }, h("span", { class: "tg stage" }, stage), ...shown.map(t => h("span", { class: "tg" }, t)),
-    more ? h("small", { class: "more" }, `· ${more}개 더`) : null));
+  const targets = [...files.map(f => "파일 · " + f), ...refs.map(r => "근거 · " + r)]; el.dataset.targets = JSON.stringify(targets);
+  const shown = all ? targets : [...files.slice(0, 2).map(f => "파일 · " + f), ...refs.slice(0, 2).map(r => "근거 · " + r)];
+  const more = all ? 0 : Math.max(0, files.length - 2) + Math.max(0, refs.length - 2);
+  const row = h("div", { class: "tags", "data-auto": auto }, h("span", { class: "tg stage" + (o.stage ? " mine" : ""), title: o.stage ? `사람이 고침 (자동: ${auto})` : null }, stage),
+    o.decision ? h("span", { class: "tg manual", "data-decision": "1" }, "결정") : null, ...shown.map(t => h("span", { class: "tg tgt" }, t)),
+    more ? h("small", { class: "more" }, `· ${more}개 더`) : null);
+  if (key && window.pabloHost && pabloHost.setUi) row.append(h("button", { class: "tagbtn", "data-tag-edit": "1", title: "이 메시지의 태그 고치기",
+    on: () => tagEdit(row, key, stage, o) }, "✎ 태그"));
+  body.append(row);
+}
+// P5: the person changes a message's stage or pins it as a decision; that wins over what Pablo computes, on every redraw
+function tagEdit(row, key, stage, o) {
+  const old = row.querySelector(".tagedit"); if (old) return old.remove();
+  const names = STAGE_LIST[kindOf()] || STAGE_LIST.general, task = V.task.id;
+  const ed = h("div", { class: "tagedit" }, h("b", null, "이 메시지의 태그"),
+    h("div", { class: "te-st" }, names.map(n => h("label", null, h("input", { type: "radio", name: "te-" + key, value: n, checked: n === stage ? true : null }), " ", n,
+      n === row.dataset.auto ? h("small", null, " (자동)") : null))),
+    h("label", { class: "te-dec" }, h("input", { type: "checkbox", checked: o.decision ? true : null }), " 결정으로 고정 — 단계별 보기의 결정 목록과 보고서의 근거가 됩니다"),
+    h("p", { class: "muted" }, "사람이 고친 태그는 다시 계산해도 바뀌지 않습니다."),
+    h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => ed.remove() }, "취소"), h("button", { class: "pill on", "data-tag-save": "1", on: () => {
+      const st = (ed.querySelector("input[type=radio]:checked") || {}).value || stage, dec = ed.querySelector("input[type=checkbox]").checked;
+      const tags = { ...(((M.desk || {})[task] || {}).tags || {}) }, v = { ...(st !== row.dataset.auto ? { stage: st } : {}), ...(dec ? { decision: true } : {}) };
+      if (Object.keys(v).length) tags[key] = v; else delete tags[key];
+      pabloHost.setUi(task, "tags", tags).then(() => refresh()).then(() => V && V.task.id === task && conversation()); } }, "저장")));
+  row.append(ed);
+}
+const firstText = el => { const p = el.querySelector("p"); return (p ? p.textContent : el.textContent).replace(/\s+/g, " ").trim().slice(0, 90); };
+// P6 단계별: one box per stage; past ones show a summary (the person's text wins over the record-based one) and the
+// decisions, their messages folded; the current stage is open; stages not reached yet are placeholders
+function byStage(log, rows, kind, D) {
+  const names = STAGE_LIST[kind] || STAGE_LIST.general, cur = (document.querySelector("#stages .st-current b") || {}).textContent;
+  const ci = names.indexOf(cur), can = window.pabloHost && pabloHost.setUi;
+  names.forEach((n, i) => {
+    const mine = rows.filter(r => r[1] === n), msgs = mine.filter(r => r[0].classList && r[0].classList.contains("msg")), decs = mine.filter(r => r[2].decision);
+    const files = new Set(mine.flatMap(r => [...r[0].querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))).size;
+    const facts = msgs.length ? [`메시지 ${msgs.length}`, decs.length ? `결정 ${decs.length}` : null, files ? `파일 ${files}` : null].filter(Boolean).join(" · ") : "아직 대화가 없습니다";
+    // a stage with messages is never 아직, whatever the stage bar computes from the material (진행: talked about, not done)
+    const state = i === ci ? "지금" : !msgs.length ? (ci >= 0 && i < ci ? "완료" : "아직") : ci >= 0 && i < ci ? "완료" : "진행", own = (D.summary || {})[n];
+    const sum = h("div", { class: "sg-sum" }, own ? [h("span", { class: "tg manual" }, "사람이 고침"), " ", own] : h("span", { class: "muted" }, "기록 요약 — " + facts),
+      can && msgs.length ? [" ", h("button", { class: "link", "data-summary-edit": n, on: () => summaryEdit(sum, n, own || "") }, "✎ 요약 고치기")] : null);
+    log.append(h("div", { class: "stagegroup st-" + (state === "지금" || state === "진행" ? "now" : state === "아직" ? "later" : "past"), "data-stage": n },
+      h("div", { class: "sg-head" }, h("span", { class: "tg stage" }, n), h("b", null, state), h("small", null, facts)), sum,
+      decs.length ? h("ul", { class: "sg-dec" }, decs.map(r => h("li", null, h("span", { class: "tg manual" }, "결정"), " ", firstText(r[0])))) : null,
+      mine.length ? h("details", { class: "sg-msgs", open: state === "지금" || state === "진행" ? true : null }, h("summary", null, `대화 ${msgs.length}`), mine.map(r => r[0])) : null));
+  });
+  rows.filter(r => !names.includes(r[1])).forEach(r => log.append(r[0]));
+}
+function summaryEdit(sum, n, cur) {
+  const task = V.task.id, ta = h("textarea", { class: "sg-edit", rows: 3 }); ta.value = cur;
+  sum.replaceChildren(ta, h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => conversation() }, "취소"),
+    h("button", { class: "pill on", "data-summary-save": n, on: () => { const all = { ...(((M.desk || {})[task] || {}).summary || {}) }, t = ta.value.trim();
+      if (t) all[n] = t; else delete all[n];
+      pabloHost.setUi(task, "summary", all).then(() => refresh()).then(() => V && V.task.id === task && conversation()); } }, "저장")));
+  ta.focus();
+}
+// P6 대상별: grouped by what each message is about (its first file or [n]); the rest under 대상 없음
+function byTarget(log, rows) {
+  const groups = new Map(), rest = [];
+  rows.forEach(r => { const x = r[0]; if (!(x.classList && x.classList.contains("msg"))) return rest.push(x);
+    const t = JSON.parse(x.dataset.targets || "[]")[0] || "대상 없음"; if (!groups.has(t)) groups.set(t, []); groups.get(t).push(r); });
+  [...groups].sort((a, b) => (a[0] === "대상 없음") - (b[0] === "대상 없음") || b[1].length - a[1].length).forEach(([t, rs], i) =>
+    log.append(h("details", { class: "targetgroup", "data-target": t, open: i === 0 ? true : null },
+      h("summary", null, h("span", { class: "tg" + (t === "대상 없음" ? "" : " tgt") }, t), h("small", null, `대화 ${rs.length}`)), rs.map(r => r[0]))));
+  rest.forEach(x => log.append(x));
 }
 // a stage in the stage bar: only that stage's messages (and its dividers) stay; again -> all
 function stageFilter(label) {
@@ -1401,22 +1479,31 @@ function conversation() {
   if (busy !== V.task.id) delete lives[V.task.id];  // what was said is in the chat log; only a running turn stays live
   const chat = V.chat || [], asked = new Set(chat.map(c => c.check).filter(Boolean)), research = answer(asked);
   const kind = kindOf(), sg = r => stageOfRole(r, kind);
-  const at = x => new Date(x || 0).getTime(), t0 = at(V.task.at), items = [[t0, msg("You", V.task.at, h("p", null, V.task.text)), sg("start")]];
-  if (research.length) items.push([t0, msg("Pablo", null, research), sg("start")]);
+  const at = x => new Date(x || 0).getTime(), t0 = at(V.task.at), items = [[t0, msg("You", V.task.at, h("p", null, V.task.text)), sg("start"), "start"]];
+  if (research.length) items.push([t0, msg("Pablo", null, research), sg("start"), "research"]);
   const inLog = new Set(chat.flatMap(c => c.role === "spec" ? [...(c.checks || []), ...(c.missing || [])] : c.role === "spec-add" ? [c.check] : []));
   const loose = V.research.filter(id => V.checks[id].spec && V.checks[id].state !== "waived" && !inLog.has(id));
-  if (loose.length) items.push([t0, msg("Pablo", null, conditions(loose, 0)), sg("spec")]);
-  issues().forEach(x => items.push([t0, msg("Pablo", null, x), sg("start")]));
-  chat.forEach(c => said(c).forEach(x => items.push([at(c.at), x, sg(c.role)])));
+  if (loose.length) items.push([t0, msg("Pablo", null, conditions(loose, 0)), sg("spec"), "spec-loose"]);
+  issues().forEach((x, i) => items.push([t0, msg("Pablo", null, x), sg("start"), "issue@" + i]));
+  chat.forEach(c => said(c).forEach(x => items.push([at(c.at), x, sg(c.role), c.role + "@" + c.at])));  // a message's key: role@time
   V.actions.forEach(a => { if (live().querySelector(`[data-act="${CSS.escape(a.id)}"]`)) return;  // its live card is below
-    const x = a.verdict === "ALLOW" ? failed(a) : action(a); if (x) items.push([at(a.at), msg("Pablo", null, x), sg("action")]); });
-  let prev = null;  // stable sort: same time keeps the order above
-  items.sort((x, y) => x[0] - y[0]).forEach(([, x, s]) => {
-    if (s && x.classList && x.classList.contains("msg")) {
-      if (s !== prev) log.append(h("div", { class: "divider", "data-stage": s }, h("span", { class: "tg stage" }, s)));
-      prev = s; x.dataset.stage = s; tagRow(x, s);
-    }
-    log.append(x); });
+    const x = a.verdict === "ALLOW" ? failed(a) : action(a); if (x) items.push([at(a.at), msg("Pablo", null, x), sg("action"), "act:" + a.id]); });
+  // P5: the person's tags win; P6: the view (시간순 by default; the task's choice, else the settings')
+  const D = (M.desk || {})[V.task.id] || {}, over = D.tags || {}, view = D.view || (M.settings || {}).view || "time";
+  const allTags = (M.settings || {}).tags === "all";
+  const rows = items.sort((x, y) => x[0] - y[0]).map(([, x, s, key]) => {  // stable sort: same time keeps the order above
+    const o = over[key] || {}, st = o.stage || s;
+    if (st && x.classList && x.classList.contains("msg")) { x.dataset.stage = st; x.dataset.key = key; tagRow(x, st, key, o, s, allTags); }
+    return [x, st, o]; });
+  if (view === "stage") byStage(log, rows, kind, D);
+  else if (view === "target") byTarget(log, rows);
+  else { let prev = null;
+    rows.forEach(([x, s]) => {
+      if (s && x.classList && x.classList.contains("msg")) {
+        if (s !== prev) log.append(h("div", { class: "divider", "data-stage": s }, h("span", { class: "tg stage" }, s)));
+        prev = s;
+      }
+      log.append(x); }); }
   if (V.intent.questions.length) log.append(msg("Pablo", null, h("div", { class: "call" },
     h("p", { class: "head" }, "⚠ 결정이 필요합니다."),
     V.intent.questions.map(q => /^K\d+$/.test(q.id) ? held(q, V.task.id) : h("p", { title: q.id, "data-id": q.id }, rich(q.text))),
@@ -2285,6 +2372,11 @@ if (window.pabloHost && pabloHost.chat) {
         h("span", { class: "st-n" }, s.state === "done" ? "✓" : s.state === "stale" ? "!" : String(i + 1)),
         h("span", { class: "st-t" }, h("b", null, s.label), h("small", null, s.sub), s.act || null))].filter(Boolean)).flat(),
       more.length ? h("span", { class: "st-more" }, ...more) : null));
+    // P6: how the conversation is grouped (the task's choice, else the settings'; 시간순 by default)
+    const view = d.view || (M.settings || {}).view || "time";
+    bar.append(h("div", { id: "viewbar" }, h("span", { class: "muted" }, "보기"), ...[["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]].map(([v, t]) =>
+      h("button", { class: "vtab" + (view === v ? " on" : ""), "data-view": v, disabled: !pabloHost.setUi,
+        on: () => view !== v && pabloHost.setUi(V.task.id, "view", v).then(() => refresh()).then(() => conversation()) }, t))));
     box.querySelectorAll("#route").forEach(x => x.remove());  // 보낼 곳 lives in the composer, after the send button (it stays the first button)
     if (routeEl) box.append(routeEl);
   };

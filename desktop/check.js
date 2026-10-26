@@ -886,6 +886,27 @@ async function uiCheck() {
     const second = `(s => s && s.click())(document.querySelectorAll("#stages .stage")[1])`;
     await js(second); await snap("ui-filter"); await js(second);
   }
+  // UI renewal P5 / P6: the stage and target views, a person's tag (stage + 결정) that wins on a redraw; all undone after
+  const redraw = `refresh().then(() => conversation())`;
+  const settle = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
+  const general = await js(`kindOf()`), names = { repro: 5, read: 4, general: 3 }[general];
+  await js(`pabloHost.setUi("T1", "view", "stage").then(() => ${redraw})`); await sleep(300);
+  assert.strictEqual(await js(`document.querySelectorAll("#log > .stagegroup").length`), names, "단계별: one box per stage of the task's kind");
+  assert.strictEqual(await js(`document.querySelector('#viewbar [data-view="stage"]').classList.contains("on")`), true);
+  if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "ui-stage.png"), (await win.capturePage()).toPNG());
+  await js(`pabloHost.setUi("T1", "view", "target").then(() => ${redraw})`); await sleep(300);
+  assert.ok(await js(`document.querySelectorAll("#log > .targetgroup").length >= 2 && !!document.querySelector('#log > .targetgroup[data-target="파일 · config.yaml"]')`), "대상별: grouped by file / [n]");
+  await js(`pabloHost.setUi("T1", "view", "time").then(() => ${redraw})`); await sleep(300);
+  const key = await js(`document.querySelector("#log .msg[data-key] [data-tag-edit]").closest(".msg").dataset.key`);
+  await js(`(m => { m.querySelector("[data-tag-edit]").click(); const ed = m.querySelector(".tagedit");
+    ed.querySelectorAll("input[type=radio]")[1].checked = true; ed.querySelector("input[type=checkbox]").checked = true;
+    ed.querySelector("[data-tag-save]").click(); })(document.querySelector('#log .msg[data-key="${key}"]'))`);
+  await settle(`(m => m && !!m.querySelector("[data-decision]"))(document.querySelector('#log .msg[data-key="${key}"]'))`);
+  if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "ui-tagged.png"), (await win.capturePage()).toPNG());
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")).tags.T1[key], { stage: await js(`STAGE_LIST[kindOf()][1]`), decision: true });
+  await js(`pabloHost.setUi("T1", "tags", {}).then(() => ${redraw})`); await sleep(300);
+  assert.ok(await js(`!document.querySelector("#log [data-decision]")`), "a person's tag goes away when cleared");
+  console.log("ok views: 단계별 (one box per stage), 대상별 (by file / [n]), back to 시간순; a person's stage + 결정 kept in desktop.json and shown, then cleared");
   const order = await js(`[...document.querySelectorAll("#log .msg")].map(m => { const c = m.querySelector(".call[data-id]"),
     s = m.querySelector(".stream"), a = m.querySelector(".asked");
     return c ? "CARD " + c.dataset.id : s ? "AGENT " + s.textContent : a ? "ASK " + a.textContent.trim() : m.querySelector("[data-spec]") ? "SPEC" : m.querySelector("[data-audit]") ? "AUDIT"
