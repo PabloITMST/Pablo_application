@@ -914,6 +914,129 @@ pre.diff, pre.cmd { background:var(--a4); border-radius:var(--r-ctl); }
 #adder #arxiv:focus { outline:none; border-color:var(--ink-3); }
 /* end A2 · conversation */
 /* A2 · right column, panels, dialogs, empty state  (agent C) */
+/* tabs, open: a segmented bar (ink 5% frame, the open tab a white cell with an orange dot) */
+#ptabs { margin:10px 10px 0; padding:4px; gap:2px; background:var(--a5); border-radius:12px; border-bottom:0; }
+.ptab { border-bottom:0; border-radius:9px; padding:7px 10px; align-items:flex-start; text-align:left; gap:0; line-height:1.35; }
+.ptab b { display:flex; align-items:center; gap:6px; font:500 13px/1.4 var(--sans); color:var(--ink-2); }
+.ptab small { font:11px/1.4 var(--sans); color:var(--ink-3); }
+.ptab:hover:not(:disabled) { background:var(--a5); }
+.ptab.on, .ptab.on:hover:not(:disabled) { background:var(--white); box-shadow:var(--sh-sm); }
+.ptab.on b { font-weight:600; color:var(--ink); }
+.ptab.on b::before { content:""; flex:none; width:6px; height:6px; border-radius:50%; background:var(--signal); }
+.ptab.on small { color:var(--ink-2); }
+/* tabs, closed: the rail */
+body:not(.panel) #ptabs { margin:0; padding:10px 6px; gap:4px; background:none; border-radius:0; }
+body:not(.panel) .ptab { flex:none; border-radius:10px; padding:8px 2px; align-items:center; text-align:center; }
+body:not(.panel) .ptab b { font-size:12px; font-weight:600; color:var(--ink); justify-content:center; }
+body:not(.panel) .ptab small { font:11px/1.4 var(--mono); color:var(--ink-3); }
+/* panel head: no rule; icon buttons for close, back / forward, page turns */
+.phead { border-bottom:0; padding:14px 12px 6px 18px; gap:4px; min-height:48px; }
+.phead h2 { font:600 15px/1.4 var(--sans); color:var(--ink); }
+.x, .nav, .ext { flex:none; width:28px; height:28px; padding:0; display:inline-grid; place-items:center; border-radius:var(--r-ctl);
+  color:var(--ink-3); font-size:16px; line-height:1; text-decoration:none; }
+.nav, .ext { color:var(--ink-2); }
+.x:hover, .nav:hover:not(:disabled), .ext:hover { background:var(--a5); color:var(--ink); text-decoration:none; }
+.url { margin:0 4px; background:var(--a5); border-radius:var(--r-ctl); padding:5px 10px; font-size:12px; line-height:1.5; color:var(--ink-2); }
+.url .ico { color:var(--ink-3); margin-right:6px; } .url .em { display:none; } .url b { font-weight:600; color:var(--ink); }
+.phead .open { font:600 12px/1.4 var(--sans); padding:5px 6px; border-radius:var(--r-ctl); }
+.phead .open:hover { background:var(--a5); text-decoration:none; }
+.pnum { font:11px/1.4 var(--mono); color:var(--ink-2); padding:0 2px; }
+#pbody { padding:6px 14px 16px; }
+#pbody h3 { font:600 12px/1.4 var(--sans); color:var(--ink-2); margin:18px 2px 8px; }
+#pbody h3:first-child { margin-top:6px; }
+#pbody > p.muted, #pbody > .muted { font-size:12px; color:var(--ink-2); margin:12px 2px; }
+/* info line under the head: a soft bar; stale / unresolved / broken in the signal tint */
+.info { margin:0 14px 8px; padding:7px 12px; border:0; border-radius:var(--r-ctl); background:var(--a4); color:var(--ink-2); font-size:12px; line-height:1.5; }
+.info.STALE, .info.UNRESOLVED, .info.broken { background:var(--signal-soft); color:var(--ink); }
+/* 기준: each list a white card, rows on hairlines, no markers; a row's buttons show on hover / focus */
+#panel ul.ck { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); overflow:hidden; }
+#panel ul.ck > li { padding:10px 12px; border-top:1px solid var(--a6); font-size:14px; line-height:1.55; }
+#panel ul.ck > li:first-child { border-top:0; }
+#panel ul.ck > li::before { content:none; }
+#panel ul.ck .all { font:500 11px/1.6 var(--sans); color:var(--signal); background:var(--signal-soft); border-radius:var(--r-tag);
+  padding:0 6px 0 3px; margin-left:4px; white-space:nowrap; vertical-align:1px; }
+#panel ul.ck .muted { font-size:12px; color:var(--ink-2); }
+#panel ul.ck .chk.dev { display:block; margin:4px 0 0; font-size:12px; color:var(--ink-2); white-space:normal; }
+.ck .note { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; font-size:12px; color:var(--ink-2); }
+/* (opacity, not display: tests .click() them; out of the flow so a hidden group takes no width from the text) */
+#panel ul.ck > li { position:relative; }
+#panel ul.ck .edits, #panel ul.ck .acts { font-size:12px; color:var(--ink-3); opacity:0; transition:opacity .12s; }
+#panel ul.ck > li > .edits, #panel ul.ck > li > .acts { position:absolute; right:6px; bottom:6px; padding:2px 6px 2px 18px;
+  background:linear-gradient(90deg, transparent, var(--white) 14px); border-radius:0 var(--r-ctl) var(--r-ctl) 0; }
+#panel ul.ck li:hover .edits, #panel ul.ck li:hover .acts, #panel ul.ck li:focus-within .edits, #panel ul.ck li:focus-within .acts,
+#panel ul.ck .edits:has(input, select, .muted), #panel ul.ck .acts:has(input, select, .muted) { opacity:1; }
+#panel ul.ck > li > .edits:has(input, select, .muted), #panel ul.ck > li > .acts:has(input, select, .muted) { position:static; display:block;
+  margin-top:6px; padding:0; background:none; white-space:normal; }
+#panel ul.ck .edits:has(input, select) { white-space:normal; }
+#panel ul.ck .edits .link { font-size:12px; font-weight:600; color:var(--ink-3); } #panel ul.ck .edits .link:hover { color:var(--ink); }
+#panel ul.ck .edits .why { border:1px solid var(--a12); border-radius:var(--r-ctl); padding:3px 8px; background:var(--white); color:var(--ink);
+  width:min(250px, 100%); font-size:12px; outline:none; margin:2px 0; } #panel ul.ck .edits select.why { width:auto; max-width:100%; }
+#panel ul.ck .edits .why:focus { border-color:var(--ink-3); }
+#panel ul.ck .edits .why.need { border-color:var(--signal); box-shadow:0 0 0 3px var(--signal-soft); }
+#panel h4.kind { display:block; border:0; border-radius:0; padding:0; margin:14px 2px 6px; background:none; cursor:auto;
+  font:600 12px/1.4 var(--sans); color:var(--ink-2); }
+#panel details.gone { margin-top:14px; }
+#panel details.gone > summary { list-style:none; display:flex; align-items:center; gap:4px; padding:4px 2px; margin-bottom:6px;
+  font:500 12px/1.4 var(--sans); color:var(--ink-2); }
+#panel details.gone > summary::-webkit-details-marker { display:none; }
+#panel details.gone > summary .ico { color:var(--ink-3); transition:transform .12s; } #panel details.gone[open] > summary .ico { transform:rotate(90deg); }
+#panel details.gone s { color:var(--ink-3); }
+#pbody [data-how], #pbody p.muted:has([data-open-paper]) { font-size:12px; color:var(--ink-2); margin:12px 2px 0; }
+#pbody [data-open-paper] .ico { margin-right:2px; }
+.pfoot { border-top:0; padding:8px 14px 14px; }
+#panel .pfoot .composer { width:100%; max-width:none; margin:0; background:var(--white); border:1px solid var(--a12); border-radius:var(--r-in);
+  padding:6px 6px 6px 12px; box-shadow:none; }
+#panel .pfoot .composer button { width:28px; height:28px; border-radius:var(--r-ctl); background:var(--primary); color:var(--on-primary);
+  display:grid; place-items:center; }
+/* 계획: a card of steps; done a check, the current step orange, the rest their number */
+#panel ol.steps { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); overflow:hidden; }
+#panel ol.steps li { grid-template-columns:20px 1fr; gap:2px 10px; padding:10px 12px; border-bottom:0; border-top:1px solid var(--a6); font-size:14px; line-height:1.55; }
+#panel ol.steps li:first-child { border-top:0; }
+#panel ol.steps .i { display:grid; place-items:center; height:22px; font:500 11px/1 var(--mono); color:var(--ink-3); }
+#panel ol.steps .done .i { color:var(--ink); } #panel ol.steps .doing .i { color:var(--signal); font-weight:700; }
+#panel ol.steps .sub { font-size:12px; color:var(--ink-2); }
+/* 왜?: the timeline */
+.tl li { padding:0 0 18px 24px; }
+.tl li::before { left:4px; top:12px; bottom:-6px; border-left:2px solid var(--a8); }
+.tl li::after { left:0; top:5px; width:10px; height:10px; background:var(--white); border:2px solid var(--ink-3); }
+.tl li.ev::after { border-color:var(--ink); } .tl li.warn::after { border-color:var(--signal); }
+.tl li.stop::after { border-color:var(--ink); background:var(--ink); }
+.tl .k { font:600 13px/1.5 var(--sans); color:var(--ink); } .tl .v { font-size:13px; line-height:1.55; color:var(--ink-2); }
+.tl li.ev .v:hover { color:var(--ink); }
+/* evidence views: the PDF page on the canvas, code on white, the sentence picker */
+#pbody.pdf { background:var(--canvas); }
+.pg { border-radius:4px; box-shadow:var(--sh-md); } .pg canvas { border-radius:4px; }
+#pbody.code { background:var(--white); border-top:1px solid var(--a6); }
+.src .n { color:var(--ink-3); } .src .ln.on { background:var(--signal-soft); }
+#pick { background:var(--white); border-top:1px solid var(--a8); padding:10px 14px; gap:8px; }
+#pick input, #pick select { border:1px solid var(--a12); border-radius:var(--r-ctl); padding:4px 8px; background:var(--white); }
+#pick .q { color:var(--ink-2); }
+/* new task form */
+#goal { display:block; margin:8px 0 0; background:var(--white); border:1px solid var(--a12); border-radius:var(--r-in); padding:10px 12px;
+  line-height:1.55; outline:none; }
+#goal:focus { border-color:var(--ink-3); box-shadow:0 0 0 3px var(--a5); }
+.kinds { gap:8px; margin:12px 0 6px; }
+.kinds .kind { border:1px solid var(--a8); border-radius:var(--r-card); background:var(--white); padding:12px 14px; }
+.kinds .kind:hover { border-color:var(--a12); }
+.kinds .kind:has(input:checked) { border:1.5px solid var(--ink); background:var(--white); padding:11.5px 13.5px; }
+.kinds .kind input { accent-color:var(--ink); margin:0; }
+.kinds .kind b { font:600 14px/1.4 var(--sans); } .kinds .kind small { color:var(--ink-2); font-size:12px; }
+[data-kind-stages] { font-size:12px; color:var(--ink-2); }
+/* settings dialog */
+#settings { background:rgba(13,14,16,.45); }
+.set-box { background:var(--surface); border:1px solid var(--a8); border-radius:var(--r-dlg); box-shadow:var(--sh-lg); padding:20px 24px; gap:14px; }
+.set-head { font:600 17px/1.4 var(--sans); }
+.set-row { border-top:1px solid var(--a6); padding-top:14px; }
+.set-row b { font-size:14px; font-weight:600; } .set-row small { color:var(--ink-2); font-size:12px; margin-top:2px; }
+.set-opts label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+#settings input[type=radio], #settings input[type=checkbox] { accent-color:var(--ink); margin:0; }
+.set-foot { padding-top:4px; }
+/* first run */
+.empty { margin:16vh auto 0; padding:0 16px; text-align:center; color:var(--ink-2); }
+.empty b { font:700 22px/1.35 var(--sans); color:var(--ink); margin-bottom:6px; }
+.empty p { margin:0 0 18px; font-size:14px; }
+.empty .pill { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; }
+.empty .card { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); }
 /* end A2 · right column */
 @media (max-width:900px) {
   body { padding:0; } #chat { height:100vh; border-radius:0; border:0; }
@@ -1732,7 +1855,7 @@ function select(tid) {
 function empty() {
   const log = $("log"); log.textContent = ""; document.title = "Pablo";
   log.append(h("div", { class: "empty" }, art("default"), h("b", null, "무엇을 해볼까요?"), h("p", null, "새 작업을 만들어 시작하세요."),
-    window.pabloHost && pabloHost.newTask ? h("button", { class: "pill on", on: () => newTask() }, "+ 새 작업") : null));
+    window.pabloHost && pabloHost.newTask ? h("button", { class: "pill on", on: () => newTask() }, ico("plus", 14), "새 작업") : null));
 }
 let tools = () => {}, newTask = () => {}, refresh = () => Promise.resolve();  // desktop only (M5.1): task tools, new task form, live state
 
@@ -1754,10 +1877,16 @@ function close() {
   if (V) { header(); rememberPanel(); }
 }
 const go = d => { if (hist[hi + d]) { hi += d; show(hist[hi], false); } };
-const xbtn = () => h("button", { class: "x", title: "닫기", on: close }, "×");
+// A2: the panel's chrome is line icons; closing folds the panel into the rail (panel-right). An icon has no text.
+const turned = (name, deg, size) => { const s = ico(name, size); s.style.transform = `rotate(${deg}deg)`; return s; };
+const xbtn = () => h("button", { class: "x", title: "닫기", on: close }, ico("panel-right"));
+const navs = () => [h("button", { class: "nav", title: "뒤로", disabled: hi <= 0, on: () => go(-1) }, turned("arrow-up", -90)),
+  h("button", { class: "nav", title: "앞으로", disabled: hi >= hist.length - 1, on: () => go(1) }, turned("arrow-up", 90))];
+// .url keeps its emoji in textContent (tests read "📄 TinyRAG · PDF"); on screen the line icon stands for it
+const urlIco = (name, emoji) => [ico(name, 14), h("span", { class: "em" }, emoji)];
 const simple = (p, title, body, foot) => p.append(h("div", { class: "phead" }, h("h2", null, title), xbtn()),
   h("div", { id: "pbody" }, body), foot ? h("div", { class: "pfoot" }, h("div", { class: "composer" },
-    h("input", { disabled: true, placeholder: foot }), h("button", { disabled: true }, "↑"))) : "");  // append(null) prints "null"
+    h("input", { disabled: true, placeholder: foot }), h("button", { disabled: true }, ico("arrow-up", 14)))) : "");  // append(null) prints "null"
 
 // ⑩ (desktop) a paper condition's 빼기: why first (whoever reads the audit or the report sees it), then the Guard, the
 // brief and 재현 점검 stop holding it; 되살리기 puts it back
@@ -1840,17 +1969,17 @@ function intent(p) {
   const out = V.research.map(id => V.checks[id]).filter(c => c.spec && c.state === "waived" && c.waived_by === "user");
   const d = (M.desk || {})[V.task.id] || {}, main = (d.papers || []).find(x => x.primary), canEdit = window.pabloHost && pabloHost.condition;
   const pick = canEdit && main && (M.papers || {})[main.id] ? h("p", { class: "muted" }, h("button", { class: "link", "data-open-paper": main.id,
-    on: () => show({ mode: "paper", src: main.id }) }, `📄 ${main.title} 열기`), " · 빠진 조건은 문장을 골라 더합니다.") : null;
+    on: () => show({ mode: "paper", src: main.id }) }, ico("file", 14), ` ${main.title} 열기`), " · 빠진 조건은 문장을 골라 더합니다.") : null;
   const code = main ? codeLine(main.id, V.task.id) : null;
   const row = c => h("li", { title: c.id, "data-id": c.id }, fact(c),
     c.spec.by === "user" ? h("small", { class: "muted", "data-by-user": "1" }, " 직접 더함") : null,
     ASIDE[c.spec.kind] ? h("small", { class: "muted", "data-aside": c.spec.kind }, c.spec.kind === "fact" ? " 서술 · 점검 안 함" : " 실험 범위 · 점검 안 함") : null,
     devOf(c) ? h("div", { class: "chk dev", "data-dev": c.id }, `◇ 의도한 차이(${WHERE_DEV[scopeOf(devOf(c))]}): ${devOf(c).why}`) : null,
-    canEdit ? [differ(c), devOf(c) ? null : [" ·", takeOut(c)]] : null);
+    canEdit ? h("span", { class: "acts" }, differ(c), devOf(c) ? null : [" ·", takeOut(c)]) : null);  // A2: one group, shown on hover
   const kinds = [...Object.keys(SPEC), ...new Set(spec.map(c => c.spec.category).filter(k => !SPEC[k]))];  // grouped by kind, as in the card
   const paper = spec.length || out.length || pick ? [h("h3", null, "논문 조건"), kinds.flatMap(k => { const xs = spec.filter(c => c.spec.category === k);
       return xs.length ? [h("h4", { class: "kind" }, SPEC[k] || k), h("ul", { class: "ck must" }, xs.map(row))] : []; }),
-    out.length ? h("details", { class: "gone", "data-spec-out": String(out.length) }, h("summary", null, `뺀 조건 ${out.length}개`),
+    out.length ? h("details", { class: "gone", "data-spec-out": String(out.length) }, h("summary", null, ico("chevron-right", 12), `뺀 조건 ${out.length}개`),
       h("ul", { class: "ck" }, out.map(c => h("li", { title: c.id, "data-id": c.id }, h("s", null, (SPEC[c.spec.category] || c.spec.category) + " · " + (c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")),
         h("div", { class: "muted" }, `${day(((c.spec.dropped || []).at(-1) || {}).from)} 뺌 · 이유: ${c.waive_reason}`, canEdit ? [" · ", putBack(c)] : null))))) : null, pick, code] : null;
   const body = [g("목표", "", I.goals, "goal"), g("반드시 지킬 것", "must", I.must, "must"), paper, g("선호", "", I.prefer, "prefer"),
@@ -1862,7 +1991,7 @@ function intent(p) {
     return [at, h("button", { class: "link", "data-restore": x.id, on: () => pabloHost.criterion(V.task.id, x.id, "restore").then(text => {
       echo(V.task.id, { role: "criterion-edit", action: "restore", text }); return refresh(); },
       e => at.replaceChildren(h("span", { class: "muted" }, fail(e) + " "))) }, "되살리기")]; };
-  const removed = gone.length ? h("details", { class: "gone", "data-removed": String(gone.length) }, h("summary", null, `지운 기준 ${gone.length}개`),
+  const removed = gone.length ? h("details", { class: "gone", "data-removed": String(gone.length) }, h("summary", null, ico("chevron-right", 12), `지운 기준 ${gone.length}개`),
     h("ul", { class: "ck" }, gone.map(x => h("li", { title: x.id, "data-id": x.id }, h("s", null, x.text), x.all ? h("small", { class: "all", title: "되살리면 모든 작업에 다시 걸립니다." }, " 모든 작업") : null,
       h("div", { class: "muted" }, `${day(x.from)} 지움 · `, x.why ? `이유: ${x.why}` : "이유를 적지 않음",
         window.pabloHost && pabloHost.criterion ? [" · ", back(x)] : null))))) : null;
@@ -1873,7 +2002,8 @@ function stepState(st) {
   return rs.includes("completed") ? ["done", "✓"] : rs.includes("partial") ? ["doing", "●"] : ["todo", "○"];
 }
 function plan(p) {
-  const steps = h("ol", { class: "steps" }, V.plan.steps.map(st => { const [cls, mark] = stepState(st);
+  const steps = h("ol", { class: "steps" }, V.plan.steps.map((st, i) => { const [cls] = stepState(st);
+    const mark = cls === "done" ? ico("check", 14) : String(i + 1);  // A2: done is a check, the rest their number
     const ev = st.checks.flatMap(id => V.checks[id].evidence);
     const sure = st.checks.length ? (st.checks.every(id => V.checks[id].outcome === "VERIFIED") ? "공식 근거 확인" : "일부 추정") : "작업 기준에 따름";
     return h("li", { class: cls, title: st.id, "data-id": st.id }, h("span", { class: "i" }, mark), h("span", null, rich(st.action)),
@@ -1918,8 +2048,7 @@ function trace(p, st) {
 function matrixView(p, st) {
   document.body.classList.add("wide");
   p.append(h("div", { class: "phead" },
-      h("button", { class: "nav", title: "뒤로", disabled: hi <= 0, on: () => go(-1) }, "←"),
-      h("button", { class: "nav", title: "앞으로", disabled: hi >= hist.length - 1, on: () => go(1) }, "→"),
+      navs(),
       h("h2", null, "비교표"), xbtn()),
     h("div", { id: "pbody" }, matrix(st.c, true)));
 }
@@ -1935,9 +2064,8 @@ function codeView(p, st) {
       if (hist[hi] === st) info.textContent = { vscode: "VS Code로 열었습니다.", app: "기본 프로그램으로 열었습니다.", folder: "파일이 있는 폴더를 열었습니다." }[r] || ""; },
     e => { if (hist[hi] === st) { info.className = "info broken"; info.textContent = "⚠ " + fail(e); } });
   p.append(h("div", { class: "phead" },
-      h("button", { class: "nav", title: "뒤로", disabled: hi <= 0, on: () => go(-1) }, "←"),
-      h("button", { class: "nav", title: "앞으로", disabled: hi >= hist.length - 1, on: () => go(1) }, "→"),
-      h("div", { class: "url", title: st.where }, "📄 ", name),
+      navs(),
+      h("div", { class: "url", title: st.where }, urlIco("file", "📄 "), name),
       h("button", { class: "link open", "data-open": "vscode", on: () => open("vscode") }, "VS Code에서 열기"),
       h("button", { class: "link open", "data-open": "folder", on: () => open("folder") }, "폴더에서 보기"), xbtn()),
     info, h("div", { id: "pbody", class: "code" }));
@@ -1999,10 +2127,9 @@ function source(p, st) {
       window.pabloHost && !st.failed ? h("button", { class: "link", on: () => show({ mode: "source", e: st.e, live: true }) }, "현재 원문 열기")
         : h("a", { href: live, target: "_blank", rel: "noopener noreferrer" }, "원본에서 보기 ↗"));
   p.append(h("div", { class: "phead" },
-      h("button", { class: "nav", title: "뒤로", disabled: hi <= 0, on: () => go(-1) }, "←"),
-      h("button", { class: "nav", title: "앞으로", disabled: hi >= hist.length - 1, on: () => go(1) }, "→"),
-      h("div", { class: "url", title: src.url }, "🔒 ", h("b", null, src.title), " · ", host(src.url)),
-      h("a", { class: "ext", href: live, target: "_blank", rel: "noopener noreferrer", title: "원본 페이지에서 이 문장 보기" }, "↗"), xbtn()),
+      navs(),
+      h("div", { class: "url", title: src.url }, urlIco("lock", "🔒 "), h("b", null, src.title), " · ", host(src.url)),
+      h("a", { class: "ext", href: live, target: "_blank", rel: "noopener noreferrer", title: "원본 페이지에서 이 문장 보기" }, ico("external", 14)), xbtn()),
     info, inApp ? h("div", { id: "pbody", class: "live" })
       : h("div", { id: "pbody" }, h("article", { id: "doc" }, h("div", { class: "title" }, src.title))));
   if (inApp) {
@@ -2096,12 +2223,11 @@ async function pdfPanel(p, st, a, src) {
   p.dataset.live = "LOADING";
   const info = h("div", { class: "info", title: src.hash }, `캡처한 PDF · ${day(src.captured_at)} · ${a ? "근거 위치를 찾는 중…" : "여는 중…"}`);
   p.append(h("div", { class: "phead" },
-      h("button", { class: "nav", title: "뒤로", disabled: hi <= 0, on: () => go(-1) }, "←"),
-      h("button", { class: "nav", title: "앞으로", disabled: hi >= hist.length - 1, on: () => go(1) }, "→"),
-      h("div", { class: "url", title: src.url }, "📄 ", h("b", null, src.title), ` · PDF`),
-      h("button", { class: "nav", title: "이전 쪽", disabled: n <= 1, on: () => turn(-1) }, "‹"),
+      navs(),
+      h("div", { class: "url", title: src.url }, urlIco("file", "📄 "), h("b", null, src.title), ` · PDF`),
+      h("button", { class: "nav", title: "이전 쪽", disabled: n <= 1, on: () => turn(-1) }, turned("chevron-right", 180, 14)),
       h("span", { class: "pnum" }, `${n} / ${src.pages}`),
-      h("button", { class: "nav", title: "다음 쪽", disabled: n >= src.pages, on: () => turn(1) }, "›"), xbtn()),
+      h("button", { class: "nav", title: "다음 쪽", disabled: n >= src.pages, on: () => turn(1) }, ico("chevron-right", 14)), xbtn()),
     info, h("div", { id: "pbody", class: "pdf" }));
   const fail = why => { if (hist[hi] !== st) return;
     if (!a) { p.dataset.live = "ERROR"; info.textContent = "⚠ PDF를 열지 못했습니다."; return; }
@@ -2626,7 +2752,7 @@ if (window.pabloHost && pabloHost.chat) {
     const pickedOf = name => (document.querySelector(`#settings input[name="set-${name}"]:checked`) || {}).value;
     const err = h("p", { class: "muted" });
     const dlg = h("div", { id: "settings", role: "dialog" }, h("div", { class: "set-box" },
-      h("div", { class: "set-head" }, h("b", null, "설정"), h("button", { class: "x", title: "닫기", on: () => dlg.remove() }, "×")),
+      h("div", { class: "set-head" }, h("b", null, "설정"), h("button", { class: "x", title: "닫기", on: () => dlg.remove() }, ico("x"))),
       group("view", "기본 보기", "대화를 처음 열 때의 보기", [["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]], s.view || "time"),
       group("tags", "메시지 태그", "단계 · 대상만 보이고 나머지는 'N개 더'로 접습니다", [["main", "단계 · 대상만"], ["all", "전부"]], s.tags || "main"),
       group("panel", "새 작업의 오른쪽 패널", "그 뒤에는 작업마다 마지막 상태를 기억합니다", [["open", "열림 (기준)"], ["rail", "접힘 (레일)"]], s.panel || "open"),
