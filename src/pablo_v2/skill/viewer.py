@@ -1411,10 +1411,11 @@ function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
 }
 // a message's words made a criterion of this task by the person, in a sentence they trim: a rule (반드시 / 가능하면), never
 // the goal. Guard, the brief and 재현 점검 follow at once; the conversation says so
+const msgWords = (el, max) => [...el.children[1].children].filter(c => !c.classList.contains("who") && !c.classList.contains("tags"))
+  .map(c => c.textContent).join(" ").replace(/\s+/g, " ").trim().slice(0, max);
 function critMake(row, el) {
   const old = row.querySelector(".tagedit"); if (old) return old.remove();
-  const task = V.task.id, words = [...el.children[1].children].filter(c => !c.classList.contains("who") && !c.classList.contains("tags"))
-    .map(c => c.textContent).join(" ").replace(/\s+/g, " ").trim().slice(0, 300);
+  const task = V.task.id, words = msgWords(el, 300);
   const text = h("textarea", { class: "ce-text", "data-crit-text": "1", rows: 3, maxlength: 1000 }); text.value = words;
   const note = h("p", { class: "muted" }, "이 작업에만 적용됩니다. 지킬 내용만 한 문장으로 남겨 주세요.");
   const ed = h("div", { class: "tagedit" }, h("b", null, "이 글을 작업 기준으로"), text,
@@ -1456,14 +1457,29 @@ function byStage(log, rows, kind, D) {
     const facts = msgs.length ? [`메시지 ${msgs.length}`, decs.length ? `결정 ${decs.length}` : null, files ? `파일 ${files}` : null].filter(Boolean).join(" · ") : "아직 대화가 없습니다";
     // a stage with messages is never 아직, whatever the stage bar computes from the material (진행: talked about, not done)
     const state = i === ci ? "지금" : !msgs.length ? (ci >= 0 && i < ci ? "완료" : "아직") : ci >= 0 && i < ci ? "완료" : "진행", own = (D.summary || {})[n];
-    const sum = h("div", { class: "sg-sum" }, own ? [h("span", { class: "tg manual" }, "사람이 고침"), " ", own] : h("span", { class: "muted" }, "기록 요약 — " + facts),
-      can && msgs.length ? [" ", h("button", { class: "link", "data-summary-edit": n, on: () => summaryEdit(sum, n, own || "") }, "✎ 요약 고치기")] : null);
+    // the model's summary, written on request; behind once the stage has more messages than it read. A person's text wins
+    const auto = (D.auto || {})[n], behind = auto ? msgs.length - auto.n : 0;
+    const write = can && pabloHost.summarize && !own && msgs.length && ($("acct") || { dataset: {} }).dataset.state === "connected";
+    const sum = h("div", { class: "sg-sum" }, own ? [h("span", { class: "tg manual" }, "사람이 고침"), " ", own]
+      : auto ? [h("span", { class: "tg", "data-auto-summary": "1" }, "모델 요약"), " ", auto.text,
+        behind > 0 ? h("small", { class: "muted", "data-behind": behind }, ` · 그 뒤 메시지 ${behind}개`) : null]
+      : h("span", { class: "muted" }, "기록 요약 — " + facts),
+      write ? [" ", h("button", { class: "link", "data-summarize": n, on: () => summarize(sum, n, msgs) }, auto ? "✦ 다시 쓰기" : "✦ 요약 쓰기")] : null,
+      can && msgs.length ? [" ", h("button", { class: "link", "data-summary-edit": n, on: () => summaryEdit(sum, n, own || (auto && auto.text) || "") }, "✎ 요약 고치기")] : null);
     log.append(h("div", { class: "stagegroup st-" + (state === "지금" || state === "진행" ? "now" : state === "아직" ? "later" : "past"), "data-stage": n },
       h("div", { class: "sg-head" }, h("span", { class: "tg stage" }, n), h("b", null, state), h("small", null, facts)), sum,
       decs.length ? h("ul", { class: "sg-dec" }, decs.map(r => h("li", null, h("span", { class: "tg manual" }, "결정"), " ", firstText(r[0])))) : null,
       mine.length ? h("details", { class: "sg-msgs", open: state === "지금" || state === "진행" ? true : null }, h("summary", null, `대화 ${msgs.length}`), mine.map(r => r[0])) : null));
   });
   rows.filter(r => !names.includes(r[1])).forEach(r => log.append(r[0]));
+}
+// one model call per click (not on every redraw): the stage's messages as the page groups them, oldest first
+function summarize(sum, n, msgs) {
+  const task = V.task.id, btn = sum.querySelector("[data-summarize]");
+  if (btn) { btn.disabled = true; btn.textContent = "요약 쓰는 중…"; }
+  pabloHost.summarize(task, n, msgs.map(r => ({ who: r[0].classList.contains("pablo") ? "Pablo" : "You", text: msgWords(r[0], 4000) })))
+    .then(() => refresh()).then(() => V && V.task.id === task && conversation(),
+      e => { if (btn) btn.remove(); sum.append(h("span", { class: "muted" }, " " + fail(e))); });
 }
 function summaryEdit(sum, n, cur) {
   const task = V.task.id, ta = h("textarea", { class: "sg-edit", rows: 3 }); ta.value = cur;

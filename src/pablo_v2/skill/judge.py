@@ -11,6 +11,7 @@ Judge contract (duck-typed; tests inject stubs):
     extract_spec(pages) -> {"items": [{category, statement, value, quote, page}], "missing": [{category, statement}]}
         (D3: items from the appendix pass also carry from="appendix" and fills, a missing setting's number or 0)
     compare_paper(columns, title, pages) -> {"cells": [{column, value, quote, page}]}  one paper's row of a table (C3)
+    summarize_stage(goal, stage, messages [{who, text}]) -> {"summary"}  one stage of the conversation (UI renewal P6)
 """
 from __future__ import annotations
 
@@ -166,6 +167,21 @@ COLUMNS:
 PAPER: {title}
 (page text from the PDF, [p.N] = page N)
 {pages}
+"""
+
+SUMMARY_SCHEMA = _obj(summary=_str)
+
+SUMMARY_PROMPT = """You summarize one stage of a research task's conversation for the person working on it, so they see
+where this stage stands without reading it again.
+
+Write in Korean, at most 2 sentences (about 60 words): what was done and decided in this stage, and what is still open.
+Use only the messages below; never add a fact, number or file that is not in them. Keep names, files and numbers as
+written. No greeting, no list, no markdown.
+
+TASK: {goal}
+STAGE: {stage}
+MESSAGES (oldest first; You = the person, Pablo = the assistant):
+{messages}
 """
 
 SPEC_CATEGORIES = ["dataset", "split", "preprocessing", "model", "method", "hyperparameter", "training", "metric",
@@ -456,3 +472,7 @@ class LLMJudge:
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
         return self.provider.complete_json(COMPARE_PROMPT.format(columns="\n".join(f"- {c}" for c in columns),
                                                                  title=title, pages=text), COMPARE_SCHEMA)
+
+    def summarize_stage(self, goal: str, stage: str, messages: list[dict]) -> dict:
+        text = "\n".join(f"[{m['who']}] {m['text'][:2000]}" for m in messages[-80:])  # the newest 80, each cut
+        return self.provider.complete_json(SUMMARY_PROMPT.format(goal=goal, stage=stage, messages=text), SUMMARY_SCHEMA)

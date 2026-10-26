@@ -159,7 +159,8 @@ ipcMain.handle("pablo:state", async e => {
       route: (d.route || {})[t.id] === "ask" ? "ask" : "agent", archived: !!(d.archived || {})[t.id],
       // UI renewal: what the screen remembers per task (set through pablo:set-ui); a missing key has a default
       kind: (d.kind || {})[t.id] || null, done: !!(d.done || {})[t.id], panel: (d.panel || {})[t.id] || null,
-      view: (d.view || {})[t.id] || null, tags: (d.tags || {})[t.id] || {}, summary: (d.summary || {})[t.id] || {} }]; }));  // names only, no paths
+      view: (d.view || {})[t.id] || null, tags: (d.tags || {})[t.id] || {}, summary: (d.summary || {})[t.id] || {},
+      auto: (d.auto || {})[t.id] || {} }]; }));  // names only, no paths
   m.last = d.last; m.settings = d.settings || {};
   m.host = { shell: agent.shell(), noticed: !!(d.noticed || {}).shell, fonts: fontFiles() };  // ⑤ 5.1: the notice, once
   return m;
@@ -224,6 +225,23 @@ ipcMain.handle("pablo:set-ui", (e, task, key, value) => {
   }
   known(task); if (!UI[key] || !UI[key](value)) throw new Error("bad ui: " + key);
   saveDesk(x => { x[key] = { ...(x[key] || {}), [task]: value }; }); return true;
+});
+// UI renewal P6: the model writes a stage's summary on request, from that stage's messages (the page sends them: the
+// stage is the page's own grouping, a person's tags included). Kept per task and stage with how many messages it read
+ipcMain.handle("pablo:summarize", async (e, task, stage, messages) => {
+  fromWindow(e); known(task);
+  if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
+  if (!str(stage, 40) || !Array.isArray(messages) || !messages.length || messages.length > 300
+    || !messages.every(m => plain(m, 5000) && ["You", "Pablo"].includes(m.who) && str(m.text, 4000))) throw new Error("bad summary");
+  const f = path.join(ctl.dir, `summary-${Date.now()}.json`);
+  fs.writeFileSync(f, JSON.stringify(messages));
+  try {
+    const r = await ctl.py("summarize", task, "--stage", stage, "--messages", "@" + f)
+      .catch(err => { console.error("[pablo] summarize", err.message); throw new Error(short(err.message)); });
+    const v = { text: r.summary, n: messages.length, at: new Date().toISOString() };
+    saveDesk(x => { x.auto = { ...(x.auto || {}), [task]: { ...((x.auto || {})[task] || {}), [stage]: v } }; });
+    return v;
+  } finally { fs.rmSync(f, { force: true }); }
 });
 // C1: a paper joins the task's list (one PDF per task until 0.7); the same file again is the same paper
 const join = (task, entry, replaces) => saveDesk(d => {

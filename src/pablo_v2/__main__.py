@@ -145,6 +145,9 @@ def _parser() -> argparse.ArgumentParser:
     add("state")  # the desktop's live workspace model (read-only)
     add("brief").add_argument("task_id")
     add("audit").add_argument("task_id")
+    s = add("summarize")  # UI renewal P6 단계별: the model's summary of one stage, from the messages the desktop groups under it
+    s.add_argument("task_id"), s.add_argument("--stage", required=True)
+    s.add_argument("--messages", type=_json_arg, required=True, help='[{"who": "You" | "Pablo", "text"}, ...], or @file')
     s = add("report")  # ⑫ the reproduction report (Markdown)
     s.add_argument("task_id")
     s.add_argument("--now", type=_json_arg, default=None, help='desktop: {"tree", "git": {head, dirty}, "recheck": {at, placed, gone}}')
@@ -434,6 +437,9 @@ def _run(a, out) -> int:
     elif a.cmd == "audit":
         prompt, items = render_audit(s, a.task_id)
         out({"prompt": prompt, "schema": AUDIT_SCHEMA, "items": items}, prompt)
+    elif a.cmd == "summarize":
+        r = s.judge.summarize_stage(s.get_task(a.task_id).text, a.stage, a.messages)
+        out({"summary": r["summary"].strip()}, r["summary"].strip())
     elif a.cmd == "report":
         md = render_report(s, a.task_id, a.now)
         out({"text": md, "title": s.get_task(a.task_id).text}, md)
