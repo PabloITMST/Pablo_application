@@ -778,7 +778,41 @@ body:not(.panel) .ptab .long { display:none; } body:not(.panel) .ptab .short { d
 .composer #route button, .composer #route b { width:auto; height:auto; border-radius:2px; background:none; color:var(--ink);
   padding:2px 8px; font-size:12px; text-decoration:none; }
 .composer #route b[data-route] { background:var(--primary); color:var(--on-primary); font-weight:500; }
+/* ==== A2 (최종 디자인, Figma "Pablo UI" 페이지 '디자인 · 최종 A2' / 'Kit · A2 컴포넌트와 기초') ====
+   The same A colours; modern form: hairlines of ink at low opacity instead of black rules, floating panels on the
+   canvas, radii 6–16, soft shadows. Later rules win over the concept-A layer above. */
+:root { --a4:rgba(13,14,16,.04); --a5:rgba(13,14,16,.05); --a6:rgba(13,14,16,.06); --a8:rgba(13,14,16,.08);
+        --a12:rgba(13,14,16,.12); --white:#fff; --line:var(--a8); --line-soft:var(--a8);
+        --r-tag:6px; --r-ctl:8px; --r-in:10px; --r-card:12px; --r-panel:14px; --r-dlg:16px; --side-w:232px;
+        --sh-sm:0 1px 2px rgba(13,14,16,.06); --sh-md:0 1px 2px rgba(13,14,16,.05), 0 4px 12px rgba(13,14,16,.06);
+        --sh-lg:0 2px 6px rgba(13,14,16,.06), 0 16px 40px rgba(13,14,16,.14); }
+/* A2 · shell: the sidebar sits on the canvas; the conversation and the right column float as panels */
+body { background:var(--canvas); padding:8px; gap:8px; grid-template-columns:var(--side-w) minmax(0, 1fr); }
+body.panel { grid-template-columns:var(--side-w) minmax(0, 1fr) 480px; }
+body.rail:not(.panel) { grid-template-columns:var(--side-w) minmax(0, 1fr) 64px; }
+body.panel.pdf, body.panel.code { grid-template-columns:var(--side-w) minmax(0, 1fr) min(760px, 48vw); }
+body.panel.wide { grid-template-columns:var(--side-w) minmax(0, 1fr) min(900px, 58vw); }
+#side { background:none; border:0; padding:6px 6px 8px; height:calc(100vh - 16px); }
+#chat, body.rail #right, body.panel #right { height:calc(100vh - 16px); background:var(--surface); border:1px solid var(--a6);
+  border-radius:var(--r-panel); box-shadow:var(--sh-sm); overflow:hidden; }
+#right #panel, #panel { background:none; }
+.ico { display:inline-block; flex:none; width:16px; height:16px; vertical-align:-3px; }
+.ico.s12 { width:12px; height:12px; vertical-align:-1px; } .ico.s14 { width:14px; height:14px; vertical-align:-2px; }
+code { background:var(--a6); border-radius:var(--r-tag); }
+pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-radius:var(--r-ctl); }
+.link, .cite, button.file, .ext, .info a { text-decoration:none; font-weight:600; }
+.link:hover, .cite:hover, .cite.on, button.file:hover { text-decoration:underline; text-decoration-color:var(--ink-3); }
+.pill { border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white); padding:5px 14px; font-weight:500; }
+.pill:hover:not(:disabled) { background:var(--a4); }
+.pill.on { background:var(--primary); color:var(--on-primary); border-color:var(--primary); }
+/* A2 · sidebar, header, state chips, stage bar, view bar  (agent A) */
+/* end A2 · sidebar */
+/* A2 · conversation, cards, composer  (agent B) */
+/* end A2 · conversation */
+/* A2 · right column, panels, dialogs, empty state  (agent C) */
+/* end A2 · right column */
 @media (max-width:900px) {
+  body { padding:0; } #chat { height:100vh; border-radius:0; border:0; }
   body, body.panel { display:block; }
   #side { display:none; position:fixed; inset:0 30% 0 0; z-index:3; box-shadow:0 0 0 100vmax var(--shade); }
   body.side #side { display:block; } #menu { display:block; }
@@ -802,6 +836,28 @@ function h(tag, attrs, ...kids) {  // text only: data never becomes HTML
   }
   for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c instanceof Node ? c : String(c));
   return el;
+}
+// A2: line icons (24 grid, stroke = currentColor), the set of the Figma Kit a2/icon. ico("plus", 14) -> <svg class="ico s14">
+const ICONS = { plus: "M12 5v14M5 12h14", search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zm9 2-3.5-3.5", "chevron-down": "m6 9 6 6 6-6",
+  "chevron-right": "m9 18 6-6-6-6", file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
+  folder: "M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z",
+  globe: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20",
+  "globe-off": "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20m-17.1-7.1 14.2 14.2", check: "M20 6 9 17l-5-5",
+  "check-circle": "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm-3-10 2 2 4-4", info: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zm0-6v-4m0-4h.01",
+  message: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z", more: "M5 12h.01M12 12h.01M19 12h.01",
+  settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
+  "panel-left": "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm4 0v18",
+  "panel-right": "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm10 0v18", filter: "M3 6h18M7 12h10M10 18h4",
+  "arrow-up": "m5 12 7-7 7 7M12 19V5", stop: "M7 7h10v10H7z", pencil: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z",
+  trash: "M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2", swap: "m16 3 4 4-4 4M20 7H4m4 14-4-4 4-4M4 17h16",
+  lock: "M6 11h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2zm2 0V7a4 4 0 0 1 8 0v4", rotate: "M21 12a9 9 0 1 1-3-6.7L21 8m0-5v5h-5",
+  sparkle: "M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z", x: "M18 6 6 18M6 6l12 12", external: "M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
+  pin: "M12 17v5M9 10.8V4h6v6.8l2 3.2H7z", paperclip: "m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" };
+function ico(name, size) {
+  const NS = "http://www.w3.org/2000/svg", s = document.createElementNS(NS, "svg"), p = document.createElementNS(NS, "path");
+  s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("class", "ico" + (size && size !== 16 ? " s" + size : "")); s.setAttribute("aria-hidden", "true");
+  for (const [k, v] of [["fill", "none"], ["stroke", "currentColor"], ["stroke-width", "2"], ["stroke-linecap", "round"], ["stroke-linejoin", "round"]]) s.setAttribute(k, v);
+  p.setAttribute("d", ICONS[name] || ICONS.more); s.append(p); return s;
 }
 // `code`, paths (a/b/c) and camelCase identifiers render as code
 function rich(text) {
