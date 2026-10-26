@@ -806,6 +806,102 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
 .pill:hover:not(:disabled) { background:var(--a4); }
 .pill.on { background:var(--primary); color:var(--on-primary); border-color:var(--primary); }
 /* A2 · sidebar, header, state chips, stage bar, view bar  (agent A) */
+/* sidebar: the brand mark, 새 작업 as the one filled button, the search field, task rows as soft cards */
+#side { padding:12px 8px 8px; }
+#side .brand { flex-direction:column; align-items:stretch; gap:14px; padding:2px 4px 12px; }
+#side .brand b { gap:8px; padding:0 4px; font:600 16px/24px var(--sans); letter-spacing:-0.02em; color:var(--ink); }
+#side .brand b::before { content:"P"; flex:none; width:24px; height:24px; border-radius:7px; display:grid; place-items:center;
+  background:var(--primary); color:var(--on-primary); font:600 13px/1 var(--sans); letter-spacing:0; }
+#side .new { display:flex; align-items:center; gap:8px; width:100%; height:36px; padding:0 12px; border:0; border-radius:var(--r-in);
+  background:var(--primary); color:var(--on-primary); font:600 13px/1 var(--sans); box-shadow:var(--sh-sm); }
+#side .new:hover:not(:disabled) { background:#26292E; }
+#side .searchbox { position:relative; margin:0 4px 10px; }
+#side .searchbox > .ico { position:absolute; left:11px; top:11px; color:var(--ink-3); pointer-events:none; }
+#task-search { display:block; height:36px; margin:0; padding:0 10px 0 32px; border:1px solid var(--a12); border-radius:var(--r-in);
+  background:var(--white); color:var(--ink); font:400 13px/1 var(--sans); }
+#task-search::placeholder { color:var(--ink-3); }
+#task-search:focus { outline:none; border-color:var(--ink-3); box-shadow:0 0 0 3px var(--a6); }
+#side h4 { margin:8px 8px 6px; font:500 12px/1.4 var(--sans); color:var(--ink-3); }
+#task-list { padding:0 4px; }
+#side .t { margin:0 0 2px; padding:10px; border:1px solid transparent; border-radius:var(--r-in); color:var(--ink-2);
+  font:500 13px/1.4 var(--sans); }
+#side .t:hover { background:var(--a4); }
+#side .t.on { background:var(--white); border-color:var(--a5); box-shadow:var(--sh-sm); color:var(--ink); font-weight:600; }
+#side .t small { margin-top:3px; font:400 12px/1.4 var(--sans); color:var(--ink-3); overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; }
+#side details.done, #side details.away { margin-top:8px; padding-top:8px; border-top:1px solid var(--a8); }
+#side details.done + details.away { margin-top:0; padding-top:0; border-top:0; }
+#side details.away summary, #side details.done summary { list-style:none; display:flex; align-items:center; gap:6px; margin:0 0 4px;
+  padding:6px 8px; border-radius:var(--r-ctl); font:500 12px/1.4 var(--sans); color:var(--ink-2); }
+#side details > summary::-webkit-details-marker { display:none; }
+#side details > summary:hover { background:var(--a4); }
+#side details > summary > .ico { color:var(--ink-3); transition:transform .15s ease; }
+#side details[open] > summary > .ico { transform:rotate(90deg); }
+#side summary .cnt { padding:3px 7px; border-radius:999px; background:var(--a6); color:var(--ink-2); font:500 11px/1 var(--mono); }
+/* header: no rule under it (the stage bar draws the hairline); icon buttons for rename and the mobile menu */
+#bar { min-height:56px; padding:0 16px 0 20px; gap:8px; border-bottom:0; }
+#bar h1 { flex:0 1 auto; min-width:min(7em, 30%); font:600 17px/1.3 var(--sans); letter-spacing:-0.015em; color:var(--ink); }
+#bar h1 .rn-in { height:32px; padding:0 10px; border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white);
+  font:500 15px/1 var(--sans); letter-spacing:0; }
+#bar .grow { flex:1 1 0; min-width:8px; }
+#bar .rn { opacity:1; flex:none; width:28px; height:28px; padding:0; display:grid; place-items:center; border-radius:var(--r-ctl);
+  color:var(--ink-3); }
+#bar .rn:hover, #bar .rn:focus-visible { background:var(--a5); color:var(--ink); }
+#bar .kindtag { flex:none; padding:4px 8px; border:1px solid var(--a12); border-radius:var(--r-tag); background:var(--white);
+  color:var(--ink-2); font:500 11px/1 var(--sans); white-space:nowrap; }
+#bar .quiet { flex:none; padding:6px 6px; border-radius:var(--r-ctl); color:var(--ink-3); font:500 12px/1 var(--sans); }
+#bar .quiet:hover { background:var(--a4); color:var(--ink); text-decoration:none; }
+#menu { padding:6px; border-radius:var(--r-ctl); line-height:0; color:var(--ink-2); }
+#menu:hover { background:var(--a5); color:var(--ink); }
+/* the state chip (자료 · 폴더 · 인터넷 as segments) and the source card it opens */
+#chips { flex:0 1 auto; min-width:0; margin-left:4px; }
+.statechip { display:inline-flex; align-items:center; max-width:100%; height:30px; padding:0 10px; border:1px solid var(--a8);
+  border-radius:var(--r-ctl); background:var(--white); color:var(--ink); font:500 12px/1 var(--sans); box-shadow:var(--sh-sm); }
+.statechip:hover, .statechip[aria-expanded="true"] { background:linear-gradient(var(--a4), var(--a4)), var(--white); }
+.statechip .sc-seg { display:inline-flex; align-items:center; gap:6px; min-width:0; max-width:180px; }
+.statechip .sc-seg > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.statechip .sc-seg + .sc-seg { margin-left:10px; padding-left:10px; border-left:1px solid var(--a8); }
+.statechip .sc-seg .ico { color:var(--ink-2); } .statechip .sc-none { color:var(--ink-3); } .statechip .sc-src { flex:none; }
+.statechip > .ico { margin-left:8px; color:var(--ink-3); }
+.srccard { top:calc(100% + 8px); background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); box-shadow:var(--sh-lg); }
+.sc-sec { padding:12px 16px; border-top-color:var(--a6); }
+.srccard #src .paper { border-top-color:var(--a6); }
+.srccard #src .paper::before { padding:4px 6px; border:0; border-radius:var(--r-tag); background:var(--a6); color:var(--ink-2);
+  font:600 10px/1 var(--mono); }
+/* the stage bar: a column per stage under a 3px progress bar (done ink, now orange, left ink 10%) */
+#tools { padding:4px 20px 10px; border-bottom:1px solid var(--a8); background:none; }
+#stages { align-items:stretch; gap:8px; margin:0 -6px; padding:6px 6px 12px; }
+#stages .st-line { display:none; }
+#stages .stage { flex:1 1 0; min-width:96px; display:grid; grid-template-columns:auto minmax(0, 1fr); column-gap:6px; row-gap:2px;
+  align-content:start; align-items:center; padding:0 0 2px; border:0; border-radius:var(--r-ctl); background:none; opacity:1; }
+#stages .stage::before { content:""; grid-column:1 / -1; height:3px; margin-bottom:8px; border-radius:2px; background:rgba(13,14,16,.1); }
+#stages .stage:hover { background:var(--a4); box-shadow:0 0 0 4px var(--a4); }
+#stages .stage.picked { outline:2px solid var(--ink); outline-offset:3px; }
+#stages .st-done::before { background:var(--ink); } #stages .st-current::before { background:var(--signal); }
+#stages .st-stale::before { background:rgba(13,14,16,.35); }
+#stages .st-t { display:contents; }
+#stages .st-n { grid-column:1; width:auto; height:auto; margin:0; border:0; border-radius:0; background:none; display:inline-flex;
+  align-items:center; font:500 11px/1 var(--mono); color:var(--ink-3); }
+#stages .st-done .st-n { background:none; color:var(--ink); }
+#stages .st-current .st-n { color:var(--signal); font-weight:600; }
+#stages .st-stale .st-n { border:0; color:var(--signal); }
+#stages .st-blocked .st-n { color:var(--ink-3); }
+#stages .st-t b { grid-column:2; min-width:0; overflow:hidden; text-overflow:ellipsis; font:600 13px/1.35 var(--sans); color:var(--ink); }
+#stages .st-todo b { font-weight:500; color:var(--ink-2); } #stages .st-blocked b { font-weight:500; color:var(--ink-3); }
+#stages .st-t small { grid-column:1 / -1; min-width:0; overflow:hidden; text-overflow:ellipsis; font:400 12px/1.4 var(--sans);
+  color:var(--ink-3); }
+#stages .st-current .st-t small { font-weight:500; color:var(--ink-2); }
+#stages .st-t > span[id] { grid-column:1 / -1; min-width:0; margin-top:2px; }
+#stages .st-t .link, #stages .st-more .link { max-width:100%; font-size:12px; font-weight:600; }
+#stages .st-more { flex:none; align-self:center; flex-direction:column; align-items:flex-end; gap:4px; padding-left:8px; }
+/* the view bar: a segmented control under a hairline */
+#viewbar { gap:10px; margin:0 -20px; padding:10px 20px 0; border-top:1px solid var(--a8); }
+#viewbar > .muted { color:var(--ink-3); font-size:12px; }
+#viewbar .vseg { display:inline-flex; gap:2px; padding:3px; border-radius:9px; background:var(--a5); }
+#viewbar .vtab { padding:5px 12px; border-radius:7px; background:none; color:var(--ink-2); font:500 12px/1.2 var(--sans); }
+#viewbar .vtab.on { background:var(--white); color:var(--ink); font-weight:600; box-shadow:var(--sh-sm); }
+#viewbar .vtab:hover:not(.on):not(:disabled) { background:none; color:var(--ink); }
+@media (max-width:900px) { #side { height:auto; background:var(--canvas); } #bar .kindtag { display:none; } }
 /* end A2 · sidebar */
 /* A2 · conversation, cards, composer  (agent B) */
 /* messages: a 680 column, 28px avatars (Pablo is the one black fill), name 13 / time mono 11, body 14/22 */
@@ -1183,9 +1279,10 @@ function sidebar() {
   const q = h("input", { id: "task-search", type: "search", placeholder: "작업·자료 찾기", value: taskQuery, "aria-label": "작업 찾기" });
   q.addEventListener("input", () => { taskQuery = q.value; list(); });
   const box = h("div", { id: "task-list" });
-  side.append(h("div", { class: "brand" }, h("b", null, art("head", "ico"), "Pablo"),
-      h("button", { class: "new", id: "new", disabled: !(window.pabloHost && pabloHost.newTask), on: () => newTask() }, "+ 새 작업")),
-    ...[M.tasks.length > 1 ? q : null, box].filter(Boolean));  // append(null) prints "null"
+  // A2: the brand mark is CSS (.brand b::before, an ink square with "P"); 새 작업 is the one filled button
+  side.append(h("div", { class: "brand" }, h("b", null, "Pablo"),
+      h("button", { class: "new", id: "new", disabled: !(window.pabloHost && pabloHost.newTask), on: () => newTask() }, ico("plus", 14), "새 작업")),
+    ...[M.tasks.length > 1 ? h("div", { class: "searchbox" }, ico("search", 14), q) : null, box].filter(Boolean));  // append(null) prints "null"
   const row = t => h("button", { class: "t" + (V && t.id === V.task.id ? " on" : ""), title: t.name ? t.text : t.id, "data-task": t.id,
     on: () => { select(t.id); document.body.classList.remove("side"); } }, nameOf(t),
     h("small", null, M.desk ? `${KIND[deskKind(t.id)]} · ${time(t.at)}` : time(t.at)));
@@ -1197,9 +1294,9 @@ function sidebar() {
     const done = ts.filter(t => (d[t.id] || {}).done && !(d[t.id] || {}).archived);  // P7: finished tasks fold into 완료
     box.replaceChildren(...[h("h4", null, words.length ? `찾은 작업 ${ts.length}개` : "작업"), ...kept.map(row),
       done.length ? h("details", { class: "done", "data-done": String(done.length), open: words.length ? true : null },
-        h("summary", null, `완료 ${done.length}`), ...done.map(row)) : null,
+        h("summary", null, ico("chevron-right", 12), "완료 ", h("span", { class: "cnt" }, done.length)), ...done.map(row)) : null,
       away.length ? h("details", { class: "away", "data-archived": String(away.length), open: words.length ? true : null },
-        h("summary", null, `보관한 작업 ${away.length}개`), ...away.map(row)) : null,
+        h("summary", null, ico("chevron-right", 12), "보관한 작업 ", h("span", { class: "cnt" }, away.length)), ...away.map(row)) : null,
       words.length && !ts.length ? h("p", { class: "muted", style: "padding:0 8px;font-size:13px" }, "맞는 작업이 없습니다.") : null].filter(Boolean));
   }
   list();
@@ -1208,7 +1305,7 @@ function sidebar() {
 function header() {
   const chips = $("chips");  // P2: the state chip + source card (tools() makes it); kept across a header redraw
   $("bar").textContent = ""; ptabs();
-  $("bar").append(h("button", { id: "menu", title: "작업 목록", on: () => document.body.classList.toggle("side") }, "☰"));
+  $("bar").append(h("button", { id: "menu", title: "작업 목록", "aria-label": "작업 목록", on: () => document.body.classList.toggle("side") }, ico("panel-left")));
   if (!V) return $("bar").append(h("h1", null, "Pablo"));
   // ⑭ the task's own name (✎) and 보관 / 보관 풀기, beside it
   const t = M.tasks.find(x => x.id === V.task.id) || V.task, d = (M.desk || {})[V.task.id] || {};
@@ -1217,13 +1314,16 @@ function header() {
     const inp = h("input", { class: "rn-in", id: "task-name", value: nameOf(t) }), note = h("small", { class: "muted" });
     const ok = () => pabloHost.renameTask(V.task.id, inp.value.trim() === V.task.text ? "" : inp.value.trim()).then(() => refresh(), e => { note.textContent = " " + fail(e); });
     inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); if (e.key === "Escape") { e.stopPropagation(); header(); } });
-    name.replaceChildren(inp, " ", h("button", { class: "link", "data-rename-task-ok": "1", on: ok }, "저장"), note); inp.select(); } }, "✎") : null;
+    name.replaceChildren(inp, " ", h("button", { class: "link", "data-rename-task-ok": "1", on: ok }, "저장"), note); inp.select(); },
+    "aria-label": "작업 이름 바꾸기" }, ico("pencil", 14)) : null;
   const away = window.pabloHost && pabloHost.archiveTask ? h("button", { class: "link quiet", "data-archive": d.archived ? "off" : "on",
     title: d.archived ? "작업 목록으로 되돌립니다" : "작업 목록 아래 '보관한 작업'으로 옮깁니다. 기록은 그대로 남습니다.",
     on: () => pabloHost.archiveTask(V.task.id, !d.archived).then(() => refresh()) }, d.archived ? "보관 풀기" : "보관") : null;
   const unDone = d.done && window.pabloHost && pabloHost.setUi ? h("button", { class: "link quiet", "data-done": "off",
     title: "작업 목록으로 되돌립니다", on: () => pabloHost.setUi(V.task.id, "done", false).then(() => refresh()) }, "완료 풀기") : null;
-  $("bar").append(...[name, edit, away, unDone, chips].filter(Boolean));  // 기준 · 계획 · 왜? are the right column's tabs (ptabs)
+  // A2: the task's kind as a small tag beside its name; a spacer puts 보관 and the state chip on the right
+  const kindTag = M.desk ? h("span", { class: "kindtag", "data-kind-tag": deskKind(V.task.id) }, KIND[deskKind(V.task.id)]) : null;
+  $("bar").append(...[name, edit, kindTag, h("span", { class: "grow" }), away, unDone, chips].filter(Boolean));  // 기준 · 계획 · 왜? are the right column's tabs (ptabs)
 }
 // P7: the task's kind decides its stages; one stored at creation wins, else what its material says
 const KIND = { repro: "논문 재현", read: "논문 읽기", general: "일반" };
@@ -2657,9 +2757,14 @@ if (window.pabloHost && pabloHost.chat) {
     // sources read as a sentence before; now a list with a PDF / WEB mark per item)
     const card = h("div", { class: "srccard", id: "srccard", hidden: !cardOpen },
       ...[srcEl, dirEl, netEl].filter(Boolean).map(x => h("div", { class: "sc-sec" }, x)));
+    // A2: one chip, a segment (icon + words) per part of the state; the folder by its last name, the whole path in its title
+    const seg = (icon, text, cls, title) => h("span", { class: "sc-seg" + (cls ? " " + cls : ""), title }, ico(icon, 14), h("span", null, text));
     const chipBtn = h("button", { class: "statechip", "aria-expanded": String(cardOpen), title: "자료 · 작업 폴더 · 인터넷",
+      "aria-label": [`자료 ${ps.length}`, d.folder || "폴더 없음", d.folder ? (d.net ? "인터넷 허용" : "인터넷 차단") : null].filter(Boolean).join(" · "),
       on: () => { cardOpen = !cardOpen; card.hidden = !cardOpen; chipBtn.setAttribute("aria-expanded", String(cardOpen)); } },
-      [`자료 ${ps.length}`, d.folder || "폴더 없음", d.folder ? (d.net ? "인터넷 허용" : "인터넷 차단") : null].filter(Boolean).join(" · ") + " ▾");
+      seg("file", `자료 ${ps.length}`, "sc-src"),
+      seg("folder", d.folder ? d.folder.split(/[\\/]/).filter(Boolean).pop() || d.folder : "폴더 없음", "sc-dir" + (d.folder ? "" : " sc-none"), d.folder || null),
+      d.folder ? seg(d.net ? "globe" : "globe-off", d.net ? "인터넷 허용" : "인터넷 차단", "sc-net") : null, ico("chevron-down", 12));
     const oldChips = $("chips"); if (oldChips) oldChips.remove();
     $("bar").append(h("span", { id: "chips" }, chipBtn, card));
     // the stage bar: always visible; a step's state comes from what is already recorded, nothing is enforced.
@@ -2695,18 +2800,22 @@ if (window.pabloHost && pabloHost.chat) {
     const cur = steps.find(s => s.state === "todo"); if (cur) cur.state = "current";
     box.dataset.stage = (cur || steps[steps.length - 1]).label; gate();  // the composer says where a new message goes
     const used = new Set(steps.map(s => s.act).filter(Boolean)), more = [specEl, compEl, auditEl, reportEl].filter(x => x && !used.has(x));
-    bar.append(h("nav", { id: "stages", "data-kind": kind }, ...steps.map((s, i) => [
-      i ? h("span", { class: "st-line" + (steps[i - 1].state === "done" ? " on" : "") }) : null,
+    // A2: each stage is a column under a 3px progress bar (.stage::before); no connector lines. The mark: a check when
+    // done, ↻ when stale, a lock when blocked, else the number as "01"
+    const stMark = (s, i) => s.state === "done" ? ico("check", 12) : s.state === "stale" ? ico("rotate", 12) : s.state === "blocked" ? ico("lock", 12)
+      : String(i + 1).padStart(2, "0");
+    bar.append(h("nav", { id: "stages", "data-kind": kind }, ...steps.map((s, i) =>
       h("div", { class: "stage st-" + s.state + ($("log").dataset.filter === s.label ? " picked" : ""), "data-stage": s.key,
         title: `${s.label} 단계의 대화만 보기`, on: e => { if (!e.target.closest("button, a")) stageFilter(s.label); } },
-        h("span", { class: "st-n" }, s.state === "done" ? "✓" : s.state === "stale" ? "!" : String(i + 1)),
-        h("span", { class: "st-t" }, h("b", null, s.label), h("small", null, s.sub), s.act || null))].filter(Boolean)).flat(),
+        h("span", { class: "st-n" }, stMark(s, i)),
+        h("span", { class: "st-t" }, h("b", null, s.label), h("small", null, s.sub), s.act || null))),
       more.length ? h("span", { class: "st-more" }, ...more) : null));
     // P6: how the conversation is grouped (the task's choice, else the settings'; 시간순 by default)
     const view = d.view || (M.settings || {}).view || "time";
-    bar.append(h("div", { id: "viewbar" }, h("span", { class: "muted" }, "보기"), ...[["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]].map(([v, t]) =>
-      h("button", { class: "vtab" + (view === v ? " on" : ""), "data-view": v, disabled: !pabloHost.setUi,
-        on: () => view !== v && pabloHost.setUi(V.task.id, "view", v).then(() => refresh()).then(() => conversation()) }, t))));
+    bar.append(h("div", { id: "viewbar" }, h("span", { class: "muted" }, "보기"), h("span", { class: "vseg", role: "group", "aria-label": "보기" },
+      ...[["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]].map(([v, t]) =>
+      h("button", { class: "vtab" + (view === v ? " on" : ""), "data-view": v, disabled: !pabloHost.setUi, "aria-pressed": String(view === v),
+        on: () => view !== v && pabloHost.setUi(V.task.id, "view", v).then(() => refresh()).then(() => conversation()) }, t)))));
     box.querySelectorAll("#route").forEach(x => x.remove());  // 보낼 곳 lives in the composer, after the send button (it stays the first button)
     if (routeEl) box.append(routeEl);
   };
