@@ -1918,7 +1918,10 @@ function byTarget(log, rows) {
   const lead = (x, home) => h("p", { class: "muted", "data-also": home }, "↳ ", h("button", { class: "link", title: `'${home}' 묶음에서 보기`,
     on: () => { x.closest("details").open = true; x.scrollIntoView({ block: "center" }); } }, `${x.classList.contains("pablo") ? "Pablo" : "나"} · ${firstText(x).slice(0, 60)}`),
     h("small", null, ` — '${home}' 묶음에 있음`));
-  [...groups.keys()].sort((a, b) => (a === "대상 없음") - (b === "대상 없음") || n(b) - n(a)).forEach((t, i) => {
+  // files first, then quotes by page, then 대상 없음 (one conditions card can quote a dozen pages: they would push the
+  // files down), each by how many messages it has
+  const rank = t => t === "대상 없음" ? 2 : t.startsWith("파일 · ") ? 0 : 1;
+  [...groups.keys()].sort((a, b) => rank(a) - rank(b) || n(b) - n(a)).forEach((t, i) => {
     const rs = groups.get(t), more = (also.get(t) || []).map(x => lead(x, JSON.parse(x.dataset.targets)[0]));
     log.append(h("details", { class: "targetgroup", "data-target": t, open: i === 0 ? true : null },
       h("summary", null, h("span", { class: "tg" + (t === "대상 없음" ? "" : " tgt") }, t), h("small", null, `대화 ${n(t)}`)), rs.map(r => r[0]), more)); });
