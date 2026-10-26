@@ -426,13 +426,17 @@ PAGE = r"""<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{TITLE}}</title>
 <style>
-:root { --bg:#fff; --side:#f7f7f8; --fg:#1f2328; --muted:#6b7280; --faint:#9ca3af; --line:#ececf0; --hover:#f0f0f3;
-        --accent:#2563eb; --ok:#16a34a; --warn:#b45309; --warnbg:#fffbeb; --warnline:#f5c46b; --bad:#b91c1c;
-        --badbg:#fef2f2; --badline:#f3a4a4; --hl:#fde68a; --code:#f3f4f6; --shade:rgba(0,0,0,.35); --lineon:#fef3c7; }
-@media (prefers-color-scheme: dark) { :root { --bg:#1e1f22; --side:#18191b; --fg:#e8e8ea; --muted:#9ca3af;
-        --faint:#6b7280; --line:#2e3035; --hover:#2a2c30; --accent:#7aa7ff; --ok:#4ade80; --warn:#fbbf24;
-        --warnbg:#2d2410; --warnline:#7a5b17; --bad:#f87171; --badbg:#2d1414; --badline:#7f2a2a; --hl:#8a6d10;
-        --code:#2a2c30; --shade:rgba(0,0,0,.6); --lineon:#3d3415; } }
+/* UI renewal, concept A (정밀 계측), light only: the tokens of the Figma collection "Pablo · 시안 토큰" (mode A).
+   One signal colour (orange) for what needs a person's judgement; everything else is ink on cool grey. */
+:root { color-scheme:light;
+        --canvas:#E3E7EB; --surface:#F3F5F7; --raised:#D3D9DF; --ink:#0D0E10; --ink-2:#4A515C; --ink-3:#8A929D;
+        --line-soft:rgba(13,14,16,.16); --primary:#0D0E10; --on-primary:#fff; --signal:#FF4D00; --signal-soft:#FFE1D2;
+        --sans:"Geist", "Pretendard", system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+        --mono:"Geist Mono", "Pretendard", ui-monospace, Consolas, monospace;  /* Geist Mono has no Hangul */
+        --bg:var(--surface); --side:var(--canvas); --fg:var(--ink); --muted:var(--ink-2); --faint:var(--ink-3); --line:#1C1F23;
+        --hover:var(--raised); --accent:var(--ink); --ok:var(--ink-2); --warn:var(--signal); --warnbg:var(--signal-soft);
+        --warnline:var(--signal); --bad:var(--ink); --badbg:var(--raised); --badline:var(--ink); --hl:var(--signal-soft);
+        --code:var(--raised); --shade:rgba(13,14,16,.45); --lineon:var(--signal-soft); }
 * { box-sizing:border-box; }
 html, body { height:100%; margin:0; }
 body { background:var(--bg); color:var(--fg); font:15px/1.65 system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
@@ -455,7 +459,7 @@ code { font:0.88em ui-monospace, SFMono-Regular, Consolas, monospace; background
 #side .t small { display:block; color:var(--faint); font-size:11px; font-weight:400; }
 #task-search { width:100%; box-sizing:border-box; margin:0 0 6px; border:1px solid var(--line); border-radius:8px; padding:5px 9px;
   background:var(--bg); color:var(--fg); font:inherit; font-size:13px; }
-#side details.away summary { font-size:12px; color:var(--muted); cursor:pointer; margin:10px 6px 4px; }
+#side details.away summary, #side details.done summary { font-size:12px; color:var(--muted); cursor:pointer; margin:10px 6px 4px; }
 #bar .quiet { font-size:12px; color:var(--faint); } #bar h1 .rn-in { font-size:15px; width:min(320px, 50vw); }
 #bar h1:hover + .rn, #bar .rn:focus-visible { opacity:1; }
 /* conversation */
@@ -648,6 +652,132 @@ body.dropping #log::before { content:"PDF를 놓으면 이 작업의 자료로 �
 @keyframes bob { 50% { transform:translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { #agent .mascot { animation:none; } }
 ::highlight(evidence) { background-color:var(--hl); color:var(--fg); }
+/* concept A: hard structural lines, soft inner dividers, 2px corners, Geist / Geist Mono for Latin (Pretendard for Hangul) */
+body { font-family:var(--sans); }
+code, pre.diff, pre.cmd, details.tech pre, #doc .pre, #pbody.code, .who small, .pnum, #side .t small, .cite { font-family:var(--mono); }
+#side .new, #side .t, #task-search, .pill, .composer, .composer button, .call, .spec, .audit, .changes, .matrix, .audit .stale,
+.audit .ps51, #goal, .cols, #adder #arxiv, .rn-in, code, pre.diff, pre.cmd, details.tech pre, #doc .pre, .url, ul.ck .edits .why,
+#pick input, #pick select, .pg .hl { border-radius:2px; }
+.audit li, ol.steps li, .matrix th, .matrix td, .cols, ul.ck .edits .why, .rn-in, #pick input, #pick select { border-color:var(--line-soft); }
+.tl li::before { border-left-color:var(--raised); }
+.link, .cite, button.file, .ext, .info a { color:var(--ink); text-decoration:underline; text-underline-offset:2px;
+  text-decoration-color:var(--ink-3); }
+.link:hover, .cite:hover, .cite.on, button.file:hover { text-decoration-color:var(--ink); }
+.pill.on, .msg.pablo .av { background:var(--primary); color:var(--on-primary); border-color:var(--primary); }
+#side .t.on { background:var(--surface); box-shadow:inset 2px 0 var(--ink); }
+.call { border:1px dashed var(--signal); border-left:3px solid var(--signal); background:var(--surface); border-radius:2px; }
+.call .head { color:var(--signal); }
+.call.block { border:1px solid var(--ink); border-left:3px solid var(--ink); background:var(--raised); }
+.call.block .head { color:var(--ink); }
+.call.block .head::before { content:"막음"; background:var(--signal); color:#fff; font:600 11px/1.6 var(--sans); padding:1px 6px;
+  margin-right:8px; border-radius:2px; vertical-align:1px; }
+.spec, .audit, .matrix, .changes { border:1px solid var(--line-soft); border-left:3px solid var(--ink); background:var(--surface); }
+.audit .st-differs b, .audit .st-pairing b { color:var(--signal); } .audit .st-missing b, .audit .st-unclear b { color:var(--ink-2); }
+.spec ul.open li { color:var(--ink-2); } .chk { color:var(--ink-2); }
+.pg .hl { background:rgba(255,77,0,.28); }
+.pg .textLayer ::selection { background:rgba(255,77,0,.25); }
+body.dropping #log { outline-color:var(--signal); } body.dropping #log::before { color:var(--signal); }
+.info.STALE, .info.UNRESOLVED, .info.broken { color:var(--ink); }
+/* P3: the right column: tabs on top of the panel; closed, a 72px rail of the same tabs */
+#right { display:none; min-width:0; }
+body.rail #right, body.panel #right { display:flex; flex-direction:column; height:100vh; border-left:1px solid var(--line); background:var(--surface); }
+body.rail:not(.panel) { grid-template-columns:220px minmax(0, 1fr) 72px; }
+#right #panel { height:auto; flex:1; min-height:0; border-left:0; }
+#ptabs { display:flex; flex:none; border-bottom:1px solid var(--line); }
+.ptab { flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:1px; padding:9px 6px 7px;
+  border-bottom:3px solid transparent; line-height:1.3; }
+.ptab b { font-size:14px; } .ptab small { font:11px/1.4 var(--mono); color:var(--ink-2); white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; max-width:100%; } .ptab .short { display:none; }
+.ptab.on { background:var(--raised); border-bottom-color:var(--signal); } .ptab:hover:not(:disabled) { background:var(--raised); }
+body:not(.panel) #ptabs { flex-direction:column; gap:4px; padding:12px 6px; border-bottom:0; }
+body:not(.panel) .ptab { border-bottom:0; border-radius:2px; padding:8px 2px; } body:not(.panel) .ptab b { font-size:13px; }
+body:not(.panel) .ptab .long { display:none; } body:not(.panel) .ptab .short { display:block; }
+/* P5 / P6: tag editing, the view bar, stage and target groups */
+.tg.manual { background:none; border:1px solid var(--signal); color:var(--ink); } .tg.stage.mine { box-shadow:inset 0 0 0 1px var(--signal); }
+.tagbtn { font-size:11px; color:var(--ink-3); padding:0 4px; } .tagbtn:hover { color:var(--ink); text-decoration:underline; }
+.tagedit { flex-basis:100%; margin-top:6px; padding:12px 14px; border:1px solid var(--signal); border-radius:2px; background:var(--surface);
+  display:flex; flex-direction:column; gap:8px; font-size:13px; } .te-st { display:flex; flex-wrap:wrap; gap:4px 14px; }
+.te-st small { color:var(--ink-3); } .te-foot { display:flex; gap:8px; justify-content:flex-end; }
+.ce-text { width:100%; box-sizing:border-box; resize:vertical; padding:6px 8px; border:1px solid var(--line-soft); border-radius:2px;
+  background:var(--canvas); color:var(--ink); font:inherit; }
+#viewbar { display:flex; gap:4px; align-items:center; margin-top:6px; font-size:12px; }
+#viewbar .vtab { padding:2px 10px; border-radius:2px; font-size:12px; color:var(--ink-2); } #viewbar .vtab.on { background:var(--primary); color:var(--on-primary); }
+#viewbar .vtab:hover:not(.on):not(:disabled) { background:var(--raised); }
+.stagegroup, .targetgroup { max-width:760px; margin:0 auto 16px; padding:12px 16px; border:1px solid var(--line-soft); border-radius:2px; background:var(--surface); }
+.stagegroup.st-now { border-color:var(--ink); } .stagegroup.st-later { border-style:dashed; color:var(--ink-3); } .stagegroup.st-past { background:var(--canvas); }
+.sg-head { display:flex; gap:8px; align-items:baseline; } .sg-head small, .targetgroup summary small { color:var(--ink-3); font:11px/1.4 var(--mono); }
+.sg-sum { margin:8px 0 0; font-size:14px; } .sg-dec { list-style:none; margin:8px 0 0; padding:0; font-size:13px; } .sg-dec li { margin:3px 0; }
+.sg-msgs { margin-top:10px; } .sg-msgs > summary, .targetgroup > summary { cursor:pointer; font-size:12px; color:var(--ink-2); display:flex; gap:8px; align-items:center; }
+.sg-msgs[open] > summary, .targetgroup[open] > summary { margin-bottom:14px; }
+.sg-edit { width:100%; border:1px solid var(--line-soft); border-radius:2px; padding:8px 10px; background:var(--surface); font:inherit; }
+/* P7: kinds in the new task form, the settings dialog */
+.kinds { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 4px; }
+.kind { flex:1 1 180px; display:grid; grid-template-columns:auto 1fr; gap:2px 8px; align-items:center; padding:10px 12px;
+  border:1px solid var(--line-soft); border-radius:2px; cursor:pointer; } .kind:has(input:checked) { border-color:var(--ink); background:var(--raised); }
+.kind small { grid-column:2; color:var(--ink-2); font-size:12px; line-height:1.4; }
+#settings { position:fixed; inset:0; z-index:20; background:rgba(13,14,16,.45); display:grid; place-items:center; }
+.set-box { width:min(560px, 92vw); max-height:86vh; overflow:auto; background:var(--surface); border:1px solid var(--line); border-radius:2px;
+  padding:20px 24px; display:flex; flex-direction:column; gap:14px; }
+.set-head { display:flex; justify-content:space-between; align-items:center; font-size:17px; }
+.set-row { display:flex; gap:16px; justify-content:space-between; align-items:flex-start; padding-top:12px; border-top:1px solid var(--line-soft); }
+.set-row small { display:block; color:var(--ink-2); font-size:12px; } .set-opts { display:flex; flex-direction:column; gap:4px; font-size:13px; white-space:nowrap; }
+.set-foot { display:flex; gap:8px; justify-content:flex-end; }
+/* P4: stage tags and dividers, the stage filter, the model as a text button */
+.tags { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin:8px 0 0; }
+.tg { font:500 11px/1.6 var(--sans); padding:0 6px; border-radius:2px; background:var(--raised); color:var(--ink-2); white-space:nowrap; }
+.tg.stage { background:var(--primary); color:var(--on-primary); } .tags .more { font-size:11px; color:var(--ink-3); }
+.divider { max-width:720px; margin:0 auto 20px; display:flex; align-items:center; gap:10px; }
+.divider::after { content:""; flex:1; height:1px; background:var(--line-soft); }
+#log > .filtered { display:none; }
+#filter-banner { max-width:720px; margin:0 auto 20px; padding:8px 12px; border:1px dashed var(--ink-3); border-radius:2px; font-size:13px;
+  display:flex; gap:8px; justify-content:space-between; align-items:center; }
+#stages .stage { cursor:pointer; } #stages .stage.picked { outline:2px solid var(--ink); outline-offset:-2px; }
+.composer { position:relative; } #model { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+.composer > button.modelbtn { order:1; width:auto; height:auto; border-radius:2px; background:none; color:var(--ink);
+  font:500 13px/1.4 var(--sans); padding:4px 8px; white-space:nowrap; } .composer > button.modelbtn:hover { background:var(--raised); }
+.composer > button.modelbtn[hidden] { display:none; } .composer > #agent { order:2; } .composer > button:not(.modelbtn) { order:3; }
+.composer > .mmenu { position:absolute; right:44px; bottom:calc(100% + 6px); z-index:6; min-width:220px; display:flex; flex-direction:column;
+  padding:4px; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:0 8px 24px rgba(13,14,16,.16); }
+.composer > .mmenu[hidden] { display:none; }
+.composer .mmenu button.mopt { width:auto; height:auto; border-radius:2px; background:none; color:var(--ink); text-align:left;
+  padding:7px 10px; font-size:13px; } .composer .mmenu button.mopt.on, .composer .mmenu button.mopt:hover { background:var(--raised); }
+/* P2: header state chip + source card, stage bar, 보낼 곳 inside the composer */
+#tools { max-width:none; width:auto; margin:0; padding:8px 20px; border-bottom:1px solid var(--line); background:var(--surface);
+  color:var(--ink); display:block; }
+#stages { display:flex; align-items:center; gap:4px; overflow-x:auto; }
+#stages .st-line { flex:0 0 12px; height:2px; background:var(--raised); } #stages .st-line.on { background:var(--ink); }
+#stages .stage { display:flex; gap:8px; align-items:flex-start; padding:5px 10px 5px 8px; border:1px solid transparent; border-radius:2px;
+  min-width:0; flex:0 1 auto; }
+#stages .st-n { flex:none; width:20px; height:20px; border-radius:50%; display:grid; place-items:center; margin-top:1px;
+  font:600 11px/1 var(--mono); border:1.5px solid var(--ink-3); color:var(--ink-2); }
+#stages .st-t { display:flex; flex-direction:column; min-width:0; line-height:1.3; }
+#stages .st-t b { font-size:13px; white-space:nowrap; } #stages .st-t small { font:11px/1.4 var(--mono); color:var(--ink-2); white-space:nowrap; }
+#stages .st-t > span[id] { display:block; } #stages .st-t .link, #stages .st-more .link { font-size:11px; white-space:nowrap;
+  max-width:190px; overflow:hidden; text-overflow:ellipsis; display:block; text-align:left; }
+#stages .st-done .st-n { background:var(--ink); border-color:var(--ink); color:var(--on-primary); }
+#stages .st-current { background:var(--raised); border-color:var(--signal); } #stages .st-current .st-n { border-color:var(--signal); color:var(--ink); }
+#stages .st-stale { border:1px dashed var(--signal); } #stages .st-stale .st-n { border:1.5px dashed var(--signal); color:var(--signal); }
+#stages .st-blocked { opacity:.55; } #stages .st-blocked .st-n { border-style:dashed; }
+#stages .st-todo b { color:var(--ink-2); font-weight:600; }
+#stages .st-more { display:flex; gap:10px; align-items:center; margin-left:auto; padding-left:12px; }
+#chips { position:relative; flex:none; }
+.statechip { border:1px solid var(--line); border-radius:2px; padding:3px 10px; font:500 12px/1.6 var(--sans); background:var(--surface);
+  white-space:nowrap; } .statechip:hover, .statechip[aria-expanded="true"] { background:var(--raised); }
+.srccard { position:absolute; right:0; top:calc(100% + 6px); z-index:5; width:min(440px, 80vw); max-height:70vh; overflow:auto;
+  background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:0 8px 24px rgba(13,14,16,.16); }
+.srccard[hidden] { display:none; }
+.sc-sec { padding:12px 16px; border-top:1px solid var(--line-soft); font-size:13px; color:var(--ink-2); } .sc-sec:first-child { border-top:0; }
+.srccard #src .plist { display:flex; flex-direction:column; gap:0; margin:8px 0 6px; }
+.srccard #src .paper { display:flex; align-items:center; gap:8px; padding:7px 4px; white-space:normal; color:var(--ink);
+  border-top:1px solid var(--line-soft); } .srccard #src .paper:first-child { border-top:0; }
+.srccard #src .paper::before { content:"PDF"; flex:none; font:600 9px/1 var(--mono); padding:4px 3px; border:1px solid var(--ink);
+  border-radius:2px; } .srccard #src .paper[data-kind="web"]::before { content:"WEB"; }
+.srccard #src .paper b { font-weight:500; } .srccard #src .paper .link { color:var(--ink); }
+.srccard #src.many .plist { margin-left:0; }
+.composer #route { order:-1; display:flex; gap:2px; align-items:center; font-size:12px; color:var(--ink-2); white-space:nowrap; }
+.composer #route button, .composer #route b { width:auto; height:auto; border-radius:2px; background:none; color:var(--ink);
+  padding:2px 8px; font-size:12px; text-decoration:none; }
+.composer #route b[data-route] { background:var(--primary); color:var(--on-primary); font-weight:500; }
 @media (max-width:900px) {
   body, body.panel { display:block; }
   #side { display:none; position:fixed; inset:0 30% 0 0; z-index:3; box-shadow:0 0 0 100vmax var(--shade); }
@@ -659,7 +789,7 @@ body.dropping #log::before { content:"PDF를 놓으면 이 작업의 자료로 �
 <nav id="side"></nav>
 <section id="chat"><header id="bar"></header><div id="log"></div>
   <div class="composer"><input disabled placeholder="Pablo에게 물어보세요… (읽기 전용 미리보기)"><button disabled>↑</button></div></section>
-<aside id="panel"></aside>
+<div id="right"><nav id="ptabs"></nav><aside id="panel"></aside></div>
 <script type="application/json" id="data">{{DATA}}</script>
 <script>
 let M = JSON.parse(document.getElementById("data").textContent);  // M5.1: replaced by the desktop's live state
@@ -731,7 +861,7 @@ const korean = t => /[가-힣]/.test((t || "").replace(/"[^"]*"/g, ""));
 const reason = (t, block) => !t ? null : korean(t) ? h("p", null, rich(t))
   : h("p", null, block ? "작업 기준과 충돌해 막았습니다." : "현재 작업 기준과 맞는지 확인이 필요합니다.");
 const host = u => { try { const x = new URL(u); return x.host + x.pathname; } catch { return u; } };
-let V, cites = {}, hist = [], hi = -1, busy = null;  // busy: the task whose agent turn or PDF question is running
+let V, cites = {}, hist = [], hi = -1, busy = null, lastEv = null;  // lastEv: the last source / code / paper / table shown (the 근거 tab reopens it)  // busy: the task whose agent turn or PDF question is running
 const lives = {}, live = t => (t = t || V.task.id, lives[t] || (lives[t] = h("div", { id: "live" })));  // agent chat, one per task (own thread)
 
 // ---- citations: [n] -> the existing EvidenceAnchor id (data-e); numbering is per task ---------------------
@@ -774,13 +904,17 @@ function sidebar() {
       h("button", { class: "new", id: "new", disabled: !(window.pabloHost && pabloHost.newTask), on: () => newTask() }, "+ 새 작업")),
     ...[M.tasks.length > 1 ? q : null, box].filter(Boolean));  // append(null) prints "null"
   const row = t => h("button", { class: "t" + (V && t.id === V.task.id ? " on" : ""), title: t.name ? t.text : t.id, "data-task": t.id,
-    on: () => { select(t.id); document.body.classList.remove("side"); } }, nameOf(t), h("small", null, time(t.at)));
+    on: () => { select(t.id); document.body.classList.remove("side"); } }, nameOf(t),
+    h("small", null, M.desk ? `${KIND[deskKind(t.id)]} · ${time(t.at)}` : time(t.at)));
   function list() {
     const words = taskQuery.trim().toLowerCase().split(/\s+/).filter(Boolean), d = M.desk || {};
     const hit = t => !words.length || words.every(w => [t.name, t.text, t.id, ...((d[t.id] || {}).papers || []).map(p => p.title)]
       .some(x => String(x || "").toLowerCase().includes(w)));
-    const ts = [...M.tasks].reverse().filter(hit), kept = ts.filter(t => !(d[t.id] || {}).archived), away = ts.filter(t => (d[t.id] || {}).archived);
+    const ts = [...M.tasks].reverse().filter(hit), kept = ts.filter(t => !(d[t.id] || {}).archived && !(d[t.id] || {}).done), away = ts.filter(t => (d[t.id] || {}).archived);
+    const done = ts.filter(t => (d[t.id] || {}).done && !(d[t.id] || {}).archived);  // P7: finished tasks fold into 완료
     box.replaceChildren(...[h("h4", null, words.length ? `찾은 작업 ${ts.length}개` : "작업"), ...kept.map(row),
+      done.length ? h("details", { class: "done", "data-done": String(done.length), open: words.length ? true : null },
+        h("summary", null, `완료 ${done.length}`), ...done.map(row)) : null,
       away.length ? h("details", { class: "away", "data-archived": String(away.length), open: words.length ? true : null },
         h("summary", null, `보관한 작업 ${away.length}개`), ...away.map(row)) : null,
       words.length && !ts.length ? h("p", { class: "muted", style: "padding:0 8px;font-size:13px" }, "맞는 작업이 없습니다.") : null].filter(Boolean));
@@ -789,8 +923,8 @@ function sidebar() {
   if (had) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
 }
 function header() {
-  const mode = hi >= 0 && document.body.classList.contains("panel") ? hist[hi].mode : null;
-  $("bar").textContent = "";
+  const chips = $("chips");  // P2: the state chip + source card (tools() makes it); kept across a header redraw
+  $("bar").textContent = ""; ptabs();
   $("bar").append(h("button", { id: "menu", title: "작업 목록", on: () => document.body.classList.toggle("side") }, "☰"));
   if (!V) return $("bar").append(h("h1", null, "Pablo"));
   // ⑭ the task's own name (✎) and 보관 / 보관 풀기, beside it
@@ -804,10 +938,45 @@ function header() {
   const away = window.pabloHost && pabloHost.archiveTask ? h("button", { class: "link quiet", "data-archive": d.archived ? "off" : "on",
     title: d.archived ? "작업 목록으로 되돌립니다" : "작업 목록 아래 '보관한 작업'으로 옮깁니다. 기록은 그대로 남습니다.",
     on: () => pabloHost.archiveTask(V.task.id, !d.archived).then(() => refresh()) }, d.archived ? "보관 풀기" : "보관") : null;
-  $("bar").append(name, edit, away,
-    h("button", { class: "pill" + (mode === "intent" ? " on" : ""), on: () => toggle({ mode: "intent" }) }, "기준"),
-    h("button", { class: "pill" + (mode === "plan" ? " on" : ""), disabled: !V.plan, on: () => toggle({ mode: "plan" }) }, "계획"),
-    h("button", { class: "pill" + (mode === "trace" ? " on" : ""), on: () => toggle({ mode: "trace" }) }, "왜?"));
+  const unDone = d.done && window.pabloHost && pabloHost.setUi ? h("button", { class: "link quiet", "data-done": "off",
+    title: "작업 목록으로 되돌립니다", on: () => pabloHost.setUi(V.task.id, "done", false).then(() => refresh()) }, "완료 풀기") : null;
+  $("bar").append(...[name, edit, away, unDone, chips].filter(Boolean));  // 기준 · 계획 · 왜? are the right column's tabs (ptabs)
+}
+// P7: the task's kind decides its stages; one stored at creation wins, else what its material says
+const KIND = { repro: "논문 재현", read: "논문 읽기", general: "일반" };
+function deskKind(id) { const d = (M.desk || {})[id] || {}, ps = d.papers || [];
+  return d.kind || (d.folder && ps.length ? "repro" : ps.length ? "read" : "general"); }
+// P7: the right column is remembered per task (open or rail, and the tab); a task switch's own close() is not a choice
+let panelSaved = {}, panelQuiet = false;
+function rememberPanel() {
+  if (!V || panelQuiet || !window.pabloHost || !pabloHost.setUi) return;
+  const open = document.body.classList.contains("panel"), m = open && hi >= 0 ? hist[hi].mode : null;
+  const was = ((M.desk || {})[V.task.id] || {}).panel || {};
+  const v = { open, tab: !m ? (was.tab || "intent") : ["source", "code", "paper", "matrix"].includes(m) ? "evidence" : m }, k = JSON.stringify(v);
+  if (panelSaved[V.task.id] === k) return; panelSaved[V.task.id] = k;
+  pabloHost.setUi(V.task.id, "panel", v).catch(() => {});
+}
+function evidenceFor() { const d = (M.desk || {})[V.task.id] || {}, pp = (d.papers || []).find(p => p.primary && p.kind !== "web");
+  return lastEv || (pp && (M.papers || {})[pp.id] ? { mode: "paper", src: pp.id } : null); }
+// P3: the right column's tabs, always there: 기준 · 계획 · 왜? · 근거 with a one-line summary each; with the panel
+// closed they stay as a rail
+function ptabs() {
+  const nav = $("ptabs"); if (!nav) return; nav.textContent = "";
+  document.body.classList.toggle("rail", !!V);
+  if (!V) return;
+  const mode = hi >= 0 && document.body.classList.contains("panel") ? hist[hi].mode : null;
+  const EV = ["source", "code", "paper", "matrix"], on = EV.includes(mode) ? "evidence" : mode;
+  const I = V.intent, P = V.plan, done = P ? P.steps.filter(s => stepState(s)[0] === "done").length : 0;
+  const cited = new Set(Object.values(V.checks).flatMap(c => c.evidence || [])).size;
+  const waiting = V.actions.some(a => a.verdict === "WARN" && !a.decision);
+  const d = (M.desk || {})[V.task.id] || {}, pp = (d.papers || []).find(p => p.primary && p.kind !== "web");
+  const ev = lastEv || (pp && (M.papers || {})[pp.id] ? { mode: "paper", src: pp.id } : null);
+  const tabs = [["intent", "기준", `반드시 ${I.must.length} · 가능 ${I.prefer.length}`, String(I.must.length + I.prefer.length), () => toggle({ mode: "intent" })],
+    ["plan", "계획", P ? `${done} / ${P.steps.length} 단계` : "없음", P ? `${done}/${P.steps.length}` : "—", P ? () => toggle({ mode: "plan" }) : null],
+    ["trace", "왜?", waiting ? "확인 기다림" : `판정 ${V.actions.length}`, waiting ? "!" : String(V.actions.length), () => toggle({ mode: "trace" })],
+    ["evidence", "근거", `인용 ${cited}`, String(cited), ev ? () => (on === "evidence" ? close() : show(ev)) : null]];
+  nav.append(...tabs.map(([k, label, long, short, go]) => h("button", { class: "ptab" + (on === k ? " on" : ""), "data-tab": k, disabled: !go,
+    title: long, on: go }, h("b", null, label), h("small", { class: "long" }, long), h("small", { class: "short" }, short))));
 }
 
 // ---- conversation: built from the stored research / plan / guard / review records --------------------------
@@ -1211,23 +1380,153 @@ function echo(task, c) {
   live(task).append(...said(c)); $("log").scrollTop = $("log").scrollHeight;
 }
 // one timeline: the task, its research, the chat log and the Guard cards, in the order they happened
+// P4: each message's stage, from what the record is (a spec is 조건 확정, an audit 재현 점검, ...), a divider where
+// the stage changes, and a tag row: the stage, then what it is about (files, [n]); the rest folds into "N개 더"
+function kindOf() { const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [];
+  return d.kind || (d.folder && ps.length ? "repro" : ps.length ? "read" : "general"); }
+function stageOfRole(role, kind) {
+  const r = String(role || "");
+  if (kind === "repro") return r === "start" ? "준비" : /^(spec|criterion|intent)/.test(r) || r === "ask" ? "조건 확정"
+    : r === "audit" ? "재현 점검" : r === "report" ? "보고서" : "구현·실행";
+  if (kind === "read") return r === "start" || /^spec/.test(r) ? "준비" : r === "compare" ? "비교표" : r === "report" ? "정리" : "질문";
+  return r === "start" ? "준비" : r === "report" ? "검토" : "작업";
+}
+const STAGE_LIST = { repro: ["준비", "조건 확정", "구현·실행", "재현 점검", "보고서"], read: ["준비", "질문", "비교표", "정리"], general: ["준비", "작업", "검토"] };
+// o: the person's override for this message (P5: {stage, decision}); auto: the stage Pablo computed
+function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
+  const body = el.children && el.children[1]; if (!body || body.querySelector(":scope > .tags")) return;
+  const files = [...new Set([...el.querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))];
+  const refs = [...new Set([...el.querySelectorAll(".cite")].map(c => c.textContent))];
+  const targets = [...files.map(f => "파일 · " + f), ...refs.map(r => "근거 · " + r)]; el.dataset.targets = JSON.stringify(targets);
+  const shown = all ? targets : [...files.slice(0, 2).map(f => "파일 · " + f), ...refs.slice(0, 2).map(r => "근거 · " + r)];
+  const more = all ? 0 : Math.max(0, files.length - 2) + Math.max(0, refs.length - 2);
+  const row = h("div", { class: "tags", "data-auto": auto }, h("span", { class: "tg stage" + (o.stage ? " mine" : ""), title: o.stage ? `사람이 고침 (자동: ${auto})` : null }, stage),
+    o.decision ? h("span", { class: "tg manual", "data-decision": "1" }, "결정") : null, ...shown.map(t => h("span", { class: "tg tgt" }, t)),
+    more ? h("small", { class: "more" }, `· ${more}개 더`) : null);
+  if (key && window.pabloHost && pabloHost.setUi) row.append(h("button", { class: "tagbtn", "data-tag-edit": "1", title: "이 메시지의 태그 고치기",
+    on: () => tagEdit(row, key, stage, o) }, "✎ 태그"));
+  if (window.pabloHost && pabloHost.makeCriterion && el.classList.contains("msg")) row.append(h("button", { class: "tagbtn", "data-crit-make": "1",
+    title: "이 메시지의 글을 작업 기준으로", on: () => critMake(row, el) }, "📌 기준으로"));
+  body.append(row);
+}
+// a message's words made a criterion of this task by the person, in a sentence they trim: a rule (반드시 / 가능하면), never
+// the goal. Guard, the brief and 재현 점검 follow at once; the conversation says so
+function critMake(row, el) {
+  const old = row.querySelector(".tagedit"); if (old) return old.remove();
+  const task = V.task.id, words = [...el.children[1].children].filter(c => !c.classList.contains("who") && !c.classList.contains("tags"))
+    .map(c => c.textContent).join(" ").replace(/\s+/g, " ").trim().slice(0, 300);
+  const text = h("textarea", { class: "ce-text", "data-crit-text": "1", rows: 3, maxlength: 1000 }); text.value = words;
+  const note = h("p", { class: "muted" }, "이 작업에만 적용됩니다. 지킬 내용만 한 문장으로 남겨 주세요.");
+  const ed = h("div", { class: "tagedit" }, h("b", null, "이 글을 작업 기준으로"), text,
+    h("div", { class: "te-st" }, [["hard", "반드시"], ["soft", "가능하면"]].map(([v, n]) =>
+      h("label", null, h("input", { type: "radio", name: "ce-" + task, value: v, checked: v === "hard" ? true : null }), " ", n))), note,
+    h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => ed.remove() }, "취소"), h("button", { class: "pill on", "data-crit-save": "1", on: () => {
+      const t = text.value.trim(), st = ed.querySelector("input[type=radio]:checked").value;
+      if (!t) return text.focus();
+      pabloHost.makeCriterion(task, t, st).then(items => {
+        if (!items.length) return note.replaceChildren("이미 같은 기준이 있습니다.");
+        ed.remove(); echo(task, { role: "intent", items }); return refresh(); }, e => note.replaceChildren(fail(e))); } }, "기준으로 추가")));
+  row.append(ed); text.focus();
+}
+// P5: the person changes a message's stage or pins it as a decision; that wins over what Pablo computes, on every redraw
+function tagEdit(row, key, stage, o) {
+  const old = row.querySelector(".tagedit"); if (old) return old.remove();
+  const names = STAGE_LIST[kindOf()] || STAGE_LIST.general, task = V.task.id;
+  const ed = h("div", { class: "tagedit" }, h("b", null, "이 메시지의 태그"),
+    h("div", { class: "te-st" }, names.map(n => h("label", null, h("input", { type: "radio", name: "te-" + key, value: n, checked: n === stage ? true : null }), " ", n,
+      n === row.dataset.auto ? h("small", null, " (자동)") : null))),
+    h("label", { class: "te-dec" }, h("input", { type: "checkbox", checked: o.decision ? true : null }), " 결정으로 고정 — 단계별 보기의 결정 목록과 보고서의 근거가 됩니다"),
+    h("p", { class: "muted" }, "사람이 고친 태그는 다시 계산해도 바뀌지 않습니다."),
+    h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => ed.remove() }, "취소"), h("button", { class: "pill on", "data-tag-save": "1", on: () => {
+      const st = (ed.querySelector("input[type=radio]:checked") || {}).value || stage, dec = ed.querySelector("input[type=checkbox]").checked;
+      const tags = { ...(((M.desk || {})[task] || {}).tags || {}) }, v = { ...(st !== row.dataset.auto ? { stage: st } : {}), ...(dec ? { decision: true } : {}) };
+      if (Object.keys(v).length) tags[key] = v; else delete tags[key];
+      pabloHost.setUi(task, "tags", tags).then(() => refresh()).then(() => V && V.task.id === task && conversation()); } }, "저장")));
+  row.append(ed);
+}
+const firstText = el => { const p = el.querySelector("p"); return (p ? p.textContent : el.textContent).replace(/\s+/g, " ").trim().slice(0, 90); };
+// P6 단계별: one box per stage; past ones show a summary (the person's text wins over the record-based one) and the
+// decisions, their messages folded; the current stage is open; stages not reached yet are placeholders
+function byStage(log, rows, kind, D) {
+  const names = STAGE_LIST[kind] || STAGE_LIST.general, cur = (document.querySelector("#stages .st-current b") || {}).textContent;
+  const ci = names.indexOf(cur), can = window.pabloHost && pabloHost.setUi;
+  names.forEach((n, i) => {
+    const mine = rows.filter(r => r[1] === n), msgs = mine.filter(r => r[0].classList && r[0].classList.contains("msg")), decs = mine.filter(r => r[2].decision);
+    const files = new Set(mine.flatMap(r => [...r[0].querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))).size;
+    const facts = msgs.length ? [`메시지 ${msgs.length}`, decs.length ? `결정 ${decs.length}` : null, files ? `파일 ${files}` : null].filter(Boolean).join(" · ") : "아직 대화가 없습니다";
+    // a stage with messages is never 아직, whatever the stage bar computes from the material (진행: talked about, not done)
+    const state = i === ci ? "지금" : !msgs.length ? (ci >= 0 && i < ci ? "완료" : "아직") : ci >= 0 && i < ci ? "완료" : "진행", own = (D.summary || {})[n];
+    const sum = h("div", { class: "sg-sum" }, own ? [h("span", { class: "tg manual" }, "사람이 고침"), " ", own] : h("span", { class: "muted" }, "기록 요약 — " + facts),
+      can && msgs.length ? [" ", h("button", { class: "link", "data-summary-edit": n, on: () => summaryEdit(sum, n, own || "") }, "✎ 요약 고치기")] : null);
+    log.append(h("div", { class: "stagegroup st-" + (state === "지금" || state === "진행" ? "now" : state === "아직" ? "later" : "past"), "data-stage": n },
+      h("div", { class: "sg-head" }, h("span", { class: "tg stage" }, n), h("b", null, state), h("small", null, facts)), sum,
+      decs.length ? h("ul", { class: "sg-dec" }, decs.map(r => h("li", null, h("span", { class: "tg manual" }, "결정"), " ", firstText(r[0])))) : null,
+      mine.length ? h("details", { class: "sg-msgs", open: state === "지금" || state === "진행" ? true : null }, h("summary", null, `대화 ${msgs.length}`), mine.map(r => r[0])) : null));
+  });
+  rows.filter(r => !names.includes(r[1])).forEach(r => log.append(r[0]));
+}
+function summaryEdit(sum, n, cur) {
+  const task = V.task.id, ta = h("textarea", { class: "sg-edit", rows: 3 }); ta.value = cur;
+  sum.replaceChildren(ta, h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => conversation() }, "취소"),
+    h("button", { class: "pill on", "data-summary-save": n, on: () => { const all = { ...(((M.desk || {})[task] || {}).summary || {}) }, t = ta.value.trim();
+      if (t) all[n] = t; else delete all[n];
+      pabloHost.setUi(task, "summary", all).then(() => refresh()).then(() => V && V.task.id === task && conversation()); } }, "저장")));
+  ta.focus();
+}
+// P6 대상별: grouped by what each message is about (its first file or [n]); the rest under 대상 없음
+function byTarget(log, rows) {
+  const groups = new Map(), rest = [];
+  rows.forEach(r => { const x = r[0]; if (!(x.classList && x.classList.contains("msg"))) return rest.push(x);
+    const t = JSON.parse(x.dataset.targets || "[]")[0] || "대상 없음"; if (!groups.has(t)) groups.set(t, []); groups.get(t).push(r); });
+  [...groups].sort((a, b) => (a[0] === "대상 없음") - (b[0] === "대상 없음") || b[1].length - a[1].length).forEach(([t, rs], i) =>
+    log.append(h("details", { class: "targetgroup", "data-target": t, open: i === 0 ? true : null },
+      h("summary", null, h("span", { class: "tg" + (t === "대상 없음" ? "" : " tgt") }, t), h("small", null, `대화 ${rs.length}`)), rs.map(r => r[0]))));
+  rest.forEach(x => log.append(x));
+}
+// a stage in the stage bar: only that stage's messages (and its dividers) stay; again -> all
+function stageFilter(label) {
+  const log = $("log"), on = log.dataset.filter === label ? "" : label; log.dataset.filter = on;
+  const old = $("filter-banner"); if (old) old.remove();
+  let hid = 0, kept = 0;
+  [...log.children].forEach(x => { const s = x.dataset && x.dataset.stage; if (!s) return;
+    const hide = !!on && s !== on; x.classList.toggle("filtered", hide); if (x.classList.contains("msg")) hide ? hid++ : kept++; });
+  if (on) log.prepend(h("div", { id: "filter-banner" }, h("span", null, `${on} 단계 대화만 보는 중 · ${kept}개 · 다른 단계 ${hid}개 숨김`),
+    h("button", { class: "link", on: () => stageFilter(on) }, "전체 보기")));
+  document.querySelectorAll("#stages .stage").forEach(x => x.classList.toggle("picked", !!on && x.querySelector("b").textContent === on));
+}
 function conversation() {
   cites = {};  // ⑩ review: [n] by when the evidence was found, so "[16]" is the same live and after a reload
   [...new Set(Object.values(V.checks).flatMap(c => c.evidence))].filter(e => M.anchors[e])
     .sort((a, b) => +a.replace(/\D/g, "") - +b.replace(/\D/g, "")).forEach((e, i) => { cites[e] = i + 1; });
-  const log = $("log"); log.textContent = "";
+  const log = $("log"); log.textContent = ""; log.dataset.filter = "";  // a redraw shows every stage again
   if (busy !== V.task.id) delete lives[V.task.id];  // what was said is in the chat log; only a running turn stays live
   const chat = V.chat || [], asked = new Set(chat.map(c => c.check).filter(Boolean)), research = answer(asked);
-  const at = x => new Date(x || 0).getTime(), t0 = at(V.task.at), items = [[t0, msg("You", V.task.at, h("p", null, V.task.text))]];
-  if (research.length) items.push([t0, msg("Pablo", null, research)]);
+  const kind = kindOf(), sg = r => stageOfRole(r, kind);
+  const at = x => new Date(x || 0).getTime(), t0 = at(V.task.at), items = [[t0, msg("You", V.task.at, h("p", null, V.task.text)), sg("start"), "start"]];
+  if (research.length) items.push([t0, msg("Pablo", null, research), sg("start"), "research"]);
   const inLog = new Set(chat.flatMap(c => c.role === "spec" ? [...(c.checks || []), ...(c.missing || [])] : c.role === "spec-add" ? [c.check] : []));
   const loose = V.research.filter(id => V.checks[id].spec && V.checks[id].state !== "waived" && !inLog.has(id));
-  if (loose.length) items.push([t0, msg("Pablo", null, conditions(loose, 0))]);
-  issues().forEach(x => items.push([t0, msg("Pablo", null, x)]));
-  chat.forEach(c => said(c).forEach(x => items.push([at(c.at), x])));
+  if (loose.length) items.push([t0, msg("Pablo", null, conditions(loose, 0)), sg("spec"), "spec-loose"]);
+  issues().forEach((x, i) => items.push([t0, msg("Pablo", null, x), sg("start"), "issue@" + i]));
+  chat.forEach(c => said(c).forEach(x => items.push([at(c.at), x, sg(c.role), c.role + "@" + c.at])));  // a message's key: role@time
   V.actions.forEach(a => { if (live().querySelector(`[data-act="${CSS.escape(a.id)}"]`)) return;  // its live card is below
-    const x = a.verdict === "ALLOW" ? failed(a) : action(a); if (x) items.push([at(a.at), msg("Pablo", null, x)]); });
-  items.sort((x, y) => x[0] - y[0]).forEach(([, x]) => log.append(x));  // stable: same time keeps the order above
+    const x = a.verdict === "ALLOW" ? failed(a) : action(a); if (x) items.push([at(a.at), msg("Pablo", null, x), sg("action"), "act:" + a.id]); });
+  // P5: the person's tags win; P6: the view (시간순 by default; the task's choice, else the settings')
+  const D = (M.desk || {})[V.task.id] || {}, over = D.tags || {}, view = D.view || (M.settings || {}).view || "time";
+  const allTags = (M.settings || {}).tags === "all";
+  const rows = items.sort((x, y) => x[0] - y[0]).map(([, x, s, key]) => {  // stable sort: same time keeps the order above
+    const o = over[key] || {}, st = o.stage || s;
+    if (st && x.classList && x.classList.contains("msg")) { x.dataset.stage = st; x.dataset.key = key; tagRow(x, st, key, o, s, allTags); }
+    return [x, st, o]; });
+  if (view === "stage") byStage(log, rows, kind, D);
+  else if (view === "target") byTarget(log, rows);
+  else { let prev = null;
+    rows.forEach(([x, s]) => {
+      if (s && x.classList && x.classList.contains("msg")) {
+        if (s !== prev) log.append(h("div", { class: "divider", "data-stage": s }, h("span", { class: "tg stage" }, s)));
+        prev = s;
+      }
+      log.append(x); }); }
   if (V.intent.questions.length) log.append(msg("Pablo", null, h("div", { class: "call" },
     h("p", { class: "head" }, "⚠ 결정이 필요합니다."),
     V.intent.questions.map(q => /^K\d+$/.test(q.id) ? held(q, V.task.id) : h("p", { title: q.id, "data-id": q.id }, rich(q.text))),
@@ -1242,11 +1541,14 @@ function finish() {
   live().append(h("div", { class: "finish" }, msg("Pablo", null, art("confident", "pose"), h("p", null, "작업을 마쳤습니다."))));
 }
 function select(tid) {
-  V = M.views[tid] || M.views[M.current] || null;
-  close(); sidebar(); header(); tools();
+  V = M.views[tid] || M.views[M.current] || null; lastEv = null;
+  panelQuiet = true; close(); panelQuiet = false; sidebar(); header(); tools();
   if (!V) return empty();
   V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
   conversation();
+  const pp = ((M.desk || {})[V.task.id] || {}).panel;  // P7: the right column as this task left it
+  panelSaved[V.task.id] = JSON.stringify(pp || { open: false, tab: "intent" });
+  if (pp && pp.open) { const st = pp.tab === "evidence" ? evidenceFor() : pp.tab === "plan" && !V.plan ? null : { mode: pp.tab }; if (st) show(st); }
   document.title = "Pablo · " + nameOf(M.tasks.find(x => x.id === V.task.id) || V.task);
 }
 // M5.1: no task yet -> an empty Pablo screen; the desktop makes tasks in the app (+ 새 작업)
@@ -1261,17 +1563,18 @@ let tools = () => {}, newTask = () => {}, refresh = () => Promise.resolve();  //
 function toggle(st) { (hi >= 0 && document.body.classList.contains("panel") && hist[hi].mode === st.mode && !st.e) ? close() : show(st); }
 function show(st, push = true) {
   if (push) { hist = hist.slice(0, hi + 1); hist.push(st); hi = hist.length - 1; }
+  if (["source", "code", "paper", "matrix"].includes(st.mode)) lastEv = st;
   document.body.classList.add("panel"); document.body.classList.remove("pdf", "code", "wide");
   CSS.highlights.clear();
   document.querySelectorAll(".cite").forEach(b => b.classList.toggle("on", st.mode === "source" && b.dataset.e === st.e));
   const p = $("panel"); p.textContent = ""; delete p.dataset.live; delete p.dataset.still;
   ({ source, intent, plan, trace, code: codeView, matrix: matrixView, paper })[st.mode](p, st);
-  header();
+  header(); rememberPanel();
 }
 function close() {
   document.body.classList.remove("panel", "pdf", "code", "wide"); CSS.highlights.clear(); hist = []; hi = -1;
   document.querySelectorAll(".cite.on").forEach(b => b.classList.remove("on"));
-  if (V) header();
+  if (V) { header(); rememberPanel(); }
 }
 const go = d => { if (hist[hi + d]) { hi += d; show(hist[hi], false); } };
 const xbtn = () => h("button", { class: "x", title: "닫기", on: close }, "×");
@@ -1714,8 +2017,17 @@ if (window.pabloHost && pabloHost.chat) {
   const st = box.insertBefore(h("small", { class: "muted", id: "agent" }), btn);
   const pick = box.insertBefore(h("select", { id: "model", title: "모델" }), st);  // the ChatGPT account's catalog (/v1/models, visibility "list")
   pick.addEventListener("change", () => pabloHost.setModel(pick.value));
+  // team review: the model is a quiet text button with a menu; the <select> stays (hidden) and carries the same events.
+  // Both come after the send button in the DOM (the first button stays send / stop) and CSS orders them on screen.
+  const mbtn = box.appendChild(h("button", { class: "modelbtn", type: "button", title: "모델", hidden: true }));
+  const mmenu = box.appendChild(h("div", { class: "mmenu", hidden: true }));
+  const mlabel = () => { const o = pick.options[pick.selectedIndex]; mbtn.textContent = (o ? o.textContent : "모델") + " ⌄"; };
+  mbtn.addEventListener("click", () => { mmenu.hidden = !mmenu.hidden; if (mmenu.hidden) return; mmenu.textContent = "";
+    [...pick.options].forEach(o => mmenu.append(h("button", { class: "mopt" + (o.value === pick.value ? " on" : ""), type: "button",
+      on: () => { pick.value = o.value; pick.dispatchEvent(new Event("change")); mmenu.hidden = true; } }, o.textContent))); });
+  pick.addEventListener("change", mlabel);
   const models = () => pabloHost.models().then(r => {
-    pick.textContent = ""; r.models.forEach(m => pick.append(h("option", { value: m.slug }, m.name))); pick.value = r.model || "";
+    pick.textContent = ""; r.models.forEach(m => pick.append(h("option", { value: m.slug }, m.name))); pick.value = r.model || ""; mlabel();
   });
   const acct = $("chat").insertBefore(h("div", { id: "acct" }), box);  // sign-in card, then a one-line connection status
   const LABEL = { Connecting: "연결 중…", Ready: "준비됨", Thinking: "생각 중…", Error: "오류" };
@@ -1724,10 +2036,12 @@ if (window.pabloHost && pabloHost.chat) {
     const on = authSt.state === "connected", running = on && turning && agentSt === "Thinking";
     st.textContent = ""; if (on) st.append(agentSt === "Thinking" ? art("think") : "", stopping ? "중지하는 중…" : LABEL[agentSt] || agentSt); box.dataset.agent = agentSt;
     pick.hidden = !on || !pick.options.length; pick.disabled = agentSt === "Thinking";
+    mbtn.hidden = pick.hidden; mbtn.disabled = pick.disabled; if (mbtn.hidden || mbtn.disabled) mmenu.hidden = true;
     inp.disabled = !on || !V || (agentSt !== "Ready" && agentSt !== "Error");  // Error: the next send restarts app-server
     btn.disabled = running ? stopping : inp.disabled;  // while the agent works, the send button is 중지
     btn.textContent = running ? "■" : "↑"; btn.title = running ? "중지" : "보내기"; box.dataset.running = running ? "1" : "";
-    inp.placeholder = !on ? "ChatGPT에 연결하면 대화할 수 있습니다" : !V ? "새 작업을 만들면 대화할 수 있습니다" : "Pablo에게 물어보세요…";
+    inp.placeholder = !on ? "ChatGPT에 연결하면 대화할 수 있습니다" : !V ? "새 작업을 만들면 대화할 수 있습니다"
+      : "Pablo에게 물어보세요…" + (box.dataset.stage ? ` · ${box.dataset.stage} 단계로 기록` : "");
   };
   const status = (s, err) => { agentSt = s; st.title = err || ""; gate(); };
   const link = (text, on) => h("button", { class: "link", on }, text);
@@ -1749,7 +2063,8 @@ if (window.pabloHost && pabloHost.chat) {
     authSt = a; acct.dataset.state = a.state; acct.textContent = "";
     const err = a.error ? h("p", { class: "muted" }, a.error) : null;
     if (hello) { const x = h("div", { class: "hello" }, art("waving", "pose"), h("p", null, h("b", null, "ChatGPT에 연결되었습니다."))); acct.append(x); setTimeout(() => x.remove(), 8000); }
-    if (a.state === "connected") acct.append(h("p", { class: "muted" }, art("head", "ico"), "ChatGPT · 연결됨 · 플랜 사용 가능 · ", link("연결 해제", () => pabloHost.logout())));
+    if (a.state === "connected") acct.append(h("p", { class: "muted" }, art("head", "ico"), "ChatGPT · 연결됨 · 플랜 사용 가능 · ", link("연결 해제", () => pabloHost.logout()),
+      pabloHost.setUi ? [" · ", h("button", { class: "link", "data-settings": "1", on: settings }, "설정")] : null));
     else if (a.state === "signing_in") acct.append(h("div", { class: "call" }, h("p", { class: "head" }, "브라우저에서 ChatGPT 로그인을 마치세요."),
       h("p", null, link("취소", () => pabloHost.cancelLogin()))));
     else if (a.state === "verifying") acct.append(h("div", { class: "call" }, h("p", { class: "head" }, "ChatGPT 플랜 사용 권한을 확인하는 중…")));
@@ -1761,7 +2076,7 @@ if (window.pabloHost && pabloHost.chat) {
   const scroll = () => { $("log").scrollTop = $("log").scrollHeight; };
   pabloHost.onAuth(account);
   pabloHost.onAgent(ev => {
-    if (ev.type === "model") pick.value = ev.model;
+    if (ev.type === "model") { pick.value = ev.model; mlabel(); }
     if (ev.type === "status") {
       if (ev.status === "Ready") models().then(gate);  // after a restart or another sign-in the list may change
       // a message is on its way (Pablo prepares it, or app-server restarts for a fresh token first): stay Thinking until done
@@ -1832,7 +2147,7 @@ if (window.pabloHost && pabloHost.chat) {
   let q = Promise.resolve();
   refresh = to => (q = q.then(() => pabloHost.state()).then(m => {
     const open = hi >= 0 && document.body.classList.contains("panel") ? hist[hi] : null;
-    M = m; shellNote();
+    M = m; shellNote(); webFonts();
     if (to === undefined && !V && $("goal")) return sidebar();  // the new task form stays
     if (to !== undefined || !V || !M.views[V.task.id]) return (select(to || (V && V.task.id)), gate());
     V = M.views[V.task.id]; V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
@@ -1848,8 +2163,18 @@ if (window.pabloHost && pabloHost.chat) {
       const o = offer({ ...a, task: v.task.id }, v); if (o) c.after(o);  // ⑦ a BLOCK on a paper condition: 의도한 차이로 두기
     }));
   }).catch(e => console.error("[pablo] state", e)));
-  const bar = $("chat").insertBefore(h("div", { id: "tools" }), box);
-  let srcOpen = false, shownTask = null;  // ② the source list, when it is folded into "자료 N개"; the task the box belongs to
+  // UI renewal: the bundled fonts (desktop/assets/fonts, served as pablo://fonts/*), only the files main says exist,
+  // so a missing file never becomes a console error; without them the stacks fall back to system fonts
+  let fontsAdded = false;
+  const webFonts = () => { if (fontsAdded || !M.host || !Array.isArray(M.host.fonts)) return; fontsAdded = true;
+    const want = { "PretendardVariable.woff2": ["Pretendard", { weight: "45 920" }],
+      "Geist-Variable.woff2": ["Geist", { weight: "100 900", unicodeRange: "U+0000-024F, U+2000-206F, U+20A0-20CF, U+2190-21FF" }],
+      "GeistMono-Variable.woff2": ["Geist Mono", { weight: "100 900" }] };
+    M.host.fonts.forEach(f => { const w = want[f]; if (!w) return;
+      new FontFace(w[0], "url(pablo://fonts/" + f + ")", w[1]).load().then(x => document.fonts.add(x), () => {}); }); };
+  // UI renewal P2: #tools is now the stage bar under the header (it used to sit above the composer)
+  const bar = $("chat").insertBefore(h("div", { id: "tools" }), $("log"));
+  let srcOpen = false, shownTask = null, cardOpen = false;  // cardOpen: the header's source card (자료 · 폴더 · 인터넷)  // ② the source list, when it is folded into "자료 N개"; the task the box belongs to
   const attach = kind => pabloHost[kind](V.task.id).then(name => name && refresh(),
     e => { live(V.task.id).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + clean(e))))); scroll(); });
   // C1/C2: + 추가 -> a PDF file, or an arXiv id / link that main downloads (one row under the tools)
@@ -1959,6 +2284,13 @@ if (window.pabloHost && pabloHost.chat) {
     });
   }
   const say = (text, tag) => { live(V.task.id).append(msg("Pablo", null, h("p", { class: "muted", [tag]: "1" }, text))); scroll(); };
+  // P7: the last stage is done -> ask once whether the task moves into 완료 (sidebar); reopening it always works
+  const askDone = () => { const d = (M.desk || {})[V.task.id] || {}; if (d.done || !pabloHost.setUi) return;
+    const t = V.task.id, card = h("div", { class: "changes", "data-done-ask": "1" }, h("p", null, h("b", null, "이 작업을 완료로 옮길까요?")),
+      h("p", { class: "muted" }, "사이드바 아래 '완료'로 접힙니다. 다시 열면 언제든 이어서 할 수 있습니다."),
+      h("p", null, h("button", { class: "pill on", "data-done-go": "1", on: () => pabloHost.setUi(t, "done", true).then(() => { card.closest(".msg").remove(); return refresh(); }) }, "완료로 옮기기"),
+        " ", link("나중에", () => card.closest(".msg").remove())));
+    live(t).append(msg("Pablo", null, card)); scroll(); };
   // 0.8 review: 다시 뽑기 says first what it replaces and what it keeps (extractions differ from run to run)
   const redo = () => {
     const live = V.research.map(id => V.checks[id]).filter(k => k.spec && k.state !== "waived");
@@ -1994,36 +2326,100 @@ if (window.pabloHost && pabloHost.chat) {
               on: () => pabloHost.setPrimary(V.task.id, p.id).then(() => refresh()) }, "주 논문으로")]) : null,
         h("button", { class: "rm", title: "자료에서 빼기 (찾은 근거 기록은 남습니다)", "data-remove": p.id,
           on: () => pabloHost.removeSource(V.task.id, p.id).then(() => refresh()) }, "×"));
-    bar.append(...[h("span", { id: "src", class: many ? "many" : null }, "📎 자료: ",
+    const srcEl = h("span", { id: "src", class: many ? "many" : null }, "📎 자료: ",
         many ? h("button", { class: "link", id: "src-toggle", on: () => { srcOpen = !srcOpen; tools(); } },
           `${ps.length}개${main ? ` (주 논문 ${main.title})` : ""} ${open ? "▴" : "▾"}`) : null,
-        ps.length ? h("span", { class: "plist", hidden: !open }, ps.map((p, i) => [i && !many ? " · " : "", chip(p)])) : "없음", " ",
-        pabloHost.addArxiv ? link("+ 추가", () => { adder.hidden = !adder.hidden; if (!adder.hidden) arx.focus(); }) : link("PDF 추가", pickPdfs)),
-      h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder"))),
-      ps.length && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
-        link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => hasSpec ? redo() : spec(V.task.id))) : null,
-      several && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null,
-      ps.length && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
-        "💬 보낼 곳: ", ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label], i) => [i ? " · " : "",
-          (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh()))])) : null,
-      d.folder && pabloHost.audit && (V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived") || V.intent.must.length || V.intent.prefer.length)
-        ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null,
-      pabloHost.report && (hasSpec || V.actions.length || V.chat.some(c => c.role === "audit")) ? h("span", { id: "reports" },  // ⑫
-        link("📄 보고서", () => pabloHost.report(V.task.id).then(r => r && say(`📄 보고서를 저장했습니다: ${r.name} (${r.lines}줄). 조건마다 논문의 쪽, 의도한 차이와 뺀 것의 이유, 마지막 점검을 담았습니다.`, "data-report"),
-          e => say("⚠ " + fail(e), "data-report-error")))) : null,
-      d.folder && pabloHost.setNet ? h("span", { id: "net", "data-on": d.net ? "1" : "", title: "패키지 설치, 데이터 내려받기, git clone에 필요합니다. 켜도 명령마다 Pablo가 검토합니다." },
+        ps.length ? h("span", { class: "plist", hidden: !open }, ps.map(p => chip(p))) : "없음", " ",
+        pabloHost.addArxiv ? link("+ 추가", () => { adder.hidden = !adder.hidden; if (!adder.hidden) arx.focus(); }) : link("PDF 추가", pickPdfs));
+    const dirEl = h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder")));
+    const specEl = ps.length && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
+        link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => hasSpec ? redo() : spec(V.task.id))) : null;
+    const compEl = several && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null;
+    const routeEl = ps.length && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
+        "보낼 곳 ", ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label]) =>
+          (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh())))) : null;
+    const auditEl = d.folder && pabloHost.audit && (V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived") || V.intent.must.length || V.intent.prefer.length)
+        ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null;
+    const reportEl = pabloHost.report && (hasSpec || V.actions.length || V.chat.some(c => c.role === "audit")) ? h("span", { id: "reports" },  // ⑫
+        link("📄 보고서", () => pabloHost.report(V.task.id).then(r => r && (say(`📄 보고서를 저장했습니다: ${r.name} (${r.lines}줄). 조건마다 논문의 쪽, 의도한 차이와 뺀 것의 이유, 마지막 점검을 담았습니다.`, "data-report"), askDone(), refresh()),
+          e => say("⚠ " + fail(e), "data-report-error")))) : null;
+    const netEl = d.folder && pabloHost.setNet ? h("span", { id: "net", "data-on": d.net ? "1" : "", title: "패키지 설치, 데이터 내려받기, git clone에 필요합니다. 켜도 명령마다 Pablo가 검토합니다." },
         "🌐 인터넷: ", h("b", null, d.net ? "허용" : "차단"), " ",
-        link(d.net ? "차단하기" : "허용하기", () => pabloHost.setNet(V.task.id, !d.net).then(() => refresh()))) : null].filter(Boolean));  // append(null) prints "null"
+        link(d.net ? "차단하기" : "허용하기", () => pabloHost.setNet(V.task.id, !d.net).then(() => refresh()))) : null;
+    // the header: one chip with the task's state (자료 · 폴더 · 인터넷) that opens the source card (team review: the
+    // sources read as a sentence before; now a list with a PDF / WEB mark per item)
+    const card = h("div", { class: "srccard", id: "srccard", hidden: !cardOpen },
+      ...[srcEl, dirEl, netEl].filter(Boolean).map(x => h("div", { class: "sc-sec" }, x)));
+    const chipBtn = h("button", { class: "statechip", "aria-expanded": String(cardOpen), title: "자료 · 작업 폴더 · 인터넷",
+      on: () => { cardOpen = !cardOpen; card.hidden = !cardOpen; chipBtn.setAttribute("aria-expanded", String(cardOpen)); } },
+      [`자료 ${ps.length}`, d.folder || "폴더 없음", d.folder ? (d.net ? "인터넷 허용" : "인터넷 차단") : null].filter(Boolean).join(" · ") + " ▾");
+    const oldChips = $("chips"); if (oldChips) oldChips.remove();
+    $("bar").append(h("span", { id: "chips" }, chipBtn, card));
+    // the stage bar: always visible; a step's state comes from what is already recorded, nothing is enforced.
+    // Each step carries its old action (#specs / #audits / #compares / #reports, same ids, texts and conditions).
+    const chat = V.chat || [], audits = chat.filter(c => c.role === "audit"), la = audits[audits.length - 1];
+    const staleAudit = !!la && chat.some(c => (c.role === "changes" || c.role === "undo") && c.at > la.at);
+    const differ = la ? (la.items || []).filter(x => x.status === "differs").length : 0;
+    const specs = V.research.map(id => V.checks[id]).filter(k => k.spec && k.state !== "waived");
+    const toDecide = specs.filter(k => k.state === "pending").length + (V.intent.questions || []).length;
+    const waiting = V.actions.some(a => a.verdict === "WARN" && !a.decision);
+    const reported = chat.some(c => c.role === "report"), asked = chat.filter(c => c.role === "ask").length;
+    const compared = chat.some(c => c.role === "compare");
+    const changedFiles = chat.filter(c => c.role === "changes").reduce((n, c) => n + (c.files || []).length, 0);
+    const kind = d.kind || (d.folder && ps.length ? "repro" : ps.length ? "read" : "general");
+    const step = (key, label, state, sub, act) => ({ key, label, state, sub, act });
+    const steps = kind === "repro" ? [
+      step("prep", "준비", ps.length && d.folder ? "done" : "todo", ps.length && d.folder ? `논문 ${pdfs.length} · 폴더` : !ps.length ? "논문 필요" : "폴더 필요"),
+      step("spec", "조건 확정", !ps.length ? "blocked" : hasSpec && !toDecide ? "done" : "todo",
+        !ps.length ? "주 논문 필요" : !hasSpec ? "조건 뽑기 전" : toDecide ? `정할 일 ${toDecide}` : `조건 ${specs.length}`, specEl),
+      step("run", "구현·실행", !d.folder ? "blocked" : la && !waiting ? "done" : "todo",
+        !d.folder ? "폴더 필요" : waiting ? "확인 기다림" : V.actions.length ? `행동 ${V.actions.length}` : "—"),
+      step("audit", "재현 점검", !auditEl ? "blocked" : staleAudit ? "stale" : la ? "done" : "todo",
+        !auditEl ? "폴더 · 조건 필요" : staleAudit ? "오래됨 · 다시 필요" : la ? (differ ? `다름 ${differ}` : "점검함") : "점검 전", auditEl),
+      step("report", "보고서", reported ? "done" : "todo", reported ? "저장함" : reportEl ? "할 수 있음" : "—", reportEl)]
+    : kind === "read" ? [
+      step("prep", "준비", ps.length ? "done" : "todo", ps.length ? `논문 ${ps.length}` : "논문 필요", specEl),
+      step("ask", "질문", asked && compared ? "done" : "todo", asked ? `질문 ${asked}` : "질문 전"),
+      step("compare", "비교표", pdfs.length < 2 ? "blocked" : compared ? "done" : "todo", pdfs.length < 2 ? "논문 2편 필요" : compared ? "만듦" : "할 수 있음", compEl),
+      step("wrap", "정리", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)]
+    : [step("prep", "준비", d.folder ? "done" : "todo", d.folder ? "폴더" : "폴더 필요"),
+      step("work", "작업", reported ? "done" : "todo", waiting ? "확인 기다림" : changedFiles ? `바뀐 파일 ${changedFiles}` : "—", specEl),
+      step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)];
+    const cur = steps.find(s => s.state === "todo"); if (cur) cur.state = "current";
+    box.dataset.stage = (cur || steps[steps.length - 1]).label; gate();  // the composer says where a new message goes
+    const used = new Set(steps.map(s => s.act).filter(Boolean)), more = [specEl, compEl, auditEl, reportEl].filter(x => x && !used.has(x));
+    bar.append(h("nav", { id: "stages", "data-kind": kind }, ...steps.map((s, i) => [
+      i ? h("span", { class: "st-line" + (steps[i - 1].state === "done" ? " on" : "") }) : null,
+      h("div", { class: "stage st-" + s.state + ($("log").dataset.filter === s.label ? " picked" : ""), "data-stage": s.key,
+        title: `${s.label} 단계의 대화만 보기`, on: e => { if (!e.target.closest("button, a")) stageFilter(s.label); } },
+        h("span", { class: "st-n" }, s.state === "done" ? "✓" : s.state === "stale" ? "!" : String(i + 1)),
+        h("span", { class: "st-t" }, h("b", null, s.label), h("small", null, s.sub), s.act || null))].filter(Boolean)).flat(),
+      more.length ? h("span", { class: "st-more" }, ...more) : null));
+    // P6: how the conversation is grouped (the task's choice, else the settings'; 시간순 by default)
+    const view = d.view || (M.settings || {}).view || "time";
+    bar.append(h("div", { id: "viewbar" }, h("span", { class: "muted" }, "보기"), ...[["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]].map(([v, t]) =>
+      h("button", { class: "vtab" + (view === v ? " on" : ""), "data-view": v, disabled: !pabloHost.setUi,
+        on: () => view !== v && pabloHost.setUi(V.task.id, "view", v).then(() => refresh()).then(() => conversation()) }, t))));
+    box.querySelectorAll("#route").forEach(x => x.remove());  // 보낼 곳 lives in the composer, after the send button (it stays the first button)
+    if (routeEl) box.append(routeEl);
   };
   newTask = () => {
     V = null; close(); sidebar(); header(); tools(); gate();
     const ta = h("textarea", { id: "goal", rows: 5,
       placeholder: "무엇을 할지 적어주세요.\n지켜야 할 조건은 한 줄에 하나씩 적으면 작업 기준이 됩니다." });
-    const repro = h("input", { type: "checkbox", id: "repro" });
+    // P7: three kinds; 논문 재현 keeps id=repro (its criteria come with it); each shows the stages it will go through
+    const kinds = [["repro", "논문 재현", "데이터 누수와 결과 맞추기를 막는 기준 3개를 함께 넣습니다", "준비 → 조건 확정 → 구현·실행 → 재현 점검 → 보고서"],
+      ["read", "논문 읽기", "질문과 비교표 중심, 작업 폴더 없이도 됩니다", "준비 → 질문 → 비교표 → 정리"],
+      ["general", "일반", "기준을 대화로 직접 정합니다", "준비 → 작업 → 검토"]];
+    const radios = kinds.map(([k]) => h("input", { type: "radio", name: "kind", value: k, id: k === "repro" ? "repro" : "kind-" + k, checked: k === "general" ? true : null }));
+    const repro = radios[0], pickedKind = () => (radios.find(r => r.checked) || radios[2]).value;
+    const stagesLine = h("p", { class: "muted", "data-kind-stages": "1" });
+    const showStages = () => { stagesLine.textContent = "이 작업의 단계: " + kinds.find(k => k[0] === pickedKind())[3]; };
+    radios.forEach(r => r.addEventListener("change", showStages)); showStages();
     const err = h("p", { class: "muted" }), make = h("button", { class: "pill on", id: "create", on: () => {
       const text = ta.value.trim(); if (!text) return;
       make.disabled = true; err.textContent = "작업을 만드는 중…";
-      pabloHost.newTask(text, { repro: repro.checked }).then(r => refresh(r.id).then(() => {
+      pabloHost.newTask(text, { repro: repro.checked, kind: pickedKind() }).then(r => refresh(r.id).then(() => {
         const n = r.added, id = r.id;  // what this form's lines recorded (project-wide criteria are in 기준 보기)
         // ③ every criterion line is accounted for: recorded, or waiting above for the user to decide
         live(id).append(msg("Pablo", null, M.tasks.length === 1 ? art("waving", "pose") : null, h("p", { "data-made": "1" }, n ? `작업 기준 ${n}개를 기록했습니다. ` : "작업을 만들었습니다. ",
@@ -2034,11 +2430,33 @@ if (window.pabloHost && pabloHost.chat) {
     } }, "작업 만들기");
     const log = $("log"); log.textContent = "";
     log.append(msg("Pablo", null, h("p", null, "새 작업을 시작합니다."), ta,
-      h("p", { class: "muted" }, h("label", null, repro, " 논문 재현 작업 — 데이터 누수와 결과 맞추기를 막는 기준을 함께 넣습니다")),
+      h("div", { class: "kinds" }, kinds.map(([k, label, what], i) => h("label", { class: "kind" }, radios[i], h("b", null, label), h("small", null, what)))),
+      stagesLine,
       h("p", null, make), err));
     ta.focus();
   };
   const clean = e => String(e.message || e).replace(/^Error invoking remote method '[^']*': (\w*Error: )?/, "");
+  // P7 설정: the app's defaults (the model is chosen in the composer)
+  function settings() {
+    const old = $("settings"); if (old) return old.remove();
+    const s = M.settings || {}, group = (name, label, help, opts, cur) => h("div", { class: "set-row" },
+      h("div", null, h("b", null, label), h("small", null, help)),
+      h("div", { class: "set-opts" }, opts.map(([v, t]) => h("label", null, h("input", { type: "radio", name: "set-" + name, value: v, checked: v === cur ? true : null }), " ", t))));
+    const pickedOf = name => (document.querySelector(`#settings input[name="set-${name}"]:checked`) || {}).value;
+    const err = h("p", { class: "muted" });
+    const dlg = h("div", { id: "settings", role: "dialog" }, h("div", { class: "set-box" },
+      h("div", { class: "set-head" }, h("b", null, "설정"), h("button", { class: "x", title: "닫기", on: () => dlg.remove() }, "×")),
+      group("view", "기본 보기", "대화를 처음 열 때의 보기", [["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]], s.view || "time"),
+      group("tags", "메시지 태그", "단계 · 대상만 보이고 나머지는 'N개 더'로 접습니다", [["main", "단계 · 대상만"], ["all", "전부"]], s.tags || "main"),
+      group("panel", "새 작업의 오른쪽 패널", "그 뒤에는 작업마다 마지막 상태를 기억합니다", [["open", "열림 (기준)"], ["rail", "접힘 (레일)"]], s.panel || "open"),
+      group("net", "새 작업의 인터넷", "허용해도 명령은 하나하나 Guard를 거칩니다", [["off", "차단"], ["on", "허용"]], s.net ? "on" : "off"),
+      h("p", { class: "muted" }, "모델은 입력창에서 고릅니다."), err,
+      h("div", { class: "set-foot" }, h("button", { class: "pill", on: () => dlg.remove() }, "취소"),
+        h("button", { class: "pill on", "data-settings-save": "1", on: () => pabloHost.setUi(null, "settings", { view: pickedOf("view"), tags: pickedOf("tags"),
+          panel: pickedOf("panel"), net: pickedOf("net") === "on" }).then(() => { dlg.remove(); return refresh(); }).then(() => V && conversation(), e => { err.textContent = clean(e); }) }, "저장"))));
+    dlg.addEventListener("click", e => { if (e.target === dlg) dlg.remove(); });
+    document.body.append(dlg);
+  }
   // A5/A6: 재현 점검 -> one read-only agent turn; its JSON answer comes back as an "audit" event (a table in the conversation)
   reAudit = t => audit(t);
   function audit(t) {

@@ -30,12 +30,15 @@ const web = url => /^https?:\/\//i.test(url);
 protocol.registerSchemesAsPrivileged([{ scheme: "pablo", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 const PDFJS = path.join(__dirname, "node_modules", "pdfjs-dist");
 const TYPES = { ".mjs": "text/javascript", ".pdf": "application/pdf", ".wasm": "application/wasm", ".bcmap": "application/octet-stream",
-  ".pfb": "application/octet-stream", ".ttf": "font/ttf" };
+  ".pfb": "application/octet-stream", ".ttf": "font/ttf", ".woff2": "font/woff2" };
+const FONTS = path.join(__dirname, "assets", "fonts");  // UI renewal: Pretendard, Geist, Geist Mono (SIL OFL 1.1)
+const fontFiles = () => { try { return fs.readdirSync(FONTS).filter(f => /^[\w.-]+\.woff2$/.test(f)); } catch { return []; } };
 function served(u) {
   const { host, pathname } = new URL(u), p = decodeURIComponent(pathname);
   if (host === "pdfjs" && /^\/build\/pdf(\.worker)?\.mjs$/.test(p)) return path.join(PDFJS, p);
   if (host === "pdfjs" && /^\/(standard_fonts|cmaps|wasm)\/[\w.-]+$/.test(p)) return path.join(PDFJS, p);
   if (host === "source" && /^\/SRC\d+\.pdf$/.test(p) && ctl.dir) return path.join(ctl.dir, "sources", p);
+  if (host === "fonts" && /^\/[\w.-]+\.woff2$/.test(p)) return path.join(FONTS, p);
   return null;
 }
 function serve(req) {
@@ -153,9 +156,12 @@ ipcMain.handle("pablo:state", async e => {
     return [t.id, { folder: w ? path.basename(w) : null, net: !!(d.net || {})[t.id],
       papers: papers.list(d, t.id).map(x => ({ id: x.id, title: x.title, version: x.version || null, kind: x.kind === "web" ? "web" : "pdf",
         arxiv: x.arxiv || null, primary: !!p && x.id === p.id })),  // arxiv: a search result already here says so
-      route: (d.route || {})[t.id] === "ask" ? "ask" : "agent", archived: !!(d.archived || {})[t.id] }]; }));  // names only, no paths
-  m.last = d.last;
-  m.host = { shell: agent.shell(), noticed: !!(d.noticed || {}).shell };  // ⑤ 5.1: the notice, once
+      route: (d.route || {})[t.id] === "ask" ? "ask" : "agent", archived: !!(d.archived || {})[t.id],
+      // UI renewal: what the screen remembers per task (set through pablo:set-ui); a missing key has a default
+      kind: (d.kind || {})[t.id] || null, done: !!(d.done || {})[t.id], panel: (d.panel || {})[t.id] || null,
+      view: (d.view || {})[t.id] || null, tags: (d.tags || {})[t.id] || {}, summary: (d.summary || {})[t.id] || {} }]; }));  // names only, no paths
+  m.last = d.last; m.settings = d.settings || {};
+  m.host = { shell: agent.shell(), noticed: !!(d.noticed || {}).shell, fonts: fontFiles() };  // ⑤ 5.1: the notice, once
   return m;
 });
 // A3: a reproduction task starts with the research-integrity criteria (task scope, editable like any other; Python
@@ -175,7 +181,12 @@ ipcMain.handle("pablo:new-task", async (e, text, opts) => {
   }
   if (items.length || unread.length || pending.length)
     logChat(t.task.id, { role: "intent", at: new Date().toISOString(), items, ...(pending.length ? { pending } : {}), ...(unread.length ? { unread } : {}) });
-  saveDesk(x => { x.last = t.task.id; });
+  // UI renewal P7: the task's kind (its stages), and a new task opens on its criteria unless settings say rail
+  const kind = opts && ["repro", "read", "general"].includes(opts.kind) ? opts.kind : opts && opts.repro === true ? "repro" : null;
+  saveDesk(x => { x.last = t.task.id; const s = x.settings || {};
+    if (kind) x.kind = { ...(x.kind || {}), [t.task.id]: kind };
+    x.panel = { ...(x.panel || {}), [t.task.id]: { open: s.panel !== "rail", tab: "intent" } };
+    if (s.net === true) x.net = { ...(x.net || {}), [t.task.id]: true }; });
   return { id: t.task.id, lines: lines.length - 1, added: items.length, unread: unread.length + pending.length };
 });
 ipcMain.handle("pablo:pick-folder", async (e, task) => {
@@ -197,6 +208,22 @@ ipcMain.handle("pablo:set-net", (e, task, on) => {
   fromWindow(e); known(task);
   saveDesk(x => { x.net = { ...(x.net || {}), [task]: on === true }; });
   return on === true;
+});
+// UI renewal: what the screen remembers (desktop.json), one whitelisted key at a time; task null = the app's settings
+const plain = (v, max) => !!v && typeof v === "object" && !Array.isArray(v) && JSON.stringify(v).length <= max;
+const UI = { kind: v => ["repro", "read", "general"].includes(v), done: v => typeof v === "boolean",
+  panel: v => plain(v, 200) && typeof v.open === "boolean" && ["intent", "plan", "trace", "evidence"].includes(v.tab),
+  view: v => ["time", "stage", "target"].includes(v), tags: v => plain(v, 200000), summary: v => plain(v, 50000) };
+const SETTINGS = { view: v => ["time", "stage", "target"].includes(v), tags: v => ["main", "all"].includes(v),
+  panel: v => ["open", "rail"].includes(v), net: v => typeof v === "boolean" };
+ipcMain.handle("pablo:set-ui", (e, task, key, value) => {
+  fromWindow(e);
+  if (task === null && key === "settings") {
+    if (!plain(value, 500) || Object.entries(value).some(([k, v]) => !SETTINGS[k] || !SETTINGS[k](v))) throw new Error("bad settings");
+    saveDesk(x => { x.settings = { ...(x.settings || {}), ...value }; }); return true;
+  }
+  known(task); if (!UI[key] || !UI[key](value)) throw new Error("bad ui: " + key);
+  saveDesk(x => { x[key] = { ...(x[key] || {}), [task]: value }; }); return true;
 });
 // C1: a paper joins the task's list (one PDF per task until 0.7); the same file again is the same paper
 const join = (task, entry, replaces) => saveDesk(d => {
@@ -420,6 +447,20 @@ ipcMain.handle("pablo:criterion", async (e, task, id, action, reason) => {
     ...(action === "drop" && reason && reason.trim() ? { reason: reason.trim() } : {}) });
   return r.item.statement;
 });
+// UI renewal: words from a message made a criterion of the task by the user (📌 기준으로): always a rule of the strength
+// they chose, never the goal; one the policy would hold back (hedged words) is promoted at once, the user already decided
+ipcMain.handle("pablo:make-criterion", async (e, task, text, strength) => {
+  fromWindow(e); known(task);
+  if (!str(text, 1000) || !text.trim() || !["hard", "soft"].includes(strength)) throw new Error("bad criterion");
+  const r = await ctl.py("say", text.trim(), "--scope", "task", "--task", task, "--rule", strength).catch(err => { throw new Error(short(err.message)); });
+  const items = [...r.added];
+  for (const k of r.candidates.filter(k => k.status === "pending" || k.status === "ignored")) {
+    const x = (await ctl.py("promote", k.id, "--as", strength)).item;
+    items.push({ id: x.id, kind: x.kind, strength: x.strength, text: x.statement });
+  }
+  if (items.length) logChat(task, { role: "intent", at: new Date().toISOString(), items });
+  return items;
+});
 // ⑩ the user's own hand on the reproduction conditions: add one from a sentence picked in the 주 논문 (Pablo anchors it on
 // that page, or refuses), take one out with why, or put it back. The Guard, the brief and 재현 점검 follow at once.
 ipcMain.handle("pablo:condition", async (e, task, action, o) => {
@@ -522,6 +563,7 @@ ipcMain.handle("pablo:report", async (e, task) => {
     const why = { ENOENT: "폴더가 없습니다", EACCES: "쓰기 권한이 없습니다", EPERM: "쓰기 권한이 없습니다", EBUSY: "다른 프로그램(동기화 등)이 쓰고 있습니다", EROFS: "읽기 전용입니다" }[err.code];
     throw new Error(`그 폴더에 저장하지 못했습니다(${why || err.code || "알 수 없는 이유"}). 다른 폴더를 골라 주세요.`);
   }
+  logChat(task, { role: "report", at: new Date().toISOString(), name: path.basename(res.filePath) });  // the stage bar's 보고서 step
   return { name: path.basename(res.filePath), lines: r.text.split("\n").length };
 });
 // A5/A6 재현 점검: the agent reads the work folder (read-only sandbox, nothing can change, so no Guard per read) and

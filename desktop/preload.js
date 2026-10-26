@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   spec: task => ipcRenderer.invoke("pablo:spec", task),  // A2: the task's paper -> reproduction conditions
   audit: task => ipcRenderer.invoke("pablo:audit", task),
   intent: (task, id, action) => ipcRenderer.invoke("pablo:intent", task, id, action),
+  makeCriterion: (task, text, strength) => ipcRenderer.invoke("pablo:make-criterion", task, text, strength),  // a message -> a rule (hard | soft)
   criterion: (task, id, action, reason) => ipcRenderer.invoke("pablo:criterion", task, id, action, reason),  // ④ hard | soft | drop  // B4: promote | reject a held-back criterion  // A5/A6: 재현 점검 of the work folder (read-only turn)
   pickFolder: task => ipcRenderer.invoke("pablo:pick-folder", task),
   pickPdfs: task => ipcRenderer.invoke("pablo:pick-pdfs", task),  // the dialog, several PDFs at once -> their paths
@@ -38,6 +39,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   compareColumn: (task, matrix, column) => ipcRenderer.invoke("pablo:compare-column", task, matrix, column),  // ⑧ one more column
   condition: (task, action, o) => ipcRenderer.invoke("pablo:condition", task, action, o),  // ⑩ add (a picked sentence) | drop (why) | restore; ⑦ deviate (why) | undeviate
   setNet: (task, on) => ipcRenderer.invoke("pablo:set-net", task, on),
+  setUi: (task, key, value) => ipcRenderer.invoke("pablo:set-ui", task, key, value),  // UI renewal: kind, done, panel, view, tags, summary; task null = settings
   setRoute: (task, route) => ipcRenderer.invoke("pablo:set-route", task, route),  // paper + folder: agent | ask  // D1: 인터넷 for this task's commands
   diff: (task, from, to) => ipcRenderer.invoke("pablo:diff", task, from, to),  // D4: what a turn changed in the work folder
   undo: (task, from, to) => ipcRenderer.invoke("pablo:undo", task, from, to),  // D4: put those files back

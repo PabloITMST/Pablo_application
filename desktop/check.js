@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -709,7 +709,7 @@ async function demo() {
   console.log("   hello.txt:", JSON.stringify(files()["hello.txt"]));
   await until(`document.querySelector("#live [data-review]")`, 60000).catch(() => console.log("   (no review line)"));
   await shot("a2-executed-review.png");
-  await js(`[...document.querySelectorAll("#bar .pill")].find(b => b.textContent === "기준").click()`); await shot("a3-intent.png"); await js(`close()`);
+  await js(`document.querySelector('#ptabs [data-tab="intent"]').click()`); await shot("a3-intent.png"); await js(`close()`);
   const pre = files();
   await turn("keep.txt는 이제 필요 없으니 지워줘.", async () => {});
   assert.deepStrictEqual(files(), pre, "BLOCK: nothing changed");
@@ -787,9 +787,9 @@ async function appCheck() {
 
   // A: + 새 작업 -> Intent -> folder -> request -> WARN -> [진행] -> executed -> 왜? (live, no view rebuild)
   await newTask("인사말 파일 정리\nkeep.txt는 절대 수정하거나 삭제하면 안 돼.\nhello.txt는 가능하면 영어로만 유지해줘.", "a1-new-task.png");
-  await js(`[...document.querySelectorAll("#bar .pill")].find(b => b.textContent === "기준").click()`);
+  await js(`document.querySelector('#ptabs [data-tab="intent"]').click()`);
   await shot("a2-intent.png");
-  const intentPanel = async () => { await js(`[...document.querySelectorAll("#bar .pill")].find(b => b.textContent === "기준").click()`);
+  const intentPanel = async () => { await js(`document.querySelector('#ptabs [data-tab="intent"]').click()`);
     const t = await js(`$("panel").innerText`); await js(`close()`); return t; };
   console.log("   Intent:", (await js(`$("panel").innerText`)).replace(/\s+/g, " ").slice(0, 300));
   assert.ok(/keep\.txt/.test(await js(`$("panel").innerText`)), "A's new-task criteria apply to A");
@@ -876,6 +876,37 @@ async function uiCheck() {
   const js = c => win.webContents.executeJavaScript(c);
   await sleep(800);
   assert.deepStrictEqual(errors, [], "no script errors on load");
+  // PABLO_SHOTS=<dir>: what the fixture looks like (load, the source card, the 기준 panel), state restored after each
+  if (process.env.PABLO_SHOTS) {
+    const snap = async n => { await sleep(500); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, n + ".png"), (await win.capturePage()).toPNG()); };
+    await snap("ui-load");
+    await js(`document.querySelector(".statechip") && document.querySelector(".statechip").click()`); await snap("ui-card");
+    await js(`document.querySelector(".statechip") && document.querySelector(".statechip").click()`);
+    await js(`show({ mode: "intent" })`); await snap("ui-intent"); await js(`close()`);
+    const second = `(s => s && s.click())(document.querySelectorAll("#stages .stage")[1])`;
+    await js(second); await snap("ui-filter"); await js(second);
+  }
+  // UI renewal P5 / P6: the stage and target views, a person's tag (stage + 결정) that wins on a redraw; all undone after
+  const redraw = `refresh().then(() => conversation())`;
+  const settle = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
+  const general = await js(`kindOf()`), names = { repro: 5, read: 4, general: 3 }[general];
+  await js(`pabloHost.setUi("T1", "view", "stage").then(() => ${redraw})`); await sleep(300);
+  assert.strictEqual(await js(`document.querySelectorAll("#log > .stagegroup").length`), names, "단계별: one box per stage of the task's kind");
+  assert.strictEqual(await js(`document.querySelector('#viewbar [data-view="stage"]').classList.contains("on")`), true);
+  if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "ui-stage.png"), (await win.capturePage()).toPNG());
+  await js(`pabloHost.setUi("T1", "view", "target").then(() => ${redraw})`); await sleep(300);
+  assert.ok(await js(`document.querySelectorAll("#log > .targetgroup").length >= 2 && !!document.querySelector('#log > .targetgroup[data-target="파일 · config.yaml"]')`), "대상별: grouped by file / [n]");
+  await js(`pabloHost.setUi("T1", "view", "time").then(() => ${redraw})`); await sleep(300);
+  const key = await js(`document.querySelector("#log .msg[data-key] [data-tag-edit]").closest(".msg").dataset.key`);
+  await js(`(m => { m.querySelector("[data-tag-edit]").click(); const ed = m.querySelector(".tagedit");
+    ed.querySelectorAll("input[type=radio]")[1].checked = true; ed.querySelector("input[type=checkbox]").checked = true;
+    ed.querySelector("[data-tag-save]").click(); })(document.querySelector('#log .msg[data-key="${key}"]'))`);
+  await settle(`(m => m && !!m.querySelector("[data-decision]"))(document.querySelector('#log .msg[data-key="${key}"]'))`);
+  if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "ui-tagged.png"), (await win.capturePage()).toPNG());
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")).tags.T1[key], { stage: await js(`STAGE_LIST[kindOf()][1]`), decision: true });
+  await js(`pabloHost.setUi("T1", "tags", {}).then(() => ${redraw})`); await sleep(300);
+  assert.ok(await js(`!document.querySelector("#log [data-decision]")`), "a person's tag goes away when cleared");
+  console.log("ok views: 단계별 (one box per stage), 대상별 (by file / [n]), back to 시간순; a person's stage + 결정 kept in desktop.json and shown, then cleared");
   const order = await js(`[...document.querySelectorAll("#log .msg")].map(m => { const c = m.querySelector(".call[data-id]"),
     s = m.querySelector(".stream"), a = m.querySelector(".asked");
     return c ? "CARD " + c.dataset.id : s ? "AGENT " + s.textContent : a ? "ASK " + a.textContent.trim() : m.querySelector("[data-spec]") ? "SPEC" : m.querySelector("[data-audit]") ? "AUDIT"
@@ -1204,6 +1235,17 @@ async function uiCheck() {
   await until(`V.intent.must.filter(x => x.repro).length === 2`);
   await js(`close()`);
   console.log("ok criteria edit: 반드시 -> 가능하면, GPU 기준 지움(장비가 바뀜) -> 지운 기준에 남음 -> 되살림; 재현 기본 기준은 이유를 적어야 지워짐");
+  // UI renewal: a message's words made a criterion by hand (📌 기준으로), trimmed, 가능하면: a rule of this task, said in the
+  // conversation; words that read like a plain statement still become a rule
+  const made = "배치 크기는 논문 값 그대로 둔다";
+  await js(`(m => { m.querySelector("[data-crit-make]").click(); const ed = m.querySelector(".tagedit");
+    ed.querySelector("[data-crit-text]").value = ${JSON.stringify(made)}; ed.querySelectorAll("input[type=radio]")[1].checked = true;
+    ed.querySelector("[data-crit-save]").click(); })(document.querySelector("#log .msg [data-crit-make]").closest(".msg"))`);
+  await settle(`V.intent.prefer.some(x => x.text === ${JSON.stringify(made)}) && !V.intent.must.some(x => x.text === ${JSON.stringify(made)})`);
+  assert.ok(await js(`[...document.querySelectorAll("#log [data-intent]")].some(p => p.textContent.includes(${JSON.stringify(made + " (가능하면)")}))`),
+    "the conversation says it");
+  assert.ok(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"))[await js(`V.task.id`)].some(c => c.role === "intent" && c.items.some(i => i.text === made)));
+  console.log("ok 기준으로: a message's words, trimmed -> 가능하면 criterion of this task, said in the conversation and kept in chat.json");
   // ⑭ the task list: search over names, goals and sources; a task's own name (its goal stays); 보관 folds it away, kept whole
   const rows_ = () => js(`[...document.querySelectorAll("#task-list > [data-task]")].map(b => b.dataset.task)`);
   await js(`(q => { q.value = "인사말"; q.dispatchEvent(new Event("input")); })($("task-search"))`);

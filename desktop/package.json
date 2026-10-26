@@ -8,6 +8,7 @@
   "scripts": {
     "start": "electron .",
     "check": "electron check.js",
+    "ci": "node ci.js",
     "backend": "cd .. && build\\venv\\Scripts\\python -m PyInstaller pablo.py --name pablo-backend --onedir --noconfirm --clean --paths src --collect-submodules pablo_v2 --distpath build/dist --workpath build/work --specpath build",
     "package": "electron-forge package",
     "make": "electron-forge make"

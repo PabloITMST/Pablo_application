@@ -1,5 +1,14 @@
 name: test
-on: [push, pull_request, workflow_dispatch]
+# a PR branch runs once (pull_request), not again for its push; main still runs on push.
+# A newer push to the same PR cancels the run in progress.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   python:
