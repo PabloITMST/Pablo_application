@@ -1360,6 +1360,8 @@ function rememberPanel() {
   const v = { open, tab: !m ? (was.tab || "intent") : ["source", "code", "paper", "matrix"].includes(m) ? "evidence" : m }, k = JSON.stringify(v);
   if (panelSaved[V.task.id] === k) return; panelSaved[V.task.id] = k;
   pabloHost.setUi(V.task.id, "panel", v).catch(() => {});
+  // the page's copy too: select() reads M.desk when the task is opened again before the next state read (QA 10/26, D4)
+  if (M.desk) M.desk[V.task.id] = { ...(M.desk[V.task.id] || {}), panel: v };
 }
 function evidenceFor() { const d = (M.desk || {})[V.task.id] || {}, pp = (d.papers || []).find(p => p.primary && p.kind !== "web");
   return lastEv || (pp && (M.papers || {})[pp.id] ? { mode: "paper", src: pp.id } : null); }
@@ -1962,16 +1964,37 @@ function finish() {
   if (!V.plan || !V.plan.steps.length || V.plan.steps.some(st => stepState(st)[0] !== "done") || $("log").querySelector(".finish")) return;
   live().append(h("div", { class: "finish" }, msg("Pablo", null, art("confident", "pose"), h("p", null, "작업을 마쳤습니다."))));
 }
+// QA 10/26 (D3): a finished turn's live messages (what was said, the agent's reply) get their tag row (✎ 태그, 📌 기준으로)
+// once the log has them, paired from the end with the log entries not drawn yet; the live part itself stays (the checks
+// read its stream). In 단계별 / 대상별 the view is drawn again so they join their group
+function settleLive() {
+  if (!V || busy === V.task.id) return;
+  const L = lives[V.task.id]; if (!L || !L.isConnected) return;
+  const mine = [...L.querySelectorAll(":scope > .msg.user")], replies = [...L.querySelectorAll(":scope > .msg.pablo")].filter(m => m.querySelector(".stream"));
+  if (![...mine, ...replies].some(m => !m.dataset.key)) return;
+  const D = (M.desk || {})[V.task.id] || {};
+  if ((D.view || (M.settings || {}).view || "time") !== "time") return conversation();
+  const drawn = new Set([...document.querySelectorAll("#log .msg[data-key]")].map(m => m.dataset.key)), kind = kindOf();
+  const fresh = roles => (V.chat || []).filter(c => roles.includes(c.role) && !drawn.has(c.role + "@" + c.at));
+  const put = (els, cs) => els.slice().reverse().forEach((el, i) => { const c = cs[cs.length - 1 - i]; if (!c || el.dataset.key) return;
+    const key = c.role + "@" + c.at, s = stageOfRole(c.role, kind), o = (D.tags || {})[key] || {};
+    el.dataset.stage = o.stage || s; el.dataset.key = key; tagRow(el, o.stage || s, key, o, s, (M.settings || {}).tags === "all"); });
+  put(mine, fresh(["user", "ask"])); put(replies, fresh(["agent"]));
+}
 function select(tid) {
   V = M.views[tid] || M.views[M.current] || null; lastEv = null;
   panelQuiet = true; close(); panelQuiet = false; sidebar(); header(); tools();
   if (!V) return empty();
   V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
-  conversation();
-  const pp = ((M.desk || {})[V.task.id] || {}).panel;  // P7: the right column as this task left it
+  conversation(); panelBack();
+  document.title = "Pablo · " + nameOf(M.tasks.find(x => x.id === V.task.id) || V.task);
+}
+// P7: the right column as this task left it (on opening the task, and on the app's first state read, which brings the
+// desktop.json the first select() did not have yet)
+function panelBack() {
+  const pp = ((M.desk || {})[V.task.id] || {}).panel;
   panelSaved[V.task.id] = JSON.stringify(pp || { open: false, tab: "intent" });
   if (pp && pp.open) { const st = pp.tab === "evidence" ? evidenceFor() : pp.tab === "plan" && !V.plan ? null : { mode: pp.tab }; if (st) show(st); }
-  document.title = "Pablo · " + nameOf(M.tasks.find(x => x.id === V.task.id) || V.task);
 }
 // M5.1: no task yet -> an empty Pablo screen; the desktop makes tasks in the app (+ 새 작업)
 function empty() {
@@ -2575,12 +2598,13 @@ if (window.pabloHost && pabloHost.chat) {
   // ---- M5.1 live state: after every Guard / review / answer the panels read the same records again (no view rebuild) ----
   let q = Promise.resolve();
   refresh = to => (q = q.then(() => pabloHost.state()).then(m => {
-    const open = hi >= 0 && document.body.classList.contains("panel") ? hist[hi] : null;
+    const open = hi >= 0 && document.body.classList.contains("panel") ? hist[hi] : null, firstDesk = !M.desk && !!m.desk;
     M = m; shellNote(); webFonts();
     if (to === undefined && !V && $("goal")) return sidebar();  // the new task form stays
     if (to !== undefined || !V || !M.views[V.task.id]) return (select(to || (V && V.task.id)), gate());
     V = M.views[V.task.id]; V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
     sidebar(); header(); tools(); gate(); finish();
+    if (firstDesk && !open) panelBack();  // the app reopened this task before it knew the task's panel (QA 10/26, D4)
     document.querySelectorAll("#log [data-audit]").forEach(b => b._c && aged(b));  // ⑤ a turn changed files since an audit
     if (open && !["source", "code", "paper"].includes(open.mode)) show(open, false);  // Intent / Plan / 왜? stay open and show the new state
     Object.values(lives).forEach(l => l.querySelectorAll(".crit:empty").forEach(c => {  // the live card's criteria, once stored
@@ -2591,6 +2615,7 @@ if (window.pabloHost && pabloHost.chat) {
       c.append(" ", ...[...new Set(a.criteria.flatMap(x => (v.checks[x.id] || {}).evidence || []))].filter(e => M.anchors[e]).map(e => cite(e)));
       const o = offer({ ...a, task: v.task.id }, v); if (o) c.after(o);  // ⑦ a BLOCK on a paper condition: 의도한 차이로 두기
     }));
+    settleLive();
   }).catch(e => console.error("[pablo] state", e)));
   // UI renewal: the bundled fonts (desktop/assets/fonts, served as pablo://fonts/*), only the files main says exist,
   // so a missing file never becomes a console error; without them the stacks fall back to system fonts
@@ -2820,7 +2845,11 @@ if (window.pabloHost && pabloHost.chat) {
       step("work", "작업", reported ? "done" : "todo", waiting ? "확인 기다림" : changedFiles ? `바뀐 파일 ${changedFiles}` : "—", specEl),
       step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)];
     const cur = steps.find(s => s.state === "todo"); if (cur) cur.state = "current";
-    box.dataset.stage = (cur || steps[steps.length - 1]).label; gate();  // the composer says where a new message goes
+    // the composer says which stage a new message will be tagged with: its record's role, read as the tags read it (QA
+    // 10/26: it showed the stage bar's current step, so "조건 확정" for a message the log then tagged 구현·실행). A message
+    // goes to the paper question (ask) or the agent (user) as send() decides; with neither, it is not recorded
+    const next = ps.length && (!d.folder || d.route === "ask") ? "ask" : "user";
+    box.dataset.stage = ps.length || d.folder ? stageOfRole(next, kind) : ""; gate();
     const used = new Set(steps.map(s => s.act).filter(Boolean)), more = [specEl, compEl, auditEl, reportEl].filter(x => x && !used.has(x));
     // A2: each stage is a column under a 3px progress bar (.stage::before); no connector lines. The mark: a check when
     // done, ↻ when stale, a lock when blocked, else the number as "01"
