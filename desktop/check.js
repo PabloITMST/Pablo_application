@@ -709,7 +709,7 @@ async function demo() {
   console.log("   hello.txt:", JSON.stringify(files()["hello.txt"]));
   await until(`document.querySelector("#live [data-review]")`, 60000).catch(() => console.log("   (no review line)"));
   await shot("a2-executed-review.png");
-  await js(`[...document.querySelectorAll("#bar .pill")].find(b => b.textContent === "기준").click()`); await shot("a3-intent.png"); await js(`close()`);
+  await js(`document.querySelector('#ptabs [data-tab="intent"]').click()`); await shot("a3-intent.png"); await js(`close()`);
   const pre = files();
   await turn("keep.txt는 이제 필요 없으니 지워줘.", async () => {});
   assert.deepStrictEqual(files(), pre, "BLOCK: nothing changed");
@@ -787,9 +787,9 @@ async function appCheck() {
 
   // A: + 새 작업 -> Intent -> folder -> request -> WARN -> [진행] -> executed -> 왜? (live, no view rebuild)
   await newTask("인사말 파일 정리\nkeep.txt는 절대 수정하거나 삭제하면 안 돼.\nhello.txt는 가능하면 영어로만 유지해줘.", "a1-new-task.png");
-  await js(`[...document.querySelectorAll("#bar .pill")].find(b => b.textContent === "기준").click()`);
+  await js(`document.querySelector('#ptabs [data-tab="intent"]').click()`);
   await shot("a2-intent.png");
-  const intentPanel = async () => { await js(`[...document.querySelectorAll("#bar .pill")].find(b => b.textContent === "기준").click()`);
+  const intentPanel = async () => { await js(`document.querySelector('#ptabs [data-tab="intent"]').click()`);
     const t = await js(`$("panel").innerText`); await js(`close()`); return t; };
   console.log("   Intent:", (await js(`$("panel").innerText`)).replace(/\s+/g, " ").slice(0, 300));
   assert.ok(/keep\.txt/.test(await js(`$("panel").innerText`)), "A's new-task criteria apply to A");
@@ -876,6 +876,14 @@ async function uiCheck() {
   const js = c => win.webContents.executeJavaScript(c);
   await sleep(800);
   assert.deepStrictEqual(errors, [], "no script errors on load");
+  // PABLO_SHOTS=<dir>: what the fixture looks like (load, the source card, the 기준 panel), state restored after each
+  if (process.env.PABLO_SHOTS) {
+    const snap = async n => { await sleep(500); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, n + ".png"), (await win.capturePage()).toPNG()); };
+    await snap("ui-load");
+    await js(`document.querySelector(".statechip") && document.querySelector(".statechip").click()`); await snap("ui-card");
+    await js(`document.querySelector(".statechip") && document.querySelector(".statechip").click()`);
+    await js(`show({ mode: "intent" })`); await snap("ui-intent"); await js(`close()`);
+  }
   const order = await js(`[...document.querySelectorAll("#log .msg")].map(m => { const c = m.querySelector(".call[data-id]"),
     s = m.querySelector(".stream"), a = m.querySelector(".asked");
     return c ? "CARD " + c.dataset.id : s ? "AGENT " + s.textContent : a ? "ASK " + a.textContent.trim() : m.querySelector("[data-spec]") ? "SPEC" : m.querySelector("[data-audit]") ? "AUDIT"

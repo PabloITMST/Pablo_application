@@ -432,7 +432,7 @@ PAGE = r"""<!doctype html>
         --canvas:#E3E7EB; --surface:#F3F5F7; --raised:#D3D9DF; --ink:#0D0E10; --ink-2:#4A515C; --ink-3:#8A929D;
         --line-soft:rgba(13,14,16,.16); --primary:#0D0E10; --on-primary:#fff; --signal:#FF4D00; --signal-soft:#FFE1D2;
         --sans:"Geist", "Pretendard", system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
-        --mono:"Geist Mono", ui-monospace, Consolas, monospace;
+        --mono:"Geist Mono", "Pretendard", ui-monospace, Consolas, monospace;  /* Geist Mono has no Hangul */
         --bg:var(--surface); --side:var(--canvas); --fg:var(--ink); --muted:var(--ink-2); --faint:var(--ink-3); --line:#1C1F23;
         --hover:var(--raised); --accent:var(--ink); --ok:var(--ink-2); --warn:var(--signal); --warnbg:var(--signal-soft);
         --warnline:var(--signal); --bad:var(--ink); --badbg:var(--raised); --badline:var(--ink); --hl:var(--signal-soft);
@@ -678,6 +678,57 @@ code, pre.diff, pre.cmd, details.tech pre, #doc .pre, #pbody.code, .who small, .
 .pg .textLayer ::selection { background:rgba(255,77,0,.25); }
 body.dropping #log { outline-color:var(--signal); } body.dropping #log::before { color:var(--signal); }
 .info.STALE, .info.UNRESOLVED, .info.broken { color:var(--ink); }
+/* P3: the right column: tabs on top of the panel; closed, a 72px rail of the same tabs */
+#right { display:none; min-width:0; }
+body.rail #right, body.panel #right { display:flex; flex-direction:column; height:100vh; border-left:1px solid var(--line); background:var(--surface); }
+body.rail:not(.panel) { grid-template-columns:220px minmax(0, 1fr) 72px; }
+#right #panel { height:auto; flex:1; min-height:0; border-left:0; }
+#ptabs { display:flex; flex:none; border-bottom:1px solid var(--line); }
+.ptab { flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:1px; padding:9px 6px 7px;
+  border-bottom:3px solid transparent; line-height:1.3; }
+.ptab b { font-size:14px; } .ptab small { font:11px/1.4 var(--mono); color:var(--ink-2); white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; max-width:100%; } .ptab .short { display:none; }
+.ptab.on { background:var(--raised); border-bottom-color:var(--signal); } .ptab:hover:not(:disabled) { background:var(--raised); }
+body:not(.panel) #ptabs { flex-direction:column; gap:4px; padding:12px 6px; border-bottom:0; }
+body:not(.panel) .ptab { border-bottom:0; border-radius:2px; padding:8px 2px; } body:not(.panel) .ptab b { font-size:13px; }
+body:not(.panel) .ptab .long { display:none; } body:not(.panel) .ptab .short { display:block; }
+/* P2: header state chip + source card, stage bar, 보낼 곳 inside the composer */
+#tools { max-width:none; width:auto; margin:0; padding:8px 20px; border-bottom:1px solid var(--line); background:var(--surface);
+  color:var(--ink); display:block; }
+#stages { display:flex; align-items:center; gap:4px; overflow-x:auto; }
+#stages .st-line { flex:0 0 12px; height:2px; background:var(--raised); } #stages .st-line.on { background:var(--ink); }
+#stages .stage { display:flex; gap:8px; align-items:flex-start; padding:5px 10px 5px 8px; border:1px solid transparent; border-radius:2px;
+  min-width:0; flex:0 1 auto; }
+#stages .st-n { flex:none; width:20px; height:20px; border-radius:50%; display:grid; place-items:center; margin-top:1px;
+  font:600 11px/1 var(--mono); border:1.5px solid var(--ink-3); color:var(--ink-2); }
+#stages .st-t { display:flex; flex-direction:column; min-width:0; line-height:1.3; }
+#stages .st-t b { font-size:13px; white-space:nowrap; } #stages .st-t small { font:11px/1.4 var(--mono); color:var(--ink-2); white-space:nowrap; }
+#stages .st-t > span[id] { display:block; } #stages .st-t .link, #stages .st-more .link { font-size:11px; white-space:nowrap;
+  max-width:190px; overflow:hidden; text-overflow:ellipsis; display:block; text-align:left; }
+#stages .st-done .st-n { background:var(--ink); border-color:var(--ink); color:var(--on-primary); }
+#stages .st-current { background:var(--raised); border-color:var(--signal); } #stages .st-current .st-n { border-color:var(--signal); color:var(--ink); }
+#stages .st-stale { border:1px dashed var(--signal); } #stages .st-stale .st-n { border:1.5px dashed var(--signal); color:var(--signal); }
+#stages .st-blocked { opacity:.55; } #stages .st-blocked .st-n { border-style:dashed; }
+#stages .st-todo b { color:var(--ink-2); font-weight:600; }
+#stages .st-more { display:flex; gap:10px; align-items:center; margin-left:auto; padding-left:12px; }
+#chips { position:relative; flex:none; }
+.statechip { border:1px solid var(--line); border-radius:2px; padding:3px 10px; font:500 12px/1.6 var(--sans); background:var(--surface);
+  white-space:nowrap; } .statechip:hover, .statechip[aria-expanded="true"] { background:var(--raised); }
+.srccard { position:absolute; right:0; top:calc(100% + 6px); z-index:5; width:min(440px, 80vw); max-height:70vh; overflow:auto;
+  background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:0 8px 24px rgba(13,14,16,.16); }
+.srccard[hidden] { display:none; }
+.sc-sec { padding:12px 16px; border-top:1px solid var(--line-soft); font-size:13px; color:var(--ink-2); } .sc-sec:first-child { border-top:0; }
+.srccard #src .plist { display:flex; flex-direction:column; gap:0; margin:8px 0 6px; }
+.srccard #src .paper { display:flex; align-items:center; gap:8px; padding:7px 4px; white-space:normal; color:var(--ink);
+  border-top:1px solid var(--line-soft); } .srccard #src .paper:first-child { border-top:0; }
+.srccard #src .paper::before { content:"PDF"; flex:none; font:600 9px/1 var(--mono); padding:4px 3px; border:1px solid var(--ink);
+  border-radius:2px; } .srccard #src .paper[data-kind="web"]::before { content:"WEB"; }
+.srccard #src .paper b { font-weight:500; } .srccard #src .paper .link { color:var(--ink); }
+.srccard #src.many .plist { margin-left:0; }
+.composer #route { order:-1; display:flex; gap:2px; align-items:center; font-size:12px; color:var(--ink-2); white-space:nowrap; }
+.composer #route button, .composer #route b { width:auto; height:auto; border-radius:2px; background:none; color:var(--ink);
+  padding:2px 8px; font-size:12px; text-decoration:none; }
+.composer #route b[data-route] { background:var(--primary); color:var(--on-primary); font-weight:500; }
 @media (max-width:900px) {
   body, body.panel { display:block; }
   #side { display:none; position:fixed; inset:0 30% 0 0; z-index:3; box-shadow:0 0 0 100vmax var(--shade); }
@@ -689,7 +740,7 @@ body.dropping #log { outline-color:var(--signal); } body.dropping #log::before {
 <nav id="side"></nav>
 <section id="chat"><header id="bar"></header><div id="log"></div>
   <div class="composer"><input disabled placeholder="Pablo에게 물어보세요… (읽기 전용 미리보기)"><button disabled>↑</button></div></section>
-<aside id="panel"></aside>
+<div id="right"><nav id="ptabs"></nav><aside id="panel"></aside></div>
 <script type="application/json" id="data">{{DATA}}</script>
 <script>
 let M = JSON.parse(document.getElementById("data").textContent);  // M5.1: replaced by the desktop's live state
@@ -761,7 +812,7 @@ const korean = t => /[가-힣]/.test((t || "").replace(/"[^"]*"/g, ""));
 const reason = (t, block) => !t ? null : korean(t) ? h("p", null, rich(t))
   : h("p", null, block ? "작업 기준과 충돌해 막았습니다." : "현재 작업 기준과 맞는지 확인이 필요합니다.");
 const host = u => { try { const x = new URL(u); return x.host + x.pathname; } catch { return u; } };
-let V, cites = {}, hist = [], hi = -1, busy = null;  // busy: the task whose agent turn or PDF question is running
+let V, cites = {}, hist = [], hi = -1, busy = null, lastEv = null;  // lastEv: the last source / code / paper / table shown (the 근거 tab reopens it)  // busy: the task whose agent turn or PDF question is running
 const lives = {}, live = t => (t = t || V.task.id, lives[t] || (lives[t] = h("div", { id: "live" })));  // agent chat, one per task (own thread)
 
 // ---- citations: [n] -> the existing EvidenceAnchor id (data-e); numbering is per task ---------------------
@@ -819,8 +870,8 @@ function sidebar() {
   if (had) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
 }
 function header() {
-  const mode = hi >= 0 && document.body.classList.contains("panel") ? hist[hi].mode : null;
-  $("bar").textContent = "";
+  const chips = $("chips");  // P2: the state chip + source card (tools() makes it); kept across a header redraw
+  $("bar").textContent = ""; ptabs();
   $("bar").append(h("button", { id: "menu", title: "작업 목록", on: () => document.body.classList.toggle("side") }, "☰"));
   if (!V) return $("bar").append(h("h1", null, "Pablo"));
   // ⑭ the task's own name (✎) and 보관 / 보관 풀기, beside it
@@ -834,10 +885,27 @@ function header() {
   const away = window.pabloHost && pabloHost.archiveTask ? h("button", { class: "link quiet", "data-archive": d.archived ? "off" : "on",
     title: d.archived ? "작업 목록으로 되돌립니다" : "작업 목록 아래 '보관한 작업'으로 옮깁니다. 기록은 그대로 남습니다.",
     on: () => pabloHost.archiveTask(V.task.id, !d.archived).then(() => refresh()) }, d.archived ? "보관 풀기" : "보관") : null;
-  $("bar").append(name, edit, away,
-    h("button", { class: "pill" + (mode === "intent" ? " on" : ""), on: () => toggle({ mode: "intent" }) }, "기준"),
-    h("button", { class: "pill" + (mode === "plan" ? " on" : ""), disabled: !V.plan, on: () => toggle({ mode: "plan" }) }, "계획"),
-    h("button", { class: "pill" + (mode === "trace" ? " on" : ""), on: () => toggle({ mode: "trace" }) }, "왜?"));
+  $("bar").append(...[name, edit, away, chips].filter(Boolean));  // 기준 · 계획 · 왜? are the right column's tabs (ptabs)
+}
+// P3: the right column's tabs, always there: 기준 · 계획 · 왜? · 근거 with a one-line summary each; with the panel
+// closed they stay as a rail
+function ptabs() {
+  const nav = $("ptabs"); if (!nav) return; nav.textContent = "";
+  document.body.classList.toggle("rail", !!V);
+  if (!V) return;
+  const mode = hi >= 0 && document.body.classList.contains("panel") ? hist[hi].mode : null;
+  const EV = ["source", "code", "paper", "matrix"], on = EV.includes(mode) ? "evidence" : mode;
+  const I = V.intent, P = V.plan, done = P ? P.steps.filter(s => stepState(s)[0] === "done").length : 0;
+  const cited = new Set(Object.values(V.checks).flatMap(c => c.evidence || [])).size;
+  const waiting = V.actions.some(a => a.verdict === "WARN" && !a.decision);
+  const d = (M.desk || {})[V.task.id] || {}, pp = (d.papers || []).find(p => p.primary && p.kind !== "web");
+  const ev = lastEv || (pp && (M.papers || {})[pp.id] ? { mode: "paper", src: pp.id } : null);
+  const tabs = [["intent", "기준", `반드시 ${I.must.length} · 가능 ${I.prefer.length}`, String(I.must.length + I.prefer.length), () => toggle({ mode: "intent" })],
+    ["plan", "계획", P ? `${done} / ${P.steps.length} 단계` : "없음", P ? `${done}/${P.steps.length}` : "—", P ? () => toggle({ mode: "plan" }) : null],
+    ["trace", "왜?", waiting ? "확인 기다림" : `판정 ${V.actions.length}`, waiting ? "!" : String(V.actions.length), () => toggle({ mode: "trace" })],
+    ["evidence", "근거", `인용 ${cited}`, String(cited), ev ? () => (on === "evidence" ? close() : show(ev)) : null]];
+  nav.append(...tabs.map(([k, label, long, short, go]) => h("button", { class: "ptab" + (on === k ? " on" : ""), "data-tab": k, disabled: !go,
+    title: long, on: go }, h("b", null, label), h("small", { class: "long" }, long), h("small", { class: "short" }, short))));
 }
 
 // ---- conversation: built from the stored research / plan / guard / review records --------------------------
@@ -1272,7 +1340,7 @@ function finish() {
   live().append(h("div", { class: "finish" }, msg("Pablo", null, art("confident", "pose"), h("p", null, "작업을 마쳤습니다."))));
 }
 function select(tid) {
-  V = M.views[tid] || M.views[M.current] || null;
+  V = M.views[tid] || M.views[M.current] || null; lastEv = null;
   close(); sidebar(); header(); tools();
   if (!V) return empty();
   V.task.at = (M.tasks.find(t => t.id === V.task.id) || {}).at;
@@ -1291,6 +1359,7 @@ let tools = () => {}, newTask = () => {}, refresh = () => Promise.resolve();  //
 function toggle(st) { (hi >= 0 && document.body.classList.contains("panel") && hist[hi].mode === st.mode && !st.e) ? close() : show(st); }
 function show(st, push = true) {
   if (push) { hist = hist.slice(0, hi + 1); hist.push(st); hi = hist.length - 1; }
+  if (["source", "code", "paper", "matrix"].includes(st.mode)) lastEv = st;
   document.body.classList.add("panel"); document.body.classList.remove("pdf", "code", "wide");
   CSS.highlights.clear();
   document.querySelectorAll(".cite").forEach(b => b.classList.toggle("on", st.mode === "source" && b.dataset.e === st.e));
@@ -1887,8 +1956,9 @@ if (window.pabloHost && pabloHost.chat) {
       "GeistMono-Variable.woff2": ["Geist Mono", { weight: "100 900" }] };
     M.host.fonts.forEach(f => { const w = want[f]; if (!w) return;
       new FontFace(w[0], "url(pablo://fonts/" + f + ")", w[1]).load().then(x => document.fonts.add(x), () => {}); }); };
-  const bar = $("chat").insertBefore(h("div", { id: "tools" }), box);
-  let srcOpen = false, shownTask = null;  // ② the source list, when it is folded into "자료 N개"; the task the box belongs to
+  // UI renewal P2: #tools is now the stage bar under the header (it used to sit above the composer)
+  const bar = $("chat").insertBefore(h("div", { id: "tools" }), $("log"));
+  let srcOpen = false, shownTask = null, cardOpen = false;  // cardOpen: the header's source card (자료 · 폴더 · 인터넷)  // ② the source list, when it is folded into "자료 N개"; the task the box belongs to
   const attach = kind => pabloHost[kind](V.task.id).then(name => name && refresh(),
     e => { live(V.task.id).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + clean(e))))); scroll(); });
   // C1/C2: + 추가 -> a PDF file, or an arXiv id / link that main downloads (one row under the tools)
@@ -2033,26 +2103,75 @@ if (window.pabloHost && pabloHost.chat) {
               on: () => pabloHost.setPrimary(V.task.id, p.id).then(() => refresh()) }, "주 논문으로")]) : null,
         h("button", { class: "rm", title: "자료에서 빼기 (찾은 근거 기록은 남습니다)", "data-remove": p.id,
           on: () => pabloHost.removeSource(V.task.id, p.id).then(() => refresh()) }, "×"));
-    bar.append(...[h("span", { id: "src", class: many ? "many" : null }, "📎 자료: ",
+    const srcEl = h("span", { id: "src", class: many ? "many" : null }, "📎 자료: ",
         many ? h("button", { class: "link", id: "src-toggle", on: () => { srcOpen = !srcOpen; tools(); } },
           `${ps.length}개${main ? ` (주 논문 ${main.title})` : ""} ${open ? "▴" : "▾"}`) : null,
-        ps.length ? h("span", { class: "plist", hidden: !open }, ps.map((p, i) => [i && !many ? " · " : "", chip(p)])) : "없음", " ",
-        pabloHost.addArxiv ? link("+ 추가", () => { adder.hidden = !adder.hidden; if (!adder.hidden) arx.focus(); }) : link("PDF 추가", pickPdfs)),
-      h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder"))),
-      ps.length && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
-        link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => hasSpec ? redo() : spec(V.task.id))) : null,
-      several && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null,
-      ps.length && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
-        "💬 보낼 곳: ", ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label], i) => [i ? " · " : "",
-          (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh()))])) : null,
-      d.folder && pabloHost.audit && (V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived") || V.intent.must.length || V.intent.prefer.length)
-        ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null,
-      pabloHost.report && (hasSpec || V.actions.length || V.chat.some(c => c.role === "audit")) ? h("span", { id: "reports" },  // ⑫
+        ps.length ? h("span", { class: "plist", hidden: !open }, ps.map(p => chip(p))) : "없음", " ",
+        pabloHost.addArxiv ? link("+ 추가", () => { adder.hidden = !adder.hidden; if (!adder.hidden) arx.focus(); }) : link("PDF 추가", pickPdfs));
+    const dirEl = h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder")));
+    const specEl = ps.length && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
+        link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => hasSpec ? redo() : spec(V.task.id))) : null;
+    const compEl = several && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null;
+    const routeEl = ps.length && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
+        "보낼 곳 ", ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label]) =>
+          (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh())))) : null;
+    const auditEl = d.folder && pabloHost.audit && (V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived") || V.intent.must.length || V.intent.prefer.length)
+        ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null;
+    const reportEl = pabloHost.report && (hasSpec || V.actions.length || V.chat.some(c => c.role === "audit")) ? h("span", { id: "reports" },  // ⑫
         link("📄 보고서", () => pabloHost.report(V.task.id).then(r => r && say(`📄 보고서를 저장했습니다: ${r.name} (${r.lines}줄). 조건마다 논문의 쪽, 의도한 차이와 뺀 것의 이유, 마지막 점검을 담았습니다.`, "data-report"),
-          e => say("⚠ " + fail(e), "data-report-error")))) : null,
-      d.folder && pabloHost.setNet ? h("span", { id: "net", "data-on": d.net ? "1" : "", title: "패키지 설치, 데이터 내려받기, git clone에 필요합니다. 켜도 명령마다 Pablo가 검토합니다." },
+          e => say("⚠ " + fail(e), "data-report-error")))) : null;
+    const netEl = d.folder && pabloHost.setNet ? h("span", { id: "net", "data-on": d.net ? "1" : "", title: "패키지 설치, 데이터 내려받기, git clone에 필요합니다. 켜도 명령마다 Pablo가 검토합니다." },
         "🌐 인터넷: ", h("b", null, d.net ? "허용" : "차단"), " ",
-        link(d.net ? "차단하기" : "허용하기", () => pabloHost.setNet(V.task.id, !d.net).then(() => refresh()))) : null].filter(Boolean));  // append(null) prints "null"
+        link(d.net ? "차단하기" : "허용하기", () => pabloHost.setNet(V.task.id, !d.net).then(() => refresh()))) : null;
+    // the header: one chip with the task's state (자료 · 폴더 · 인터넷) that opens the source card (team review: the
+    // sources read as a sentence before; now a list with a PDF / WEB mark per item)
+    const card = h("div", { class: "srccard", id: "srccard", hidden: !cardOpen },
+      ...[srcEl, dirEl, netEl].filter(Boolean).map(x => h("div", { class: "sc-sec" }, x)));
+    const chipBtn = h("button", { class: "statechip", "aria-expanded": String(cardOpen), title: "자료 · 작업 폴더 · 인터넷",
+      on: () => { cardOpen = !cardOpen; card.hidden = !cardOpen; chipBtn.setAttribute("aria-expanded", String(cardOpen)); } },
+      [`자료 ${ps.length}`, d.folder || "폴더 없음", d.folder ? (d.net ? "인터넷 허용" : "인터넷 차단") : null].filter(Boolean).join(" · ") + " ▾");
+    const oldChips = $("chips"); if (oldChips) oldChips.remove();
+    $("bar").append(h("span", { id: "chips" }, chipBtn, card));
+    // the stage bar: always visible; a step's state comes from what is already recorded, nothing is enforced.
+    // Each step carries its old action (#specs / #audits / #compares / #reports, same ids, texts and conditions).
+    const chat = V.chat || [], audits = chat.filter(c => c.role === "audit"), la = audits[audits.length - 1];
+    const staleAudit = !!la && chat.some(c => (c.role === "changes" || c.role === "undo") && c.at > la.at);
+    const differ = la ? (la.items || []).filter(x => x.status === "differs").length : 0;
+    const specs = V.research.map(id => V.checks[id]).filter(k => k.spec && k.state !== "waived");
+    const toDecide = specs.filter(k => k.state === "pending").length + (V.intent.questions || []).length;
+    const waiting = V.actions.some(a => a.verdict === "WARN" && !a.decision);
+    const reported = chat.some(c => c.role === "report"), asked = chat.filter(c => c.role === "ask").length;
+    const compared = chat.some(c => c.role === "compare");
+    const changedFiles = chat.filter(c => c.role === "changes").reduce((n, c) => n + (c.files || []).length, 0);
+    const kind = d.kind || (d.folder && ps.length ? "repro" : ps.length ? "read" : "general");
+    const step = (key, label, state, sub, act) => ({ key, label, state, sub, act });
+    const steps = kind === "repro" ? [
+      step("prep", "준비", ps.length && d.folder ? "done" : "todo", ps.length && d.folder ? `논문 ${pdfs.length} · 폴더` : !ps.length ? "논문 필요" : "폴더 필요"),
+      step("spec", "조건 확정", !ps.length ? "blocked" : hasSpec && !toDecide ? "done" : "todo",
+        !ps.length ? "주 논문 필요" : !hasSpec ? "조건 뽑기 전" : toDecide ? `정할 일 ${toDecide}` : `조건 ${specs.length}`, specEl),
+      step("run", "구현·실행", !d.folder ? "blocked" : la && !waiting ? "done" : "todo",
+        !d.folder ? "폴더 필요" : waiting ? "확인 기다림" : V.actions.length ? `행동 ${V.actions.length}` : "—"),
+      step("audit", "재현 점검", !auditEl ? "blocked" : staleAudit ? "stale" : la ? "done" : "todo",
+        !auditEl ? "폴더 · 조건 필요" : staleAudit ? "오래됨 · 다시 필요" : la ? (differ ? `다름 ${differ}` : "점검함") : "점검 전", auditEl),
+      step("report", "보고서", reported ? "done" : "todo", reported ? "저장함" : reportEl ? "할 수 있음" : "—", reportEl)]
+    : kind === "read" ? [
+      step("prep", "준비", ps.length ? "done" : "todo", ps.length ? `논문 ${ps.length}` : "논문 필요", specEl),
+      step("ask", "질문", asked && compared ? "done" : "todo", asked ? `질문 ${asked}` : "질문 전"),
+      step("compare", "비교표", pdfs.length < 2 ? "blocked" : compared ? "done" : "todo", pdfs.length < 2 ? "논문 2편 필요" : compared ? "만듦" : "할 수 있음", compEl),
+      step("wrap", "정리", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)]
+    : [step("prep", "준비", d.folder ? "done" : "todo", d.folder ? "폴더" : "폴더 필요"),
+      step("work", "작업", reported ? "done" : "todo", waiting ? "확인 기다림" : changedFiles ? `바뀐 파일 ${changedFiles}` : "—", specEl),
+      step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)];
+    const cur = steps.find(s => s.state === "todo"); if (cur) cur.state = "current";
+    const used = new Set(steps.map(s => s.act).filter(Boolean)), more = [specEl, compEl, auditEl, reportEl].filter(x => x && !used.has(x));
+    bar.append(h("nav", { id: "stages", "data-kind": kind }, ...steps.map((s, i) => [
+      i ? h("span", { class: "st-line" + (steps[i - 1].state === "done" ? " on" : "") }) : null,
+      h("div", { class: "stage st-" + s.state, "data-stage": s.key },
+        h("span", { class: "st-n" }, s.state === "done" ? "✓" : s.state === "stale" ? "!" : String(i + 1)),
+        h("span", { class: "st-t" }, h("b", null, s.label), h("small", null, s.sub), s.act || null))].filter(Boolean)).flat(),
+      more.length ? h("span", { class: "st-more" }, ...more) : null));
+    box.querySelectorAll("#route").forEach(x => x.remove());  // 보낼 곳 lives in the composer, after the send button (it stays the first button)
+    if (routeEl) box.append(routeEl);
   };
   newTask = () => {
     V = null; close(); sidebar(); header(); tools(); gate();

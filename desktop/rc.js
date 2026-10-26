@@ -81,7 +81,7 @@ const shot = async name => { await sleep(400); const d = await page.send("Page.c
   fs.writeFileSync(path.join(shots, name), Buffer.from(d.result.data, "base64")); console.log("   shot", name); };
 const type = text => js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
 const noIds = async () => assert.ok(await js(`!/\\b(E|SRC|SC|ACT|T|C)\\d+\\b/.test(document.body.innerText)`), "no internal ids in the UI");
-const pill = async name => { await js(`[...document.querySelectorAll("#bar .pill")].find(b => b.textContent === ${JSON.stringify(name)}).click()`);
+const pill = async name => { await js(`document.querySelector('#ptabs [data-tab="${({ "기준": "intent", "계획": "plan", "왜?": "trace" })[name]}"]').click()`);  // UI renewal: the right column's tabs
   await sleep(300); const t = await js(`$("panel").innerText`); return t; };
 const newTask = async (goal, name) => {
   await until(`!$("new").disabled`, 30000); await js(`$("new").click()`);
