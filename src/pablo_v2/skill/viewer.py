@@ -1803,7 +1803,10 @@ const STAGE_LIST = { repro: ["준비", "조건 확정", "구현·실행", "재�
 function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
   const body = el.children && el.children[1]; if (!body || body.querySelector(":scope > .tags")) return;
   const files = [...new Set([...el.querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))];
-  const refs = [...new Set([...el.querySelectorAll(".cite")].map(c => c.textContent))];
+  // a quote by its paper and page ("LinearRAG p.9"), not the chat's running [n] (QA 10/26: 대상별 grouped by "[1]")
+  const refName = c => { const a = M.anchors[c.dataset.e], s = a && M.sources[a.source];
+    return a && a.page && s && s.title ? `${s.title.length > 24 ? s.title.slice(0, 23) + "…" : s.title} p.${a.page}` : c.textContent; };
+  const refs = [...new Set([...el.querySelectorAll(".cite")].map(refName))];
   const targets = [...files.map(f => "파일 · " + f), ...refs.map(r => "근거 · " + r)]; el.dataset.targets = JSON.stringify(targets);
   const shown = all ? targets : [...files.slice(0, 2).map(f => "파일 · " + f), ...refs.slice(0, 2).map(r => "근거 · " + r)];
   const more = all ? 0 : Math.max(0, files.length - 2) + Math.max(0, refs.length - 2);
@@ -1898,12 +1901,20 @@ function summaryEdit(sum, n, cur) {
 }
 // P6 대상별: grouped by what each message is about (its first file or [n]); the rest under 대상 없음
 function byTarget(log, rows) {
-  const groups = new Map(), rest = [];
+  // a message sits under its first target; each of its other targets gets a line that leads to it (QA 10/26: an audit
+  // card about config.yaml, logs/2wiki.log and run.py showed under config.yaml only, the other two had no group)
+  const groups = new Map(), also = new Map(), rest = [], add = (m, t, x) => { if (!m.has(t)) m.set(t, []); m.get(t).push(x); };
   rows.forEach(r => { const x = r[0]; if (!(x.classList && x.classList.contains("msg"))) return rest.push(x);
-    const t = JSON.parse(x.dataset.targets || "[]")[0] || "대상 없음"; if (!groups.has(t)) groups.set(t, []); groups.get(t).push(r); });
-  [...groups].sort((a, b) => (a[0] === "대상 없음") - (b[0] === "대상 없음") || b[1].length - a[1].length).forEach(([t, rs], i) =>
+    const ts = JSON.parse(x.dataset.targets || "[]"); add(groups, ts[0] || "대상 없음", r); ts.slice(1).forEach(t => add(also, t, x)); });
+  also.forEach((_, t) => groups.has(t) || groups.set(t, []));
+  const n = t => groups.get(t).length + (also.get(t) || []).length;
+  const lead = (x, home) => h("p", { class: "muted", "data-also": home }, "↳ ", h("button", { class: "link", title: `'${home}' 묶음에서 보기`,
+    on: () => { x.closest("details").open = true; x.scrollIntoView({ block: "center" }); } }, `${x.classList.contains("pablo") ? "Pablo" : "나"} · ${firstText(x).slice(0, 60)}`),
+    h("small", null, ` — '${home}' 묶음에 있음`));
+  [...groups.keys()].sort((a, b) => (a === "대상 없음") - (b === "대상 없음") || n(b) - n(a)).forEach((t, i) => {
+    const rs = groups.get(t), more = (also.get(t) || []).map(x => lead(x, JSON.parse(x.dataset.targets)[0]));
     log.append(h("details", { class: "targetgroup", "data-target": t, open: i === 0 ? true : null },
-      h("summary", null, h("span", { class: "tg" + (t === "대상 없음" ? "" : " tgt") }, t), h("small", null, `대화 ${rs.length}`)), rs.map(r => r[0]))));
+      h("summary", null, h("span", { class: "tg" + (t === "대상 없음" ? "" : " tgt") }, t), h("small", null, `대화 ${n(t)}`)), rs.map(r => r[0]), more)); });
   rest.forEach(x => log.append(x));
 }
 // a stage in the stage bar: only that stage's messages (and its dividers) stay; again -> all
@@ -2457,7 +2468,17 @@ function picker(p, box, layer, sid, n) {
   return true;
 }
 
-addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+// Esc closes a floating box first (설정, the model menu, the source card), else the right column; a click outside the
+// model menu or the source card closes it (QA 10/26: they only closed from their own button)
+const floating = () => [$("settings"), document.querySelector(".composer > .mmenu:not([hidden])"), document.querySelector("#srccard:not([hidden])")].find(Boolean);
+addEventListener("keydown", e => { if (e.key !== "Escape" || e.isComposing) return;
+  const f = floating(); if (!f) return close();
+  if (f.id === "settings") f.remove(); else if (f.id === "srccard") document.querySelector(".statechip").click(); else f.hidden = true; });
+addEventListener("mousedown", e => {
+  const m = document.querySelector(".composer > .mmenu:not([hidden])"), c = document.querySelector("#srccard:not([hidden])");
+  if (m && !e.target.closest(".mmenu, .modelbtn")) m.hidden = true;
+  if (c && !e.target.closest("#srccard, .statechip")) document.querySelector(".statechip").click();
+}, true);
 
 // ---- M4.0/M4.1 desktop host only: ChatGPT connection + composer -> persistent Codex app-server thread (desktop/) ----
 if (window.pabloHost && pabloHost.chat) {
@@ -2658,6 +2679,9 @@ if (window.pabloHost && pabloHost.chat) {
       catch (e) { rows.push(["bad", `⚠ ${p.split(/[\\/]/).pop()}: ${fail(e)}`]); }
     }
     hold(false); report(rows, "PDF"); refresh();
+    // all added: the box goes (the header chip and the source card show them); a failure keeps it open with its reason
+    // (QA 10/26: it stayed over the conversation after every pick)
+    if (rows.length && rows.every(r => r[0] !== "bad")) adder.hidden = true;
   }
   const pickPdfs = () => pabloHost.pickPdfs(V.task.id).then(ps => ps && addPaths(ps), e => { adder.hidden = false; note.textContent = "⚠ " + fail(e); });
   // ⑬ an OpenReview link is a paper (its PDF); a DOI is looked up (arXiv's own DOI is an arXiv id: ARXIV takes it)
