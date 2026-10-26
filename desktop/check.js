@@ -883,6 +883,8 @@ async function uiCheck() {
     await js(`document.querySelector(".statechip") && document.querySelector(".statechip").click()`); await snap("ui-card");
     await js(`document.querySelector(".statechip") && document.querySelector(".statechip").click()`);
     await js(`show({ mode: "intent" })`); await snap("ui-intent"); await js(`close()`);
+    const second = `(s => s && s.click())(document.querySelectorAll("#stages .stage")[1])`;
+    await js(second); await snap("ui-filter"); await js(second);
   }
   const order = await js(`[...document.querySelectorAll("#log .msg")].map(m => { const c = m.querySelector(".call[data-id]"),
     s = m.querySelector(".stream"), a = m.querySelector(".asked");

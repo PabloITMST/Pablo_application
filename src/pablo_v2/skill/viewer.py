@@ -692,6 +692,25 @@ body.rail:not(.panel) { grid-template-columns:220px minmax(0, 1fr) 72px; }
 body:not(.panel) #ptabs { flex-direction:column; gap:4px; padding:12px 6px; border-bottom:0; }
 body:not(.panel) .ptab { border-bottom:0; border-radius:2px; padding:8px 2px; } body:not(.panel) .ptab b { font-size:13px; }
 body:not(.panel) .ptab .long { display:none; } body:not(.panel) .ptab .short { display:block; }
+/* P4: stage tags and dividers, the stage filter, the model as a text button */
+.tags { display:flex; flex-wrap:wrap; gap:4px; align-items:center; margin:8px 0 0; }
+.tg { font:500 11px/1.6 var(--sans); padding:0 6px; border-radius:2px; background:var(--raised); color:var(--ink-2); white-space:nowrap; }
+.tg.stage { background:var(--primary); color:var(--on-primary); } .tags .more { font-size:11px; color:var(--ink-3); }
+.divider { max-width:720px; margin:0 auto 20px; display:flex; align-items:center; gap:10px; }
+.divider::after { content:""; flex:1; height:1px; background:var(--line-soft); }
+#log > .filtered { display:none; }
+#filter-banner { max-width:720px; margin:0 auto 20px; padding:8px 12px; border:1px dashed var(--ink-3); border-radius:2px; font-size:13px;
+  display:flex; gap:8px; justify-content:space-between; align-items:center; }
+#stages .stage { cursor:pointer; } #stages .stage.picked { outline:2px solid var(--ink); outline-offset:-2px; }
+.composer { position:relative; } #model { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+.composer > button.modelbtn { order:1; width:auto; height:auto; border-radius:2px; background:none; color:var(--ink);
+  font:500 13px/1.4 var(--sans); padding:4px 8px; white-space:nowrap; } .composer > button.modelbtn:hover { background:var(--raised); }
+.composer > button.modelbtn[hidden] { display:none; } .composer > #agent { order:2; } .composer > button:not(.modelbtn) { order:3; }
+.composer > .mmenu { position:absolute; right:44px; bottom:calc(100% + 6px); z-index:6; min-width:220px; display:flex; flex-direction:column;
+  padding:4px; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:0 8px 24px rgba(13,14,16,.16); }
+.composer > .mmenu[hidden] { display:none; }
+.composer .mmenu button.mopt { width:auto; height:auto; border-radius:2px; background:none; color:var(--ink); text-align:left;
+  padding:7px 10px; font-size:13px; } .composer .mmenu button.mopt.on, .composer .mmenu button.mopt:hover { background:var(--raised); }
 /* P2: header state chip + source card, stage bar, 보낼 곳 inside the composer */
 #tools { max-width:none; width:auto; margin:0; padding:8px 20px; border-bottom:1px solid var(--line); background:var(--surface);
   color:var(--ink); display:block; }
@@ -1309,23 +1328,61 @@ function echo(task, c) {
   live(task).append(...said(c)); $("log").scrollTop = $("log").scrollHeight;
 }
 // one timeline: the task, its research, the chat log and the Guard cards, in the order they happened
+// P4: each message's stage, from what the record is (a spec is 조건 확정, an audit 재현 점검, ...), a divider where
+// the stage changes, and a tag row: the stage, then what it is about (files, [n]); the rest folds into "N개 더"
+function kindOf() { const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [];
+  return d.kind || (d.folder && ps.length ? "repro" : ps.length ? "read" : "general"); }
+function stageOfRole(role, kind) {
+  const r = String(role || "");
+  if (kind === "repro") return r === "start" ? "준비" : /^(spec|criterion|intent)/.test(r) || r === "ask" ? "조건 확정"
+    : r === "audit" ? "재현 점검" : r === "report" ? "보고서" : "구현·실행";
+  if (kind === "read") return r === "start" || /^spec/.test(r) ? "준비" : r === "compare" ? "비교표" : r === "report" ? "정리" : "질문";
+  return r === "start" ? "준비" : r === "report" ? "검토" : "작업";
+}
+function tagRow(el, stage) {
+  const body = el.children && el.children[1]; if (!body || body.querySelector(":scope > .tags")) return;
+  const files = [...new Set([...el.querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))];
+  const refs = [...new Set([...el.querySelectorAll(".cite")].map(c => c.textContent))];
+  const shown = [...files.slice(0, 2).map(f => "파일 · " + f), ...refs.slice(0, 2).map(r => "근거 · " + r)];
+  const more = Math.max(0, files.length - 2) + Math.max(0, refs.length - 2);
+  body.append(h("div", { class: "tags" }, h("span", { class: "tg stage" }, stage), ...shown.map(t => h("span", { class: "tg" }, t)),
+    more ? h("small", { class: "more" }, `· ${more}개 더`) : null));
+}
+// a stage in the stage bar: only that stage's messages (and its dividers) stay; again -> all
+function stageFilter(label) {
+  const log = $("log"), on = log.dataset.filter === label ? "" : label; log.dataset.filter = on;
+  const old = $("filter-banner"); if (old) old.remove();
+  let hid = 0, kept = 0;
+  [...log.children].forEach(x => { const s = x.dataset && x.dataset.stage; if (!s) return;
+    const hide = !!on && s !== on; x.classList.toggle("filtered", hide); if (x.classList.contains("msg")) hide ? hid++ : kept++; });
+  if (on) log.prepend(h("div", { id: "filter-banner" }, h("span", null, `${on} 단계 대화만 보는 중 · ${kept}개 · 다른 단계 ${hid}개 숨김`),
+    h("button", { class: "link", on: () => stageFilter(on) }, "전체 보기")));
+  document.querySelectorAll("#stages .stage").forEach(x => x.classList.toggle("picked", !!on && x.querySelector("b").textContent === on));
+}
 function conversation() {
   cites = {};  // ⑩ review: [n] by when the evidence was found, so "[16]" is the same live and after a reload
   [...new Set(Object.values(V.checks).flatMap(c => c.evidence))].filter(e => M.anchors[e])
     .sort((a, b) => +a.replace(/\D/g, "") - +b.replace(/\D/g, "")).forEach((e, i) => { cites[e] = i + 1; });
-  const log = $("log"); log.textContent = "";
+  const log = $("log"); log.textContent = ""; log.dataset.filter = "";  // a redraw shows every stage again
   if (busy !== V.task.id) delete lives[V.task.id];  // what was said is in the chat log; only a running turn stays live
   const chat = V.chat || [], asked = new Set(chat.map(c => c.check).filter(Boolean)), research = answer(asked);
-  const at = x => new Date(x || 0).getTime(), t0 = at(V.task.at), items = [[t0, msg("You", V.task.at, h("p", null, V.task.text))]];
-  if (research.length) items.push([t0, msg("Pablo", null, research)]);
+  const kind = kindOf(), sg = r => stageOfRole(r, kind);
+  const at = x => new Date(x || 0).getTime(), t0 = at(V.task.at), items = [[t0, msg("You", V.task.at, h("p", null, V.task.text)), sg("start")]];
+  if (research.length) items.push([t0, msg("Pablo", null, research), sg("start")]);
   const inLog = new Set(chat.flatMap(c => c.role === "spec" ? [...(c.checks || []), ...(c.missing || [])] : c.role === "spec-add" ? [c.check] : []));
   const loose = V.research.filter(id => V.checks[id].spec && V.checks[id].state !== "waived" && !inLog.has(id));
-  if (loose.length) items.push([t0, msg("Pablo", null, conditions(loose, 0))]);
-  issues().forEach(x => items.push([t0, msg("Pablo", null, x)]));
-  chat.forEach(c => said(c).forEach(x => items.push([at(c.at), x])));
+  if (loose.length) items.push([t0, msg("Pablo", null, conditions(loose, 0)), sg("spec")]);
+  issues().forEach(x => items.push([t0, msg("Pablo", null, x), sg("start")]));
+  chat.forEach(c => said(c).forEach(x => items.push([at(c.at), x, sg(c.role)])));
   V.actions.forEach(a => { if (live().querySelector(`[data-act="${CSS.escape(a.id)}"]`)) return;  // its live card is below
-    const x = a.verdict === "ALLOW" ? failed(a) : action(a); if (x) items.push([at(a.at), msg("Pablo", null, x)]); });
-  items.sort((x, y) => x[0] - y[0]).forEach(([, x]) => log.append(x));  // stable: same time keeps the order above
+    const x = a.verdict === "ALLOW" ? failed(a) : action(a); if (x) items.push([at(a.at), msg("Pablo", null, x), sg("action")]); });
+  let prev = null;  // stable sort: same time keeps the order above
+  items.sort((x, y) => x[0] - y[0]).forEach(([, x, s]) => {
+    if (s && x.classList && x.classList.contains("msg")) {
+      if (s !== prev) log.append(h("div", { class: "divider", "data-stage": s }, h("span", { class: "tg stage" }, s)));
+      prev = s; x.dataset.stage = s; tagRow(x, s);
+    }
+    log.append(x); });
   if (V.intent.questions.length) log.append(msg("Pablo", null, h("div", { class: "call" },
     h("p", { class: "head" }, "⚠ 결정이 필요합니다."),
     V.intent.questions.map(q => /^K\d+$/.test(q.id) ? held(q, V.task.id) : h("p", { title: q.id, "data-id": q.id }, rich(q.text))),
@@ -1813,8 +1870,17 @@ if (window.pabloHost && pabloHost.chat) {
   const st = box.insertBefore(h("small", { class: "muted", id: "agent" }), btn);
   const pick = box.insertBefore(h("select", { id: "model", title: "모델" }), st);  // the ChatGPT account's catalog (/v1/models, visibility "list")
   pick.addEventListener("change", () => pabloHost.setModel(pick.value));
+  // team review: the model is a quiet text button with a menu; the <select> stays (hidden) and carries the same events.
+  // Both come after the send button in the DOM (the first button stays send / stop) and CSS orders them on screen.
+  const mbtn = box.appendChild(h("button", { class: "modelbtn", type: "button", title: "모델", hidden: true }));
+  const mmenu = box.appendChild(h("div", { class: "mmenu", hidden: true }));
+  const mlabel = () => { const o = pick.options[pick.selectedIndex]; mbtn.textContent = (o ? o.textContent : "모델") + " ⌄"; };
+  mbtn.addEventListener("click", () => { mmenu.hidden = !mmenu.hidden; if (mmenu.hidden) return; mmenu.textContent = "";
+    [...pick.options].forEach(o => mmenu.append(h("button", { class: "mopt" + (o.value === pick.value ? " on" : ""), type: "button",
+      on: () => { pick.value = o.value; pick.dispatchEvent(new Event("change")); mmenu.hidden = true; } }, o.textContent))); });
+  pick.addEventListener("change", mlabel);
   const models = () => pabloHost.models().then(r => {
-    pick.textContent = ""; r.models.forEach(m => pick.append(h("option", { value: m.slug }, m.name))); pick.value = r.model || "";
+    pick.textContent = ""; r.models.forEach(m => pick.append(h("option", { value: m.slug }, m.name))); pick.value = r.model || ""; mlabel();
   });
   const acct = $("chat").insertBefore(h("div", { id: "acct" }), box);  // sign-in card, then a one-line connection status
   const LABEL = { Connecting: "연결 중…", Ready: "준비됨", Thinking: "생각 중…", Error: "오류" };
@@ -1823,10 +1889,12 @@ if (window.pabloHost && pabloHost.chat) {
     const on = authSt.state === "connected", running = on && turning && agentSt === "Thinking";
     st.textContent = ""; if (on) st.append(agentSt === "Thinking" ? art("think") : "", stopping ? "중지하는 중…" : LABEL[agentSt] || agentSt); box.dataset.agent = agentSt;
     pick.hidden = !on || !pick.options.length; pick.disabled = agentSt === "Thinking";
+    mbtn.hidden = pick.hidden; mbtn.disabled = pick.disabled; if (mbtn.hidden || mbtn.disabled) mmenu.hidden = true;
     inp.disabled = !on || !V || (agentSt !== "Ready" && agentSt !== "Error");  // Error: the next send restarts app-server
     btn.disabled = running ? stopping : inp.disabled;  // while the agent works, the send button is 중지
     btn.textContent = running ? "■" : "↑"; btn.title = running ? "중지" : "보내기"; box.dataset.running = running ? "1" : "";
-    inp.placeholder = !on ? "ChatGPT에 연결하면 대화할 수 있습니다" : !V ? "새 작업을 만들면 대화할 수 있습니다" : "Pablo에게 물어보세요…";
+    inp.placeholder = !on ? "ChatGPT에 연결하면 대화할 수 있습니다" : !V ? "새 작업을 만들면 대화할 수 있습니다"
+      : "Pablo에게 물어보세요…" + (box.dataset.stage ? ` · ${box.dataset.stage} 단계로 기록` : "");
   };
   const status = (s, err) => { agentSt = s; st.title = err || ""; gate(); };
   const link = (text, on) => h("button", { class: "link", on }, text);
@@ -1860,7 +1928,7 @@ if (window.pabloHost && pabloHost.chat) {
   const scroll = () => { $("log").scrollTop = $("log").scrollHeight; };
   pabloHost.onAuth(account);
   pabloHost.onAgent(ev => {
-    if (ev.type === "model") pick.value = ev.model;
+    if (ev.type === "model") { pick.value = ev.model; mlabel(); }
     if (ev.type === "status") {
       if (ev.status === "Ready") models().then(gate);  // after a restart or another sign-in the list may change
       // a message is on its way (Pablo prepares it, or app-server restarts for a fresh token first): stay Thinking until done
@@ -2163,10 +2231,12 @@ if (window.pabloHost && pabloHost.chat) {
       step("work", "작업", reported ? "done" : "todo", waiting ? "확인 기다림" : changedFiles ? `바뀐 파일 ${changedFiles}` : "—", specEl),
       step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)];
     const cur = steps.find(s => s.state === "todo"); if (cur) cur.state = "current";
+    box.dataset.stage = (cur || steps[steps.length - 1]).label; gate();  // the composer says where a new message goes
     const used = new Set(steps.map(s => s.act).filter(Boolean)), more = [specEl, compEl, auditEl, reportEl].filter(x => x && !used.has(x));
     bar.append(h("nav", { id: "stages", "data-kind": kind }, ...steps.map((s, i) => [
       i ? h("span", { class: "st-line" + (steps[i - 1].state === "done" ? " on" : "") }) : null,
-      h("div", { class: "stage st-" + s.state, "data-stage": s.key },
+      h("div", { class: "stage st-" + s.state + ($("log").dataset.filter === s.label ? " picked" : ""), "data-stage": s.key,
+        title: `${s.label} 단계의 대화만 보기`, on: e => { if (!e.target.closest("button, a")) stageFilter(s.label); } },
         h("span", { class: "st-n" }, s.state === "done" ? "✓" : s.state === "stale" ? "!" : String(i + 1)),
         h("span", { class: "st-t" }, h("b", null, s.label), h("small", null, s.sub), s.act || null))].filter(Boolean)).flat(),
       more.length ? h("span", { class: "st-more" }, ...more) : null));
