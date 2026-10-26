@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   spec: task => ipcRenderer.invoke("pablo:spec", task),  // A2: the task's paper -> reproduction conditions
   audit: task => ipcRenderer.invoke("pablo:audit", task),
   intent: (task, id, action) => ipcRenderer.invoke("pablo:intent", task, id, action),
+  makeCriterion: (task, text, strength) => ipcRenderer.invoke("pablo:make-criterion", task, text, strength),  // a message -> a rule (hard | soft)
   criterion: (task, id, action, reason) => ipcRenderer.invoke("pablo:criterion", task, id, action, reason),  // ④ hard | soft | drop  // B4: promote | reject a held-back criterion  // A5/A6: 재현 점검 of the work folder (read-only turn)
   pickFolder: task => ipcRenderer.invoke("pablo:pick-folder", task),
   pickPdfs: task => ipcRenderer.invoke("pablo:pick-pdfs", task),  // the dialog, several PDFs at once -> their paths

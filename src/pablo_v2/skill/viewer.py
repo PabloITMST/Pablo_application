@@ -698,6 +698,8 @@ body:not(.panel) .ptab .long { display:none; } body:not(.panel) .ptab .short { d
 .tagedit { flex-basis:100%; margin-top:6px; padding:12px 14px; border:1px solid var(--signal); border-radius:2px; background:var(--surface);
   display:flex; flex-direction:column; gap:8px; font-size:13px; } .te-st { display:flex; flex-wrap:wrap; gap:4px 14px; }
 .te-st small { color:var(--ink-3); } .te-foot { display:flex; gap:8px; justify-content:flex-end; }
+.ce-text { width:100%; box-sizing:border-box; resize:vertical; padding:6px 8px; border:1px solid var(--line-soft); border-radius:2px;
+  background:var(--canvas); color:var(--ink); font:inherit; }
 #viewbar { display:flex; gap:4px; align-items:center; margin-top:6px; font-size:12px; }
 #viewbar .vtab { padding:2px 10px; border-radius:2px; font-size:12px; color:var(--ink-2); } #viewbar .vtab.on { background:var(--primary); color:var(--on-primary); }
 #viewbar .vtab:hover:not(.on):not(:disabled) { background:var(--raised); }
@@ -1403,7 +1405,28 @@ function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
     more ? h("small", { class: "more" }, `· ${more}개 더`) : null);
   if (key && window.pabloHost && pabloHost.setUi) row.append(h("button", { class: "tagbtn", "data-tag-edit": "1", title: "이 메시지의 태그 고치기",
     on: () => tagEdit(row, key, stage, o) }, "✎ 태그"));
+  if (window.pabloHost && pabloHost.makeCriterion && el.classList.contains("msg")) row.append(h("button", { class: "tagbtn", "data-crit-make": "1",
+    title: "이 메시지의 글을 작업 기준으로", on: () => critMake(row, el) }, "📌 기준으로"));
   body.append(row);
+}
+// a message's words made a criterion of this task by the person, in a sentence they trim: a rule (반드시 / 가능하면), never
+// the goal. Guard, the brief and 재현 점검 follow at once; the conversation says so
+function critMake(row, el) {
+  const old = row.querySelector(".tagedit"); if (old) return old.remove();
+  const task = V.task.id, words = [...el.children[1].children].filter(c => !c.classList.contains("who") && !c.classList.contains("tags"))
+    .map(c => c.textContent).join(" ").replace(/\s+/g, " ").trim().slice(0, 300);
+  const text = h("textarea", { class: "ce-text", "data-crit-text": "1", rows: 3, maxlength: 1000 }); text.value = words;
+  const note = h("p", { class: "muted" }, "이 작업에만 적용됩니다. 지킬 내용만 한 문장으로 남겨 주세요.");
+  const ed = h("div", { class: "tagedit" }, h("b", null, "이 글을 작업 기준으로"), text,
+    h("div", { class: "te-st" }, [["hard", "반드시"], ["soft", "가능하면"]].map(([v, n]) =>
+      h("label", null, h("input", { type: "radio", name: "ce-" + task, value: v, checked: v === "hard" ? true : null }), " ", n))), note,
+    h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => ed.remove() }, "취소"), h("button", { class: "pill on", "data-crit-save": "1", on: () => {
+      const t = text.value.trim(), st = ed.querySelector("input[type=radio]:checked").value;
+      if (!t) return text.focus();
+      pabloHost.makeCriterion(task, t, st).then(items => {
+        if (!items.length) return note.replaceChildren("이미 같은 기준이 있습니다.");
+        ed.remove(); echo(task, { role: "intent", items }); return refresh(); }, e => note.replaceChildren(fail(e))); } }, "기준으로 추가")));
+  row.append(ed); text.focus();
 }
 // P5: the person changes a message's stage or pins it as a decision; that wins over what Pablo computes, on every redraw
 function tagEdit(row, key, stage, o) {

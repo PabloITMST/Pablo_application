@@ -283,7 +283,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -1235,6 +1235,17 @@ async function uiCheck() {
   await until(`V.intent.must.filter(x => x.repro).length === 2`);
   await js(`close()`);
   console.log("ok criteria edit: 반드시 -> 가능하면, GPU 기준 지움(장비가 바뀜) -> 지운 기준에 남음 -> 되살림; 재현 기본 기준은 이유를 적어야 지워짐");
+  // UI renewal: a message's words made a criterion by hand (📌 기준으로), trimmed, 가능하면: a rule of this task, said in the
+  // conversation; words that read like a plain statement still become a rule
+  const made = "배치 크기는 논문 값 그대로 둔다";
+  await js(`(m => { m.querySelector("[data-crit-make]").click(); const ed = m.querySelector(".tagedit");
+    ed.querySelector("[data-crit-text]").value = ${JSON.stringify(made)}; ed.querySelectorAll("input[type=radio]")[1].checked = true;
+    ed.querySelector("[data-crit-save]").click(); })(document.querySelector("#log .msg [data-crit-make]").closest(".msg"))`);
+  await settle(`V.intent.prefer.some(x => x.text === ${JSON.stringify(made)}) && !V.intent.must.some(x => x.text === ${JSON.stringify(made)})`);
+  assert.ok(await js(`[...document.querySelectorAll("#log [data-intent]")].some(p => p.textContent.includes(${JSON.stringify(made + " (가능하면)")}))`),
+    "the conversation says it");
+  assert.ok(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"))[await js(`V.task.id`)].some(c => c.role === "intent" && c.items.some(i => i.text === made)));
+  console.log("ok 기준으로: a message's words, trimmed -> 가능하면 criterion of this task, said in the conversation and kept in chat.json");
   // ⑭ the task list: search over names, goals and sources; a task's own name (its goal stays); 보관 folds it away, kept whole
   const rows_ = () => js(`[...document.querySelectorAll("#task-list > [data-task]")].map(b => b.dataset.task)`);
   await js(`(q => { q.value = "인사말"; q.dispatchEvent(new Event("input")); })($("task-search"))`);

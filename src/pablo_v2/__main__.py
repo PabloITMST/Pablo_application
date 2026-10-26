@@ -111,6 +111,8 @@ def _parser() -> argparse.ArgumentParser:
                    "criteria become task-scoped intent; the request itself is the plan step, never a goal")
     s.add_argument("--task", help="the task this was said in (--scope task / --request): its task-scoped intent applies "
                    "to that task only, also when other tasks were made later")
+    s.add_argument("--rule", choices=["hard", "soft"], help="the user picked this text as a rule of the task (desktop: a "
+                   "message -> 기준으로): read as a constraint of that strength, never a goal or a question")
     s = add("promote")
     s.add_argument("id")
     s.add_argument("--as", dest="as_", choices=["hard", "soft"], help="③ make an unread / held line a rule of its task")
@@ -263,6 +265,10 @@ def _run(a, out) -> int:
     s = PabloSkill.load(os.path.join(a.dir, "skill.json"), e, LLMJudge(provider(a.model)))
 
     if a.cmd == "say":
+        if a.rule:  # the reader keeps the words, topics and relation; what it is (a rule, how strong) the user said
+            ex0 = e.extractor.extract
+            e.extractor.extract = lambda *x: [dict(f, candidate=True, type="constraint", strength=a.rule, scope="task",
+                                                   persistence="high", impact="high") for f in ex0(*x)]
         if a.scope or a.request:  # same task scope the extractor gives "이번 작업에서는 ..."; the M1 policy/relations are unchanged
             ex = e.extractor.extract
             e.extractor.extract = lambda *x: [dict(f, scope="task") if f.get("scope") == "project" else f for f in ex(*x)]

@@ -447,6 +447,20 @@ ipcMain.handle("pablo:criterion", async (e, task, id, action, reason) => {
     ...(action === "drop" && reason && reason.trim() ? { reason: reason.trim() } : {}) });
   return r.item.statement;
 });
+// UI renewal: words from a message made a criterion of the task by the user (📌 기준으로): always a rule of the strength
+// they chose, never the goal; one the policy would hold back (hedged words) is promoted at once, the user already decided
+ipcMain.handle("pablo:make-criterion", async (e, task, text, strength) => {
+  fromWindow(e); known(task);
+  if (!str(text, 1000) || !text.trim() || !["hard", "soft"].includes(strength)) throw new Error("bad criterion");
+  const r = await ctl.py("say", text.trim(), "--scope", "task", "--task", task, "--rule", strength).catch(err => { throw new Error(short(err.message)); });
+  const items = [...r.added];
+  for (const k of r.candidates.filter(k => k.status === "pending" || k.status === "ignored")) {
+    const x = (await ctl.py("promote", k.id, "--as", strength)).item;
+    items.push({ id: x.id, kind: x.kind, strength: x.strength, text: x.statement });
+  }
+  if (items.length) logChat(task, { role: "intent", at: new Date().toISOString(), items });
+  return items;
+});
 // ⑩ the user's own hand on the reproduction conditions: add one from a sentence picked in the 주 논문 (Pablo anchors it on
 // that page, or refuses), take one out with why, or put it back. The Guard, the brief and 재현 점검 follow at once.
 ipcMain.handle("pablo:condition", async (e, task, action, o) => {
