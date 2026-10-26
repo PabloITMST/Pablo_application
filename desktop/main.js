@@ -569,8 +569,10 @@ ipcMain.handle("pablo:report", async (e, task) => {
   const gone = work ? placed.filter(x => { const w = where.where(x.where); if (!w) return false;
     const c = where.verify(work, { where: x.line_found ? `${w.path}:${x.line_found}` : x.where, found: x.found }).check;
     return c === "not_found" || c === "no_file"; }).map(x => x.line_found ? `${where.where(x.where).path}:${x.line_found}` : x.where) : [];
+  // the messages a person pinned as a decision (✎ 태그): the report lists them, as the tag editor says
+  const decisions = Object.entries((desk().tags || {})[task] || {}).filter(([, o]) => o && o.decision).map(([key, o]) => ({ key, stage: o.stage || null }));
   const now = { tree: work ? await checkpoint.snapshot(ctl.dir, task, work).catch(() => null) : null, git: gitState(work),
-    recheck: last && work ? { at: last.at, placed: placed.length, gone } : null };
+    recheck: last && work ? { at: last.at, placed: placed.length, gone } : null, decisions };
   const r = await ctl.py("report", task, "--now", JSON.stringify(now));
   const name = (r.title || task).replace(/[\\/:*?"<>|\r\n]+/g, " ").trim().slice(0, 60) + " 재현 보고서.md";
   const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: "재현 보고서 저장", defaultPath: name,

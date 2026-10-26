@@ -286,6 +286,24 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
     out += [f"- 반드시: {x['text']}" for x in v["intent"]["must"]] + [f"- 가능하면: {x['text']}" for x in v["intent"]["prefer"]]
     if not v["intent"]["must"] and not v["intent"]["prefer"]:
         out.append("- 없음")
+    # P5: messages a person pinned as a decision (✎ 태그 → 결정으로 고정); the app sends their keys (role@time)
+    decided = []
+    for d in (now or {}).get("decisions") or []:
+        key = str((d or {}).get("key", ""))
+        role, _, at = key.partition("@")
+        if key == "start":
+            said, who, when = t.text, "나", None
+        elif key.startswith("act:"):
+            a = next((x for x in v["actions"] if x["id"] == key[4:]), None)
+            said, who, when = (a or {}).get("text"), "Pablo", (a or {}).get("at")
+        else:
+            c = next((x for x in v["chat"] if x.get("role") == role and x.get("at") == at), None) or {}
+            said, who, when = c.get("text") or c.get("summary"), "나" if role == "user" else "Pablo", c.get("at")
+        if said:
+            stage = f"[{d['stage']}] " if d.get("stage") else ""
+            decided.append(f"- {stage}{who}: {' '.join(str(said).split())[:400]}" + (f" · {_when(when)}" if when else ""))
+    if decided:
+        out += ["", "## 대화에서 정한 결정", ""] + decided
     # the last audit
     out += ["", "## 재현 점검", ""]
     if not last:

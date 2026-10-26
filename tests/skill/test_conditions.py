@@ -248,6 +248,27 @@ def test_report():
         assert not re.search(r"\[\d+\]", md)
         assert re.search(r"범위: 별도 실행에서만 · \d{4}-\d\d-\d\d \d\d:\d\d부터 \(지금도\)", md), md  # to the minute
         assert re.search(r"파일 해시 `sha256:[0-9a-f]{64}`", md), md  # the whole hash
+        assert "## 대화에서 정한 결정" not in md  # nothing pinned, no section
+
+
+def test_report_lists_pinned_decisions():
+    """QA 10/26 (D1): a message pinned as a decision (✎ 태그 → 결정으로 고정) is in the report, as the tag editor says;
+    the app sends the keys it keeps in desktop.json, the report finds the words in the chat log; a key it cannot find
+    is left out."""
+    from pablo_v2.skill.viewer import render_report
+    with tempfile.TemporaryDirectory() as d:
+        s, t, _, _ = two(d)
+        s.path = os.path.join(d, "skill.json")  # chat.json sits next to it
+        said = {"role": "user", "at": "2026-10-26T12:04:48.828Z", "text": "시드는 42로 두고   진행하자."}
+        reply = {"role": "agent", "at": "2026-10-26T12:04:55.000Z", "text": "config.yaml의 seed는 42입니다."}
+        with open(os.path.join(d, "chat.json"), "w", encoding="utf-8") as f:
+            json.dump({t.id: [said, reply]}, f, ensure_ascii=False)
+        md = render_report(s, t.id, {"decisions": [{"key": "user@" + said["at"], "stage": "재현 점검"}, {"key": "start", "stage": None},
+                                                   {"key": "agent@" + reply["at"]}, {"key": "user@2000-01-01T00:00:00Z"}]})
+        part = md.split("## 대화에서 정한 결정\n\n")[1].split("\n\n")[0].splitlines()
+        assert len(part) == 3, part
+        assert re.fullmatch(r"- \[재현 점검\] 나: 시드는 42로 두고 진행하자\. · \d{4}-\d\d-\d\d \d\d:\d\d", part[0]), part
+        assert part[1] == "- 나: TinyRAG 재현" and part[2].startswith("- Pablo: config.yaml의 seed는 42입니다."), part
 
 
 def test_table_row_verdict_waits_for_its_columns():
