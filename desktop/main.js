@@ -156,8 +156,11 @@ ipcMain.handle("pablo:state", async e => {
     return [t.id, { folder: w ? path.basename(w) : null, net: !!(d.net || {})[t.id],
       papers: papers.list(d, t.id).map(x => ({ id: x.id, title: x.title, version: x.version || null, kind: x.kind === "web" ? "web" : "pdf",
         arxiv: x.arxiv || null, primary: !!p && x.id === p.id })),  // arxiv: a search result already here says so
-      route: (d.route || {})[t.id] === "ask" ? "ask" : "agent", archived: !!(d.archived || {})[t.id] }]; }));  // names only, no paths
-  m.last = d.last;
+      route: (d.route || {})[t.id] === "ask" ? "ask" : "agent", archived: !!(d.archived || {})[t.id],
+      // UI renewal: what the screen remembers per task (set through pablo:set-ui); a missing key has a default
+      kind: (d.kind || {})[t.id] || null, done: !!(d.done || {})[t.id], panel: (d.panel || {})[t.id] || null,
+      view: (d.view || {})[t.id] || null, tags: (d.tags || {})[t.id] || {}, summary: (d.summary || {})[t.id] || {} }]; }));  // names only, no paths
+  m.last = d.last; m.settings = d.settings || {};
   m.host = { shell: agent.shell(), noticed: !!(d.noticed || {}).shell, fonts: fontFiles() };  // ⑤ 5.1: the notice, once
   return m;
 });
@@ -178,7 +181,12 @@ ipcMain.handle("pablo:new-task", async (e, text, opts) => {
   }
   if (items.length || unread.length || pending.length)
     logChat(t.task.id, { role: "intent", at: new Date().toISOString(), items, ...(pending.length ? { pending } : {}), ...(unread.length ? { unread } : {}) });
-  saveDesk(x => { x.last = t.task.id; });
+  // UI renewal P7: the task's kind (its stages), and a new task opens on its criteria unless settings say rail
+  const kind = opts && ["repro", "read", "general"].includes(opts.kind) ? opts.kind : opts && opts.repro === true ? "repro" : null;
+  saveDesk(x => { x.last = t.task.id; const s = x.settings || {};
+    if (kind) x.kind = { ...(x.kind || {}), [t.task.id]: kind };
+    x.panel = { ...(x.panel || {}), [t.task.id]: { open: s.panel !== "rail", tab: "intent" } };
+    if (s.net === true) x.net = { ...(x.net || {}), [t.task.id]: true }; });
   return { id: t.task.id, lines: lines.length - 1, added: items.length, unread: unread.length + pending.length };
 });
 ipcMain.handle("pablo:pick-folder", async (e, task) => {
@@ -200,6 +208,22 @@ ipcMain.handle("pablo:set-net", (e, task, on) => {
   fromWindow(e); known(task);
   saveDesk(x => { x.net = { ...(x.net || {}), [task]: on === true }; });
   return on === true;
+});
+// UI renewal: what the screen remembers (desktop.json), one whitelisted key at a time; task null = the app's settings
+const plain = (v, max) => !!v && typeof v === "object" && !Array.isArray(v) && JSON.stringify(v).length <= max;
+const UI = { kind: v => ["repro", "read", "general"].includes(v), done: v => typeof v === "boolean",
+  panel: v => plain(v, 200) && typeof v.open === "boolean" && ["intent", "plan", "trace", "evidence"].includes(v.tab),
+  view: v => ["time", "stage", "target"].includes(v), tags: v => plain(v, 200000), summary: v => plain(v, 50000) };
+const SETTINGS = { view: v => ["time", "stage", "target"].includes(v), tags: v => ["main", "all"].includes(v),
+  panel: v => ["open", "rail"].includes(v), net: v => typeof v === "boolean" };
+ipcMain.handle("pablo:set-ui", (e, task, key, value) => {
+  fromWindow(e);
+  if (task === null && key === "settings") {
+    if (!plain(value, 500) || Object.entries(value).some(([k, v]) => !SETTINGS[k] || !SETTINGS[k](v))) throw new Error("bad settings");
+    saveDesk(x => { x.settings = { ...(x.settings || {}), ...value }; }); return true;
+  }
+  known(task); if (!UI[key] || !UI[key](value)) throw new Error("bad ui: " + key);
+  saveDesk(x => { x[key] = { ...(x[key] || {}), [task]: value }; }); return true;
 });
 // C1: a paper joins the task's list (one PDF per task until 0.7); the same file again is the same paper
 const join = (task, entry, replaces) => saveDesk(d => {
@@ -525,6 +549,7 @@ ipcMain.handle("pablo:report", async (e, task) => {
     const why = { ENOENT: "폴더가 없습니다", EACCES: "쓰기 권한이 없습니다", EPERM: "쓰기 권한이 없습니다", EBUSY: "다른 프로그램(동기화 등)이 쓰고 있습니다", EROFS: "읽기 전용입니다" }[err.code];
     throw new Error(`그 폴더에 저장하지 못했습니다(${why || err.code || "알 수 없는 이유"}). 다른 폴더를 골라 주세요.`);
   }
+  logChat(task, { role: "report", at: new Date().toISOString(), name: path.basename(res.filePath) });  // the stage bar's 보고서 step
   return { name: path.basename(res.filePath), lines: r.text.split("\n").length };
 });
 // A5/A6 재현 점검: the agent reads the work folder (read-only sandbox, nothing can change, so no Guard per read) and

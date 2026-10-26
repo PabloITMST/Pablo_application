@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   compareColumn: (task, matrix, column) => ipcRenderer.invoke("pablo:compare-column", task, matrix, column),  // ⑧ one more column
   condition: (task, action, o) => ipcRenderer.invoke("pablo:condition", task, action, o),  // ⑩ add (a picked sentence) | drop (why) | restore; ⑦ deviate (why) | undeviate
   setNet: (task, on) => ipcRenderer.invoke("pablo:set-net", task, on),
+  setUi: (task, key, value) => ipcRenderer.invoke("pablo:set-ui", task, key, value),  // UI renewal: kind, done, panel, view, tags, summary; task null = settings
   setRoute: (task, route) => ipcRenderer.invoke("pablo:set-route", task, route),  // paper + folder: agent | ask  // D1: 인터넷 for this task's commands
   diff: (task, from, to) => ipcRenderer.invoke("pablo:diff", task, from, to),  // D4: what a turn changed in the work folder
   undo: (task, from, to) => ipcRenderer.invoke("pablo:undo", task, from, to),  // D4: put those files back
