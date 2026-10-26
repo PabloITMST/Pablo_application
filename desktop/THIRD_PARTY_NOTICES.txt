@@ -2663,7 +2663,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ================================================================================
-Fonts (UI renewal) - resourcesppssetsonts\ (inside app.asar)
+Fonts (UI renewal) - resources\app.asar (assets\fonts\)
 - Pretendard 1.3.9 (PretendardVariable.woff2), from the npm package pretendard@1.3.9. SIL Open Font License 1.1.
 - Geist and Geist Mono 1.3.1 (Geist-Variable.woff2, GeistMono-Variable.woff2), from the npm package geist@1.3.1.
   SIL Open Font License 1.1.

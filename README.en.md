@@ -10,7 +10,7 @@ When you reproduce a paper, Pablo pins each condition to a page of the source an
 When the agent tries something that conflicts with your criteria, Pablo stops it before it runs.
 
 [![test](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml/badge.svg)](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-0.8.0-111111)
+![version](https://img.shields.io/badge/version-0.9.0-111111)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-111111)
 ![python](https://img.shields.io/badge/python-3.11-111111)
 ![electron](https://img.shields.io/badge/electron-41-111111)
@@ -155,7 +155,7 @@ You do not need Python, Node.js, or the Codex CLI. The installer bundles them.
 ### Steps
 
 1. Download `PabloSetup.exe` from [Releases](https://github.com/PabloITMST/Pablo_application/releases).
-2. Verify the hash. The SHA-256 for 0.8.0 is `95f1f5398936fe9d54e0a1fc7766d28f577a1089a1d6d5bf53c37dc4dad6999c`.
+2. Verify the hash. The SHA-256 for 0.9.0 is `017c698d88b9b2d2088d491adc16187895fc6955b7e380e8b369c329a55d3a67`.
 
    ```powershell
    Get-FileHash .\PabloSetup.exe -Algorithm SHA256
@@ -174,12 +174,12 @@ Upgrading from an earlier version keeps your tasks, conversations, and sign-in.
 ## Getting started
 
 1. Click **Continue with ChatGPT** (ChatGPT로 계속하기) and approve in your system browser.
-2. In **+ New task** (+ 새 작업), write the goal and your criteria. For a reproduction, choose **Paper reproduction task** (논문 재현 작업).
+2. In **+ New task** (+ 새 작업), write the goal and your criteria. Pick the task kind: **Paper reproduction** (논문 재현), **Paper reading** (논문 읽기), or **General** (일반). Each kind has its own stages.
 3. Pick sources (PDF, arXiv, DOI) and a work folder in the header.
 4. **Extract conditions** (재현 조건 뽑기) → ask the agent → **Audit** (재현 점검) → click a file:line to check the code.
 5. Save the record with **Report** (보고서).
 
-An 18-minute demo script is in [`release/0.8.0/DEMO_SCENARIO.md`](release/0.8.0/DEMO_SCENARIO.md) (in Korean). It uses [`release/0.7.0/demo-repro/`](release/0.7.0/demo-repro/), a folder that departs from the paper on purpose.
+An 18-minute demo script is in [`release/0.8.0/DEMO_SCENARIO.md`](release/0.8.0/DEMO_SCENARIO.md) (in Korean). It uses [`release/0.7.0/demo-repro/`](release/0.7.0/demo-repro/), a folder that departs from the paper on purpose. The script follows the 0.8.0 screens; for where each button moved in 0.9.0, see the mapping table in the [0.9.0 release notes](release/0.9.0/README.md).
 
 ## Running from source
 
@@ -300,7 +300,7 @@ Detection is on par with simply asking the model. Where Pablo does better is the
 - Table numbers may be paired with the wrong column, so they show "? check column pairing" until confirmed.
 - Long training runs are best run outside the app.
 
-Full list: [`release/0.8.0/KNOWN_LIMITATIONS.md`](release/0.8.0/KNOWN_LIMITATIONS.md) (in Korean)
+Full list: [`release/0.9.0/KNOWN_LIMITATIONS.md`](release/0.9.0/KNOWN_LIMITATIONS.md) (in Korean)
 
 ## Documentation
 
@@ -309,9 +309,9 @@ All documents below are in Korean.
 | Document | Contents |
 |---|---|
 | [Developer reference](docs/reference.md) | CLI commands, state files, app check scenarios, design decisions by milestone |
-| [Release 0.8.0](release/0.8.0/README.md) | What changed, verification results, install |
-| [Demo script](release/0.8.0/DEMO_SCENARIO.md) | 18-minute demo steps and talking points |
-| [Clean-machine checklist](release/0.8.0/CLEAN_MACHINE_TEST.md) | Verifying the installer on a PC without dev tools |
+| [Release 0.9.0](release/0.9.0/README.md) | What changed, verification results, install, where 0.8.0 buttons moved |
+| [Demo script](release/0.8.0/DEMO_SCENARIO.md) | 18-minute demo steps and talking points (0.8.0 screens) |
+| [Clean-machine checklist](release/0.8.0/CLEAN_MACHINE_TEST.md) | Verifying the installer on a PC without dev tools (0.8.0 screens) |
 | [Evaluation](docs/eval/README.md) | Quantitative evaluation of audit and condition extraction |
 | [Pablo skill](.claude/skills/pablo/SKILL.md) | How another agent calls Pablo |
 | [UI plan](docs/plan-ui-a2.md) | Plan for applying the final design (A2) |
