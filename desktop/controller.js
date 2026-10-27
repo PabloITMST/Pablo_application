@@ -21,18 +21,54 @@ const KIND = { add: "파일 생성", delete: "파일 삭제", update: "파일 �
 const waiting = new Map(), ran = new Map();  // WARN id -> resolve; app-server item id -> {act, task}
 let q = Promise.resolve(), n = 0;
 
-// one python call at a time: skill.json has a single writer
-function py(...args) {
+// one python call at a time: skill.json has a single writer.
+// D9 pyx(opts, ...args): opts.what names a long call ("spec", "compare") that ctl.cancel(what) can stop, queued or running
+// (its child is killed; the call rejects with .cancelled); opts.progress(p) hears each {"progress": p} line on stderr;
+// opts.input is written to the child's stdin (S8 similar: a page's text can be longer than a command line)
+const calls = new Set();
+const stopped = () => Object.assign(new Error("중지했습니다."), { cancelled: true });
+function pyx(opts, ...args) {
+  const call = { what: opts.what || null, cancelled: false, child: null };
+  if (call.what) calls.add(call);
   const run = async () => {
-    const env = { ...process.env, ...(app.isPackaged ? {} : { PYTHONPATH: SRC }), ...await ctl.env() };
-    return new Promise((res, rej) => execFile(BACKEND[0], [...BACKEND.slice(1), ...args, "--json", "--dir", ctl.dir],
-      { env, encoding: "utf8", windowsHide: true, maxBuffer: 1 << 24 }, (err, out) => {
-        let r; try { r = JSON.parse(out); } catch { return rej(err || new Error("bad output: " + out.slice(0, 200))); }
-        r.ok ? res(r) : rej(new Error(r.message));
-      }));
+    try {
+      if (call.cancelled) throw stopped();
+      const env = { ...process.env, ...(app.isPackaged ? {} : { PYTHONPATH: SRC }), ...await ctl.env() };
+      if (call.cancelled) throw stopped();  // stopped while the token was read: never started
+      return await new Promise((res, rej) => {
+        const p = call.child = execFile(BACKEND[0], [...BACKEND.slice(1), ...args, "--json", "--dir", ctl.dir],
+          { env, encoding: "utf8", windowsHide: true, maxBuffer: 1 << 24 }, (err, out) => {
+            call.child = null;
+            if (call.cancelled) return rej(stopped());
+            let r; try { r = JSON.parse(out); } catch { return rej(err || new Error("bad output: " + out.slice(0, 200))); }
+            r.ok ? res(r) : rej(new Error(r.message));
+          });
+        if (opts.input != null) p.stdin.end(opts.input, "utf8");
+        if (opts.progress) {
+          let buf = "";
+          p.stderr.on("data", d => {
+            buf += String(d);
+            for (let i; (i = buf.indexOf("\n")) >= 0; buf = buf.slice(i + 1)) {
+              const line = buf.slice(0, i).trim();
+              if (line.startsWith('{"progress"')) try { opts.progress(JSON.parse(line).progress); } catch {}
+            }
+          });
+        }
+      });
+    } finally { calls.delete(call); }
   };
   return (q = q.then(run, run));
 }
+const py = (...args) => pyx({}, ...args);
+// -> whether a call was stopped. Windows: taskkill /T takes the backend and anything it started
+ctl.cancel = what => {
+  let n = 0;
+  for (const c of calls) if (c.what === what && !c.cancelled) {
+    c.cancelled = true; n++;
+    if (c.child) process.platform === "win32" ? execFile("taskkill", ["/pid", String(c.child.pid), "/T", "/F"], { windowsHide: true }, () => {}) : c.child.kill();
+  }
+  return n > 0;
+};
 const tasks = () => { try { return JSON.parse(fs.readFileSync(path.join(ctl.dir, "skill.json"), "utf8")).tasks.map(t => t.id); } catch { return []; } };
 const ui = (t, ev) => ctl.emit("ui", { type: "guard", task: t.task.split("#").pop(), ...ev });
 const trace = ev => { ctl.emit("trace", ev); console.log("[pablo]", JSON.stringify(ev)); };
@@ -143,5 +179,5 @@ ctl.idle = async () => { for (let p; p !== q;) { p = q; await p.catch(() => {});
 // C1: src is one id or a list (the task's papers); each quote is anchored in its own paper
 ctl.ask = (task, question, src) => py("ask", task, question, ...[].concat(src || []).flatMap(s => ["--source", s]));
 
-Object.assign(ctl, { tasks, py });
+Object.assign(ctl, { tasks, py, pyx });
 module.exports = ctl;

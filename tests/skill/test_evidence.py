@@ -10,7 +10,7 @@ import urllib.error
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 from pablo_v2.intent.engine import IntentEngine  # noqa: E402
-from pablo_v2.skill.evidence import AnchorRejected  # noqa: E402
+from pablo_v2.skill.evidence import AnchorRejected, similar  # noqa: E402
 from pablo_v2.skill.skill import PabloSkill, render_evidence, render_task  # noqa: E402
 from pablo_v2.skill.viewer import render_html  # noqa: E402
 
@@ -99,6 +99,27 @@ def test_anchor_core():
     assert [x.target_id for x, _ in s2.evidence_for(sc)] == [sc]
     assert f"evidence supports [{e.id} VALID]" in render_task(s2, t.id)
     print(render_evidence(s2, e.id))
+
+
+def test_similar():
+    """S8: a quote the PDF viewer could not find -> the places on the page most like it, best first, never overlapping."""
+    page = ("We train for 3 epochs on 4 GPUs. The learn-\ning rate is 0.001 with the Adam optimizer. "
+            "Table 2: LinearRAG (Ours) 249.78 0.093 66.95 GraphRAG 1022.5 0.41 61.20 HippoRAG 801.3 0.33 63.10 "
+            "Results improve on every dataset. The learning rate was tuned on a held-out split.")
+    hits = similar(page, "the learning rate is 0.001 with Adam")
+    assert hits and hits[0]["text"] == "The learn-\ning rate is 0.001 with the Adam optimizer.", hits
+    assert page[hits[0]["start"]:hits[0]["end"]] == hits[0]["text"] and 0.5 <= hits[0]["score"] < 1
+    assert all(a["score"] >= b["score"] for a, b in zip(hits, hits[1:]))
+    assert all(a["end"] <= b["start"] or b["end"] <= a["start"] for i, a in enumerate(hits) for b in hits[i + 1:])
+    exact = similar(page, "Results improve on every dataset.")
+    assert exact[0]["score"] == 1.0 and exact[0]["text"] == "Results improve on every dataset."
+    row = similar(page, "LinearRAG (Ours) 249.78 0.093 66.95")  # a table run without stops: quote-sized windows
+    assert row and "249.78" in row[0]["text"] and len(row[0]["text"]) < 120, row
+    assert len(similar(page, "learning rate", k=1)) <= 1
+    assert similar(page, "a sentence about something else entirely, cats and dogs") == []
+    assert similar("", "x") == [] and similar(page, "  ") == []
+    ko = similar("학습률은 0.001이다. 배치 크기는 32로 둔다. 에폭은 3이다.", "배치 크기를 32로 둔다")
+    assert ko and ko[0]["text"] == "배치 크기는 32로 둔다.", ko
 
 
 def test_viewer():

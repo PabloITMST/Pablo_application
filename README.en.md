@@ -84,7 +84,7 @@ Each task shows its progress on a stage bar (for reproduction: prepare → fix c
 <img src="docs/images/paper-evidence.png" alt="An answer with citation numbers; the PDF panel on the right highlights the cited table row" />
 
 - Attach PDFs, arXiv IDs or links, OpenReview, DOIs, or web pages. A task can hold several papers.
-- Click a citation [n] to open that page of that paper with the quoted sentence or table row highlighted.
+- Click a citation [n] to open that page of that paper with the quoted sentence or table row highlighted. If the sentence cannot be found as written on that page, the panel shows the most similar sentences and the page's extracted text.
 - When an answer cites both a quantitative claim and a table value, it compares the two and says if they disagree.
 
 ### Reproduction conditions
@@ -173,11 +173,11 @@ Upgrading from an earlier version keeps your tasks, conversations, and sign-in.
 
 ## Getting started
 
-1. Click **Continue with ChatGPT** (ChatGPT로 계속하기) and approve in your system browser.
-2. In **+ New task** (+ 새 작업), write the goal and your criteria. Pick the task kind: **Paper reproduction** (논문 재현), **Paper reading** (논문 읽기), or **General** (일반). Each kind has its own stages.
-3. Pick sources (PDF, arXiv, DOI) and a work folder in the header.
+1. Click **Connect ChatGPT** (ChatGPT로 연결) on the account card at the foot of the sidebar and approve in your system browser. Disconnecting and checking the plan again are in **Settings · Account** (설정 · 계정).
+2. In the **+ New task** (+ 새 작업, Ctrl N) dialog, write the goal and your criteria. Pick the task kind: **Paper reproduction** (논문 재현), **Paper reading** (논문 읽기), or **General** (일반). Each kind has its own stages. Sources (PDF, arXiv, OpenReview, DOI), the work folder, and internet access are set here too; an arXiv paper shows its file name, source, and size before it is downloaded.
+3. To change them later, click the **Sources · Folder · Internet** chips in the header (자료 · 폴더 · 인터넷).
 4. **Extract conditions** (재현 조건 뽑기) → ask the agent → **Audit** (재현 점검) → click a file:line to check the code.
-5. Save the record with **Report** (보고서).
+5. Save the record as HTML or Markdown with **Export report** (보고서 내보내기), in the header's **⋯** menu or the stage bar.
 
 An 18-minute demo script is in [`release/0.8.0/DEMO_SCENARIO.md`](release/0.8.0/DEMO_SCENARIO.md) (in Korean). It uses [`release/0.7.0/demo-repro/`](release/0.7.0/demo-repro/), a folder that departs from the paper on purpose. The script follows the 0.8.0 screens; for where each button moved in 0.9.0, see the mapping table in the [0.9.0 release notes](release/0.9.0/README.md).
 

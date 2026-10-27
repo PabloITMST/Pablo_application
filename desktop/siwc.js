@@ -87,6 +87,14 @@ async function checkIdToken(jwt, clientId, nonce) {
 
 // ---- sign in: browser -> loopback callback -> code exchange -> validated, encrypted credentials --------------------
 // openUrl: shell.openExternal. Resolves with the saved account; rejects with AuthError.
+// S36 (A2 complete): the browser tab after sign-in: Pablo's mark, one line, a second line (no data from the request)
+const page = ok => `<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pablo</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#E3E7EB;color:#0D0E10;font:15px/1.6 "Pretendard",system-ui,"Segoe UI","Malgun Gothic",sans-serif}
+main{background:#fff;border:1px solid rgba(13,14,16,.08);border-radius:16px;box-shadow:0 2px 6px rgba(13,14,16,.06),0 16px 40px rgba(13,14,16,.14);padding:36px 48px;text-align:center;max-width:420px}
+.m{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:17px;margin-bottom:14px}.m i{font-style:normal;width:24px;height:24px;border-radius:7px;background:#0D0E10;color:#fff;display:grid;place-items:center;font-size:13px}
+b{display:block;font-size:16px}small{display:block;color:#8A929D;font-size:13px;margin-top:6px}</style>
+<main><div class="m"><i>P</i>Pablo</div><b>${ok ? "로그인했습니다. Pablo로 돌아가세요." : "로그인하지 못했습니다. Pablo에서 다시 시도하세요."}</b>
+<small>${ok ? "이 창은 닫아도 됩니다." : "Pablo의 계정 카드에 이유가 보입니다."}</small></main></html>`;
 function login(openUrl, waitMs = 5 * 60 * 1000) {
   if (pending) pending.cancel();
   const h = host(), old = creds();
@@ -99,7 +107,7 @@ function login(openUrl, waitMs = 5 * 60 * 1000) {
       const p = Object.fromEntries(u.searchParams);
       const ok = !p.error && p.state === state && p.code;
       s.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      s.end(`<!doctype html><meta charset=utf-8><title>Pablo</title><body style="font:16px system-ui;margin:3em">${ok ? "로그인했습니다. Pablo로 돌아가세요." : "로그인하지 못했습니다. Pablo에서 다시 시도하세요."}</body>`);
+      s.end(page(ok));
       finish(p.error === "access_denied" ? new AuthError("access_denied", p.error_description)
         : p.error ? new AuthError("callback_failed", p.error + " " + (p.error_description || ""))
         : p.state !== state ? new AuthError("state_mismatch")
@@ -177,7 +185,10 @@ async function models(access) {  // account-specific catalog (app-server's model
   try { r = await fetch(EP.api + "/models", { headers: { authorization: "Bearer " + access } }); } catch (e) { throw new AuthError("network", e.message); }
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new AuthError(classify(body.error && body.error.code || "", r.status), JSON.stringify(body).slice(0, 300));
-  const list = (body.models || body.data || []).filter(m => (m.visibility || "list") === "list").map(m => ({ slug: m.slug || m.id, name: m.display_name || m.slug || m.id })).filter(m => m.slug);
+  // A2 complete · B: the 생각 수준 a model offers (supported_reasoning_levels [{effort}], default_reasoning_level), when the catalog says
+  const levels = m => (m.supported_reasoning_levels || m.supported_reasoning_efforts || []).map(x => typeof x === "string" ? x : x && (x.effort || x.reasoning_effort)).filter(Boolean);
+  const list = (body.models || body.data || []).filter(m => (m.visibility || "list") === "list").map(m => ({ slug: m.slug || m.id, name: m.display_name || m.slug || m.id,
+    ...(levels(m).length ? { efforts: levels(m) } : {}), ...(m.default_reasoning_level || m.default_reasoning_effort ? { effort: m.default_reasoning_level || m.default_reasoning_effort } : {}) })).filter(m => m.slug);
   if (!list.length) throw new AuthError("no_models");
   return list;
 }

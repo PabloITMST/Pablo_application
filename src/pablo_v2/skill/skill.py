@@ -460,7 +460,7 @@ class PabloSkill:
             self.link_evidence(a.id, sc.id, "supports", role)
         return sc, dropped
 
-    def spec(self, task_id: str, src_id: str | None = None) -> tuple[list[SourceCheck], list[SourceCheck], list[dict]]:
+    def spec(self, task_id: str, src_id: str | None = None, progress=None) -> tuple[list[SourceCheck], list[SourceCheck], list[dict]]:
         """The paper's reproduction conditions (data, split, model, hyperparameters, metrics, baselines, results,
         evaluation rules), each a completed check whose evidence is its verbatim quote anchored on its page: the Guard
         reads them like any verified fact (an action against one is S01), the agent gets them in its brief.
@@ -474,7 +474,8 @@ class PabloSkill:
         if not src or src.kind != "pdf":
             raise KeyError("no captured PDF to read the conditions from")
         self.get_task(task_id)
-        r = self.judge.extract_spec(self.snapshot_text(src).split("\f"))
+        pages = self.snapshot_text(src).split("\f")  # D9 progress(page, pages): how far the model has read (judge.py)
+        r = self.judge.extract_spec(pages, progress=progress) if progress else self.judge.extract_spec(pages)
         # 0.8 review: extracting the same paper again keeps what the user made of its conditions: one they added (⑩),
         # restored after a re-extraction (kept) or differ from on purpose (⑦) stays; one they took out stays out
         def own(c):

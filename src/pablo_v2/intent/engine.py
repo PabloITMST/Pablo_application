@@ -150,6 +150,19 @@ class IntentEngine:
         self.save()
         return item
 
+    def restate_item(self, item_id: str, statement: str) -> IntentItem:
+        """C3 the user rewrites an active criterion in their own words: the same item (id, kind, strength, scope, task),
+        a new sentence; the history keeps the old one."""
+        item, text = self.get_item(item_id), " ".join(str(statement or "").split())
+        if not item or item.kind not in USER_KINDS or item.status != "active":
+            raise KeyError(f"no active criterion {item_id} to restate")
+        if not text or len(text) > 500:
+            raise ValueError("기준 문장은 1자 이상 500자 이하로 적어 주세요.")
+        if text != item.statement:
+            self._update(item_id, Source("user", note=BY_HAND), "사용자가 고침", change_type="refinement", statement=text)
+            self.save()
+        return item
+
     # --- agent-side API (source = agent, kept apart from user intent) --------
     def add_assumption(self, statement: str, note: str | None = None) -> IntentItem:
         return self._new(dict(type="assumption", statement=statement), Source("agent", note=note),

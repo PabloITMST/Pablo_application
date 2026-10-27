@@ -210,7 +210,8 @@ function fakeOpenAI() {
     }
     if (u.pathname === "/revoke") { s.writeHead(200); return s.end(); }
     if (u.pathname === "/v1/models") return json(s, 200, { models: m.noModels ? [{ slug: "hidden", visibility: "hide" }]
-      : [{ slug: "gpt-5.6-sol", display_name: "GPT-5.6 Sol", visibility: "list" }, { slug: "gpt-5.5", visibility: "list" },
+      : [{ slug: "gpt-5.6-sol", display_name: "GPT-5.6 Sol", visibility: "list", supported_reasoning_levels: ["low", "medium", "high", "xhigh"].map(effort => ({ effort })),
+           default_reasoning_level: "medium" }, { slug: "gpt-5.5", visibility: "list", supported_reasoning_levels: [{ effort: "low" }, { effort: "medium" }, { effort: "high" }], default_reasoning_level: "medium" },
          { slug: "gpt-x-account-only", display_name: "X", visibility: "list" }, { slug: "internal", visibility: "hide" }] });
     if (u.pathname === "/v1/responses") {
       if (m.limit) return json(s, 429, { error: { code: "subscription_sharing_usage_limit_exceeded" } });
@@ -262,7 +263,8 @@ async function authCheck() {
   assert.strictEqual(await siwc.token(), good, "a failed sign-in keeps the working credentials");
   console.log("ok sign-in errors:", JSON.stringify(errs));
 
-  assert.deepStrictEqual((await siwc.verify()).models, [{ slug: "gpt-5.6-sol", name: "GPT-5.6 Sol" }, { slug: "gpt-5.5", name: "gpt-5.5" }, { slug: "gpt-x-account-only", name: "X" }]);
+  assert.deepStrictEqual((await siwc.verify()).models, [{ slug: "gpt-5.6-sol", name: "GPT-5.6 Sol", efforts: ["low", "medium", "high", "xhigh"], effort: "medium" },
+    { slug: "gpt-5.5", name: "gpt-5.5", efforts: ["low", "medium", "high"], effort: "medium" }, { slug: "gpt-x-account-only", name: "X" }]);
   const v = {};
   for (const [k, m] of Object.entries({ noModels: { noModels: true }, limit: { limit: true }, notEligible: { notEligible: true } })) v[k] = await code(m, siwc.verify);
   assert.deepStrictEqual(v, { noModels: "no_models", limit: "usage_limit", notEligible: "not_eligible" });
@@ -285,14 +287,14 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "summarize", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "efforts", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "openWork", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "recheckPlan", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setEffort", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "similar", "spec", "state", "stop", "summarize", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`);
   const st = await js(`pabloHost.authStatus()`), pageText = await js(`document.documentElement.outerHTML`) + JSON.stringify(st);
   const secrets = [await siwc.token(), F.issued, hostJson().ext_agent_host_id];
-  assert.ok(Object.keys(st).every(k => k === "state" || k === "error") && secrets.every(x => !pageText.includes(x)), "renderer sees state only");
+  assert.ok(Object.keys(st).every(k => ["state", "error", "code"].includes(k)) && secrets.every(x => !pageText.includes(x)), "renderer sees state only (D5: + the SAY key)");
   const L = await agent.launch();
   assert.ok(L.env.ACCESS_TOKEN === secrets[0] && L.env.CODEX_HOME === path.join(dir, "codex") && L.args.includes('model_provider="openai_chatgpt_plan"'));
   assert.strictEqual(agent.model, "gpt-5.6-sol");
@@ -303,18 +305,35 @@ async function authCheck() {
   await js(`(s => { s.value = "gpt-5.5"; s.dispatchEvent(new Event("change")); })($("model"))`); await sleep(300);
   assert.ok(agent.model === "gpt-5.5" && JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).model === "gpt-5.5", "pick saved");
   console.log("ok model picker:", JSON.stringify(opts), "-> gpt-5.5 saved");
+  // A2 complete · B (S16): the chip is "모델 · 생각 수준"; its menu offers the levels the model has (from the account's catalog);
+  // a pick is kept with the model (thread.json) and sent with the next turn (turn/start effort)
+  assert.strictEqual(await until(`(b => b && !b.hidden && / · 보통$/.test(b.textContent) && b.textContent)(document.querySelector(".composer .modelbtn"))`), "gpt-5.5 · 보통");
+  await js(`document.querySelector(".composer .modelbtn").click()`);
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll(".composer .mmenu [data-effort]")].map(b => b.textContent + (b.classList.contains("on") ? "*" : ""))`), ["낮음", "보통*", "높음"]);
+  await js(`document.querySelector('.composer .mmenu [data-effort="high"]').click()`);
+  assert.strictEqual(await until(`(b => / · 높음$/.test(b.textContent) && b.textContent)(document.querySelector(".composer .modelbtn"))`), "gpt-5.5 · 높음");
+  assert.ok(agent.effort === "high" && JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).effort === "high", "the pick kept with the model");
+  await js(`document.querySelector(".composer .mmenu").hidden = true`);
+  console.log("ok 생각 수준: chip 'gpt-5.5 · 보통' -> menu 낮음 · 보통 · 높음 -> 높음 kept");
   // one size scale, connected: the composer's second row (보낼 곳, the model button, send) is 32 high, its choices 24
   if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "auth-composer.png"), (await win.capturePage()).toPNG());
   assert.deepStrictEqual(await js(`(q => [q("#chat > .composer > button, .composer #route .seg"), q(".composer #route .seg > *")])(s =>
     [...new Set([...document.querySelectorAll(s)].filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height)))])`)
     .then(([ctl, inn]) => [ctl, inn.filter(h => h !== 24)]), [[32], []], "composer row: one size scale");
+  // A2 complete · A: connected, the account card says "플랜 사용 가능 · 설정" (연결 해제 lives in 설정 · 계정)
+  assert.deepStrictEqual(await js(`[document.querySelector("#acct .acard b").textContent, [...document.querySelectorAll("#acct .link")].map(x => x.textContent)]`),
+    ["ChatGPT · 연결됨", ["설정"]], "the account card, connected");
+  await js(`document.querySelector("#acct [data-settings]").click()`);
+  assert.match(await until(`(c => c && c.textContent)(document.querySelector('#settings [data-account="connected"]'))`), /^ChatGPT · 연결됨플랜 사용 가능쓸 수 있는 모델 3개 · 마지막 확인 \d\d:\d\d$/);
+  if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "auth-settings-account.png"), (await win.capturePage()).toPNG());
+  await js(`document.querySelector("#settings .x").click()`);
   // ⑤ a PC without PowerShell 7: once connected, the notice (why, winget, the docs link, restart) -> 알겠습니다 -> not again
   const deskFile = path.join(ctl.dir, "desktop.json");
   const unnotice = () => { try { const d = JSON.parse(fs.readFileSync(deskFile, "utf8")); delete d.noticed; fs.writeFileSync(deskFile, JSON.stringify(d)); } catch {} };
   unnotice(); process.env.PABLO_SHELL = "powershell";
   await js(`refresh()`);
   assert.match(await until(`(b => b && b.textContent)(document.querySelector("#shell-note [data-shell]"))`),
-    /^한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다이 PC에는 Windows PowerShell 5\.1만 있어.*winget install Microsoft\.PowerShell · 설치 방법 ↗\. 설치한 뒤 Pablo를 다시 시작하세요\.알겠습니다$/);
+    /^한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다지금은 Windows PowerShell 5\.1로 실행합니다\..*winget install Microsoft\.PowerShell복사알겠습니다설치 방법 ↗설치한 뒤 Pablo를 다시 시작하면 7을 씁니다\.$/);
   await js(`[...document.querySelectorAll("#shell-note button")].find(b => b.textContent === "알겠습니다").click()`);
   await until(`!document.querySelector("#shell-note [data-shell]")`);
   assert.strictEqual(JSON.parse(fs.readFileSync(deskFile, "utf8")).noticed.shell, true);
@@ -329,16 +348,31 @@ async function authCheck() {
   assert.ok(shown.includes(siwc.SAY.unauthorized) && !/[{}]/.test(shown), "short message: " + shown);
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`);
   assert.ok(agent.spawns === spawns + 1 && thread === null && agent.thread() && agent.resumed, "restart + thread/resume of the task's thread");
+  assert.deepStrictEqual(agent.sent, { model: "gpt-5.5", effort: "high" }, "the turn was sent with the picked 생각 수준");
   assert.ok((await agent.launch()).env.ACCESS_TOKEN.startsWith("at-r"), "restarted on the refreshed token");
   const saved = JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).threads;
   assert.ok(agent.task().endsWith("#" + await js("V.task.id")) && saved[agent.task()].threadId === agent.thread(), "task -> thread saved for the next launch");
   console.log("ok 401:", shown, "-> refresh -> app-server restart -> thread/resume", agent.thread());
-  await js(`document.querySelector("#acct .link").click()`);
+  // A2 complete: 연결 해제 is in 설정 · 계정, behind a confirm card (the account card's only link is 설정)
+  await js(`document.querySelector("#acct [data-settings]").click()`);
+  await until(`!!document.querySelector("#settings [data-logout]")`);
+  await js(`document.querySelector("#settings [data-logout]").click()`);
+  assert.ok(await js(`!document.querySelector("#settings .set-confirm").hidden && $("acct").dataset.state === "connected"`), "asks first");
+  await js(`document.querySelector("#settings [data-logout-ok]").click()`);
   await until(`$("acct").dataset.state === "signed_out"`);
+  assert.ok(await js(`document.querySelector('#settings [data-account="signed_out"]') && !!$("signin")`), "the page and the card follow");
+  await js(`$("settings").remove()`);
   assert.ok(!siwc.has() && !agent.pid() && !fs.existsSync(path.join(dir, "thread.json")), "credentials, thread, agent gone");
   assert.ok(F.seen.some(x => x[0] === "/revoke" && x[1].token.startsWith("rt-") && x[1].client_id === F.issued), "refresh token revoked");
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`) && hostJson().client_id === F.issued, "composer off; host id + client kept");
   console.log("ok logout: revoked, credentials + thread removed, agent stopped");
+  // D5: a failed sign-in reaches the page with its SAY key (S2 failed vs S3 plan not allowed), still no token
+  const login0 = siwc.login;
+  siwc.login = async () => { throw new siwc.AuthError("not_eligible", "{}"); };
+  await js(`pabloHost.login()`);
+  assert.deepStrictEqual(await js(`pabloHost.authStatus()`), { state: "signed_out", error: siwc.SAY.not_eligible, code: "not_eligible" });
+  siwc.login = login0;
+  console.log("ok auth code: not_eligible reaches the page next to state / error");
   win.destroy(); F.srv.close();
 }
 
@@ -892,9 +926,102 @@ async function uiCheck() {
   assert.deepStrictEqual(errors, [], "no script errors on load");
   // one size scale (10/27): a control on a row 32, a choice inside a group 24, a label in a line of text 20
   assert.deepStrictEqual(await js(`(q => ({ ctl: q("#side .new, .statechip, #bar .rn, #viewbar .vseg, #chat > .composer > button, .pill"),
-    in: q("#viewbar .vtab"), tag: q("#log .tg, #log .tagbtn, #log .cite") }))(s => [...new Set([...document.querySelectorAll(s)]
+    in: q("#viewbar .vtab"), tag: q("#log .tg, #log .tagbtn, #log .cite.pgc, #log .cite.web") }))(s => [...new Set([...document.querySelectorAll(s)]
     .filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height)))])`), { ctl: [32], in: [24], tag: [20] }, "one size scale");
   console.log("ok sizes: controls 32, choices in a group 24, labels in text 20");
+  // A2 complete · A (the shell): the sidebar (search with its shortcut, a row's stage progress, the account card at its foot,
+  // the 56px rail), the header (chips, each opening its part of the card; ⋯ with what the text links did), the stage and
+  // view bars' filter state, the first run, the three dialogs, the narrow window
+  const aShot = async n => { if (process.env.PABLO_SHOTS) { await sleep(350); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, n + ".png"), (await win.capturePage()).toPNG()); } };
+  const press = (k, mods = {}) => js(`dispatchEvent(new KeyboardEvent("keydown", ${JSON.stringify({ key: k, bubbles: true, cancelable: true, ...mods })}))`);
+  assert.deepStrictEqual(await js(`[$("task-search").placeholder, document.querySelector("#side .searchbox .kbd").textContent, document.querySelector("#new .kbd").textContent,
+    $("acct").parentNode.id, $("acct").dataset.state, !!$("signin"), document.querySelector("#acct .acard b").textContent]`),
+    ["작업·자료 찾기", "Ctrl K", "Ctrl N", "side", "signed_out", true, "ChatGPT · 연결 안 됨"], "search + shortcuts; the account card at the sidebar's foot");
+  assert.strictEqual(await js(`document.querySelectorAll('#task-list [data-task="T1"] .prog i').length`), await js(`stagesOf(V, M.desk.T1).steps.length`), "a row's stage progress");
+  await press("k", { ctrlKey: true });
+  assert.strictEqual(await js(`document.activeElement.id`), "task-search", "Ctrl K: the search");
+  await js(`(q => { q.value = "없는낱말"; q.dispatchEvent(new Event("input")); })($("task-search"))`);
+  assert.deepStrictEqual(await js(`[document.querySelector("#task-list h4").textContent, !!document.querySelector("[data-no-hit]"), document.querySelector("#side .searchbox .kbd").textContent]`),
+    ["찾은 작업 0개", true, "esc"], "S18: nothing found says so");
+  await js(`$("task-search").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
+  assert.deepStrictEqual(await js(`[$("task-search").value, !!document.querySelector('#task-list > [data-task="T1"]')]`), ["", true], "esc clears the search");
+  await js(`$("task-search").blur()`);
+  // the chips: 자료 · 폴더 (인터넷 only with a folder); each opens its part of one card; Esc / again closes it
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("#chips .hchip")].map(b => b.dataset.chip + ":" + b.textContent)`), ["src:자료 없음", "dir:폴더 없음"]);
+  await js(`document.querySelector('#chips [data-chip="dir"]').click()`);
+  assert.deepStrictEqual(await js(`[$("srccard").hidden, $("srccard").dataset.sec, $("dir").querySelector("button").textContent, getComputedStyle($("src").closest(".sc-sec")).display]`),
+    [false, "dir", "작업 폴더 고르기", "none"], "S14: the folder chip opens the folder part, its first button picks one");
+  await aShot("a-chip-dir");
+  await js(`document.querySelector('#chips [data-chip="dir"]').click()`);
+  assert.strictEqual(await js(`$("srccard").hidden`), true);
+  // ⋯: 이름 바꾸기 (F2) · 완료 · 보관 · 보고서 내보내기, in the DOM while hidden
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("#more-menu .mi")].map(b => b.textContent)`), ["이름 바꾸기F2", "완료로 옮기기", "보관", "보고서 내보내기"], "⋯ items");
+  await js(`$("more").click()`); await aShot("a-more");
+  assert.strictEqual(await js(`$("more-menu").hidden`), false);
+  await press("Escape");
+  assert.strictEqual(await js(`$("more-menu").hidden`), true, "Esc closes ⋯");
+  await press("F2");
+  assert.deepStrictEqual(await js(`[!!$("task-name"), document.querySelector("#bar .rn-cnt").textContent]`), [true, "9/80"], "F2: rename in place with n/80");
+  await js(`(i => { i.value = "가".repeat(81); i.dispatchEvent(new Event("input")); })($("task-name")); document.querySelector("[data-rename-task-ok]").click()`);
+  assert.deepStrictEqual(await js(`[document.querySelector("#bar .rn-box").classList.contains("over"), document.querySelector("#bar .rn-note").textContent.trim()]`),
+    [true, "작업 이름은 80자까지입니다. 이름은 바뀌지 않았습니다."], "S17: over 80 says so, nothing saved");
+  await aShot("a-rename");
+  await js(`header()`);
+  // A9 / A10: a stage filter shows in the stage bar ("거르는 중 · N") and as the view bar's chip, which clears it
+  assert.strictEqual(await js(`document.querySelector("#viewbar [data-filter-state]").textContent`), "거르기 없음");
+  const lbl = await js(`document.querySelectorAll("#stages .stage b")[1].textContent`);
+  await js(`document.querySelectorAll("#stages .stage")[1].click()`); await sleep(100);
+  assert.deepStrictEqual(await js(`[document.querySelector("#viewbar .fchip").textContent, /^거르는 중 · \\d+$/.test(document.querySelectorAll("#stages .stage small")[1].textContent)]`),
+    ["단계 · " + lbl, true], "a stage filter: the stage bar and the view bar say so");
+  await aShot("a-filter");
+  await js(`document.querySelector("#viewbar .fchip").click()`); await sleep(100);
+  assert.deepStrictEqual(await js(`[$("log").dataset.filter, document.querySelector("#viewbar [data-filter-state]").textContent]`), ["", "거르기 없음"], "the stage chip (×) clears it");
+  // F16: the sidebar folds into the rail, kept in the settings, and back
+  await js(`$("side-fold").click()`); await sleep(200);
+  assert.deepStrictEqual(await js(`[document.body.classList.contains("side-off"), Math.round($("side").getBoundingClientRect().width), document.querySelectorAll("#side [data-rail-task]").length]`),
+    [true, 56, 1], "the rail");
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")).settings.side, true);
+  await aShot("a-rail");
+  await js(`$("side-fold").click()`); await sleep(200);
+  assert.ok(await js(`!document.body.classList.contains("side-off") && !!$("task-search")`), "unfolded");
+  // A11 the first run (drawn over the open task here, then the task again)
+  await js(`empty()`);
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("#log .empty .fr-step")].map(x => x.dataset.step + ":" + x.querySelector("b").textContent)`),
+    ["account:1. ChatGPT 계정 연결", "task:2. 새 작업 만들기"], "first run: the two steps");
+  await aShot("a-empty");
+  await js(`select("T1")`);
+  // A12 새 작업 (Ctrl N): a dialog over the task; the kind shows its stages, 논문 재현 its default criteria; Esc closes it
+  await press("n", { ctrlKey: true });
+  assert.deepStrictEqual(await js(`[!!$("newtask"), !!$("goal") && !!$("repro") && !!$("kind-read") && !!$("kind-general") && !!$("create"), $("kind-general").checked,
+    document.querySelector("[data-kind-stages]").textContent]`), [true, true, true, "이 작업의 단계: 준비 → 작업 → 검토"], "Ctrl N: the new task dialog");
+  await js(`$("repro").checked = true; $("repro").dispatchEvent(new Event("change"))`);
+  assert.strictEqual(await js(`document.querySelectorAll("[data-kind-stages] li").length`), 3, "논문 재현: its three criteria");
+  await aShot("a-newtask");
+  await press("Escape");
+  assert.ok(await js(`!$("newtask")`), "Esc closes it");
+  // A14 설정: five pages; the defaults page has no model row and two panel choices
+  await js(`openSettings()`);
+  assert.deepStrictEqual(await js(`[[...document.querySelectorAll("#settings .set-item")].map(b => b.textContent), document.querySelector("#settings .set-lead").textContent,
+    [...document.querySelectorAll('#settings input[name="set-panel"]')].map(r => r.value)]`),
+    [["계정", "기본값", "셸 · 인코딩", "저장 위치", "정보"], "모델과 생각 수준은 입력창에서 고릅니다. 새 작업은 마지막에 고른 값으로 시작합니다.", ["open", "rail"]]);
+  await aShot("a-settings");
+  for (const p of ["account", "shell", "storage", "about"]) { await js(`document.querySelector('#settings [data-set-page="${p}"]').click()`); await aShot("a-settings-" + p); }
+  assert.match(await js(`document.querySelector("#settings .set-page").textContent`), /Pablo \d+\.\d+\.\d+ · Codex/, "정보: the versions");
+  await press("Escape");
+  assert.ok(await js(`!$("settings")`));
+  // F26 the narrow window: no sidebar (a drawer from ☰), the chips on their own line, the right column over everything
+  const [w0, h0] = win.getSize(); win.setSize(768, 900); await sleep(500);
+  assert.deepStrictEqual(await js(`(c => [getComputedStyle($("side")).display, getComputedStyle($("pnl")).display !== "none",
+    c.getBoundingClientRect().top >= document.querySelector("#bar h1").getBoundingClientRect().bottom - 1])($("chips"))`), ["none", true, true], "narrow: two header lines");
+  await aShot("a-narrow");
+  await js(`$("menu").click()`); await sleep(150);
+  assert.strictEqual(await js(`getComputedStyle($("side")).display`), "flex", "narrow: the drawer");
+  await aShot("a-narrow-drawer");
+  await press("Escape"); await js(`$("pnl").click()`); await sleep(200);
+  assert.deepStrictEqual(await js(`[document.body.classList.contains("side"), getComputedStyle($("right")).position]`), [false, "fixed"], "narrow: the panel over the conversation");
+  await aShot("a-narrow-panel");
+  await js(`close()`); win.setSize(w0, h0); await sleep(400);
+  console.log("ok shell A: search + Ctrl K / esc, row progress, account card in the sidebar, chips + their card, ⋯ + F2 (n/80), stage / view bar filter state, rail, first run, 새 작업 dialog, 설정 (5 pages), narrow window");
   // PABLO_SHOTS=<dir>: what the fixture looks like (load, the source card, the 기준 panel), state restored after each
   if (process.env.PABLO_SHOTS) {
     const snap = async n => { await sleep(500); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, n + ".png"), (await win.capturePage()).toPNG()); };
@@ -938,6 +1065,93 @@ async function uiCheck() {
   await js(`pabloHost.setUi("T1", "tags", {}).then(() => ${redraw})`); await sleep(300);
   assert.ok(await js(`!document.querySelector("#log [data-decision]")`), "a person's tag goes away when cleared");
   console.log("ok views: 단계별 (one box per stage), 대상별 (by file / [n]), back to 시간순; a person's stage + 결정 kept in desktop.json and shown, then cleared");
+  // ---- A2 complete · B: the conversation column -------------------------------------------------------------------------
+  const bshot = async n => { if (process.env.PABLO_SHOTS) { await sleep(300); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "b-" + n + ".png"), (await win.capturePage()).toPNG()); } };
+  const into = async sel => { await js(`(x => x && x.scrollIntoView({ block: "start" }))(document.querySelector(${JSON.stringify(sel)}))`); };
+  // B1: the person is 나; every message (Pablo's too) has its time as HH:mm; the dividers too
+  assert.ok(await js(`[...document.querySelectorAll("#log .msg:not(.note) > div > .who")].every(w => /^(나|Pablo)\\d\\d:\\d\\d$/.test(w.textContent))
+    && [...document.querySelectorAll("#log .divider small")].every(s => /^\\d\\d:\\d\\d$/.test(s.textContent))`), "B1: 나 / Pablo + HH:mm");
+  // B4 / B5: added criteria are an orange-soft band without avatar ([data-intent] keeps its words); a held-back one a card that
+  // asks; the closing 결정 card lists it compact (S47)
+  assert.deepStrictEqual(await js(`[!!document.querySelector("#log .msg.note [data-intent].band.ok"), getComputedStyle(document.querySelector("#log .msg.note > .av")).display,
+    document.querySelector("#log .msg.note .hold .ttl").textContent, document.querySelector("#log .msg.note .hold [data-promote]").textContent,
+    !!document.querySelector("#log .call .band[data-held] [data-promote]")]`), [true, "none", "결정이 필요합니다", "기준으로 추가 (가능하면)", true]);
+  await into("#log .msg.note"); await bshot("bands");
+  // B2 / B15: one "+ 태그" opens the popover (320): stages (the computed one says so), targets with × and + 잇기, 결정으로 고정,
+  // 기준으로 만들기 (its text and 반드시 / 가능하면 open when checked)
+  assert.ok(await js(`!document.querySelector("#log [data-crit-make]") && [...document.querySelectorAll("#log .msg[data-key] .tags")].every(r => r.querySelectorAll("[data-tag-edit]").length === 1)`), "one + 태그 per message");
+  const pop = await js(`(m => { m.querySelector("[data-tag-edit]").click(); const ed = m.querySelector(".tagedit");
+    const r = [Math.round(ed.getBoundingClientRect().width), ed.querySelectorAll(".te-stage input[type=radio]").length, ed.querySelector(".te-stage small").textContent,
+      !!ed.querySelector("[data-tag-add]"), ed.querySelector(".te-crit").hidden];
+    ed.querySelector("[data-crit-on]").click(); r.push(ed.querySelector(".te-crit").hidden); ed.querySelector("[data-crit-on]").click(); return r; })(document.querySelector("#log .msg[data-key]"))`);
+  assert.deepStrictEqual(pop, [320, await js(`STAGE_LIST[kindOf()].length`), "자동 · 보낸 때 단계", true, true, false]);
+  await bshot("popover");
+  await js(`document.querySelector("#log .msg[data-key] [data-tag-edit]").click()`);
+  assert.ok(await js(`!document.querySelector(".tagedit")`), "+ 태그 again closes it");
+  // B3 (rules, no model call): a person's words about another stage get "✦ 제안 · <stage>" with 맞음 / 아님 and why
+  assert.deepStrictEqual(await js(`(el => { tagRow(el, STAGE_LIST[kindOf()][1], "user@2026-01-01T00:00:00.000Z", {}, STAGE_LIST[kindOf()][1]);
+    return [(el.querySelector("[data-suggest]") || {}).textContent, !!el.querySelector("[data-suggest-ok]") && !!el.querySelector("[data-suggest-no]"), /중에 보낸 말이지만/.test((el.querySelector("[data-suggest-why]") || {}).textContent)]; })(
+    msg("You", "2026-01-01T00:00:00.000Z", h("p", null, "보고서는 어떻게 정리할까요?")))`), ["제안 · 검토", true, true]);
+  assert.strictEqual(await js(`suggestFor(msg("You", null, h("p", null, "hello.txt 고쳐줘")), "user@x", "작업")`), null, "nothing to suggest");
+  // B7: a paper answer says how its quotes were checked
+  assert.match(await js(`verified({ evidence: [Object.keys(M.anchors)[0]] }, 1).textContent`), /^인용 1개 · 모두 .+ 원문에서 위치를 확인했습니다 · 위치를 못 찾은 인용 1개는 답에서 뺐습니다$/);
+  // B8: badges head the Guard cards (확인 필요 / 막음); 기술 세부정보 and 왜? at the foot
+  assert.deepStrictEqual(await js(`['[data-id="ACT1"]', '[data-id="ACT2"]'].map(s => (c => [getComputedStyle(c.querySelector(".head"), "::before").content, !!c.querySelector(":scope > .foot details.tech")])(document.querySelector(s)))`),
+    [['"확인 필요"', true], ['"막음"', true]]);
+  await into('[data-id="ACT1"]'); await bshot("guard");
+  // B11: the audit's chips filter its rows; badges carry the verdict
+  await js(`[...document.querySelectorAll("[data-audit]")[0].querySelectorAll(".chips button")].find(b => b.textContent.startsWith("다름")).click()`);
+  assert.deepStrictEqual(await js(`[...new Set([...document.querySelectorAll("[data-audit]")[0].querySelectorAll("li[data-g]:not([hidden])")].map(x => x.dataset.g))]`), ["다름"]);
+  await js(`document.querySelectorAll("[data-audit]")[0].querySelector('[data-verdict-chip="all"]').click()`);
+  await into("[data-audit]"); await bshot("audit");
+  await into("[data-spec]"); await bshot("spec");
+  // visual pass (06 07 08): a record card's tags sit under the name, above the card; [n] in the conversation is bold text, p.N a chip
+  assert.deepStrictEqual(await js(`[!!document.querySelector("[data-spec]").closest(".msg").querySelector(":scope > div > .who + .tags.top"),
+    !!document.querySelector("[data-audit]").closest(".msg").querySelector(":scope > div > .who + .tags.top"),
+    [...document.querySelectorAll("#log .cite:not(.pgc):not(.web)")].every(c => getComputedStyle(c).backgroundColor === "rgba(0, 0, 0, 0)" && getComputedStyle(c).fontWeight === "700"),
+    [...document.querySelectorAll("#log .cite.pgc")].every(c => getComputedStyle(c).backgroundColor !== "rgba(0, 0, 0, 0)")]`), [true, true, true, true], "tags above record cards; [n] text, p.N chips");
+  await into("#log .msg:has([data-spec])"); await bshot("spec-top");
+  // B13: 단계별: the head says 메시지 N · HH:mm–, 대화 펼치기 / 접기; only the current stage is open
+  await js(`pabloHost.setUi("T1", "view", "stage").then(() => ${redraw})`); await sleep(300);
+  assert.strictEqual(await js(`[...document.querySelectorAll("#log > .stagegroup")].filter(g => g.querySelector(".sg-msgs")).map(g => [g.querySelector(".sg-head b").textContent, g.querySelector(".sg-msgs").hidden,
+    (g.querySelector(".sg-tog") || {}).textContent, /^메시지 \\d+ · \\d\\d:\\d\\d–/.test(g.querySelector(".sg-head small").textContent)]).every(([s, hid, t, ok]) => ok && (s === "지금" ? !hid && t === "접기 ▾" : hid && t === "대화 펼치기 ▸"))`), true);
+  await bshot("stage");
+  // F24 + the design session's note: 대화로 거르기 also hides the messages inside 단계별 / 대상별 (a group with none left goes)
+  const fb = await js(`(r => [r.hid > 0, [...document.querySelectorAll("#log .stagegroup .msg.filtered")].every(x => getComputedStyle(x).display === "none"),
+    document.querySelector("#filter-banner .fb-t").textContent.startsWith("이 파일과 이어진 대화만 보는 중")])(filterBy(["file:run.py"], "run.py"))`);
+  assert.deepStrictEqual(fb, [true, true, true], "filterBy in 단계별");
+  await js(`filterBy(["file:run.py"], "run.py")`);
+  await js(`pabloHost.setUi("T1", "view", "target").then(() => ${redraw})`); await sleep(300);
+  // B16: 대상별 heads: the target, 대화 N (· 판정 · 점검 · 변경), 접기 / 펼치기
+  assert.ok(await js(`[...document.querySelectorAll("#log > .targetgroup > summary")].every(s => /^대화 \\d+/.test(s.querySelector("small").textContent) && !!s.querySelector(".tog"))`), "B16 heads");
+  await bshot("target");
+  await js(`pabloHost.setUi("T1", "view", "time").then(() => ${redraw})`); await sleep(300);
+  // F24 in 시간순: the banner (거르기 ▾ opens the menu), "··· 숨긴 메시지 N개" where messages were hidden
+  await js(`filterBy(["file:run.py"], "run.py")`);
+  assert.ok(await js(`document.querySelectorAll("#log > .hidnote").length > 0 && [...document.querySelectorAll("#log > .hidnote")].every(x => /^··· 숨긴 메시지 \\d+개$/.test(x.textContent))`), "hidden runs");
+  await js(`document.querySelector("#filter-banner [data-filter-menu]").click()`);
+  assert.deepStrictEqual(await js(`(m => [!!m, m.querySelector(".mi.on .mi-t").textContent, !!m.querySelector("[data-filter-off]"), m.querySelectorAll(".mi").length > 2])($("filter-menu"))`), [true, "run.py", true, true]);
+  await into("#filter-banner"); await bshot("filter");
+  await js(`$("filter-menu").remove(); document.querySelector("#viewbar .fchip").click()`);  // F24: the view bar's chip (대화로 거르기) opens the same menu
+  assert.deepStrictEqual(await js(`[document.querySelector("#viewbar .fchip .fc-t").textContent, !!$("filter-menu") && $("filter-menu").querySelector(".mi.on .mi-t").textContent]`), ["run.py", "run.py"]);
+  await js(`$("filter-menu").querySelector("[data-filter-off]").click()`);
+  assert.ok(await js(`!$("log").dataset.filter && !$("filter-banner") && !document.querySelector("#log .hidnote, #log .filtered")`), "거르기 풀기");
+  // B17: 보낼 곳 always there (a side with nothing to send to is off); the send button says 보내기 and is the first button
+  assert.deepStrictEqual(await js(`[!!$("route"), $("route").querySelectorAll(".seg > *").length, document.querySelector("#chat > .composer > button").textContent]`), [true, 2, "보내기"]);
+  // B18 / B19: the progress cards; B24 the download card; nothing is sent from them here
+  assert.deepStrictEqual(await js(`(c => { c._set("LinearRAG을(를) 읽고 있습니다 · 9 / 20쪽", 9 / 20); return [c.querySelector(".pg-t").textContent, c.querySelector(".pg-bar > i").style.width, !!c.querySelector("[data-prog-stop]")]; })(
+    progCard("spec", "조건 확정", "뽑는 중", "LinearRAG을(를) 읽고 있습니다", "보통 1–3분 · 다른 일을 해도 됩니다", () => {}))`), ["LinearRAG을(를) 읽고 있습니다 · 9 / 20쪽", "45%", true]);
+  assert.deepStrictEqual(await js(`(c => [c.querySelector(".head").textContent, c.querySelector(".dl-file").textContent, !!c.querySelector("[data-dl-get]")])(downloadCard({ id: "2510.10114", filename: "arxiv-2510.10114v4.pdf", source: "arxiv.org", bytes: 2411724 }))`),
+    ["arXiv에서 받을까요?", "arxiv-2510.10114v4.pdf출처 arxiv.org · 2.3 MB · 50 MB 상한 안", true]);
+  await into("#log .msg"); await bshot("top");
+  // PABLO_SHOTS only: the progress (S5) and download (S12) cards in the conversation, next to the design's state sheet
+  if (process.env.PABLO_SHOTS) {
+    await js(`(m => { m.id = "vshot"; $("log").append(m); m.scrollIntoView({ block: "start" }); })(msg("Pablo", null,
+      (c => (c._set("LinearRAG v4를 읽고 있습니다 · 9 / 20쪽", 9 / 20), c))(progCard("spec", "조건 확정", "뽑는 중", "", "보통 1–3분 · 다른 일을 해도 됩니다", () => {})),
+      downloadCard({ id: "2510.10114", filename: "arxiv-2510.10114v4.pdf", source: "arxiv.org", bytes: 2411724 })))`);
+    await bshot("states"); await js(`$("vshot").remove()`);
+  }
+  console.log("ok A2 complete B: 나 + HH:mm, bands and held card, one + 태그 popover, rule suggestions, verification bar, Guard badges, audit chips, 단계별 / 대상별 heads, 거르기 in every view + menu, 보낼 곳, progress and download cards");
   // QA 10/26 (D4): the panel as this task left it, when the task is opened again in the same run (before the next state read)
   await js(`show({ mode: "plan" })`); await sleep(200);
   await js(`select(V.task.id)`); await sleep(200);
@@ -950,6 +1164,37 @@ async function uiCheck() {
   await js(`dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
   assert.ok(await js(`!document.body.classList.contains("panel")`), "Esc again: the panel");
   console.log("ok panel remembered within a run; Esc closes the source card, then the panel");
+  // A2 complete, 단계 0: stagesOf is the stage bar (D1); back-links from the chat log and the Guard's verdicts (D2); the host
+  // and the default criteria in the state (D6, A12)
+  await js(`refresh()`); await sleep(200);
+  assert.deepStrictEqual(await js(`stagesOf(V, M.desk[V.task.id]).steps.map(s => s.key + ":" + s.state)`),
+    await js(`[...document.querySelectorAll("#stages .stage")].map(x => x.dataset.stage + ":" + [...x.classList].find(c => /^st-(?!n$|t$)/.test(c)).slice(3))`), "stagesOf = the stage bar");
+  assert.deepStrictEqual(await js(`(s => [s.current, s.steps[s.current].state, Object.keys(s.can).sort()])(stagesOf(V, M.desk[V.task.id]))`),
+    [await js(`[...document.querySelectorAll("#stages .stage")].findIndex(x => x.classList.contains("st-current"))`), "current", ["audit", "compare", "report", "spec"]]);
+  assert.ok(await js(`Object.keys(M.views).every(id => Array.isArray(stagesOf(M.views[id], M.desk[id]).steps))`), "stagesOf works for any task");
+  assert.deepStrictEqual(await js(`(L => ({ C1: [L.get("C1").chat.length, L.get("C1").verdicts.map(x => x.verdict)], C3: L.get("C3").chat.length,
+    run: L.get("file:run.py").chat.length, config: L.get("file:config.yaml").chat.length, SC2: L.get("SC2").chat.length, SC1: L.get("SC1").chat.length }))(linksOf(V))`),
+    { C1: [1, ["BLOCK"]], C3: 1, run: 2, config: 1, SC2: 3, SC1: 1 }, "linksOf: the conversation and the verdicts per ref");
+  assert.deepStrictEqual(await js(`linksOf({ chat: [{ role: "user", at: "2026-01-01T00:00:00.000Z", text: "x" }, { role: "intent", at: "2026-01-01T00:00:00.001Z",
+    items: [{ id: "C9" }], pending: [{ id: "K7" }] }], actions: [{ id: "ACT9", verdict: "WARN", decision: null, step: "P2.1", criteria: [{ id: "C9" }] }],
+    intent: { promoted: { K7: "C10" } }, checks: {} }).get("C9")`), { chat: ["user@2026-01-01T00:00:00.000Z"], verdicts: [{ act: "ACT9", verdict: "WARN", decision: null }] },
+    "an intent entry 1 ms after a message is that message's turn");
+  assert.deepStrictEqual(await js(`refsOf({ role: "intent", items: [], pending: [{ id: "K7" }], step: "P2.1" }, { intent: { promoted: { K7: "C10" } }, checks: {} })`), ["C10", "P2.1"]);
+  assert.deepStrictEqual(await js(`placePaths("config.yaml:3; src\\\\run.py:16,25 (top_k), logs/a b.log line 4")`), ["config.yaml", "src/run.py", "logs/a b.log"]);
+  assert.ok(await js(`(m => !!m && JSON.parse(m.dataset.refs).includes("file:logs/2wiki.log"))(document.querySelector("#log .msg[data-key^='audit@'][data-refs]"))`), "data-refs on the drawn messages");
+  assert.deepStrictEqual(await js(`(r => [r.kept, $("log").dataset.filter, !!$("filter-banner"), document.querySelectorAll("#log > .msg.filtered").length > 0])(filterBy(["file:run.py"], "run.py"))`),
+    [2, "refs:run.py", true, true], "대화로 거르기 by a ref");
+  await js(`filterBy(["file:run.py"], "run.py")`);
+  assert.deepStrictEqual(await js(`[$("log").dataset.filter, !!$("filter-banner"), document.querySelectorAll("#log .filtered").length]`), ["", false, 0], "again: everything back");
+  assert.deepStrictEqual(await js(`(h => [typeof h.version, typeof h.codex, typeof h.userData, h.logs, typeof h.checkpoints, M.reproCriteria.length, Array.isArray(V.plans), typeof V.intent.promoted])(M.host)`),
+    ["string", "string", "string", null, "number", 3, true, "object"], "host info and the default criteria in the state");
+  // D9: a long call stopped before it runs rejects as stopped; the queue goes on
+  const stop1 = ctl.pyx({ what: "compare" }, "state");
+  assert.strictEqual(ctl.cancel("compare"), true);
+  assert.deepStrictEqual(await stop1.then(() => null, e => [e.cancelled, e.message]), [true, "중지했습니다."]);
+  assert.strictEqual(ctl.cancel("spec"), false, "nothing to stop");
+  assert.ok((await ctl.py("state")).tasks.length > 0, "the next call runs");
+  console.log("ok 단계 0: stagesOf = the stage bar, linksOf / refsOf / data-refs / 대화로 거르기, host info, reproCriteria, a stopped call");
   const order = await js(`[...document.querySelectorAll("#log .msg")].map(m => { const c = m.querySelector(".call[data-id]"),
     s = m.querySelector(".stream"), a = m.querySelector(".asked");
     return c ? "CARD " + c.dataset.id : s ? "AGENT " + s.textContent : a ? "ASK " + a.textContent.trim() : m.querySelector("[data-spec]") ? "SPEC" : m.querySelector("[data-audit]") ? "AUDIT"
@@ -957,7 +1202,7 @@ async function uiCheck() {
       : m.querySelector("[data-intent]") ? "INTENT " + m.querySelector("[data-intent]").textContent.replace(/ 기준 보기$/, "") : "YOU " + m.querySelector("p").textContent; })`);
   assert.deepStrictEqual(order, ["YOU 인사말 파일 정리", "YOU hello.txt에 인사말을 넣어줘. 다른 파일은 건드리지 마.",
     "INTENT 📌 작업 기준에 추가했습니다: 다른 파일은 건드리지 마 (반드시)", "AGENT hello.txt에 줄을 더하겠습니다.", "CARD ACT1",
-    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "AUDIT", "ASKS ⚠ 결정이 필요합니다."]);
+    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "AUDIT", "ASKS 결정이 필요합니다"]);
   // ⑤ the second card: the model named the line that reads top-k; Pablo shows the config line that sets it. A log line is
   // checked in a file, not in code
   assert.deepStrictEqual(await js(`(b => [...b.querySelectorAll(":scope > ul > li, details li")].map(x => [x.querySelector(".at code").textContent,
@@ -967,29 +1212,30 @@ async function uiCheck() {
   assert.strictEqual(await js(`document.querySelectorAll("[data-audit]")[1].querySelector("[data-seen]").textContent`),
     "⚠ 모델은 아직 없다고 했지만 Pablo가 찾았습니다: config.yaml:2 embedding_model: all-mpnet-base-v2");
   // ⑦ top-k was an intended deviation when the second audit ran: its 다름 is 의도한 차이, with why; the first audit's is not
-  assert.deepStrictEqual(await js(`(b => [b.querySelector(".head").textContent, b.querySelector("li.st-intended b").textContent,
+  // A2 complete (B11): the counts are the card's verdict chips; a row's verdict is a badge
+  assert.deepStrictEqual(await js(`(b => [[...b.querySelectorAll(".chips button")].map(x => x.textContent), b.querySelector("li.st-intended b").textContent,
     b.querySelector("[data-dev-why]").textContent])(document.querySelectorAll("[data-audit]")[1])`),
-    ["🔎 재현 점검: 열 짝 확인 필요 1 · 의도한 차이 1 · 아직 없음 1", "◇ 의도한 차이", "이유: ablation: top-k 10으로 비교"]);
+    [["전체 3", "확인 필요 1", "의도한 차이 1", "아직 없음 1"], "의도한 차이", "이유: ablation: top-k 10으로 비교"]);
   // e2e3 (c86a409): the 2Wiki result was read from Table 1's row without its column names. Its 다름 is not counted as a
   // verdict: the paper's row and the agent's verdict sit beside the log line it named; chat.json keeps "differs"
   assert.deepStrictEqual(await js(`(li => [li.querySelector("b").textContent, li.querySelector("[data-pairing]").textContent,
     li.querySelector(".at code").textContent, !li.querySelector("[data-hm]")])(document.querySelectorAll("[data-audit]")[1].querySelector("li.st-pairing"))`),
-    ["? 열 짝 확인 필요", "논문 표 행 (LinearRAG p.2): “LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72”판단 못 함: 열 이름이 PDF 글자에서 떨어져 있어, 어느 숫자가 이 조건의 값인지 확인되지 않았습니다. 에이전트 판정(✗ 다름)은 그 짝을 믿은 것입니다. 표에서 열을 확인하고 아래 자리의 값과 대조하세요.", "logs/2wiki.log:1", true]);
+    ["열 짝 확인 필요", "논문 표 행 (LinearRAG p.2): “LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72”판단 못 함: 열 이름이 PDF 글자에서 떨어져 있어, 어느 숫자가 이 조건의 값인지 확인되지 않았습니다. 에이전트 판정(✗ 다름)은 그 짝을 믿은 것입니다. 표에서 열을 확인하고 아래 자리의 값과 대조하세요.", "logs/2wiki.log:1", true]);
   assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8")).T1.filter(x => x.role === "audit")[1].items[1].status, "differs");
   // ⑤ the second audit ran in Windows PowerShell 5.1 (no pwsh 7): its card says so, the first one's does not
   assert.strictEqual(await js(`(b => b && b.textContent)(document.querySelectorAll("[data-audit]")[1].querySelector("[data-shell]"))`), "⚠ 이 점검은 Windows PowerShell 5.1에서 했습니다. 에이전트가 한글 주석이나 λ 같은 기호를 깨진 채 읽었다면 그 줄의 판정이 틀릴 수 있습니다. PowerShell 7을 설치하면 정확히 읽습니다.");
   assert.ok(await js(`!document.querySelectorAll("[data-audit]")[0].querySelector("[data-shell]")`));
   assert.ok(await js(`!document.querySelectorAll("[data-audit]")[0].querySelector(".st-intended")`));
   // A2: what Pablo saw at each place: the ones it could not confirm come first, open, whatever the verdict
-  const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, checked: b.querySelector("[data-checked]").textContent,
+  const audit = await js(`(b => ({ head: [...b.querySelectorAll(".chips button")].map(x => x.textContent).join(" · "), checked: b.querySelector("[data-checked]").textContent,
     rows: [...b.querySelectorAll(":scope > ul > li")].map(x => [x.className, x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent,
       (x.querySelector("[data-check]") || {}).textContent]), folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit]"))`);
   // ⑥ 코드가 정함 right after 다름 (a report needs it); an 아직 없음 of a condition from before kinds folds, named on its line
-  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 열 짝 확인 필요 1 · 코드가 정함 1 · 아직 없음 1 · 따름 1 · 조건 밖 4", folded: "아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…",
+  assert.deepStrictEqual(audit, { head: "전체 10 · 다름 2 · 확인 필요 1 · 코드가 정함 1 · 아직 없음 1 · 따름 1 · 조건 밖 4", folded: "아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…",
     checked: "📍 모델이 댄 위치 5곳 중 4곳을 Pablo가 파일에서 직접 확인했습니다. 1곳은 그 자리에서 찾지 못했습니다. 1곳은 판정과 논문 값이 어긋납니다. 이 항목은 위에 따로 둡니다.",
-    rows: [["st-differs", "✗ 다름", "config.yaml:2", "⚠ 논문 값(all-mpnet-base-v2)이 이 자리에 그대로 있음"],
-      ["st-pairing", "? 열 짝 확인 필요", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
-      ["st-differs", "✗ 다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-chosen", "• 코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
+    rows: [["st-differs", "다름", "config.yaml:2", "⚠ 논문 값(all-mpnet-base-v2)이 이 자리에 그대로 있음"],
+      ["st-pairing", "열 짝 확인 필요", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
+      ["st-differs", "다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-chosen", "코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
   assert.deepStrictEqual(await js(`[...document.querySelector("[data-audit]").querySelectorAll(":scope > details > summary")].map(x => x.textContent)`),
     ["아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…", "따르는 항목 1개"]);
   // what no item covers: apart from the verdicts, its places checked the same way, the paper's experiments folded
@@ -1003,25 +1249,37 @@ async function uiCheck() {
     "이 점검 전에 지운 기준 1개는 대조하지 않았습니다: 로그 파일은 지우지 마 (이유: 로그는 서버에 따로 남김)");
   assert.strictEqual(await js(`document.querySelector("[data-audit] [data-skipped-spec]").textContent`),
     "이 점검 전에 뺀 재현 조건 1개는 대조하지 않았습니다: 비교 대상은 HippoRAG2이다 (이유: 이 재현의 범위 밖)");
-  const spec = await js(`(b => ({ heads: [...b.querySelectorAll("h4")].map(x => x.textContent), items: [...b.querySelectorAll("li")].map(x => x.textContent.trim()),
-    text: b.textContent }))(document.querySelector("[data-spec]"))`);
-  assert.deepStrictEqual(spec.heads, ["모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
-  assert.deepStrictEqual(spec.items, ["방법 · 검색 결과는 passage 단위로 돌려준다 · 되살리기", "임베딩 모델은 all-mpnet-base-v2이다 ⚠ 값(all-mpnet-base-v2)이 인용 안에 없음",
-    "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", "검색 단계의 top-k는 5이다",
-    "2Wiki 정확도는 63.70%이다 [1] ⚠ 인용에 표의 열 이름이 없습니다. 숫자와 데이터셋 짝을 원문 표에서 확인하세요",
-    "데이터셋 · HotpotQA는 약 97,000개 질문-답 쌍이다", "난수 시드가 적혀 있지 않다"]);
-  // review: a re-extraction says what changed; the one it did not find again comes back with 되살리기, kept from then on
-  assert.strictEqual(await js(`document.querySelector("[data-spec] [data-redo] p").textContent`),
-    "다시 뽑았습니다: 이전 2개 중 1개는 이번에도 나왔고, 새로 생긴 것 1개, 이번에 빠진 것 1개입니다.");
-  await js(`document.querySelector("[data-spec] [data-redo-restore]").click()`);
-  const lost = await js(`document.querySelector("[data-spec] [data-redo-restore]").closest("li").dataset.id`);
+  const spec = await js(`(b => ({ heads: [...b.querySelectorAll(".sp-cat h4 .nm")].map(x => x.textContent), chips: [...b.querySelectorAll(".chips button")].map(x => x.textContent),
+    items: [...b.querySelectorAll(".sp-cat li")].map(x => [x.querySelector(".tg.kd").textContent, x.querySelector(".sx").textContent.trim() + [...x.querySelectorAll(":scope > .tg.wv")].map(t => t.textContent).join(""), (x.querySelector(".cite") || {}).textContent || ""]),
+    text: b.textContent, redo: (r => r && [r.querySelector(".head").textContent, [...r.querySelectorAll("li")].map(x => x.textContent)])(document.querySelector("[data-redo]")) }))(document.querySelector("[data-spec]"))`);
+  // A2 complete (B10): a grey head per category, a kind tag per row, kind chips; a value's warnings are tags; the page chip
+  assert.deepStrictEqual(spec.heads, ["데이터셋", "모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
+  assert.deepStrictEqual(spec.chips, ["전체 5", "설정 4", "서술 1"]);
+  assert.deepStrictEqual(spec.items, [["서술", "HotpotQA는 약 97,000개 질문-답 쌍이다", ""], ["설정", "임베딩 모델은 all-mpnet-base-v2이다값(all-mpnet-base-v2)이 인용 안에 없음", ""],
+    ["설정", "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", ""], ["설정", "검색 단계의 top-k는 5이다", ""],
+    ["설정", "2Wiki 정확도는 63.70%이다표의 열 이름 없음", "p.2"], ["정할 일", "난수 시드가 적혀 있지 않다", ""]]);
+  assert.ok(/^재현 조건 5개 · LinearRAG/.test(spec.text) && /원문에서 위치를 확인한 것만 남겼습니다 · 뺀 것 1개/.test(spec.text), spec.text);
+  // the kind chips filter the rows; 전체 again shows them all
+  await js(`document.querySelector('[data-spec] [data-kind-chip="fact"]').click()`);
+  assert.deepStrictEqual(await js(`[...document.querySelector("[data-spec]").querySelectorAll(".sp-cat:not(.open-set) li")].map(x => x.dataset.kind)`), ["fact"]);
+  await js(`document.querySelector('[data-spec] [data-kind-chip="all"]').click()`);
+  // the row's actions show on hover only (the design session's note): hidden until the row is hovered or focused
+  assert.strictEqual(await js(`getComputedStyle(document.querySelector("[data-spec] .sp-cat li > .racts")).opacity`), "0");
+  // F25: a re-extraction is its own card: 그대로 · 바뀜 · 빠짐 · 새로; what it did not find again comes back with 되살리기
+  assert.deepStrictEqual(spec.redo, ["다시 뽑았습니다: 이전 2개 중 1개 그대로 · 바뀜 0 · 빠짐 1 · 새로 1", ["방법검색 결과는 passage 단위로 돌려준다 이번 추출에 없음되살리기"]]);
+  const lost = await js(`document.querySelector("[data-redo] [data-redo-restore]").closest("li").dataset.id`);
+  await js(`document.querySelector("[data-redo] [data-redo-restore]").click()`);
   const kept = `V.checks[${JSON.stringify(lost)}].state === "completed" && V.checks[${JSON.stringify(lost)}].spec.kept === true`;
   for (let i = 0; i < 100 && !(await js(kept)); i++) await sleep(100);
   assert.ok(await js(kept), "restored, and kept from then on");
-  // ⑥ a description the code does not set: kept, cited, folded apart, not counted among the conditions to check
-  assert.strictEqual(await js(`document.querySelector('[data-spec] [data-aside="fact"] summary').textContent`), "논문의 서술 (코드가 정하지 않음) 1개 · 재현 점검에서 대조하지 않음");
-  assert.ok(/재현 조건 4개/.test(spec.text) && /위치를 찾지 못한 조건 1개/.test(spec.text), spec.text);
+  // F25 바뀜: the same setting with another value pairs up (old struck through -> new)
+  assert.deepStrictEqual(await js(`(c => { const g = { ...c, id: "SCg", state: "waived", waived_by: "pablo", conclusion: "검색 단계의 top-k는 10이다", spec: { ...c.spec, value: "10" } };
+    V.checks.SCg = g; const r = redone({ before: 3, same: 1, gone: ["SCg"], new: [c.id] }); delete V.checks.SCg;
+    return [r.querySelector(".head").textContent, r.querySelector("[data-changed] s").textContent, r.querySelector("[data-changed] .nv").textContent]; })(
+    Object.values(V.checks).find(k => k.spec && /top-k는 5/.test(k.conclusion || "")))`), ["다시 뽑았습니다: 이전 3개 중 1개 그대로 · 바뀜 1 · 빠짐 0 · 새로 0", "10", "5"]);
   await js(`show({ mode: "intent" })`);
+  // A2 complete · C4: the conditions are a count per kind; 조건 보기 opens the whole list
+  if (await js(`!!document.querySelector("#panel [data-cond-list][hidden]")`)) await js(`document.querySelector("#panel [data-cond-toggle]").click()`);
   assert.match(await js(`$("panel").innerText`), /논문 조건[\s\S]*top-k는 5이다/);
   await js(`close()`);
   assert.ok(await js(`!!document.querySelector(".stream + [data-stopped]")`), "a stopped reply says so");
@@ -1143,6 +1401,8 @@ async function uiCheck() {
   fs.writeFileSync(at("model.pt"), "other weights");  // weights are never in a checkpoint
   const to = await checkpoint.snapshot(S, "T1", W), files = await checkpoint.changes(S, "T1", W, from, to);
   assert.deepStrictEqual(files.map(f => f.status + " " + f.path).sort(), ["A new.py", "D keep.txt", "M train.py"]);
+  assert.deepStrictEqual((await checkpoint.changes(S, "T1", W, from, to, { lines: true })).map(f => `${f.path} +${f.add} -${f.del}`).sort(),
+    ["keep.txt +0 -1", "new.py +1 -0", "train.py +1 -1"], "D7: lines added / removed per file");
   assert.ok(!fs.existsSync(path.join(W, ".git")), "the work folder gets no .git");
   fs.writeFileSync(path.join(S, "desktop.json"), JSON.stringify({ workspace: { T1: W } }));
   const log = JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"));
@@ -1188,14 +1448,23 @@ async function uiCheck() {
   // review: 다시 뽑기 asks first, saying what stays (here: the condition the user took out stays out; the one restored above stays)
   await js(`document.querySelector("#specs .link").click()`);
   assert.match(await until(`(b => b && b.textContent)(document.querySelector("[data-redo-ask]"))`),
-    /^📋 재현 조건을 다시 뽑을까요\?Pablo가 뽑은 조건은 새로 뽑은 목록으로 바뀝니다\..* 직접 더하거나 되살린 조건 1개와 의도한 차이로 둔 조건 0개는 그대로 둡니다\. 이전에 뺀 조건 1개는 다시 넣지 않습니다\.다시 뽑기 취소$/);
+    /^재현 조건을 다시 뽑을까요\?Pablo가 뽑은 조건은 새로 뽑은 목록으로 바뀝니다\..* 직접 더하거나 되살린 조건 1개와 의도한 차이로 둔 조건 0개는 그대로 둡니다\. 이전에 뺀 조건 1개는 다시 넣지 않습니다\.다시 뽑기 취소$/);
   await js(`[...document.querySelectorAll("[data-redo-ask] button")].find(b => b.textContent === "취소").click()`);
   assert.ok(await js(`!document.querySelector("[data-redo-ask]")`));
   // ⑫ the report: saved where the user picks (the dialog stubbed here), with the fixed sections a reviewer reads first
   const { dialog } = require("electron"), save0 = dialog.showSaveDialog, saved = path.join(S, "report.md");
-  dialog.showSaveDialog = async (w, o) => { assert.match(o.defaultPath, /^인사말 파일 정리 재현 보고서\.md$/); return { canceled: false, filePath: saved }; };
+  dialog.showSaveDialog = async (w, o) => { assert.match(o.defaultPath, /인사말 파일 정리 재현 보고서\.md$/); return { canceled: false, filePath: saved }; };
   await js(`document.querySelector("#reports .link").click()`);
-  assert.match(await until(`(x => x && x.textContent)(document.querySelector("[data-report]"))`), /^📄 보고서를 저장했습니다: report\.md \(\d+줄\)/);
+  await until(`!!document.querySelector('#report-dlg [data-format="md"]')`);
+  assert.deepStrictEqual(await js(`[[...document.querySelectorAll("#report-dlg [data-section]:checked")].map(x => x.dataset.section), !!document.querySelector("#report-dlg [data-report-stale]"),
+    document.querySelector("#report-dlg [data-report-place]").textContent]`),
+    [["goal_criteria", "conditions", "audit", "deviations", "decisions", "changes", "refused"], true, path.basename(W) + "/reports/"], "A13: the parts, stale, the default place");
+  if (process.env.PABLO_SHOTS) { await sleep(200); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "report-dialog.png"), (await win.capturePage()).toPNG()); }
+  await js(`document.querySelector('#report-dlg [data-format="md"]').click(); document.querySelector("#report-dlg [data-report-where]").click()`);
+  await until(`/report\\.md$/.test(document.querySelector("#report-dlg [data-report-place]").textContent)`);
+  await js(`document.querySelector("#report-dlg [data-report-go]").click()`);
+  assert.match(await until(`(x => x && x.textContent)(document.querySelector("[data-report]"))`), /^보고서를 저장했습니다[^·]*report\.md · \d+줄$/, "S52: saved, where, how long");
+  assert.ok(await js(`!document.querySelector("[data-report] [data-report-open]")`), "outside the work folder: no 폴더에서 보기 · VS Code에서 열기");
   dialog.showSaveDialog = save0;
   const md = fs.readFileSync(saved, "utf8");
   for (const h of ["# 재현 보고서: 인사말 파일 정리", "## 재현 조건 (", "## 논문과 다르게 한 것 (의도한 차이)", "## 뺀 조건과 지운 기준", "## 작업 기준",
@@ -1208,6 +1477,48 @@ async function uiCheck() {
     && md.includes("열 짝 확인 필요: 논문 표의 한 행에서 열 이름 없이 읽은 값이라"), "the report: the same rule as the card");
   assert.ok(md.includes("이 점검은 Windows PowerShell 5.1에서 했습니다(PowerShell 7 없음)."), "the report says the audit ran in 5.1");
   console.log("ok report: saved as Markdown with the fixed sections (의도한 차이, 뺀 조건과 지운 기준, 점검, 앱과 같은 재대조, 분 단위 시각)");
+  // A13: the export dialog's numbers first, then a place picked before exporting, some parts only, as one HTML page;
+  // "default" = <work folder>/reports
+  const pv = await js(`pabloHost.reportPreview("T1")`);
+  assert.deepStrictEqual([pv.counts.criteria, pv.counts.conditions, !!pv.counts.audit.at, pv.counts.refused, pv.stale, pv.where],
+    [{ hard: (md.match(/^- 반드시: /gm) || []).length, soft: (md.match(/^- 가능하면: /gm) || []).length }, +md.match(/## 재현 조건 \((\d+)개\)/)[1], true,
+     (md.match(/^- (막음|확인): /gm) || []).length, true, path.basename(W) + "/reports"]);
+  assert.match(pv.auto, /^점검 시각 \d{4}-\d\d-\d\d \d\d:\d\d · Pablo \d+\.\d+\.\d+/);
+  const savedHtml = path.join(S, "report.html");
+  dialog.showSaveDialog = async (w, o) => { assert.match(o.defaultPath, /인사말 파일 정리 재현 보고서\.html$/); assert.deepStrictEqual(o.filters[0].extensions, ["html"]);
+    return { canceled: false, filePath: savedHtml }; };
+  const picked = await js(`pabloHost.pickReportPath("T1", "html")`);
+  dialog.showSaveDialog = save0;
+  assert.strictEqual(picked.display, path.basename(S) + "/report.html");
+  const out = await js(`pabloHost.report("T1", { sections: ["goal_criteria", "refused", "conversation"], format: "html", token: ${JSON.stringify(picked.token)} })`);
+  const html = fs.readFileSync(savedHtml, "utf8");
+  assert.ok(out.format === "html" && html.startsWith("<!doctype html>") && html.includes("<h2>작업 기준</h2>") && html.includes("<h2>대화 전체</h2>")
+    && html.includes("<h2>Pablo가 막거나 확인을 받은 작업</h2>") && !html.includes("<h2>재현 점검</h2>") && !/<script/i.test(html), "A13 html, the parts asked for");
+  assert.match(await js(`pabloHost.report("T1", { token: ${JSON.stringify(picked.token)} }).then(() => "", e => e.message)`), /bad report/, "a place is used once");
+  const def = await js(`pabloHost.report("T1", { format: "md", token: "default" })`);
+  assert.ok(fs.existsSync(path.join(W, "reports", def.name)) && def.display === "reports/" + def.name, "default: the work folder's reports/");
+  assert.strictEqual(def.rel, "reports/" + def.name, "S52: its place in the work folder");
+  // S52 in the conversation: the default place (the work folder) -> the card can show it there; a folder that is not there ->
+  // the failure card, nothing saved, 다른 위치에 저장
+  await js(`document.querySelectorAll("[data-report]").forEach(x => x.closest(".msg").remove()); document.querySelector("#reports .link").click()`);
+  await until(`!!document.querySelector('#report-dlg [data-format="md"]') && !document.querySelector("#report-dlg [data-report-go]").disabled`);
+  await js(`document.querySelector('#report-dlg [data-format="md"]').click(); document.querySelector("#report-dlg [data-report-go]").click()`);
+  assert.deepStrictEqual(await until(`(x => x && [x.querySelector("code").textContent, [...x.querySelectorAll("[data-report-open]")].map(b => b.textContent)])(document.querySelector("[data-report]"))`),
+    ["reports/" + def.name, ["폴더에서 보기", "VS Code에서 열기"]]);
+  if (process.env.PABLO_SHOTS) { await sleep(300); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "s52-saved.png"), (await win.capturePage()).toPNG()); }
+  dialog.showSaveDialog = async () => ({ canceled: false, filePath: path.join(S, "no-such-folder", "report.md") });
+  await js(`document.querySelector("#reports .link").click()`);
+  await until(`!!document.querySelector('#report-dlg [data-format="md"]')`);
+  await js(`document.querySelector('#report-dlg [data-format="md"]').click(); document.querySelector("#report-dlg [data-report-where]").click()`);
+  await until(`/report\\.md$/.test(document.querySelector("#report-dlg [data-report-place]").textContent)`);
+  await js(`document.querySelector("#report-dlg [data-report-go]").click()`);
+  assert.deepStrictEqual(await until(`(x => x && [x.querySelector(".head").textContent, x.querySelectorAll("p")[1].textContent, !!x.querySelector("[data-report-again]"), !$("report-dlg")])(document.querySelector("[data-report-fail]"))`),
+    ["보고서를 저장하지 못했습니다", "그 폴더에 저장하지 못했습니다(폴더가 없습니다). 보고서는 저장되지 않았습니다.", true, true]);
+  if (process.env.PABLO_SHOTS) { await sleep(300); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "s52-failed.png"), (await win.capturePage()).toPNG()); }
+  dialog.showSaveDialog = save0;
+  await js(`document.querySelectorAll("[data-report], [data-report-fail]").forEach(x => x.closest(".msg").remove())`);
+  fs.rmSync(path.join(W, "reports"), { recursive: true, force: true });
+  console.log("ok report A13: preview counts, a place picked first, parts + HTML, the work folder's reports/ by default; S52 saved (in the folder: 보기 · 열기) and failed");
   // ⑤ a PC without PowerShell 7: said once above the account line, with how to install; 알겠습니다 -> not again
   assert.ok(await js(`!document.querySelector("#shell-note [data-shell]")`), "pwsh 7 here: no notice");
   process.env.PABLO_SHELL = "powershell";  // review: before sign-in the sign-in card comes alone (--auth shows the notice)
@@ -1268,6 +1579,14 @@ async function uiCheck() {
     { encoding: "utf8", env: { ...process.env, PYTHONPATH: path.join(__dirname, "../src"), PYTHONIOENCODING: "utf-8" } })).history;
   assert.deepStrictEqual(hist.slice(-3).map(x => [x.reason, x.source.type, x.source.note]), [["사용자가 세기를 가능하면으로 바꿈", "user", "직접"],
     ["사용자가 지움: 장비가 바뀜", "user", "직접"], ["사용자가 되살림", "user", "직접"]]);
+  // C3 고치기: the same criterion (its strength, its task), the user's words; the history says the user did it
+  const soft = await js(`V.intent.prefer.find(x => x.text === "결과는 3번 돌려서 평균 내").id`);
+  assert.strictEqual(await js(`pabloHost.criterion(V.task.id, ${JSON.stringify(soft)}, "edit", "결과는 5번 돌려서 평균 내")`), "결과는 5번 돌려서 평균 내");
+  await js(`refresh()`);
+  assert.ok(await until(`V.intent.prefer.some(x => x.id === ${JSON.stringify(soft)} && x.text === "결과는 5번 돌려서 평균 내")`), "edited in place, still 가능하면");
+  const edited = JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"))[t3].at(-1);
+  assert.deepStrictEqual([edited.role, edited.action, edited.id, edited.text, edited.prev], ["criterion-edit", "edit", soft, "결과는 5번 돌려서 평균 내", "결과는 3번 돌려서 평균 내"]);
+  assert.match(await js(`pabloHost.criterion(V.task.id, ${JSON.stringify(soft)}, "edit", "  ").then(() => "", e => e.message)`), /bad criterion/);
   // a reproduction task's default criterion: 지우기 waits for a reason
   await js(`close(); $("new").click()`);
   await js(`$("goal").value = "재현 기준 확인"; $("repro").checked = true; $("create").click()`);
@@ -1285,14 +1604,87 @@ async function uiCheck() {
   // UI renewal: a message's words made a criterion by hand (📌 기준으로), trimmed, 가능하면: a rule of this task, said in the
   // conversation; words that read like a plain statement still become a rule
   const made = "배치 크기는 논문 값 그대로 둔다";
-  await js(`(m => { m.querySelector("[data-crit-make]").click(); const ed = m.querySelector(".tagedit");
-    ed.querySelector("[data-crit-text]").value = ${JSON.stringify(made)}; ed.querySelectorAll("input[type=radio]")[1].checked = true;
-    ed.querySelector("[data-crit-save]").click(); })(document.querySelector("#log .msg [data-crit-make]").closest(".msg"))`);
+  // A2 complete (B2 / B15): "+ 태그" -> 기준으로 만들기 in the same popover (the stage stays as it was)
+  await js(`(m => { m.querySelector("[data-tag-edit]").click(); const ed = m.querySelector(".tagedit"); ed.querySelector("[data-crit-on]").click();
+    ed.querySelector("[data-crit-text]").value = ${JSON.stringify(made)}; ed.querySelector('input[name^="ce-"][value="soft"]').checked = true;
+    ed.querySelector("[data-tag-save]").click(); })(document.querySelector("#log .msg [data-tag-edit]").closest(".msg"))`);
   await settle(`V.intent.prefer.some(x => x.text === ${JSON.stringify(made)}) && !V.intent.must.some(x => x.text === ${JSON.stringify(made)})`);
   assert.ok(await js(`[...document.querySelectorAll("#log [data-intent]")].some(p => p.textContent.includes(${JSON.stringify(made + " (가능하면)")}))`),
     "the conversation says it");
   assert.ok(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"))[await js(`V.task.id`)].some(c => c.role === "intent" && c.items.some(i => i.text === made)));
   console.log("ok 기준으로: a message's words, trimmed -> 가능하면 criterion of this task, said in the conversation and kept in chat.json");
+  // A2 complete · C (right column). A task with neither plan nor papers: the tabs say what they hold and when an empty one
+  // opens (S67); the rail's ‹ 펼치기; 기준 rows with back-links, ✎ 고치기 keeps the old sentence struck through + 사람이 고침
+  // (S56), a row picked keeps its conversation (C6); a task without papers (C7); nothing judged yet (S68)
+  const snapC = async n => { if (!process.env.PABLO_SHOTS) return; await sleep(400); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, n + ".png"), (await win.capturePage()).toPNG()); };
+  await js(`close()`);
+  assert.deepStrictEqual(await js(`(t => [t("plan").disabled, t("plan").dataset.tip, t("evidence").disabled, t("evidence").dataset.tip, t("trace").querySelector(".long").textContent,
+    !!document.querySelector("#ptabs [data-unfold]")])(k => document.querySelector('#ptabs [data-tab="' + k + '"]'))`),
+    [true, "에이전트가 계획을 세우면 열립니다", true, "자료를 추가하면 열립니다", "판정 없음", true], "S67: empty tabs are off and say when they open");
+  await snapC("c-rail");
+  await js(`document.querySelector("#ptabs [data-unfold]").click()`);
+  assert.deepStrictEqual(await js(`[document.body.classList.contains("panel"), /접기/.test($("panel").querySelector(".phead .x").textContent)]`), [true, true], "펼치기 opens, 접기 folds");
+  await js(`show({ mode: "intent" })`);
+  const row0 = `document.querySelector("#panel ul.ck.must > li")`;
+  assert.ok(await js(`/^대화 \\d+$/.test(${row0}.querySelector("[data-back-chat]").textContent) && !!document.querySelector("#panel h3 .n")`), "back-links and counts");
+  const before0 = await js(`${row0}.querySelector(".ct").firstChild.textContent`);
+  await js(`${row0}.querySelector("[data-edit]").click()`);
+  await js(`(i => { i.value = "고친 문장: " + i.value; })(document.querySelector("#panel [data-edit-in]")); document.querySelector("#panel [data-edit-ok]").click()`);
+  await settle(`[...document.querySelectorAll("#panel ul.ck > li")].some(l => !!l.querySelector("[data-edited]") && (l.querySelector(".prev s") || {}).textContent === ${JSON.stringify(before0)})`);
+  assert.ok(await js(`V.intent.must.concat(V.intent.prefer).some(x => x.text === ${JSON.stringify("고친 문장: " + before0)}) && !!document.querySelector('#live [data-criterion-edit="edit"]')`), "S56: edited, said");
+  await snapC("c-intent-edited");
+  await js(`${row0}.querySelector(".ct").click()`);
+  assert.ok(await js(`$("log").dataset.filter.startsWith("refs:기준 · ") && !!document.querySelector("#panel ul.ck.must > li.sel")`), "C6: a criterion picked keeps its conversation");
+  await js(`document.querySelector("#panel ul.ck.must > li.sel .ct").click()`);
+  assert.ok(await js(`!$("log").dataset.filter && !document.querySelector("#panel li.sel")`), "picked again: everything back");
+  await js(`document.querySelector("#panel [data-no-paper] [data-add-source]").click()`);
+  assert.ok(await js(`!$("adder").hidden`), "C7: + 자료 추가 opens the source box"); await js(`$("adder").hidden = true`);
+  await js(`document.querySelector('#ptabs [data-tab="trace"]').click()`);
+  assert.ok(await js(`hist[hi].mode === "trace" && !!document.querySelector("#panel [data-no-verdict]")`), "S68: nothing judged yet");
+  // T1: 계획 · N단계 중 k (C8), 왜? on the newest action (C9), the code panel's 파일 고르기 ▾ and the line said (C11, S62)
+  await js(`close(); select("T1")`); await sleep(200);
+  assert.deepStrictEqual(await js(`["intent", "plan", "trace"].map(k => document.querySelector('#ptabs [data-tab="' + k + '"] .long').textContent)`),
+    await js(`[\`반드시 \${V.intent.must.length} · 가능 \${V.intent.prefer.length}\`, "P1.1 · 1/1", waitingAct() ? "확인 기다림" : "판정 " + V.actions.length]`), "C1: the tabs' summaries");
+  await js(`document.querySelector('#ptabs [data-tab="plan"]').click()`);
+  assert.deepStrictEqual(await js(`[$("panel").querySelector(".phead h2").textContent, [...document.querySelectorAll("#panel ol.prow > li")].map(l => [l.dataset.id, l.classList.contains("cur"), /^대화 \\d+/.test(l.querySelector(".sub").textContent)])]`),
+    ["계획 · 1단계 중 1", [["P1.1", true, true]]]);
+  await snapC("c-plan");
+  await js(`document.querySelector("#panel ol.prow > li .pa").click()`);
+  assert.strictEqual(await js(`$("log").dataset.filter`), "refs:P1.1 hello.txt에 인사말을 더한다", "C8: a step picked keeps its conversation");
+  await js(`document.querySelector("#panel ol.prow > li .pa").click()`);
+  await js(`document.querySelector('#ptabs [data-tab="trace"]').click()`);
+  const tlOf = () => js(`[...document.querySelectorAll("#panel .tl > li")].map(l => l.querySelector(".k").textContent)`), tl0 = await tlOf();
+  assert.ok(["사용자 요청", "제안된 작업", "Guard 판정", "사용자 결정", "결과 · 검토"].every(k => tl0.includes(k)), tl0.join(","));
+  await js(`show({ mode: "trace", act: "ACT1" })`);
+  const tl = await tlOf();
+  assert.ok(["사용자 요청", "적용된 기준", "계획 단계", "제안된 작업", "Guard 판정", "사용자 결정", "결과 · 검토"].every(k => tl.includes(k)), tl.join(","));
+  assert.ok(await js(`!!document.querySelector("#panel .tl > li.now") && /^이 판단이 나온 대화 \\d+ · 같은 기준의 판정 \\d+/.test(document.querySelector("#panel [data-band]").textContent)`), "C9");
+  await snapC("c-trace");
+  {
+    await js(`show({ mode: "code", task: "T1", where: "config.yaml:5" })`);
+    const live = await settle(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`);
+    if (live === "FOUND") {
+      assert.match(await js(`$("panel").querySelector(".lnote").textContent`), /^5번째 줄: .*고치는 일은 에이전트나 외부 편집기에서 합니다\.$/);
+      assert.match(await js(`$("panel").querySelector(".ptool .meta").textContent`), /^작업 폴더 · 읽기 전용 · \d+줄$/);
+      await js(`$("panel").querySelector(".url.pick").click()`);
+      assert.ok(await js(`(m => !m.hidden && [...m.querySelectorAll("[data-pick-file]")].some(b => b.dataset.pickFile === "config.yaml" && b.classList.contains("on")))($("panel").querySelector(".pmenu"))`), "S62");
+      await snapC("c-code");
+    } else assert.strictEqual(live, "ERROR", "the code panel opened or said why not");
+  }
+  // what the empty and failed places look like (PABLO_SHOTS only): S69, S65, the extracted text, S11, S56 / S57 / S58 forms
+  if (process.env.PABLO_SHOTS) {
+    await js(`show({ mode: "evhome" })`); await snapC("c-s69-no-cites");
+    await js(`show({ mode: "paper", src: "nope" })`); await snapC("c-s65-no-pdf");
+    await js(`show({ mode: "source", e: evList()[0], failed: "TEXT" })`); await snapC("c-text");
+    await js(`(I => { V.intent = { ...I, must: [], prefer: [] }; show({ mode: "intent" }); V.intent = I; })(V.intent)`); await snapC("c-s11-no-criteria");
+    await js(`show({ mode: "intent" }); document.querySelector("#panel ul.ck.must > li [data-edit]").click()`); await snapC("c-s56-edit");
+    await js(`show({ mode: "intent" }); document.querySelector("#panel ul.ck.must > li [data-drop]").click()`); await snapC("c-s57-drop");
+    await js(`condOpen[V.task.id] = true; show({ mode: "intent" }); (b => { b.scrollIntoView(); b.click(); })(document.querySelector("#panel [data-cond-list] [data-deviate]"))`); await snapC("c-s58-deviate");
+    await js(`show({ mode: "intent" }); (b => { b.scrollIntoView(); b.click(); })(document.querySelector("#panel [data-cond-list] [data-spec-drop]"))`); await snapC("c-s59-drop");
+    await js(`condOpen[V.task.id] = false`);
+  }
+  await js(`close()`);
+  console.log("ok right column: tabs (S67, 펼치기), 기준 back-links + ✎ 고치기 + 대화로 거르기, C7, S68; T1 계획 · 왜? · code 파일 고르기");
   // ⑭ the task list: search over names, goals and sources; a task's own name (its goal stays); 보관 folds it away, kept whole
   const rows_ = () => js(`[...document.querySelectorAll("#task-list > [data-task]")].map(b => b.dataset.task)`);
   await js(`(q => { q.value = "인사말"; q.dispatchEvent(new Event("input")); })($("task-search"))`);
@@ -1312,6 +1704,38 @@ async function uiCheck() {
   // review: nothing on screen reads "null" or "undefined" (append(null) prints "null")
   assert.strictEqual(await js(LEAKED), "", "no null / undefined on screen");
   console.log("ok tasks: search '인사말' -> T1 only; renamed (the goal stays); 보관 -> folded at the bottom -> 보관 풀기");
+  // visual pass (PABLO_SHOTS only, fig-*.png): the states of Figma frames the checks above do not leave on screen, drawn
+  // with the page's own functions; everything is put back after each
+  if (process.env.PABLO_SHOTS) {
+    const fig = async n => { await sleep(450); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "fig-" + n + ".png"), (await win.capturePage()).toPNG()); };
+    const search = q => js(`(i => { i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event("input")); })($("task-search"))`);
+    await js(`close(); select("T1")`);
+    await search("파일"); await fig("17-search"); await search("찾을수없는말"); await fig("S18-none"); await search("");
+    await js(`(dt => { dt.items.add(new File(["x"], "a.pdf", { type: "application/pdf" })); dispatchEvent(new DragEvent("dragover", { dataTransfer: dt, cancelable: true })); })(new DataTransfer())`);
+    await fig("20-drop"); await js(`document.body.classList.remove("dropping")`);
+    await js(`show({ mode: "intent" })`); await fig("03-intent");
+    await js(`(li => li && li.click())([...document.querySelectorAll("#panel li")].find(li => li.querySelector(".backs")))`);  // a 기준 row: 대화로 거르기
+    await js(`document.querySelector("#viewbar .fchip") && document.querySelector("#viewbar .fchip").click()`); await fig("24-filter-menu");
+    await js(`$("filter-menu") && $("filter-menu").remove(); $("log").dataset.filter && document.querySelector("#filter-banner .link:last-child").click()`);
+    await js(`close()`);
+    // S5 · S7 · S12 · S9 · S10 cards in the conversation, then gone
+    await js(`(t => { const l = live(t); l.append(msg("Pablo", null, progCard("spec", "재현 조건 뽑기", "뽑는 중", "LinearRAG을(를) 읽고 있습니다 · 9 / 20쪽", "보통 1–3분 · 다른 일을 해도 됩니다", () => {})),
+      msg("Pablo", null, progCard("audit", "재현 점검", "점검 중", "파일 23개 읽음 · 조건 12 / 25 판정", "읽기 전용 — 아무것도 바꾸지 않습니다", () => {})),
+      msg("Pablo", null, downloadCard({ id: "2510.10114", version: "v4", title: "LinearRAG", filename: "arxiv-2510.10114.pdf", source: "arxiv.org", bytes: 2411724 }, () => {}, () => {})));
+      l.querySelectorAll(".msg").forEach(m => m.dataset.figShot = "1"); $("log").scrollTop = $("log").scrollHeight; })(V.task.id)`);
+    await fig("S5-S7-S12");
+    await js(`document.querySelectorAll('[data-fig-shot="1"]').forEach(m => m.remove())`);
+    // S1 · S2 · S3 · S32 · S34: the account card's states (account() is the page's own; signed out again after)
+    for (const [n, a] of [["S1", { state: "signing_in" }], ["S2", { state: "signed_out", code: "timeout", error: "브라우저 창을 닫았거나 시간이 지났습니다. 저장된 것은 없습니다." }],
+      ["S3", { state: "signed_out", code: "no_plan_permission", error: "플랜 확인: 쓸 수 있는 모델이 없습니다. 논문 질문도 같은 계정을 씁니다." }], ["S32", { state: "verifying" }],
+      ["S34", { state: "signed_out", code: "refresh_failed", error: "작업과 기록은 그대로입니다. 다시 연결하면 같은 대화로 이어 갑니다." }]]) {
+      await js(`account(${JSON.stringify(a)})`); await fig("acct-" + n);
+    }
+    await js(`account({ state: "signed_out" })`);
+    // 01: no task yet (the model as a first run has it), then the fixture again
+    await js(`window.__M = M; M = { ...M, tasks: [], views: {}, current: null }; select(null)`); await fig("01-first-run");
+    await js(`M = window.__M; delete window.__M; select("T1")`);
+  }
   assert.deepStrictEqual(errors, [], "no script errors");
   win.destroy();
 }
@@ -1353,7 +1777,8 @@ async function papersUi() {
     if (name === "2501.00009") { s.writeHead(200, { "content-type": "text/html" }); return s.end("<html>not a paper</html>"); }
     const f = path.join(fx.arxiv, name);
     if (!/^[\w.]+$/.test(name) || !fs.existsSync(f)) { s.writeHead(404); return s.end(); }
-    s.writeHead(200, { "content-type": "application/pdf" }); s.end(fs.readFileSync(f));
+    const pdf = fs.readFileSync(f);  // D10: its size on a HEAD too, as arxiv.org says it
+    s.writeHead(200, { "content-type": "application/pdf", "content-length": pdf.length }); s.end(q.method === "HEAD" ? undefined : pdf);
   });
   await new Promise(r => srv.listen(0, "127.0.0.1", r));
   const port = srv.address().port, at = p => `http://127.0.0.1:${port}${p}`;
@@ -1368,7 +1793,7 @@ async function papersUi() {
   const until = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
   const settled = () => until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`);
   const deskJson = () => JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8"));
-  const dir = shots || view, shot = async name => dir && fs.writeFileSync(path.join(dir, name), (await win.capturePage()).toPNG());
+  const dir = shots || view || process.env.PABLO_SHOTS, shot = async name => dir && fs.writeFileSync(path.join(dir, name), (await win.capturePage()).toPNG());
   const tools = () => js(`({ papers: [...document.querySelectorAll("#src .paper")].map(x => [x.querySelector("b").textContent + ((x.querySelector("b + small") || {}).textContent || ""),
     !!x.querySelector("[data-primary]")]), spec: ($("specs") || {}).textContent, compare: !!$("compares") })`);
   const titles = () => js(`[...document.querySelectorAll("#src .paper")].map(x => (x.dataset.kind === "web" ? "🌐 " : "") + x.querySelector("b").textContent)`);
@@ -1421,6 +1846,22 @@ async function papersUi() {
   assert.deepStrictEqual(await page(), ["📄 TinyRAG · PDF", "1 / 2"]);
   await js(`document.querySelector("#panel .nav").click()`);  // ← back to the table
   assert.ok(await until(`!!document.querySelector("#panel [data-matrix]")`));
+  // A2 complete · C (F21): back on the table the cell is marked; its head, 항목 바꾸기 (n / 8; 다시 채우기 runs the
+  // conversation's 비교표 form: here it needs the account, said in the panel), + 논문 추가 (only sources not in the table)
+  assert.ok(await js(`!!document.querySelector("#panel [data-matrix] td.picked") && $("panel").querySelector(".mxtool b").textContent === "논문 2편 × 항목 4"`));
+  await js(`$("panel").querySelector("[data-cols-edit]").click()`);
+  assert.strictEqual(await js(`$("panel").querySelector("[data-cols-n]").textContent`), "4 / 8");
+  await js(`(i => { i.value += ", 재현 비용, 코드 공개"; i.dispatchEvent(new Event("input")); })($("panel").querySelector("[data-cols-in]"))`);
+  assert.strictEqual(await js(`$("panel").querySelector("[data-cols-n]").textContent`), "6 / 8");
+  await sleep(200); await shot("papers-wide-columns.png");
+  await js(`$("panel").querySelector("[data-refill]").click()`);
+  assert.match(await until(`(b => b && b.textContent)($("panel").querySelector("[data-refill-error]"))`), /ChatGPT에 먼저 연결하세요/);
+  assert.match(await js(`[...document.querySelectorAll("#log [data-compare-form] #columns")].at(-1).value`), /재현 비용, 코드 공개$/, "the conversation's form, these columns");
+  await js(`document.querySelectorAll("#log [data-compare-form]").forEach(f => f.closest(".msg").remove())`);
+  await js(`$("panel").querySelector("[data-add-paper-menu]").click()`);
+  assert.deepStrictEqual(await js(`(m => [m.hidden, [...m.querySelectorAll("[data-add-paper]")].map(b => b.disabled)])($("panel").querySelector(".pmenu"))`), [false, [true]],
+    "+ 논문 추가: the task's web page only, and it cannot be a row");
+  await sleep(200); await shot("papers-wide-add.png");
   // one answer over both papers: the sentence both have is anchored in the paper the answer cites it from
   await js(`close(); document.querySelectorAll(".asked .cite")[1].click()`);
   assert.strictEqual(await settled(), "FOUND");
@@ -1438,6 +1879,20 @@ async function papersUi() {
   assert.match(await js(`$("panel").querySelector(".url").textContent`), /TinyRAG notes/);
   await sleep(300); await shot("papers-web-quote.png");
   await js(`close()`);
+  // B20 / S8: a quote pdf.js cannot find on its page (one word misread) -> the places most like it (evidence.similar), the
+  // page's extracted text, a click marks one; the anchor itself is untouched
+  const e8 = await js(`document.querySelectorAll(".asked .cite")[0].dataset.e`), x8 = await js(`M.anchors["${e8}"].exact`);
+  await js(`M.anchors["${e8}"].exact = M.anchors["${e8}"].exact.replace(/[A-Za-z]{4,}/, w => w.split("").reverse().join(""))`);
+  await js(`document.querySelectorAll(".asked .cite")[0].click()`);
+  assert.strictEqual(await settled(), "SIMILAR");
+  const s8 = await js(`(c => ({ head: c.querySelector(".s8head").textContent, n: +c.dataset.similar, hits: [...c.querySelectorAll("[data-hit]")].map(b => b.querySelector("span").textContent),
+    doc: c.querySelector("#doc").textContent.length > 0, orig: !!c.querySelector("[data-orig]") }))($("panel").querySelector(".pcard.s8"))`);
+  assert.ok(s8.n >= 1 && s8.hits.length === s8.n && new RegExp(`^\\d+쪽에서 위치를 찾지 못했습니다 — 비슷한 문장 ${s8.n}곳$`).test(s8.head) && s8.doc, JSON.stringify(s8));
+  assert.ok(s8.hits[0].replace(/\s+/g, "").includes(x8.replace(/[A-Za-z]{4,}/, "").replace(/\s+/g, "").slice(0, 12)), "the misread sentence comes first: " + JSON.stringify([s8.hits[0], x8]));
+  await js(`$("panel").querySelector('[data-hit="0"]').click()`);
+  assert.ok(await js(`$("panel").querySelector('[data-hit="0"]').classList.contains("on") && CSS.highlights.get("evidence").size === 1`), "a candidate is marked in the text");
+  await sleep(200); await shot("papers-similar.png");
+  await js(`M.anchors["${e8}"].exact = ${JSON.stringify(x8)}; close()`);
   assert.ok(await js(`!/\\b(E|SRC|SC|M)\\d+\\b/.test(document.body.innerText)`), "no internal ids in the UI");
   console.log("ok papers: table 6/8 cells located, metrics (지표 다름), both papers' datasets -> a column, ✎ renames, a cell -> its paper's page, wide panel and back, an answer over both papers");
   // the 주 논문: 재현 조건 뽑기 reads it
@@ -1447,8 +1902,10 @@ async function papersUi() {
   // arXiv: a new paper; refusals (not arXiv, no such paper, not a PDF, sent elsewhere); a newer version; the same file again
   await js(`[...$("src").querySelectorAll(".link")].find(b => b.textContent === "+ 추가").click()`);
   assert.ok(await js(`!$("adder").hidden`));
+  // B24 / S12: one arXiv paper asks first (file, source, size: [받기] [취소]); this takes it (window.dlSeen counts the cards)
   const fetchArxiv = async text => { await js(`$("arxiv").value = ${JSON.stringify(text)}; $("arxiv").dispatchEvent(new Event("input")); $("arxiv-get").click()`);
-    return until(`(n => !$("arxiv-get").disabled && n.textContent && !/중…$/.test(n.textContent) && n.textContent)($("arxiv-note"))`); };
+    return until(`(n => { const g = document.querySelector("#arxiv-dl [data-dl-get]"); if (g) { window.dlSeen = (window.dlSeen || 0) + 1; g.click(); return ""; }
+      return !$("arxiv-get").disabled && n.textContent && !/중…$/.test(n.textContent) && n.textContent; })($("arxiv-note"))`); };
   // D2: words are a search (the API gets all:w1 AND all:w2); the user picks a result and it is imported like an id
   await js(`$("arxiv").value = "hypergraph retrieval"; $("arxiv-get").click()`);
   await until(`document.querySelectorAll("#arxiv-hits .hit").length === 3 && !$("arxiv-get").disabled`);
@@ -1502,6 +1959,7 @@ async function papersUi() {
   await js(`$("src-toggle").click()`);
   assert.ok(await until(`!document.querySelector("#src .plist").hidden && $("src-toggle").textContent.endsWith("▴")`));
   await sleep(200); await shot("papers-many.png");
+  await js(`document.querySelector(".statechip").click()`); await sleep(200); await shot("papers-card.png"); await js(`cardClose()`);
   assert.deepStrictEqual(await titles(), ["TinyRAG", "OtherRAG", "🌐 TinyRAG notes", "ThirdRAG", "🌐 Notes two", "FourthRAG"]);
   // ⑪ ThirdRAG links its own code ("Our code is available at …"): 코드 ↗ beside its name, opening outside the app
   assert.deepStrictEqual(await js(`[...document.querySelectorAll("#src [data-code]")].map(a => [a.closest(".paper").querySelector("b").textContent, a.href, a.target])`),
@@ -1512,13 +1970,48 @@ async function papersUi() {
   assert.deepStrictEqual(refused.map(x => x.split(".")[0]), ["⚠ arXiv 번호나 링크를 읽지 못했습니다", "⚠ arXiv에 그 번호의 논문이 없습니다",
     "⚠ 받은 파일이 PDF가 아닙니다", "⚠ arXiv 밖으로 넘겨져 받지 않았습니다"], JSON.stringify(refused));
   assert.strictEqual(third(), third0, "the redirect elsewhere was never followed");
+  assert.strictEqual(await js(`window.dlSeen`), 2, "the two the server answers asked first; the unreadable link and the missing paper were said at once");
   assert.match(await fetchArxiv("https://arxiv.org/abs/2501.00001"), /^추가했습니다: TinyRAG v3\. 이전 버전에서 찾은 근거 3개: 그대로 3 · 문맥 바뀜 0 · 찾을 수 없음 0\.$/);
   assert.strictEqual(await fetchArxiv("2501.00001"), "이미 있는 자료입니다: TinyRAG v3.");
+  // 취소 on the card: nothing downloaded, said so
+  const kept0 = fs.readdirSync(path.join(S, "papers")).length;
+  await js(`$("arxiv").value = "2502.00003v9"; $("arxiv-get").click()`);
+  assert.match(await until(`(n => !$("arxiv-get").disabled && /^⚠/.test(n.textContent) && n.textContent)($("arxiv-note"))`), /arXiv에 그 번호의 논문이 없습니다/, "a missing paper: no card");
+  await js(`$("arxiv").value = "arXiv:2502.00002"; $("arxiv-get").click()`);
+  const card12 = await until(`(c => c && [c.querySelector(".head").textContent, c.querySelector("code").textContent, /^출처 127\\.0\\.0\\.1:\\d+ · \\d+ KB · 50 MB 상한 안$/.test(c.querySelector(".dl-file small").textContent)])(document.querySelector("#arxiv-dl [data-download]"))`);
+  assert.deepStrictEqual(card12, ["arXiv에서 받을까요?", "arxiv-2502.00002.pdf", true]);
+  await js(`$("adder").hidden = false`); await sleep(200); await shot("papers-download.png");
+  await js(`document.querySelector("#arxiv-dl [data-dl-cancel]").click()`);
+  assert.strictEqual(await js(`$("arxiv-note").textContent + "|" + $("arxiv-dl").hidden`), "받지 않았습니다. 자료는 그대로입니다.|true");
+  assert.strictEqual(fs.readdirSync(path.join(S, "papers")).length, kept0, "취소 downloads nothing");
   const ps = deskJson().pdf.T1;
   assert.deepStrictEqual(ps.map(p => [p.title, p.kind || "pdf", p.version || null, !!p.sha256]), [["TinyRAG", "pdf", "v3", true], ["OtherRAG", "pdf", null, false],
     ["TinyRAG notes", "web", null, false], ["ThirdRAG", "pdf", "v1", true], ["Notes two", "web", null, false], ["FourthRAG", "pdf", null, false]]);
   assert.ok(ps[0].id !== fx.a && fs.existsSync(path.join(S, "papers", "arxiv-2501.00001.pdf")), "v3 is a new source in the paper's own file");
   console.log("ok arXiv: new paper, 4 refusals (no request left the origin), v2 -> v3 with its 3 anchors resolved, same file again");
+  // D10 before downloading: the title (the API), the file name it is saved as, where from, the size (a HEAD); nothing saved
+  const kept = fs.readdirSync(path.join(S, "papers")).length;
+  const peek = await js(`pabloHost.peekArxiv("arXiv:2502.00002")`);
+  assert.deepStrictEqual([peek.id, peek.version, /^ThirdRAG/.test(peek.title), peek.filename, peek.source, peek.bytes],
+    ["2502.00002", "v1", true, "arxiv-2502.00002.pdf", `127.0.0.1:${port}`, fs.statSync(path.join(fx.arxiv, "2502.00002")).size]);
+  assert.match(await js(`pabloHost.peekArxiv("2502.00003").then(() => "", e => e.message)`), /arXiv에 그 번호의 논문이 없습니다/);
+  assert.strictEqual(fs.readdirSync(path.join(S, "papers")).length, kept, "a peek downloads nothing");
+  await js(`$("new").click()`);
+  await until(`!!$("newtask")`);
+  const ntLink = v => js(`$("nt-link").value = ${JSON.stringify(v)}; document.querySelector("[data-nt-link]").click()`);
+  await ntLink("2502.00002");
+  await until(`!!document.querySelector("#newtask [data-nt-dl] [data-download]")`);
+  await js(`document.querySelector("#newtask [data-dl-cancel]").click()`);
+  await until(`!document.querySelector("#newtask [data-download]")`);
+  assert.strictEqual(await js(`document.querySelectorAll("#newtask .nt-chip:not(.add)").length`), 0, "취소: not picked");
+  assert.ok(await js(`!$("newtask").innerText.includes("null")`), "nothing printed as null where the chips were");
+  await ntLink("2502.00002");
+  await until(`!!document.querySelector("#newtask [data-nt-dl] [data-download]")`);
+  await sleep(200); await shot("papers-newtask-download.png");
+  await js(`document.querySelector("#newtask [data-dl-get]").click()`);
+  assert.match(await until(`(c => c && c.textContent)(document.querySelector("#newtask .nt-chip:not(.add) b"))`), /^ThirdRAG/, "받기: the paper is picked, downloaded when the task is made");
+  await js(`$("newtask").remove()`);
+  console.log("ok arXiv peek: title, file name, source and size before downloading; a missing paper said; the add box and the new-task dialog ask first (S12)");
   // removing a paper: the table and the answers keep what was found in it
   await js(`document.querySelector('[data-remove="${fx.b}"]').click()`);
   await until(`document.querySelectorAll("#src .paper").length === 5`);
@@ -1603,8 +2096,9 @@ async function papersUi() {
   console.log("ok conditions: a sentence picked on page 2 of the 주 논문 -> a condition (kind chosen first), its [n] boxed; the same again -> named first; ThirdRAG refused; 빼기 needs why -> 뺀 조건 -> 되살림, each said in the conversation");
   // ⑬ an OpenReview link -> its PDF (openreview.net only); arXiv's own DOI -> the arXiv paper; another DOI -> its title,
   // then the same title on arXiv to pick from; a DOI Crossref does not know -> said
-  const add = async v => { await js(`$("adder").hidden = false; $("arxiv").value = ${JSON.stringify(v)}; $("arxiv-get").click()`);
-    return until(`(n => !$("arxiv-get").disabled && n.textContent && !/중…$/.test(n.textContent) && n.textContent)($("arxiv-note"))`); };
+  const add = async v => { await js(`$("adder").hidden = false; $("arxiv").value = ${JSON.stringify(v)}; $("arxiv-get").click()`);  // an arXiv paper asks first (S12): 받기
+    return until(`(n => { const g = document.querySelector("#arxiv-dl [data-dl-get]"); if (g) { g.click(); return ""; }
+      return !$("arxiv-get").disabled && n.textContent && !/중…$/.test(n.textContent) && n.textContent; })($("arxiv-note"))`); };
   assert.strictEqual(await add("https://openreview.net/forum?id=Open123"), "추가했습니다: OpenRAG.");
   assert.deepStrictEqual(deskJson().pdf.T1.filter(p => p.openreview).map(p => [p.title, p.openreview]), [["OpenRAG", "Open123"]]);
   assert.match(await add("https://openreview.net/forum?id=Gone404"), /^⚠ OpenReview에 그 논문의 PDF가 없습니다/);

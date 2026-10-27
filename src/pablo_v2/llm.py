@@ -55,6 +55,7 @@ class ResponsesProvider:
 
     def __init__(self, model: str, token: str, timeout: int = 180):
         self.model, self.token, self.timeout = model, token, timeout
+        self.on_text = None  # D9: called with the answer so far as it streams in (a caller's progress), else None
 
     def complete_json(self, prompt: str, schema: dict) -> dict:
         body = {"model": self.model, "instructions": "Answer with JSON that matches the schema.", "store": False,
@@ -65,8 +66,16 @@ class ResponsesProvider:
             "authorization": "Bearer " + self.token, "content-type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as r:
-                events = [json.loads(line[5:]) for line in r.read().decode("utf-8").splitlines()
-                          if line.startswith("data:") and line[5:].strip() not in ("", "[DONE]")]
+                events, so_far = [], ""
+                for raw in r:  # one SSE line at a time, so a caller hears the answer grow (D9)
+                    line = raw.decode("utf-8").rstrip("\r\n")
+                    if not line.startswith("data:") or line[5:].strip() in ("", "[DONE]"):
+                        continue
+                    ev = json.loads(line[5:])
+                    events.append(ev)
+                    if self.on_text and ev.get("type") == "response.output_text.delta":
+                        so_far += ev.get("delta", "")
+                        self.on_text(so_far)
         except urllib.error.HTTPError as e:
             raise ProviderError(f"responses {e.code}: {e.read()[:500]!r}") from e
         except OSError as e:

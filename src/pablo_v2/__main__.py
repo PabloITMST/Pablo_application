@@ -3,6 +3,7 @@
 Account   login [--device] | logout | status
 Intent    say "<msg>" [--agent] [--llm] | show | candidates | history | promote K4 | reject K4 | demo [--llm]
           promote K4 --as hard|soft | strength C2 hard|soft | drop C2 [--reason R] | restore C2   (the user's own edits)
+          restate C2 "<new text>"                  C3: the user rewrites a criterion (same id, kind, strength, scope)
 Skill     task "<task>" [--checks JSON] [--repro]  start task; no --checks -> Codex analyzer decides checks
           search SC1 "<target>" "<query>" --tier 1 --found|--not-found
           check SC1 VERIFIED "<conclusion>" [--sources JSON] [--stop-reason R]
@@ -55,8 +56,9 @@ from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor, reads_like
 from pablo_v2.intent.render import render_candidates, render_history, render_intent
 from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
-from pablo_v2.skill.viewer import model, render_html, render_report, workspace
-from pablo_v2.skill.evidence import AnchorRejected
+from pablo_v2.skill import mdhtml
+from pablo_v2.skill.viewer import REPORT_SECTIONS, model, render_html, render_report, report_counts, workspace
+from pablo_v2.skill.evidence import AnchorRejected, similar
 from pablo_v2.skill.skill import (AUDIT_SCHEMA, REPRO_CRITERIA, SPEC_LABEL, DecisionRejected, PabloSkill,
                                   ResearchIncomplete, ResearchRejected, render_audit, render_brief, render_evidence, render_task)
 
@@ -102,6 +104,9 @@ def _parser() -> argparse.ArgumentParser:
     add("login").add_argument("--device", action="store_true", help="device-code sign-in for headless machines")
     for name in ("logout", "status", "show", "candidates", "history", "demo"):
         add(name)
+    s = add("similar")  # S8 the places in a page's text (stdin) most like a quote that was not found there
+    s.add_argument("--quote", required=True)
+    s.add_argument("--k", type=int, default=3)
     s = add("say")
     s.add_argument("text")
     s.add_argument("--agent", action="store_true", help="agent message: context only, never intent")
@@ -123,6 +128,8 @@ def _parser() -> argparse.ArgumentParser:
     s.add_argument("id")
     s.add_argument("--reason", default="", help="required for a reproduction task's default criterion")
     add("restore").add_argument("id")  # ④ a removed criterion back
+    s = add("restate")  # C3 the user rewrites a criterion's sentence (history: 사용자가 고침)
+    s.add_argument("id"), s.add_argument("text")
     s = add("add-spec")  # ⑩ a sentence the user picked in the paper -> a reproduction condition, anchored
     s.add_argument("task_id"), s.add_argument("--source", required=True), s.add_argument("--quote", required=True)
     s.add_argument("--page", type=int), s.add_argument("--category", required=True, choices=list(SPEC_LABEL))
@@ -151,6 +158,10 @@ def _parser() -> argparse.ArgumentParser:
     s = add("report")  # ⑫ the reproduction report (Markdown)
     s.add_argument("task_id")
     s.add_argument("--now", type=_json_arg, default=None, help='desktop: {"tree", "git": {head, dirty}, "recheck": {at, placed, gone}}')
+    s.add_argument("--sections", type=_sections, help="A13 the parts to keep, comma separated: " + ",".join(REPORT_SECTIONS)
+                   + " (default: all but conversation)")
+    s.add_argument("--format", choices=["md", "html"], default="md", help="A13 html: the Markdown as one self-contained page")
+    s.add_argument("--preview", action="store_true", help="A13 the export dialog's numbers only (no text)")
 
     s = add("task")
     s.add_argument("text")
@@ -224,6 +235,13 @@ def _parser() -> argparse.ArgumentParser:
     return p
 
 
+def _sections(v: str) -> list[str]:
+    xs = [x.strip() for x in v.split(",") if x.strip()]
+    if not xs or any(x not in REPORT_SECTIONS for x in xs):
+        raise argparse.ArgumentTypeError("expected some of: " + ",".join(REPORT_SECTIONS))
+    return xs
+
+
 def _test_arg(v: str) -> dict:
     name, _, result = v.rpartition("=")
     if not name or result not in ("pass", "fail", "skip"):
@@ -259,6 +277,11 @@ def _run(a, out) -> int:
         ok, msg = auth.status()
         out({"signed_in": ok, "message": msg}, msg)
         return 0 if ok else 1
+    if a.cmd == "similar":  # no state: the text comes on stdin (a page can be longer than a command line)
+        sys.stdin.reconfigure(encoding="utf-8")
+        hits = similar(sys.stdin.read(), a.quote, max(1, min(a.k, 10)))
+        out({"hits": hits}, "\n".join(f"{h['score']:.2f} {h['text']}" for h in hits) or "(none)")
+        return 0
 
     intent_path = os.path.join(a.dir, "intent.json")
     if a.cmd == "demo" and os.path.exists(intent_path):
@@ -312,6 +335,10 @@ def _run(a, out) -> int:
     elif a.cmd == "restore":
         item = e.restore_item(a.id)
         out({"item": asdict(item)}, f"{item.id} restored")
+    elif a.cmd == "restate":
+        before = (e.get_item(a.id) or argparse.Namespace(statement=None)).statement
+        item = e.restate_item(a.id, a.text)
+        out({"item": asdict(item), "before": before}, f"{item.id} -> {item.statement}")
     elif a.cmd == "reject":
         e.reject_candidate(a.id)
         out({}, f"{a.id} rejected")
@@ -394,7 +421,9 @@ def _run(a, out) -> int:
                       + [f"{c.id} [{c.matrix['source_id']} · {c.matrix['column']}] {c.conclusion}" for c in cells]
                       + [f"empty [{x['source_id']} · {x['column']}] {x['why']}" for x in empty]))
     elif a.cmd == "spec":
-        stated, missing, dropped = s.spec(a.task_id, a.source)
+        # D9: how far the model has read, one JSON line on stderr each time it grows (the desktop shows "9 / 20쪽")
+        tell = lambda page, pages: print(json.dumps({"progress": {"page": page, "pages": pages}}), file=sys.stderr, flush=True)  # noqa: E731
+        stated, missing, dropped = s.spec(a.task_id, a.source, progress=tell)
         v = model(s, a.task_id)
         ids = [e for c in stated for e in v["checks"][c.id]["evidence"]]
         out({"stated": [v["checks"][c.id] for c in stated], "missing": [v["checks"][c.id] for c in missing],
@@ -433,16 +462,22 @@ def _run(a, out) -> int:
     elif a.cmd == "view":
         raise SystemExit("view: task id required (or --html)")
     elif a.cmd == "state":
-        out(workspace(s), f"{len(s.state.tasks)} tasks")
+        # A12 the criteria a reproduction task starts with (the new-task dialog lists them before the task exists)
+        out({**workspace(s), "reproCriteria": list(REPRO_CRITERIA)}, f"{len(s.state.tasks)} tasks")
     elif a.cmd == "audit":
         prompt, items = render_audit(s, a.task_id)
         out({"prompt": prompt, "schema": AUDIT_SCHEMA, "items": items}, prompt)
     elif a.cmd == "summarize":
         r = s.judge.summarize_stage(s.get_task(a.task_id).text, a.stage, a.messages)
         out({"summary": r["summary"].strip()}, r["summary"].strip())
+    elif a.cmd == "report" and a.preview:
+        c = report_counts(s, a.task_id, a.now)
+        out({"counts": {k: v for k, v in c.items() if k != "stale"}, "stale": c["stale"], "title": s.get_task(a.task_id).text},
+            json.dumps(c, ensure_ascii=False))
     elif a.cmd == "report":
-        md = render_report(s, a.task_id, a.now)
-        out({"text": md, "title": s.get_task(a.task_id).text}, md)
+        md, title = render_report(s, a.task_id, a.now, a.sections), s.get_task(a.task_id).text
+        text = mdhtml.page(md, f"재현 보고서: {title}") if a.format == "html" else md
+        out({"text": text, "title": title, "format": a.format}, text)
     elif a.cmd == "brief":
         text, basis = render_brief(s, a.task_id)
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16] if text else ""

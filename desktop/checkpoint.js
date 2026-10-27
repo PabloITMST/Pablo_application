@@ -52,13 +52,27 @@ async function snapshot(dir, task, work) {
   return tree;
 }
 
-// [{status: A|M|D, path}] from tree a to tree b
-async function changes(dir, task, work, a, b) {
+// [{status: A|M|D, path}] from tree a to tree b; D7 opts.lines: + {add, del} lines per file (null for a binary file)
+async function changes(dir, task, work, a, b, opts = {}) {
   if (!a || !b || a === b) return [];
   const out = await run(["diff-tree", "-r", "--no-renames", "--name-status", "-z", a, b], { gitDir: repo(dir, task), work });
   const xs = out.split("\0").filter(Boolean), rows = [];
   for (let i = 0; i + 1 < xs.length; i += 2) rows.push({ status: xs[i][0], path: xs[i + 1] });
+  if (opts.lines && rows.length) {
+    const n = await numstat(dir, task, work, a, b);
+    for (const r of rows) { const x = n.get(r.path); r.add = x ? x.add : null; r.del = x ? x.del : null; }
+  }
   return rows;
+}
+// D7 path -> {add, del}: the lines a -> b added and removed in each file ("-" for a binary file -> null)
+async function numstat(dir, task, work, a, b) {
+  const out = await run(["diff-tree", "-r", "--no-renames", "--numstat", "--no-textconv", "--no-ext-diff", "-z", a, b], { gitDir: repo(dir, task), work });
+  const m = new Map();
+  for (const x of out.split("\0")) {
+    const r = x.match(/^(\d+|-)\t(\d+|-)\t([\s\S]+)$/);
+    if (r) m.set(r[3], { add: r[1] === "-" ? null : +r[1], del: r[2] === "-" ? null : +r[2] });
+  }
+  return m;
 }
 
 async function diff(dir, task, work, a, b) {
@@ -81,4 +95,4 @@ async function restore(dir, task, work, a, b) {
   return rows;
 }
 
-module.exports = { has, snapshot, changes, diff, restore, EXCLUDE };
+module.exports = { has, snapshot, changes, numstat, diff, restore, EXCLUDE };
