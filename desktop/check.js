@@ -994,7 +994,7 @@ async function uiCheck() {
       : m.querySelector("[data-intent]") ? "INTENT " + m.querySelector("[data-intent]").textContent.replace(/ 기준 보기$/, "") : "YOU " + m.querySelector("p").textContent; })`);
   assert.deepStrictEqual(order, ["YOU 인사말 파일 정리", "YOU hello.txt에 인사말을 넣어줘. 다른 파일은 건드리지 마.",
     "INTENT 📌 작업 기준에 추가했습니다: 다른 파일은 건드리지 마 (반드시)", "AGENT hello.txt에 줄을 더하겠습니다.", "CARD ACT1",
-    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "AUDIT", "ASKS ⚠ 결정이 필요합니다."]);
+    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "AUDIT", "ASKS 결정이 필요합니다"]);
   // ⑤ the second card: the model named the line that reads top-k; Pablo shows the config line that sets it. A log line is
   // checked in a file, not in code
   assert.deepStrictEqual(await js(`(b => [...b.querySelectorAll(":scope > ul > li, details li")].map(x => [x.querySelector(".at code").textContent,
@@ -1354,9 +1354,10 @@ async function uiCheck() {
   // UI renewal: a message's words made a criterion by hand (📌 기준으로), trimmed, 가능하면: a rule of this task, said in the
   // conversation; words that read like a plain statement still become a rule
   const made = "배치 크기는 논문 값 그대로 둔다";
-  await js(`(m => { m.querySelector("[data-crit-make]").click(); const ed = m.querySelector(".tagedit");
-    ed.querySelector("[data-crit-text]").value = ${JSON.stringify(made)}; ed.querySelectorAll("input[type=radio]")[1].checked = true;
-    ed.querySelector("[data-crit-save]").click(); })(document.querySelector("#log .msg [data-crit-make]").closest(".msg"))`);
+  // A2 complete (B2 / B15): "+ 태그" -> 기준으로 만들기 in the same popover (the stage stays as it was)
+  await js(`(m => { m.querySelector("[data-tag-edit]").click(); const ed = m.querySelector(".tagedit"); ed.querySelector("[data-crit-on]").click();
+    ed.querySelector("[data-crit-text]").value = ${JSON.stringify(made)}; ed.querySelector('input[name^="ce-"][value="soft"]').checked = true;
+    ed.querySelector("[data-tag-save]").click(); })(document.querySelector("#log .msg [data-tag-edit]").closest(".msg"))`);
   await settle(`V.intent.prefer.some(x => x.text === ${JSON.stringify(made)}) && !V.intent.must.some(x => x.text === ${JSON.stringify(made)})`);
   assert.ok(await js(`[...document.querySelectorAll("#log [data-intent]")].some(p => p.textContent.includes(${JSON.stringify(made + " (가능하면)")}))`),
     "the conversation says it");

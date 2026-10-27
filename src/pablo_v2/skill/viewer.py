@@ -1280,6 +1280,54 @@ body:not(.panel) .ptab small { font:11px/1.4 var(--mono); color:var(--ink-3); }
 /* A2 complete · A shell: sidebar, header chips and menus, stage bar, view bar, first run, dialogs, narrow window (agent A) */
 /* end A2 complete · A */
 /* A2 complete · B conversation: messages, cards, views, composer, state cards (agent B) */
+/* B1 messages: the person's avatar ink 6%, name 13 / time mono 11 */
+.msg.user .av { background:var(--a6); color:var(--ink-2); border-color:transparent; }
+.who small { font:400 11px/1 var(--mono); color:var(--ink-3); }
+/* B2 / B3 tags: targets white on a hairline; a suggestion orange soft with 맞음 / 아님 and its reason under the row */
+.tags { position:relative; gap:6px; }
+.tg.tgt { background:var(--white); border:1px solid var(--a12); color:var(--ink-2); }
+.tg.sug { background:var(--signal-soft); border:1px solid transparent; color:var(--ink); font-weight:600; }
+.tg.sug .ico { color:var(--signal); } button.tg.sug { cursor:pointer; }
+.tags .tagbtn.yes, .tags .tagbtn.no { color:var(--ink); font-weight:600; }
+.tags .tagbtn[data-tag-edit] { color:var(--ink-3); }
+.msg .sugwhy { margin:4px 0 0; font-size:12px; line-height:18px; color:var(--ink-3); }
+/* B15 the tag popover (320) */
+.tagedit { position:absolute; z-index:30; top:calc(100% + 6px); left:0; width:320px; max-width:calc(100vw - 32px); box-sizing:border-box;
+  margin:0; padding:14px 16px; background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); box-shadow:var(--sh-lg);
+  display:flex; flex-direction:column; gap:6px; font-size:13px; line-height:20px; color:var(--ink); }
+.tagedit > b { font:600 14px/20px var(--sans); }
+.te-sec { margin-top:6px; font:500 12px/16px var(--sans); color:var(--ink-3); }
+.tagedit .te-stage { flex-direction:column; gap:2px; }
+.te-stage label { display:flex; align-items:center; gap:8px; height:var(--h-in); padding:0 8px; border-radius:var(--r-tag); cursor:pointer; }
+.te-stage label:has(input:checked) { background:var(--a6); font-weight:600; }
+.te-stage label small { margin-left:auto; font:400 11px/1 var(--sans); color:var(--ink-3); }
+.tagedit input[type=radio], .tagedit input[type=checkbox] { accent-color:var(--ink); margin:0; }
+.te-tg { display:flex; flex-wrap:wrap; gap:6px; }
+.te-x { margin-left:2px; padding:0 2px; border:0; background:none; color:var(--ink-3); font-size:12px; line-height:1; cursor:pointer; }
+.te-x:hover { color:var(--ink); }
+.te-add { height:var(--h-ctl); box-sizing:border-box; padding:0 10px; border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white);
+  font-size:12px; outline:none; } .te-add:focus { border-color:var(--ink-3); }
+.te-dec { display:flex; align-items:center; gap:8px; min-height:var(--h-in); cursor:pointer; }
+.te-crit { display:flex; flex-direction:column; gap:6px; padding-left:22px; } .te-crit[hidden] { display:none; }
+.tagedit .te-foot { align-items:center; margin-top:6px; } .te-foot .te-note { flex:1; margin:0; font-size:11px; line-height:16px; color:var(--ink-3); }
+/* B4-B6 the criteria notes: no avatar; added = orange soft band, held back = a card that asks, not read = grey band */
+.msg.note { grid-template-columns:minmax(0, 1fr); margin-bottom:16px; }
+.msg.note > .av, .msg.note .who, .msg.note .tags { display:none; }
+.msg .band { display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; margin:0 0 8px; padding:10px 16px; border-radius:var(--r-in);
+  font-size:14px; line-height:22px; color:var(--ink); }
+.band.ok { background:var(--signal-soft); } .band.ok > .ico { flex:none; color:var(--signal); }
+.band.q { background:var(--a5); color:var(--ink-2); font-size:13px; } .band.q > .ico { flex:none; color:var(--ink-3); }
+.band .bt { flex:1 1 240px; min-width:0; } .band .bt b { font-weight:500; color:var(--ink); }
+.band .rt { margin-left:auto; flex:none; display:inline-flex; align-items:center; gap:8px; } .band .em { display:none; }
+.band .link .ico { vertical-align:-2px; }
+.hold { margin:0 0 8px; padding:16px 20px; background:var(--white); border-left:3px solid var(--signal); border-radius:var(--r-card); box-shadow:var(--sh-md); }
+.msg .hold p { margin:0; } .hold .ttl { font:600 14px/22px var(--sans); margin-bottom:6px !important; }
+.hold b { font-weight:500; } .hold .acts { display:flex; gap:8px; margin-top:12px !important; }
+.asmenu { display:inline-flex; gap:2px; padding:2px; background:var(--white); border:1px solid var(--a8); border-radius:var(--r-ctl); }
+.asmenu[hidden] { display:none; }
+.asmenu button { height:var(--h-in); padding:0 10px; border-radius:var(--r-tag); font:500 12px/1 var(--sans); color:var(--ink); }
+.asmenu button:hover { background:var(--a5); }
+.call .band { margin:6px 0; padding:8px 12px; }
 /* end A2 complete · B */
 /* A2 complete · C right column: tabs, panel, rail, evidence, wide table (agent C) */
 /* end A2 complete · C */
@@ -1346,7 +1394,8 @@ const ALIGN = { aligned: "계획대로 실행했습니다", partial: "일부만 
                 failed: "실행에 실패했습니다", not_executed: "실행하지 않았습니다" };
 const DECIDE = { proceed: "사용자가 진행을 승인했습니다", defer: "사용자가 보류했습니다", reject: "사용자가 취소했습니다" };
 // stored times are UTC ISO; shown in the user's local time
-const time = s => s ? new Date(s).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+// A2 complete (B1): a message's time is HH:mm (the stage dividers too); the day is the task's
+const time = s => { if (!s) return ""; const d = new Date(s); return isNaN(d) ? "" : String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
 const day = s => new Date(s).toLocaleDateString("ko-KR");
 // M5.1 presentation only: the stored action text (raw command / full path) -> what it does; raw stays in 기술 세부정보
 const base = p => p.trim().replace(/["']/g, "").split(/[\\/]/).pop();
@@ -1514,8 +1563,11 @@ function ptabs() {
 }
 
 // ---- conversation: built from the stored research / plan / guard / review records --------------------------
+// B1: the person is "나"; a message without its own time (a live Pablo card) is stamped now (conversation() stamps the
+// stored ones with their record's time)
 const msg = (who, at, ...kids) => h("div", { class: "msg " + (who === "Pablo" ? "pablo" : "user") },
-  h("div", { class: "av" }, who === "Pablo" ? "P" : "나"), h("div", null, h("div", { class: "who" }, who, h("small", null, time(at))), kids));
+  h("div", { class: "av" }, who === "Pablo" ? "P" : "나"), h("div", null, h("div", { class: "who" }, who === "Pablo" ? "Pablo" : "나",
+    h("small", null, time(at === null ? new Date().toISOString() : at))), kids));
 // Normal progress is one Pablo answer; only research issues, WARN/BLOCK and open decisions get their own message.
 const SURE = { PARTIALLY_VERIFIED: "일부만 확인했습니다.", NOT_FOUND: "공식 근거를 찾지 못해 추정했습니다.",
                CONFLICTING: "출처끼리 내용이 다릅니다." };
@@ -1848,38 +1900,55 @@ function matrix(c, wide) {
   if (!wide) box.append(h("p", null, h("button", { class: "link", "data-wide": "1", on: () => show({ mode: "matrix", c }) }, "크게 보기")));
   return box;
 }
-// criteria the user said in a chat message, now this task's intent (Guard and the agent's brief use them)
-const noted = c => msg("Pablo", null, (c.items || []).length ? h("p", { class: "muted", "data-intent": "1" }, "📌 작업 기준에 추가했습니다: ",
-  c.items.map(i => `${i.text} (${i.strength === "hard" ? "반드시" : "가능하면"})`).join(" · "), " ",
-  h("button", { class: "link", on: () => show({ mode: "intent" }) }, "기준 보기")) : null,
-  (c.pending || []).map(k => held({ ...k, live: c.live }, c.task || (V && V.task.id))),
-  (c.unread || []).map(u => unreadRow({ ...u, live: c.live }, c.task || (V && V.task.id))));
-// ③ a line the reader could not classify is shown, never dropped: the user makes it a rule (반드시 / 가능하면) or lets it go
+// criteria the user said in a chat message, now this task's intent (Guard and the agent's brief use them).
+// A2 complete (B4-B6): one band per kind, no avatar (.msg.note): added (orange soft), held back (a card that asks),
+// not read (grey). [data-intent] keeps its words ("📌 작업 기준에 추가했습니다: …"); the pin is an icon on screen
+const noted = c => { const task = c.task || (V && V.task.id), m = msg("Pablo", null,
+  (c.items || []).length ? h("p", { class: "band ok", "data-intent": "1" }, ico("check-circle", 16), h("span", { class: "bt" }, h("span", { class: "em" }, "📌 "),
+    "작업 기준에 추가했습니다: ", c.items.map(i => `${i.text} (${i.strength === "hard" ? "반드시" : "가능하면"})`).join(" · ")), " ",
+    h("button", { class: "link rt", on: () => show({ mode: "intent" }) }, "기준 보기")) : null,
+  (c.pending || []).map(k => held({ ...k, live: c.live }, task)),
+  (c.unread || []).map(u => unreadRow({ ...u, live: c.live }, task)));
+  m.classList.add("note"); return m; };
+// ③ a line the reader could not classify is shown, never dropped: the user makes it a rule (반드시 / 가능하면) or lets it go.
+// B6 / S48: a grey band; "기준으로 추가 ▾" opens the three choices (the buttons stay in the DOM: [data-as])
 function unreadRow(u, task) {
   const open = u.live || (V && (V.intent.unread || []).includes(u.id));
-  const row = h("p", { class: "muted", "data-unread": u.id }, "❔ 기준으로 읽지 못했습니다: ", h("b", null, u.text), " ");
+  const row = h("div", { class: "band q", "data-unread": u.id }, ico("info", 14),
+    h("span", { class: "bt" }, "기준으로 읽지 못했습니다 · “", h("b", null, u.text), "” — 요청으로만 처리했습니다"), " ");
   const was = { hard: "(반드시로 둠)", soft: "(가능하면으로 둠)", skip: "(넘김)", rule: "(기준으로 둠)" }[((V && V.intent.decided) || {})[u.id]] || "(처리함)";
-  if (!open || !window.pabloHost || !pabloHost.intent) return row.append(open ? "" : was), row;
+  if (!open || !window.pabloHost || !pabloHost.intent) return row.append(h("span", { class: "rt muted" }, open ? "" : was)), row;
   const act = (a, done) => () => pabloHost.intent(task, u.id, a).then(() => {
-    row.lastChild.replaceWith(h("span", { "data-decided": a }, done));
+    row.lastChild.replaceWith(h("span", { class: "rt muted", "data-decided": a }, done));
     // the new-task message counts what is still to decide, and stops asking once nothing is
     const left = document.querySelectorAll("[data-unread] [data-as]").length, ask = document.querySelector("[data-made] [data-ask]");
     if (ask) ask.textContent = left ? `아직 정하지 않은 줄 ${left}개가 위에 있습니다. ` : "읽지 못한 줄도 모두 정했습니다. ";
-    refresh(); }, e => row.append(h("span", null, " " + fail(e))));
-  row.append(h("span", null, h("button", { class: "link", "data-as": "hard", on: act("hard", "반드시 지킬 기준으로 두었습니다.") }, "반드시"), " · ",
-    h("button", { class: "link", "data-as": "soft", on: act("soft", "가능하면 지킬 기준으로 두었습니다.") }, "가능하면"), " · ",
-    h("button", { class: "link", "data-as": "skip", on: act("reject", "기준으로 두지 않았습니다.") }, "괜찮음")));
+    refresh(); }, e => row.append(h("span", { class: "muted" }, " " + fail(e))));
+  const menu = h("span", { class: "asmenu", role: "group", "aria-label": "기준으로 둘까요?", hidden: true },
+    h("button", { type: "button", "data-as": "hard", on: act("hard", "반드시 지킬 기준으로 두었습니다.") }, "반드시"),
+    h("button", { type: "button", "data-as": "soft", on: act("soft", "가능하면 지킬 기준으로 두었습니다.") }, "가능하면"),
+    h("button", { type: "button", "data-as": "skip", on: act("reject", "기준으로 두지 않았습니다.") }, "괜찮음"));
+  const tog = h("button", { class: "link", "data-as-open": "1", "aria-expanded": "false", on: () => { menu.hidden = !menu.hidden; tog.setAttribute("aria-expanded", String(!menu.hidden)); } },
+    "기준으로 추가 ", ico("chevron-down", 12));
+  row.append(h("span", { class: "rt" }, tog, menu));
   return row;
 }
-// B4: a criterion said in hedged words is held back until the user decides; decided ones show what was decided
-function held(k, task) {
-  const open = k.live || (V && V.intent.questions.some(q => q.id === k.id)), row = h("p", { class: "muted", "data-held": k.id }, "❔ 기준으로 둘까요? ", h("b", null, k.text), " ");
-  if (!open || !window.pabloHost || !pabloHost.intent) return row.append(open ? "" : "(처리함)"), row;
-  const act = (a, done) => () => pabloHost.intent(task, k.id, a).then(() => { row.lastChild.replaceWith(h("span", null, done)); refresh(); },
-    e => row.append(h("span", null, " " + fail(e))));
-  row.append(h("span", null, h("button", { class: "link", "data-promote": k.id, on: act("promote", "기준에 추가했습니다.") }, "기준으로 추가"), " · ",
+// B4: a criterion said in hedged words is held back until the user decides. B5: under its message a card that asks (an
+// orange edge: it waits on the person); compact (S47) in the closing 결정 card and once decided
+function held(k, task, compact) {
+  const open = k.live || (V && V.intent.questions.some(q => q.id === k.id)), can = !k.done && open && window.pabloHost && pabloHost.intent;
+  let el = null;
+  const act = (a, done) => () => pabloHost.intent(task, k.id, a).then(() => { el.replaceWith(held({ ...k, live: false, done }, task, true)); refresh(); },
+    e => el.append(h("span", { class: "muted" }, " " + fail(e))));
+  if (can && !compact) return el = h("div", { class: "hold", "data-held": k.id }, h("p", { class: "ttl" }, "결정이 필요합니다"),
+    h("p", null, "“", h("b", null, k.text), "” — 이 작업의 기준으로 남길까요?"),
+    h("p", { class: "acts" }, h("button", { class: "pill on", "data-promote": k.id, on: act("promote", "기준에 추가했습니다.") }, "기준으로 추가 (가능하면)"),
+      h("button", { class: "pill", "data-reject": k.id, on: act("reject", "무시했습니다.") }, "무시")));
+  el = h("p", { class: "band q", "data-held": k.id }, ico("info", 14), h("span", { class: "bt" }, "기준으로 둘까요? ", h("b", null, k.text)), " ");
+  if (!can) return el.append(h("span", { class: "rt muted" }, k.done || (open ? "" : "(처리함)"))), el;
+  el.append(h("span", { class: "rt" }, h("button", { class: "link", "data-promote": k.id, on: act("promote", "기준에 추가했습니다.") }, "기준으로 추가"), " ",
     h("button", { class: "link", "data-reject": k.id, on: act("reject", "무시했습니다.") }, "무시")));
-  return row;
+  return el;
 }
 function said(c) {
   if (c.role === "audit") return [msg("Pablo", null, audited(c))];
@@ -1976,62 +2045,130 @@ function stageOfRole(role, kind) {
 const STAGE_LIST = { repro: ["준비", "조건 확정", "구현·실행", "재현 점검", "보고서"], read: ["준비", "질문", "비교표", "정리"], general: ["준비", "작업", "검토"] };
 const STAGE_KEY = { "준비": "prep", "조건 확정": "spec", "구현·실행": "run", "재현 점검": "audit", "보고서": "report",  // the stage bar's data-stage
   "질문": "ask", "비교표": "compare", "정리": "wrap", "작업": "work", "검토": "review" };
-// o: the person's override for this message (P5: {stage, decision}); auto: the stage Pablo computed
+// A2 complete (B2): what a message is about, as [label, ref]: the criteria and paper conditions it names (D2 refs; only
+// for what a person or the agent said, a Guard card, a criterion change: a conditions card or an audit names dozens), its
+// work-folder files, the pages it quotes ("LinearRAG p.9", not the chat's running [n])
+const clip = (s, n) => { s = String(s || "").replace(/\s*\[\d+\]/g, "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+let refMemo = null;
+const refsFor = key => { if (!V || !key) return [];
+  if (!refMemo || refMemo.v !== V || refMemo.n !== (V.chat || []).length) refMemo = { v: V, n: (V.chat || []).length, m: refsByKey(V) };
+  return refMemo.m.get(key) || []; };
+const critOf = id => V ? [...V.intent.must, ...V.intent.prefer].find(x => x.id === id) : null;
+const RECORDS = ["spec", "spec-loose", "audit", "compare", "changes", "undo", "research", "start", "report"];
+function targetsOf(el, key) {
+  const out = [], seen = new Set(), put = (label, ref) => { if (!seen.has(label)) { seen.add(label); out.push([label, ref || null]); } };
+  const role = !key ? "" : key.startsWith("act:") ? "act" : key.split("@")[0];
+  if (key && !RECORDS.includes(role) && !role.startsWith("issue")) refsFor(key).forEach(r => {
+    if (/^[CK]\d+$/.test(r)) { const c = critOf(r); if (c) put("기준 · " + clip(c.text, 18), r); }
+    else if (/^SC\d+$/.test(r)) { const k = V.checks[r]; if (k && k.spec && !k.spec.missing && !k.matrix) put("조건 · " + clip(k.conclusion || k.title, 18), r); } });
+  [...new Set([...el.querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))].forEach(f => put("파일 · " + f, "file:" + f));
+  el.querySelectorAll(".cite").forEach(c => { const a = M.anchors[c.dataset.e], s = a && M.sources[a.source];
+    if (a && a.page && s && s.title) put(`근거 · ${clip(s.title, 24)} p.${a.page}`, a.source + ":p" + a.page); else put("근거 · " + c.textContent, c.dataset.e); });
+  return out;
+}
+// every target label the conversation has drawn -> its ref (the popover's suggestions; a label added by hand finds its ref)
+const knownTargets = () => { const m = new Map(); document.querySelectorAll("#log .msg[data-trefs]").forEach(x => {
+  let t = {}; try { t = JSON.parse(x.dataset.trefs); } catch (e) {} Object.entries(t).forEach(([k, r]) => m.set(k, r)); });
+  if (V) { [...V.intent.must, ...V.intent.prefer].forEach(c => m.has("기준 · " + clip(c.text, 18)) || m.set("기준 · " + clip(c.text, 18), c.id));
+    V.research.map(id => V.checks[id]).filter(k => k && k.spec && !k.spec.missing && k.state !== "waived").forEach(k => m.set("조건 · " + clip(k.conclusion || k.title, 18), k.id)); }
+  return m; };
+// B3 (user decision 10/27: rules, no model call): a message whose words or refs belong to another stage than the one it
+// was sent in gets "✦ 제안 · <stage>" with 맞음 / 아님 and why. 맞음 = the person's stage (tags[key] {stage, ok}); 아님 =
+// {suggest: "no"}: not asked again
+function suggestFor(el, key, stage) {
+  const role = key && !key.startsWith("act:") ? key.split("@")[0] : "", kind = kindOf();
+  if (role !== "user") return null;  // what the person said; a record's stage is what it is
+  const text = msgWords(el, 2000), rs = refsFor(key);
+  const paper = rs.some(r => /^SC\d+$/.test(r) && ((V.checks[r] || {}).spec)) || !!el.querySelector(".cite")
+    || /논문|조건|부록|근거|원문|저자|\bp\.\s?\d|\d+\s?쪽|표\s?\d|Table\s?\d|appendix/i.test(text);
+  const want = kind === "repro" ? (/보고서/.test(text) ? "보고서" : /점검|논문과\s*(같|다르|맞)|재현이?\s*(됐|되었|맞)/.test(text) ? "재현 점검" : paper ? "조건 확정" : null)
+    : kind === "read" ? (/비교|표로|표에/.test(text) ? "비교표" : /정리|요약|보고서/.test(text) ? "정리" : null)
+    : (/보고서|검토/.test(text) ? "검토" : null);
+  if (!want || want === stage || !(STAGE_LIST[kind] || []).includes(want)) return null;
+  const why = { "조건 확정": "논문 조건·근거를 가리키는 말", "재현 점검": "논문과 맞는지 보는 말", "보고서": "보고서에 대한 말", "비교표": "비교에 대한 말",
+    "정리": "정리에 대한 말", "검토": "검토에 대한 말" }[want];
+  return { stage: want, why: `${stage} 중에 보낸 말이지만 ${why}이라 ${want} 단계로 볼 수 있습니다.` };
+}
+// a person's tag for one message (P5), kept in desktop.json; then the view is drawn again
+const setTag = (key, v) => { const task = V.task.id, tags = { ...(((M.desk || {})[task] || {}).tags || {}) };
+  if (v && Object.keys(v).length) tags[key] = v; else delete tags[key];
+  return pabloHost.setUi(task, "tags", tags).then(() => refresh()).then(() => V && V.task.id === task && conversation()); };
+// held-back criteria of this message's turn that still wait: "✦ 제안 · 기준(가능하면)" on the message (B3)
+const heldOf = key => { if (!V || !key || !key.startsWith("user@")) return [];
+  const turn = turnsOf(V), open = new Set(V.intent.questions.map(q => q.id));
+  return (V.chat || []).filter(c => c.role === "intent" && turn.get("intent@" + c.at) === key).flatMap(c => c.pending || []).filter(k => open.has(k.id)); };
+// o: the person's override for this message (P5: {stage, decision, targets, ok, suggest}); auto: the stage Pablo computed
 function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
   const body = el.children && el.children[1]; if (!body || body.querySelector(":scope > .tags")) return;
-  const files = [...new Set([...el.querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))];
-  // a quote by its paper and page ("LinearRAG p.9"), not the chat's running [n] (QA 10/26: 대상별 grouped by "[1]")
-  const refName = c => { const a = M.anchors[c.dataset.e], s = a && M.sources[a.source];
-    return a && a.page && s && s.title ? `${s.title.length > 24 ? s.title.slice(0, 23) + "…" : s.title} p.${a.page}` : c.textContent; };
-  const refs = [...new Set([...el.querySelectorAll(".cite")].map(refName))];
-  const targets = [...files.map(f => "파일 · " + f), ...refs.map(r => "근거 · " + r)]; el.dataset.targets = JSON.stringify(targets);
-  const shown = all ? targets : [...files.slice(0, 2).map(f => "파일 · " + f), ...refs.slice(0, 2).map(r => "근거 · " + r)];
-  const more = all ? 0 : Math.max(0, files.length - 2) + Math.max(0, refs.length - 2);
+  const found = targetsOf(el, key), refOf = new Map(found);
+  const pairs = Array.isArray(o.targets) ? o.targets.map(t => [t, refOf.get(t) || knownTargets().get(t) || null]) : found;
+  const targets = pairs.map(p => p[0]);
+  el.dataset.targets = JSON.stringify(targets); el.dataset.trefs = JSON.stringify(Object.fromEntries(pairs.filter(p => p[1])));
+  const shown = all ? targets : targets.slice(0, 2), more = targets.length - shown.length;
+  const can = !!(key && window.pabloHost && pabloHost.setUi);
+  const sug = can && !o.stage && !o.ok && o.suggest !== "no" ? suggestFor(el, key, stage) : null, wait = heldOf(key);
   const row = h("div", { class: "tags", "data-auto": auto }, h("span", { class: "tg stage" + (o.stage ? " mine" : ""), title: o.stage ? `사람이 고침 (자동: ${auto})` : null }, stage),
     o.decision ? h("span", { class: "tg manual", "data-decision": "1" }, "결정") : null, ...shown.map(t => h("span", { class: "tg tgt" }, t)),
+    sug ? [h("span", { class: "tg sug", "data-suggest": sug.stage, title: sug.why }, ico("sparkle", 12), "제안 · " + sug.stage),
+      h("button", { class: "tagbtn yes", "data-suggest-ok": "1", on: () => setTag(key, { ...o, stage: sug.stage, ok: true }) }, "맞음"),
+      h("button", { class: "tagbtn no", "data-suggest-no": "1", on: () => setTag(key, { ...o, suggest: "no" }) }, "아님")] : null,
+    wait.length ? h("button", { class: "tg sug", "data-suggest-crit": wait[0].id, title: "이 말에서 기준이 될 만한 줄을 찾았습니다. 아래에서 정해 주세요.",
+      on: () => { const x = document.querySelector(`#log [data-held="${CSS.escape(wait[0].id)}"]`); if (x) x.scrollIntoView({ block: "center" }); } },
+      ico("sparkle", 12), "제안 · 기준(가능하면)") : null,
     more ? h("small", { class: "more" }, `· ${more}개 더`) : null);
-  if (key && window.pabloHost && pabloHost.setUi) row.append(h("button", { class: "tagbtn", "data-tag-edit": "1", title: "이 메시지의 태그 고치기",
-    on: () => tagEdit(row, key, stage, o) }, ico("pencil", 12), "태그"));
-  if (window.pabloHost && pabloHost.makeCriterion && el.classList.contains("msg")) row.append(h("button", { class: "tagbtn", "data-crit-make": "1",
-    title: "이 메시지의 글을 작업 기준으로", on: () => critMake(row, el) }, ico("pin", 12), "기준으로"));
+  // B2: one "+ 태그" for the stage, the targets, 결정 and 기준으로 만들기 (the popover, B15)
+  if (can) row.append(h("button", { class: "tagbtn", "data-tag-edit": "1", title: "이 메시지의 태그 고치기 · 기준으로 만들기", on: () => tagEdit(row, key, stage, o, el) }, "+ 태그"));
   body.append(row);
+  if (sug) body.append(h("p", { class: "sugwhy", "data-suggest-why": "1" }, sug.why));
 }
 // a message's words made a criterion of this task by the person, in a sentence they trim: a rule (반드시 / 가능하면), never
 // the goal. Guard, the brief and 재현 점검 follow at once; the conversation says so
-const msgWords = (el, max) => [...el.children[1].children].filter(c => !c.classList.contains("who") && !c.classList.contains("tags"))
+const msgWords = (el, max) => [...el.children[1].children].filter(c => !c.classList.contains("who") && !c.classList.contains("tags") && !c.classList.contains("sugwhy"))
   .map(c => c.textContent).join(" ").replace(/\s+/g, " ").trim().slice(0, max);
-function critMake(row, el) {
-  const old = row.querySelector(".tagedit"); if (old) return old.remove();
-  const task = V.task.id, words = msgWords(el, 300);
-  const text = h("textarea", { class: "ce-text", "data-crit-text": "1", rows: 3, maxlength: 1000 }); text.value = words;
-  const note = h("p", { class: "muted" }, "이 작업에만 적용됩니다. 지킬 내용만 한 문장으로 남겨 주세요.");
-  const ed = h("div", { class: "tagedit" }, h("b", null, "이 글을 작업 기준으로"), text,
-    h("div", { class: "te-st" }, [["hard", "반드시"], ["soft", "가능하면"]].map(([v, n]) =>
-      h("label", null, h("input", { type: "radio", name: "ce-" + task, value: v, checked: v === "hard" ? true : null }), " ", n))), note,
-    h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => ed.remove() }, "취소"), h("button", { class: "pill on", "data-crit-save": "1", on: () => {
-      const t = text.value.trim(), st = ed.querySelector("input[type=radio]:checked").value;
-      if (!t) return text.focus();
-      pabloHost.makeCriterion(task, t, st).then(items => {
-        if (!items.length) return note.replaceChildren("이미 같은 기준이 있습니다.");
-        ed.remove(); echo(task, { role: "intent", items }); return refresh(); }, e => note.replaceChildren(fail(e))); } }, "기준으로 추가")));
-  row.append(ed); text.focus();
-}
-// P5: the person changes a message's stage or pins it as a decision; that wins over what Pablo computes, on every redraw
-function tagEdit(row, key, stage, o) {
-  const old = row.querySelector(".tagedit"); if (old) return old.remove();
-  const names = STAGE_LIST[kindOf()] || STAGE_LIST.general, task = V.task.id;
-  const ed = h("div", { class: "tagedit" }, h("b", null, "이 메시지의 태그"),
-    h("div", { class: "te-st" }, names.map(n => h("label", null, h("input", { type: "radio", name: "te-" + key, value: n, checked: n === stage ? true : null }), " ", n,
-      n === row.dataset.auto ? h("small", null, " (자동)") : null))),
-    h("label", { class: "te-dec" }, h("input", { type: "checkbox", checked: o.decision ? true : null }), " 결정으로 고정 — 단계별 보기의 결정 목록과 보고서의 근거가 됩니다"),
-    h("p", { class: "muted" }, "사람이 고친 태그는 다시 계산해도 바뀌지 않습니다."),
-    h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => ed.remove() }, "취소"), h("button", { class: "pill on", "data-tag-save": "1", on: () => {
-      const st = (ed.querySelector("input[type=radio]:checked") || {}).value || stage, dec = ed.querySelector("input[type=checkbox]").checked;
-      const tags = { ...(((M.desk || {})[task] || {}).tags || {}) }, v = { ...(st !== row.dataset.auto ? { stage: st } : {}), ...(dec ? { decision: true } : {}) };
-      if (Object.keys(v).length) tags[key] = v; else delete tags[key];
-      pabloHost.setUi(task, "tags", tags).then(() => refresh()).then(() => V && V.task.id === task && conversation()); } }, "저장")));
+// P5 + B15: the tag popover (320): the stage (the computed one says so), the targets (× / + 잇기), 결정으로 고정, and 기준으로
+// 만들기 (the message's words, trimmed, 반드시 / 가능하면: makeCriterion). The person's tag wins over every redraw
+function tagEdit(row, key, stage, o, el) {
+  const old = document.querySelector(".tagedit"); if (old) { const mine = old.parentNode === row; old.remove(); if (mine) return; }
+  const names = STAGE_LIST[kindOf()] || STAGE_LIST.general, task = V.task.id, auto = row.dataset.auto, id = key.replace(/[^\w]/g, "");
+  const targets = JSON.parse(el.dataset.targets || "[]"), orig = JSON.stringify(targets);
+  const chips = h("div", { class: "te-tg" }), draw = () => chips.replaceChildren(...(targets.length ? targets.map((t, i) => h("span", { class: "tg tgt" }, t,
+    h("button", { class: "te-x", type: "button", title: "이 대상 빼기", "data-tag-drop": t, on: () => { targets.splice(i, 1); draw(); } }, "×"))) : [h("small", { class: "muted" }, "대상 없음")]));
+  draw();
+  const add = h("input", { class: "te-add", placeholder: "+ 조건 · 기준 · 파일 잇기", list: "te-dl-" + id, "data-tag-add": "1" });
+  add.addEventListener("keydown", e => { if (e.key !== "Enter" || e.isComposing || !add.value.trim()) return; e.preventDefault();
+    const t = add.value.trim(); if (!targets.includes(t)) targets.push(t); add.value = ""; draw(); });
+  const dec = h("input", { type: "checkbox", "data-tag-dec": "1", checked: o.decision ? true : null });
+  const mk = h("input", { type: "checkbox", "data-crit-on": "1" });
+  const text = h("textarea", { class: "ce-text", "data-crit-text": "1", rows: 2, maxlength: 1000 }); text.value = msgWords(el, 300);
+  const crit = h("div", { class: "te-crit", hidden: true }, text, h("div", { class: "te-st" }, [["hard", "반드시"], ["soft", "가능하면"]].map(([v, n]) =>
+    h("label", null, h("input", { type: "radio", name: "ce-" + id, value: v, checked: v === "hard" ? true : null }), " ", n))));
+  mk.addEventListener("change", () => { crit.hidden = !mk.checked; if (mk.checked) text.focus(); });
+  const note = h("p", { class: "te-note" }, "사람이 고친 태그는 다시 계산해도 유지됩니다");
+  const save = async () => {
+    const st = (ed.querySelector(`input[name="te-${id}"]:checked`) || {}).value || stage, v = { ...o };
+    delete v.stage; delete v.decision; delete v.targets;
+    if (st !== auto) v.stage = st; if (dec.checked) v.decision = true;
+    if (JSON.stringify(targets) !== orig) v.targets = targets; else if (Array.isArray(o.targets)) v.targets = o.targets;
+    if (mk.checked) { const t = text.value.trim(); if (!t) return text.focus();
+      try { const items = await pabloHost.makeCriterion(task, t, ed.querySelector(`input[name="ce-${id}"]:checked`).value);
+        if (!items.length) return note.replaceChildren("이미 같은 기준이 있습니다."); echo(task, { role: "intent", items }); }
+      catch (e) { return note.replaceChildren(fail(e)); } }
+    ed.remove();
+    return JSON.stringify(v) !== JSON.stringify(o) ? setTag(key, v) : mk.checked ? refresh() : null; };
+  const ed = h("div", { class: "tagedit", role: "dialog", "aria-label": "이 메시지의 태그" }, h("b", null, "이 메시지의 태그"),
+    h("div", { class: "te-sec" }, "단계"),
+    h("div", { class: "te-st te-stage" }, names.map(n => h("label", null, h("input", { type: "radio", name: "te-" + id, value: n, checked: n === stage ? true : null }), " ", n,
+      n === auto ? h("small", null, "자동 · 보낸 때 단계") : null))),
+    h("div", { class: "te-sec" }, "대상"), chips, add, h("datalist", { id: "te-dl-" + id }, [...knownTargets().keys()].map(t => h("option", { value: t }))),
+    h("div", { class: "te-sec" }, "표시"),
+    h("label", { class: "te-dec" }, dec, " 결정으로 고정 — 결정 목록 · 보고서에 들어감"),
+    h("label", { class: "te-dec" }, mk, " 기준으로 만들기"), crit,
+    h("div", { class: "te-foot" }, note, h("button", { class: "pill on", "data-tag-save": "1", on: save }, "완료")));
+  ed.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); ed.remove(); } });
   row.append(ed);
 }
+// a click outside the tag popover closes it (Esc too)
+addEventListener("mousedown", e => { const ed = document.querySelector(".tagedit"); if (ed && !e.target.closest(".tagedit, [data-tag-edit]")) ed.remove(); }, true);
 const firstText = el => { const p = el.querySelector("p"); return (p ? p.textContent : el.textContent).replace(/\s+/g, " ").trim().slice(0, 90); };
 // P6 단계별: one box per stage; past ones show a summary (the person's text wins over the record-based one) and the
 // decisions, their messages folded; the current stage is open; stages not reached yet are placeholders
@@ -2210,6 +2347,7 @@ function conversation() {
   const rows = items.sort((x, y) => x[0] - y[0]).map(([t, x, s, key]) => {  // stable sort: same time keeps the order above
     const o = over[key] || {}, st = o.stage || s;
     if (st && x.classList && x.classList.contains("msg")) { x.dataset.stage = st; x.dataset.key = key; tagRow(x, st, key, o, s, allTags); }
+    const w = x.querySelector && x.querySelector(":scope > div > .who small"); if (w && t) w.textContent = time(t);  // B1
     return [x, st, o, t]; });
   if (view === "stage") byStage(log, rows, kind, D);
   else if (view === "target") byTarget(log, rows);
@@ -2222,8 +2360,8 @@ function conversation() {
       }
       log.append(x); }); }
   if (V.intent.questions.length) log.append(msg("Pablo", null, h("div", { class: "call" },
-    h("p", { class: "head" }, "⚠ 결정이 필요합니다."),
-    V.intent.questions.map(q => /^K\d+$/.test(q.id) ? held(q, V.task.id) : h("p", { title: q.id, "data-id": q.id }, rich(q.text))),
+    h("p", { class: "head" }, "결정이 필요합니다"), h("p", { class: "muted" }, "정하기 전에는 기준으로 쓰지 않습니다."),
+    V.intent.questions.map(q => /^K\d+$/.test(q.id) ? held(q, V.task.id, true) : h("p", { title: q.id, "data-id": q.id }, rich(q.text))),
     h("p", null, h("button", { class: "link", on: () => show({ mode: "intent" }) }, "작업 기준 보기")))));
   log.append(live());
   finish();
