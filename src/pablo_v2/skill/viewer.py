@@ -1278,6 +1278,308 @@ body:not(.panel) .ptab small { font:11px/1.4 var(--mono); color:var(--ink-3); }
 .tg, .tagbtn, .cite { height:var(--h-tag); box-sizing:border-box; padding-top:0; padding-bottom:0; }
 .cite { display:inline-flex; align-items:center; }
 /* A2 complete · A shell: sidebar, header chips and menus, stage bar, view bar, first run, dialogs, narrow window (agent A) */
+/* sidebar: brand row with the fold button, 새 작업 / search with their shortcut, rows with the stage progress, the account
+   card at the foot; folded (body.side-off) it is a 56px rail */
+body.side-off { --side-w:56px; }
+#side { display:flex; flex-direction:column; overflow:hidden; }
+#side .brand { flex:none; }
+#side .brow { display:flex; align-items:center; justify-content:space-between; }
+#side .fold { flex:none; width:28px; height:28px; display:grid; place-items:center; border-radius:var(--r-ctl); color:var(--ink-3); }
+#side .fold:hover, #side .fold:focus-visible { background:var(--a5); color:var(--ink); }
+#side .new > span { flex:1; text-align:left; }
+.kbd { font:500 10px/1 var(--mono); letter-spacing:0; color:inherit; opacity:.6; background:none; border:0; padding:0; white-space:nowrap; }
+#side .searchbox { flex:none; }
+#side .searchbox > .kbd { position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--ink-3); opacity:1; pointer-events:none; }
+#task-search { padding-right:52px; }
+#task-search::-webkit-search-cancel-button { display:none; }
+#task-list { flex:1 1 auto; min-height:0; overflow:auto; }
+#side .t .tn { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#side .t small { display:flex; align-items:center; gap:8px; }
+#side .t .prog { flex:none; display:inline-flex; gap:2px; }
+#side .t .prog i { width:8px; height:3px; border-radius:2px; background:var(--a12); }
+#side .t .prog i.p-done { background:var(--ink); } #side .t .prog i.p-current { background:var(--signal); }
+#side .t .prog i.p-stale { background:rgba(13,14,16,.35); }
+#side b.hit { font-weight:700; color:var(--ink); }
+#side .none, #side .shint { margin:4px 8px; font-size:12px; line-height:1.5; color:var(--ink-3); }
+#side .shint { margin-top:12px; }
+#side .nohit { margin:2px 8px; } #side .nohit b { display:block; font:600 13px/1.4 var(--sans); color:var(--ink); }
+#side .nohit p { margin:4px 0 6px; font-size:12px; line-height:1.5; color:var(--ink-2); } #side .nohit .link { font-size:12px; }
+#side .away-row { position:relative; }
+#side .away-row .t { opacity:.62; } #side .away-row:hover .t, #side .away-row:focus-within .t { opacity:1; }
+#side .away-row .unarch { position:absolute; right:10px; bottom:12px; font-size:12px; opacity:0; }
+#side .away-row:hover .unarch, #side .away-row .unarch:focus-visible { opacity:1; }
+/* the account card (#acct) at the sidebar's foot; one state at a time (B21, S1–S4, S32–S35) */
+#side > #acct { flex:none; width:auto; max-width:none; margin:8px 4px 0; font-size:12px; color:var(--ink-2); }
+#acct .acard { display:flex; flex-direction:column; gap:2px; padding:10px 12px; background:var(--white); border:1px solid var(--a8);
+  border-radius:var(--r-card); box-shadow:var(--sh-sm); }
+#acct .acard > b { display:flex; align-items:center; gap:6px; font:600 12px/1.45 var(--sans); color:var(--ink); }
+#acct .acard > small { font-size:12px; line-height:1.45; color:var(--ink-2); }
+#acct .acard.bad { border-left:3px solid var(--signal); }
+#acct .acard .link { font-size:12px; }
+#acct .aacts { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-top:8px; }
+#acct .hello { display:flex; align-items:center; gap:10px; margin:0 0 8px; padding:10px 12px; background:var(--white); border:1px solid var(--a8);
+  border-radius:var(--r-card); box-shadow:var(--sh-md); }
+#acct .hello .mascot.pose { height:30px; margin:0; } #acct .hello p { margin:0; }
+#acct .hello b { display:block; font:600 12px/1.4 var(--sans); color:var(--ink); } #acct .hello small { font-size:11px; color:var(--ink-3); }
+.spin { flex:none; display:inline-block; width:12px; height:12px; border:2px solid var(--a12); border-top-color:var(--ink); border-radius:50%;
+  animation:spin .8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation:none; } }
+/* F16: the rail */
+body.side-off #side { padding:12px 4px 8px; }
+body.side-off #side > #acct { display:none; }
+#side .rail { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; gap:8px; }
+#side .rail .fold { margin-bottom:6px; }
+#side .rail .rnew, #side .rail .rbtn, #side .rail .rt { flex:none; width:32px; height:32px; display:grid; place-items:center; border-radius:var(--r-ctl); }
+#side .rail .rnew { background:var(--primary); color:var(--on-primary); box-shadow:var(--sh-sm); }
+#side .rail .rbtn { color:var(--ink-2); } #side .rail .rbtn:hover, #side .rail .rt:hover { background:var(--a5); color:var(--ink); }
+#side .rail .rtasks { flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; align-items:center; gap:6px; margin-top:6px; }
+#side .rail .rt { font:600 12px/1 var(--sans); color:var(--ink-2); }
+#side .rail .rt.on { background:var(--white); color:var(--ink); box-shadow:var(--sh-sm); }
+/* header: name · kind · chips · ⋯; the rename field (S17) */
+#bar { position:relative; }
+#bar #pnl { display:none; }
+#bar #more { color:var(--ink-2); } #bar #more[aria-expanded="true"] { background:var(--a5); color:var(--ink); }
+#bar h1.renaming { flex:0 1 auto; display:flex; flex-wrap:wrap; align-items:center; gap:6px; overflow:visible; white-space:normal; }
+#bar .rn-box { position:relative; display:inline-flex; align-items:center; }
+#bar h1 .rn-box .rn-in { width:min(380px, 52vw); padding-right:56px; }
+#bar .rn-cnt { position:absolute; right:10px; font:500 11px/1 var(--mono); color:var(--ink-3); pointer-events:none; }
+#bar .rn-box.over .rn-in { border-color:var(--signal); box-shadow:0 0 0 3px var(--signal-soft); } #bar .rn-box.over .rn-cnt { color:var(--signal); }
+#bar .rn-note { flex-basis:100%; display:flex; align-items:center; gap:4px; font:400 12px/1.4 var(--sans); color:var(--ink-3); }
+#bar .rn-note.bad { color:var(--ink); }
+/* menus (Kit a2/menu-item: rows 32, frame r10, shadow-lg, padding 4) */
+.hmenu { position:absolute; right:12px; top:calc(100% - 6px); z-index:9; min-width:240px; display:flex; flex-direction:column; padding:4px;
+  background:var(--white); border:1px solid var(--a8); border-radius:var(--r-in); box-shadow:var(--sh-lg); }
+.hmenu[hidden] { display:none; }
+.mi { width:100%; height:var(--h-ctl); display:flex; align-items:center; gap:10px; padding:0 10px; border-radius:var(--r-ctl); text-align:left;
+  font:500 13px/1 var(--sans); color:var(--ink); }
+.mi > span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mi > .ico { color:var(--ink-2); } .mi > small { font:400 11px/1 var(--mono); color:var(--ink-3); }
+.mi:hover, .mi:focus-visible, .mi.sel { background:var(--a5); outline:none; }
+.mfoot { margin:4px 6px 2px; padding-top:6px; border-top:1px solid var(--a6); font-size:11px; line-height:1.5; color:var(--ink-3); }
+/* the chips (A7) and the card each opens (F18, S13–S15) */
+#chips { flex:0 1 auto; min-width:0; margin-left:0; position:relative; display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.hchip, .hchip.statechip { display:inline-flex; align-items:center; gap:6px; max-width:240px; height:var(--h-ctl); padding:0 10px; border:1px solid var(--a8);
+  border-radius:var(--r-ctl); background:var(--white); color:var(--ink); font:500 12px/1 var(--sans); box-shadow:var(--sh-sm); }
+.hchip > .ico, .hchip.statechip > .ico { margin:0; color:var(--ink-2); } .hchip > .ico:last-child { color:var(--ink-3); }
+.hchip > span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hchip.none > span { color:var(--ink-3); }
+.hchip:hover, .hchip[aria-expanded="true"] { background:linear-gradient(var(--a4), var(--a4)), var(--white); }
+#chips .srccard { left:0; right:auto; top:calc(100% + 8px); width:460px; max-width:calc(100vw - 32px); padding:4px; z-index:9; border-radius:var(--r-in); }
+#chips .srccard[data-sec="dir"], #chips .srccard[data-sec="net"] { width:300px; }
+.srccard .sc-sec { display:none; padding:0; border:0; color:var(--ink-2); }
+.srccard[data-sec="src"] .sc-sec[data-sec="src"], .srccard[data-sec="dir"] .sc-sec[data-sec="dir"], .srccard[data-sec="net"] .sc-sec[data-sec="net"] { display:block; }
+.srccard .sc-lbl { display:none; }
+.srccard .sc-head { display:flex; align-items:baseline; gap:8px; padding:8px 10px 6px; }
+.srccard .sc-head b { font:600 13px/1.4 var(--sans); color:var(--ink); } .srccard .sc-head small { font-size:12px; color:var(--ink-3); }
+.srccard #src { display:block; }
+.srccard #src .plist { margin:0; gap:0; }
+.srccard #src .paper { display:grid; grid-template-columns:auto minmax(0, 1fr) auto; column-gap:10px; align-items:center; padding:8px 10px; border:0;
+  border-radius:var(--r-ctl); }
+.srccard #src .paper:hover, .srccard #src .paper:focus-within { background:var(--a4); }
+.srccard #src .paper::before { grid-row:1 / span 2; align-self:center; }
+.srccard #src .ptitle { grid-column:2; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:var(--ink); }
+.srccard #src .ptitle .link { font-weight:500; color:var(--ink); } .srccard #src .ptitle b { font-weight:600; }
+.srccard #src .ptitle small { font:400 11px/1 var(--mono); color:var(--ink-3); }
+.srccard #src .ptag { margin-left:6px; padding:1px 6px; border-radius:var(--r-tag); background:var(--a6); font:500 11px/16px var(--sans); color:var(--ink-2); }
+.srccard #src .pmeta { grid-column:2; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:400 11px/1.5 var(--mono); color:var(--ink-3); }
+.srccard #src .pacts { grid-column:3; grid-row:1 / span 2; display:flex; align-items:center; gap:4px; opacity:0; transition:opacity .12s; font-size:12px; }
+.srccard #src .paper:hover .pacts, .srccard #src .pacts:focus-within, .srccard #src .pacts:has(input) { opacity:1; }
+.srccard #src .pacts .rn { opacity:1; } .srccard #src .rm { font-size:16px; padding:0 6px; color:var(--ink-3); }
+.srccard #src .sc-none { display:block; padding:4px 10px 8px; color:var(--ink-3); }
+.srccard #src-toggle { display:block; margin:0 10px 6px; font-size:12px; }
+.srccard .sc-add { display:flex; align-items:center; gap:10px; margin-top:4px; padding:8px 10px 6px; border-top:1px solid var(--a6); }
+.srccard .sc-add .link { display:inline-flex; align-items:center; height:var(--h-in); padding:0 10px; border-radius:var(--r-ctl); background:var(--a5); color:var(--ink); font-size:12px; }
+.srccard .sc-add small { font-size:12px; color:var(--ink-3); }
+.srccard #dir .sc-path { padding:8px 10px 8px; margin-bottom:4px; border-bottom:1px solid var(--a6); }
+.srccard #dir .sc-path small { display:block; font-size:11px; color:var(--ink-3); }
+.srccard #dir .sc-path code { padding:0; background:none; font-size:12px; color:var(--ink); }
+.srccard #dir > b { display:block; padding:10px 12px 0; font:600 13px/1.4 var(--sans); color:var(--ink); }
+.srccard #dir > p { margin:4px 12px 10px; font-size:12px; line-height:1.5; color:var(--ink-2); }
+.srccard #dir > .pill { margin:0 12px 12px; }
+/* the stage bar's filtered stage (A9) and the view bar's filter state (A10) */
+#stages .st-t small[data-filtering] { color:var(--ink); font-weight:600; }
+#viewbar .grow { flex:1; }
+#viewbar .fnone { font-size:12px; color:var(--ink-3); }
+#viewbar .fchip { display:inline-flex; align-items:center; gap:6px; height:var(--h-in); padding:0 8px 0 10px; border-radius:999px; background:var(--a6);
+  font:500 12px/1 var(--sans); color:var(--ink); max-width:280px; }
+#viewbar .fchip:hover { background:var(--a8); }
+/* a narrow conversation column (the wide panel, a narrow window): the chips go to their own line under the title */
+#chat { position:relative; container-type:inline-size; }
+@container (max-width:760px) { #bar .grow { display:none; } #bar h1 { flex:0 1 auto; } #bar .kindtag { margin-right:auto; } #bar h1:last-of-type:not(:has(+ .kindtag)) { flex:1 1 0; }
+  #bar #chips { order:5; flex-basis:100%; } }
+/* notices under the header (S24) and cards that ask (S20, S21): white + the orange edge (the .call card) */
+#notice { padding:0 20px; } #notice:empty { display:none; }
+#notice .call { max-width:680px; margin:10px auto 0; }
+.call .acts { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0 0; }
+.call .acts small { font-size:12px; color:var(--ink-3); }
+.cmdline { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:8px 0 0; padding:8px 12px; border-radius:var(--r-ctl); background:var(--a5); }
+.cmdline code { padding:0; background:none; font-size:12px; }
+.pill.warn { background:var(--signal-soft); border-color:transparent; color:var(--ink); }
+.pill.warn:hover:not(:disabled) { background:#FFD3BD; }
+.pill.sel { border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink); }
+/* first run (A11): the mascot, the question, the two steps */
+.empty .mascot { height:120px; }
+.empty .fr-card { width:min(460px, 100%); margin:22px auto 0; padding:18px 20px; display:flex; flex-direction:column; gap:12px; text-align:left;
+  background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); }
+.empty .fr-step { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:var(--h-ctl); }
+.empty .fr-step > b { display:flex; align-items:center; gap:6px; margin:0; font:600 14px/1.4 var(--sans); color:var(--ink); }
+.empty .fr-step.later > b { font-weight:500; color:var(--ink-3); } .empty .fr-step.done > b { color:var(--ink-2); }
+.empty .fr-wait { display:inline-flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-2); }
+.empty .fr-note { margin:0; font-size:12px; line-height:1.55; color:var(--ink-2); } .empty .fr-note.bad { color:var(--ink); }
+/* dialogs: dim + card (새 작업, 보고서 내보내기, 설정) */
+.dlg-dim { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:16px; background:rgba(13,14,16,.45); }
+.dlg { width:min(620px, 100%); max-height:calc(100vh - 32px); display:flex; flex-direction:column; overflow:hidden; background:var(--surface);
+  border:1px solid var(--a8); border-radius:var(--r-dlg); box-shadow:var(--sh-lg); }
+.dlg-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:20px 24px 6px; }
+.dlg-head b { font:600 20px/1.3 var(--sans); letter-spacing:-0.015em; color:var(--ink); }
+.dlg-body { flex:1 1 auto; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:16px; padding:8px 24px 8px; }
+.dlg-foot { display:flex; justify-content:flex-end; gap:8px; padding:12px 24px 20px; }
+.dlg h4 { margin:0 0 8px; font:600 13px/1.4 var(--sans); color:var(--ink); }
+.dlg-err { margin:0 24px; font-size:12px; color:var(--ink); } .dlg-err:empty { display:none; }
+/* A12 새 작업 */
+.dlg.nt { width:min(640px, 100%); }
+.nt #goal { margin:0; min-height:var(--h-ctl); resize:none; overflow:hidden; }
+.nt-hint { display:block; margin-top:6px; font-size:12px; line-height:1.5; color:var(--ink-2); }
+.nt .kinds { margin:0; }
+.nt .kinds .kind { flex:1 1 160px; }
+.nt-kind { margin-top:8px; padding:12px 14px; border-radius:var(--r-in); background:var(--a5); font-size:12px; line-height:1.6; color:var(--ink-2); }
+.nt-kind b { color:var(--ink); } .nt-kind ul { margin:2px 0 6px; padding:0; list-style:none; } .nt-kind li::before { content:"· "; }
+.nt-kind p { margin:0; }
+.nt-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.nt-in { flex:1 1 200px; min-width:0; height:var(--h-ctl); padding:0 12px; border:1px solid var(--a12); border-radius:var(--r-in); background:var(--white);
+  color:var(--ink); font:400 13px/1 var(--sans); outline:none; }
+.nt-in:focus, #nt-crit:focus { border-color:var(--ink-3); box-shadow:0 0 0 3px var(--a5); }
+#nt-crit { width:100%; padding:8px 12px; border:1px solid var(--a12); border-radius:var(--r-in); background:var(--white); color:var(--ink);
+  font:400 13px/1.55 var(--sans); resize:vertical; outline:none; }
+.nt-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; } .nt-chips:empty { display:none; }
+.nt-chip { display:inline-flex; align-items:center; height:var(--h-ctl); border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white);
+  font-size:12px; color:var(--ink-2); }
+.nt-chip.main { border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink); }
+.nt-chip .nt-cname { height:100%; padding:0 4px 0 10px; color:var(--ink-2); font-size:12px; } .nt-chip .nt-cname b { font-weight:600; color:var(--ink); }
+.nt-chip .nt-x { width:26px; height:100%; display:grid; place-items:center; color:var(--ink-3); } .nt-chip .nt-x:hover { color:var(--ink); }
+.nt-chip.add { padding:0 10px; border-style:dashed; background:var(--a4); color:var(--ink-3); }
+.nt-two { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:16px; }
+.nt-state:empty { display:none; } .nt-wait { display:flex; align-items:center; gap:8px; margin:0; font-size:12px; color:var(--ink-2); }
+.nt-state .call { margin:0; }
+.nt-switch { position:relative; display:inline-flex; align-items:center; gap:8px; min-height:var(--h-in); cursor:pointer; font-size:13px; color:var(--ink); }
+.nt-switch input { position:absolute; width:1px; height:1px; opacity:0; margin:0; }
+.nt-switch .sw { flex:none; position:relative; width:32px; height:20px; border-radius:999px; background:var(--a12); transition:background .15s; }
+.nt-switch .sw::after { content:""; position:absolute; left:2px; top:2px; width:16px; height:16px; border-radius:50%; background:var(--white);
+  box-shadow:var(--sh-sm); transition:left .15s; }
+.nt-switch input:checked + .sw { background:var(--ink); } .nt-switch input:checked + .sw::after { left:14px; }
+.nt-switch input:focus-visible + .sw { outline:2px solid var(--ink-3); outline-offset:2px; }
+/* A13 보고서 내보내기 */
+.dlg.rp { width:min(580px, 100%); }
+.rp-list { display:flex; flex-direction:column; gap:3px; }
+.rp-row { display:flex; align-items:center; gap:10px; min-height:var(--h-in); cursor:pointer; font-size:13px; color:var(--ink); }
+.rp-row span { flex:1; } .rp-row small { font:400 12px/1 var(--mono); color:var(--ink-3); }
+.rp-row input, .set-radios input { flex:none; width:14px; height:14px; margin:0; accent-color:var(--ink); }
+.rp-row:has(input:not(:checked)) span { color:var(--ink-2); }
+.rp-auto { padding:10px 14px; border-radius:var(--r-in); background:var(--a5); }
+.rp-auto b { display:block; font:600 12px/1.5 var(--sans); color:var(--ink); }
+.rp-auto code { padding:0; background:none; font-size:11px; color:var(--ink-2); overflow-wrap:anywhere; }
+.rp-stale { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:var(--r-in); background:var(--a5); }
+.rp-stale p { flex:1; margin:0; font-size:12px; line-height:1.5; color:var(--ink); }
+.rp-opts { display:flex; flex-wrap:wrap; gap:16px 32px; }
+.seg2, .rp-wrow { display:inline-flex; align-items:center; gap:8px; }
+.rp-where { height:var(--h-ctl); display:inline-flex; align-items:center; padding:0 10px; border:1px solid var(--a12); border-radius:var(--r-ctl);
+  background:var(--white); font-size:12px; }
+/* A14 설정: the list (every item r8) and a page */
+#settings .set-box { width:min(820px, 100%); height:min(700px, calc(100vh - 32px)); max-height:none; display:grid; grid-template-columns:190px minmax(0, 1fr);
+  gap:0; padding:0; overflow:hidden; }
+#settings .set-nav { display:flex; flex-direction:column; gap:2px; padding:20px 12px; background:rgba(13,14,16,.035); border-right:1px solid var(--a6); }
+#settings .set-nav > b { padding:0 10px 12px; font:600 17px/1.4 var(--sans); color:var(--ink); }
+#settings .set-item { height:var(--h-ctl); padding:0 12px; border-radius:var(--r-ctl); text-align:left; font:500 13px/1 var(--sans); color:var(--ink-2); }
+#settings .set-item:hover { background:var(--a5); color:var(--ink); } #settings .set-item.on { background:var(--a8); color:var(--ink); font-weight:600; }
+#settings .set-main { min-width:0; overflow:auto; display:flex; flex-direction:column; padding:20px 28px 24px; }
+#settings .set-head { margin-bottom:6px; } #settings .set-head > b { font:600 20px/1.3 var(--sans); color:var(--ink); }
+#settings .set-page .set-row { border-top:0; padding:12px 0; gap:24px; align-items:flex-start; }
+#settings .set-row > div:first-child { flex:1; min-width:0; }
+#settings .set-row b { display:flex; align-items:center; font-size:14px; }
+#settings .set-opts { flex:none; align-items:flex-end; white-space:normal; }
+#settings .set-opts code { font-size:12px; }
+.set-radios { display:flex; flex-direction:column; } .set-radios label { display:flex; align-items:center; gap:8px; min-height:var(--h-in); font-size:13px; cursor:pointer; }
+.set-tag { margin-left:6px; padding:1px 6px; border-radius:var(--r-tag); background:var(--a6); font:500 11px/16px var(--sans); color:var(--ink-2); }
+.set-card { margin:4px 0 6px; padding:14px 16px; background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); }
+.set-card b { display:flex; align-items:center; gap:6px; font:600 14px/1.4 var(--sans); color:var(--ink); }
+.set-card small { display:block; margin-top:4px; font-size:12px; color:var(--ink-2); }
+#settings .set-confirm { margin:4px 0 8px; } #settings .set-confirm[hidden] { display:none; }
+.set-lead { margin:2px 0 6px; font-size:12px; line-height:1.55; color:var(--ink-2); }
+.set-sub { margin:16px 0 8px; padding-top:16px; border-top:1px solid var(--a8); font:600 13px/1.4 var(--sans); color:var(--ink); }
+.set-info { display:flex; align-items:center; gap:6px; margin:12px 0 0; padding:10px 14px; border-radius:var(--r-in); background:var(--a5); font-size:12px; line-height:1.5; color:var(--ink-2); }
+.set-path { align-self:flex-start; margin:-6px 0 6px; font-size:11px; }
+.set-brand { display:flex; align-items:center; gap:10px; margin:6px 0 4px; }
+.set-brand b { display:flex; align-items:center; gap:8px; font:600 17px/1.4 var(--sans); color:var(--ink); }
+.set-brand b::before { content:"P"; width:24px; height:24px; border-radius:7px; display:grid; place-items:center; background:var(--primary); color:var(--on-primary); font:600 13px/1 var(--sans); }
+.set-brand code { padding:0; background:none; color:var(--ink-2); }
+.set-note { margin:10px 0 0; font-size:12px; color:var(--ink); } .set-note:empty { display:none; }
+/* + 추가 (F19, S25): a white card above the composer */
+#adder { flex-direction:column; align-items:stretch; flex-wrap:nowrap; gap:8px; margin:0 auto 10px; padding:12px 16px; color:var(--ink-2);
+  background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); box-shadow:var(--sh-lg); }
+#adder .ad-head { display:flex; align-items:baseline; gap:8px; }
+#adder .ad-head b { font:600 14px/1.4 var(--sans); color:var(--ink); } #adder .ad-head small { font-size:12px; color:var(--ink-3); }
+#adder .ad-head .x { margin-left:auto; align-self:center; }
+#adder .ad-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+#adder .ad-pdf { display:inline-flex; align-items:center; gap:6px; height:var(--h-ctl); padding:0 12px; border:1px solid var(--a12); border-radius:var(--r-ctl);
+  background:var(--white); color:var(--ink); font:500 13px/1 var(--sans); text-decoration:none; }
+#adder .ad-pdf:hover { background:var(--a4); text-decoration:none; }
+#adder .or { font-size:12px; color:var(--ink-3); }
+#adder #arxiv { flex:1 1 200px; min-width:0; height:var(--h-ctl); }
+#adder .ad-note { display:flex; flex-direction:column; gap:6px; font-size:12px; line-height:1.5; }
+#adder #arxiv-note:empty { display:none; }
+#adder.busy #arxiv-note::before { content:""; display:inline-block; width:10px; height:10px; margin-right:8px; vertical-align:-1px; border:2px solid var(--a12);
+  border-top-color:var(--ink); border-radius:50%; animation:spin .8s linear infinite; }
+#adder .ad-prog { display:block; height:3px; border-radius:2px; background:var(--a8); overflow:hidden; } #adder .ad-prog[hidden] { display:none; }
+#adder .ad-prog i { display:block; height:100%; width:0; background:var(--ink); transition:width .3s; }
+#adder #arxiv-lines { margin:0; padding-left:18px; font-size:12px; }
+#adder #arxiv-hits { display:flex; flex-direction:column; gap:2px; }
+#adder #arxiv-hits [data-sent] { margin:0 0 6px; font-size:12px; color:var(--ink-3); }
+#adder #arxiv-hits .hit { padding:8px 10px; border-radius:var(--r-ctl); background:var(--a4); font-size:13px; color:var(--ink); }
+#adder #arxiv-hits .hit:has([data-have]) { color:var(--ink-3); }
+#adder #arxiv-hits .hit { display:grid; grid-template-columns:auto minmax(0, 1fr) auto; column-gap:10px; align-items:center; }
+#adder #arxiv-hits .hit > input { grid-column:1; grid-row:1 / span 2; margin:0; accent-color:var(--ink); }
+#adder #arxiv-hits .hit > b { grid-column:2; grid-row:1; font-weight:600; }
+#adder #arxiv-hits .hit > small:not(.have) { grid-column:2; grid-row:2; font:400 11px/1.5 var(--mono); color:var(--ink-3); }
+#adder #arxiv-hits .hit > .link, #adder #arxiv-hits .hit > .have { grid-column:3; grid-row:1 / span 2; font-size:12px; }
+#adder #arxiv-hits .hit > .sum { grid-column:2; grid-row:3; margin:2px 0 0; }
+#adder .ad-foot { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:8px; }
+#adder .ad-foot small { font-size:12px; color:var(--ink-3); }
+/* F20: the drop cover */
+#drop-cover { display:none; position:absolute; left:12px; right:12px; z-index:6; place-items:center; pointer-events:none;
+  border:1.5px dashed var(--signal); border-radius:var(--r-card); background:rgba(243,245,247,.88); }
+body.dropping #drop-cover { display:grid; }
+body.dropping #log { outline:0; } body.dropping #log::before { content:none; display:none; }
+#drop-cover .dc-in { display:flex; flex-direction:column; align-items:center; gap:6px; padding:16px; text-align:center; }
+#drop-cover .dc-ico { width:48px; height:48px; display:grid; place-items:center; border-radius:12px; background:var(--white); box-shadow:var(--sh-md); color:var(--signal); }
+#drop-cover b { font:600 15px/1.4 var(--sans); color:var(--ink); } #drop-cover small { font-size:12px; color:var(--ink-2); }
+#drop-cover .dc-n { margin-top:6px; padding:3px 10px; border-radius:999px; background:var(--a6); font-size:11px; color:var(--ink-2); }
+#drop-cover .dc-n[hidden] { display:none; }
+/* S16: the model menu's items and its note */
+.composer .mmenu button.mopt { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.composer .mmenu .mfoot { max-width:260px; white-space:normal; }
+/* F26 the narrow window (≤900px): no rail, the sidebar a 70% drawer, the header two lines (name · panel · ⋯ / chips), the
+   right column an overlay over the conversation (html body: above the older narrow rules further down) */
+@media (max-width:900px) {
+  html body, html body.panel, html body.rail { display:block; padding:0; }
+  html body #chat { height:100vh; border:0; border-radius:0; box-shadow:none; }
+  html body #side { display:none; position:fixed; inset:0 auto 0 0; width:70%; height:100vh; z-index:30; padding:14px 12px 12px; background:var(--canvas);
+    border-radius:0 var(--r-panel) var(--r-panel) 0; box-shadow:0 0 0 100vmax rgba(13,14,16,.45); }
+  html body.side #side { display:flex; }
+  html body #menu { display:grid; place-items:center; width:var(--h-ctl); height:var(--h-ctl); padding:0; order:0; }
+  html body #bar { padding:10px 12px; }
+  #bar h1 { order:1; flex:1 1 0; } #bar .grow { display:none; } #bar #pnl { display:grid; order:2; } #bar #more { order:3; }
+  #bar #chips { order:5; flex-basis:100%; }
+  #tools { padding:4px 12px 10px; } #viewbar { margin:0 -12px; padding:10px 12px 0; }
+  html body #right, html body.rail #right { display:none; }
+  html body.panel #right { display:flex; position:fixed; inset:0; z-index:25; height:100vh; border:0; border-radius:0; box-shadow:none; }
+  html body #right #panel { position:static; inset:auto; }
+  .nt-two { grid-template-columns:1fr; }
+  #settings .set-box { grid-template-columns:1fr; grid-template-rows:auto minmax(0, 1fr); }
+  #settings .set-nav { flex-direction:row; flex-wrap:wrap; align-items:center; padding:12px; border-right:0; border-bottom:1px solid var(--a6); }
+  #settings .set-nav > b { padding:0 10px 0 4px; }
+  #settings .set-main { padding:16px 18px 20px; }
+}
 /* end A2 complete · A */
 /* A2 complete · B conversation: messages, cards, views, composer, state cards (agent B) */
 /* end A2 complete · B */
@@ -1419,60 +1721,143 @@ function cited(text, eids) {
 
 // ---- sidebar + header ------------------------------------------------------------------------------------
 // ⑭ the task list: a name the user gave it (else its goal), a search over names, goals and source titles, and the tasks
-// put away (보관) folded at the bottom; nothing is deleted
+// put away (보관) folded at the bottom; nothing is deleted. A2 complete: the brand row folds the sidebar into a 56px rail
+// (settings.side, any task); 새 작업 and the search show their shortcut (Ctrl N / Ctrl K, ⌘ on a Mac); a row has the task's
+// stage progress (stagesOf) and "kind · stage"; a search names where it found the words, in bold; the account card
+// (#acct, made by the desktop) stays at the bottom
 const nameOf = t => (t && (t.name || t.text)) || "";
 let taskQuery = "";
+const MAC = /Mac/i.test(navigator.platform || ""), keyOf = k => MAC ? "⌘" + k : "Ctrl " + k;
+const sideOff = () => !!(M.settings || {}).side;
+function setSide(off) {
+  M.settings = { ...(M.settings || {}), side: off }; sidebar();
+  if (window.pabloHost && pabloHost.setUi) pabloHost.setUi(null, "settings", { side: off }).catch(() => {});
+}
+// Ctrl K: the search, from anywhere (the rail opens, the narrow window's drawer slides in)
+function findTasks() {
+  if (sideOff()) setSide(false);
+  if (matchMedia("(max-width:900px)").matches) document.body.classList.add("side");
+  const q = $("task-search"); if (q) { q.focus(); q.select(); }
+}
+// the words in bold, as found (any case)
+function marked(text, words) {
+  const s = String(text || ""), low = s.toLowerCase(), out = []; let i = 0;
+  while (i < s.length) {
+    let at = -1, w = "";
+    for (const x of words) { const j = low.indexOf(x, i); if (j >= 0 && (at < 0 || j < at)) { at = j; w = x; } }
+    if (at < 0) { out.push(s.slice(i)); break; }
+    out.push(s.slice(i, at), h("b", { class: "hit" }, s.slice(at, at + w.length))); i = at + w.length;
+  }
+  return out;
+}
 function sidebar() {
-  const side = $("side"), had = document.activeElement && document.activeElement.id === "task-search";
+  const side = $("side"), had = document.activeElement && document.activeElement.id === "task-search", acct = $("acct");
+  const off = sideOff() && !matchMedia("(max-width:900px)").matches, app = !!(window.pabloHost && pabloHost.newTask), d = M.desk || {};  // a narrow window has a drawer, not a rail
+  document.body.classList.toggle("side-off", off);
   side.textContent = "";
-  const q = h("input", { id: "task-search", type: "search", placeholder: "작업·자료 찾기", value: taskQuery, "aria-label": "작업 찾기" });
-  q.addEventListener("input", () => { taskQuery = q.value; list(); });
+  const rowOf = (t, words = []) => {
+    const k = kindFor(d[t.id]), v = (M.views || {})[t.id], st = v && M.desk ? stagesOf(v, d[t.id], k) : null;
+    const now = st ? (st.current >= 0 ? st.steps[st.current].label : "끝") : null;
+    const inName = words.some(w => nameOf(t).toLowerCase().includes(w));
+    const src = words.length && !inName ? ((d[t.id] || {}).papers || []).find(p => words.some(w => String(p.title).toLowerCase().includes(w))) : null;
+    const goal = words.length && !inName && !src && t.name && words.some(w => String(t.text).toLowerCase().includes(w));
+    return h("button", { class: "t" + (V && t.id === V.task.id ? " on" : ""), title: t.name ? t.text : null, "data-task": t.id,
+      on: () => { select(t.id); document.body.classList.remove("side"); } }, h("span", { class: "tn" }, words.length ? marked(nameOf(t), words) : nameOf(t)),
+      h("small", null, st ? h("span", { class: "prog", "aria-hidden": "true" }, st.steps.map(s => h("i", { class: "p-" + s.state }))) : null,
+        src ? ["자료 · ", marked(src.title, words)] : goal ? ["목표 · ", marked(t.text, words)]
+          : M.desk ? `${KIND[k]}${now ? " · " + now : ""}` : time(t.at)));
+  };
+  const ordered = [...M.tasks].reverse(), keptAll = ordered.filter(t => !(d[t.id] || {}).archived && !(d[t.id] || {}).done);
+  const fold = h("button", { class: "fold", id: "side-fold", title: off ? "사이드바 펼치기" : "사이드바 접기", "aria-label": off ? "사이드바 펼치기" : "사이드바 접기",
+    "aria-expanded": String(!off), on: () => setSide(!sideOff()) }, ico("panel-left"));
+  if (off) {  // F16: the 56px rail (새 작업 · 찾기 · a task's first letter · 설정)
+    side.append(h("div", { class: "rail" }, fold,
+      h("button", { class: "rnew", title: `새 작업 (${keyOf("N")})`, "aria-label": "새 작업", disabled: !app, on: () => newTask() }, ico("plus")),
+      h("button", { class: "rbtn", title: `작업 찾기 (${keyOf("K")})`, "aria-label": "작업 찾기", on: findTasks }, ico("search")),
+      h("div", { class: "rtasks" }, keptAll.map(t => h("button", { class: "rt" + (V && t.id === V.task.id ? " on" : ""), "data-rail-task": t.id, title: nameOf(t),
+        "aria-label": nameOf(t), on: () => select(t.id) }, [...nameOf(t).trim()][0] || "·"))),
+      openSettings ? h("button", { class: "rbtn rset", title: "설정", "aria-label": "설정", on: () => openSettings() }, ico("settings")) : null));
+    if (acct) side.append(acct);
+    return;
+  }
+  const q = h("input", { id: "task-search", type: "search", placeholder: "작업·자료 찾기", value: taskQuery, "aria-label": "작업 찾기", autocomplete: "off", spellcheck: "false" });
+  const kbd = h("kbd", { class: "kbd" }, taskQuery ? "esc" : keyOf("K"));
+  const clear = () => { taskQuery = q.value = ""; kbd.textContent = keyOf("K"); list(); };
+  q.addEventListener("input", () => { taskQuery = q.value; kbd.textContent = taskQuery ? "esc" : keyOf("K"); list(); });
+  q.addEventListener("keydown", e => { if (e.key === "Escape" && !e.isComposing && q.value) { e.stopPropagation(); clear(); } });
   const box = h("div", { id: "task-list" });
   // A2: the brand mark is CSS (.brand b::before, an ink square with "P"); 새 작업 is the one filled button
-  side.append(h("div", { class: "brand" }, h("b", null, "Pablo"),
-      h("button", { class: "new", id: "new", disabled: !(window.pabloHost && pabloHost.newTask), on: () => newTask() }, ico("plus", 14), "새 작업")),
-    ...[M.tasks.length > 1 ? h("div", { class: "searchbox" }, ico("search", 14), q) : null, box].filter(Boolean));  // append(null) prints "null"
-  const row = t => h("button", { class: "t" + (V && t.id === V.task.id ? " on" : ""), title: t.name ? t.text : t.id, "data-task": t.id,
-    on: () => { select(t.id); document.body.classList.remove("side"); } }, nameOf(t),
-    h("small", null, M.desk ? `${KIND[deskKind(t.id)]} · ${time(t.at)}` : time(t.at)));
+  side.append(h("div", { class: "brand" }, h("div", { class: "brow" }, h("b", null, "Pablo"), fold),
+      h("button", { class: "new", id: "new", disabled: !app, title: `새 작업 (${keyOf("N")})`, on: () => newTask() }, ico("plus", 14), h("span", null, "새 작업"), h("kbd", { class: "kbd" }, keyOf("N")))),
+    h("div", { class: "searchbox" }, ico("search", 14), q, kbd), box);
+  if (acct) side.append(acct);
   function list() {
-    const words = taskQuery.trim().toLowerCase().split(/\s+/).filter(Boolean), d = M.desk || {};
+    const words = taskQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const hit = t => !words.length || words.every(w => [t.name, t.text, t.id, ...((d[t.id] || {}).papers || []).map(p => p.title)]
       .some(x => String(x || "").toLowerCase().includes(w)));
-    const ts = [...M.tasks].reverse().filter(hit), kept = ts.filter(t => !(d[t.id] || {}).archived && !(d[t.id] || {}).done), away = ts.filter(t => (d[t.id] || {}).archived);
+    const ts = ordered.filter(hit), kept = ts.filter(t => !(d[t.id] || {}).archived && !(d[t.id] || {}).done), away = ts.filter(t => (d[t.id] || {}).archived);
     const done = ts.filter(t => (d[t.id] || {}).done && !(d[t.id] || {}).archived);  // P7: finished tasks fold into 완료
-    box.replaceChildren(...[h("h4", null, words.length ? `찾은 작업 ${ts.length}개` : "작업"), ...kept.map(row),
+    // S19: a task put away is faint; 보관 풀기 shows on hover (the header's ⋯ menu has it too)
+    const awayRow = t => h("div", { class: "trow away-row" }, rowOf(t, words), window.pabloHost && pabloHost.archiveTask
+      ? h("button", { class: "link unarch", "data-unarchive": t.id, on: () => pabloHost.archiveTask(t.id, false).then(() => refresh()) }, "보관 풀기") : null);
+    box.replaceChildren(...[h("h4", null, words.length ? `찾은 작업 ${ts.length}개` : "작업"),
+      !M.tasks.length ? h("p", { class: "none", "data-no-tasks": "1" }, "아직 작업이 없습니다.") : null,
+      ...kept.map(t => rowOf(t, words)),
       done.length ? h("details", { class: "done", "data-done": String(done.length), open: words.length ? true : null },
-        h("summary", null, ico("chevron-right", 12), "완료 ", h("span", { class: "cnt" }, done.length)), ...done.map(row)) : null,
+        h("summary", null, ico("chevron-right", 12), "완료 ", h("span", { class: "cnt" }, done.length)), ...done.map(t => rowOf(t, words))) : null,
       away.length ? h("details", { class: "away", "data-archived": String(away.length), open: words.length ? true : null },
-        h("summary", null, ico("chevron-right", 12), "보관한 작업 ", h("span", { class: "cnt" }, away.length)), ...away.map(row)) : null,
-      words.length && !ts.length ? h("p", { class: "muted", style: "padding:0 8px;font-size:13px" }, "맞는 작업이 없습니다.") : null].filter(Boolean));
+        h("summary", null, ico("chevron-right", 12), "보관한 작업 ", h("span", { class: "cnt" }, away.length)), ...away.map(awayRow)) : null,
+      words.length && !ts.length ? h("div", { class: "nohit", "data-no-hit": "1" }, h("b", null, "맞는 작업이 없습니다"),
+        h("p", null, "작업 이름 · 목표 · 자료 제목에서 찾았습니다. 다른 낱말로 찾아보세요."), h("button", { class: "link", on: () => { clear(); q.focus(); } }, "검색 지우기")) : null,
+      words.length && ts.length ? h("p", { class: "shint" }, "작업 이름 · 목표 · 자료 제목에서 찾습니다. 완료 · 보관 묶음은 찾는 동안 펼쳐집니다.") : null].filter(Boolean));
   }
   list();
   if (had) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
 }
+// A2 complete: the header is the task's name and kind, three chips (자료 · 폴더 · 인터넷; tools() makes them) and ⋯ (이름
+// 바꾸기 F2 · 완료 · 보관 · 작업 폴더 열기 · 보고서 내보내기). The menu stays in the DOM, hidden, so its items keep working by id.
 function header() {
-  const chips = $("chips");  // P2: the state chip + source card (tools() makes it); kept across a header redraw
+  const chips = $("chips");  // P2: the chips + their card (tools() makes them); kept across a header redraw
   $("bar").textContent = ""; ptabs();
   $("bar").append(h("button", { id: "menu", title: "작업 목록", "aria-label": "작업 목록", on: () => document.body.classList.toggle("side") }, ico("panel-left")));
   if (!V) return $("bar").append(h("h1", null, "Pablo"));
-  // ⑭ the task's own name (✎) and 보관 / 보관 풀기, beside it
-  const t = M.tasks.find(x => x.id === V.task.id) || V.task, d = (M.desk || {})[V.task.id] || {};
-  const name = h("h1", { title: t.name ? `목표: ${V.task.text}` : V.task.id, "data-task-name": "1" }, nameOf(t));
-  const edit = window.pabloHost && pabloHost.renameTask ? h("button", { class: "rn", "data-rename-task": V.task.id, title: "작업 이름 바꾸기 (목표 문장은 그대로)", on: () => {
-    const inp = h("input", { class: "rn-in", id: "task-name", value: nameOf(t) }), note = h("small", { class: "muted" });
-    const ok = () => pabloHost.renameTask(V.task.id, inp.value.trim() === V.task.text ? "" : inp.value.trim()).then(() => refresh(), e => { note.textContent = " " + fail(e); });
+  const t = M.tasks.find(x => x.id === V.task.id) || V.task, d = (M.desk || {})[V.task.id] || {}, host = window.pabloHost || {};
+  const name = h("h1", { title: t.name ? `목표: ${V.task.text}` : null, "data-task-name": "1" }, nameOf(t));
+  // S17: the name in place, n/80, Enter saves, Esc leaves it; empty = the goal's first line
+  const rename = () => {
+    const inp = h("input", { class: "rn-in", id: "task-name", value: nameOf(t), "aria-label": "작업 이름", spellcheck: "false" });
+    const cnt = h("small", { class: "rn-cnt" }), note = h("small", { class: "rn-note" }, "Esc를 누르면 취소합니다. 비우면 목표 첫 줄을 이름으로 씁니다.");
+    const count = () => { const n = [...inp.value.trim()].length; cnt.textContent = `${n}/80`; inp.parentNode && inp.parentNode.classList.toggle("over", n > 80); };
+    const ok = () => { const v = inp.value.trim();
+      if ([...v].length > 80) { note.replaceChildren(ico("info", 14), " 작업 이름은 80자까지입니다. 이름은 바뀌지 않았습니다."); note.classList.add("bad"); return inp.focus(); }
+      pabloHost.renameTask(V.task.id, v === V.task.text ? "" : v).then(() => refresh(), e => { note.textContent = fail(e); note.classList.add("bad"); }); };
+    inp.addEventListener("input", count);
     inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); if (e.key === "Escape") { e.stopPropagation(); header(); } });
-    name.replaceChildren(inp, " ", h("button", { class: "link", "data-rename-task-ok": "1", on: ok }, "저장"), note); inp.select(); },
-    "aria-label": "작업 이름 바꾸기" }, ico("pencil", 14)) : null;
-  const away = window.pabloHost && pabloHost.archiveTask ? h("button", { class: "link quiet", "data-archive": d.archived ? "off" : "on",
-    title: d.archived ? "작업 목록으로 되돌립니다" : "작업 목록 아래 '보관한 작업'으로 옮깁니다. 기록은 그대로 남습니다.",
-    on: () => pabloHost.archiveTask(V.task.id, !d.archived).then(() => refresh()) }, d.archived ? "보관 풀기" : "보관") : null;
-  const unDone = d.done && window.pabloHost && pabloHost.setUi ? h("button", { class: "link quiet", "data-done": "off",
-    title: "작업 목록으로 되돌립니다", on: () => pabloHost.setUi(V.task.id, "done", false).then(() => refresh()) }, "완료 풀기") : null;
-  // A2: the task's kind as a small tag beside its name; a spacer puts 보관 and the state chip on the right
+    name.classList.add("renaming");
+    name.replaceChildren(h("span", { class: "rn-box" }, inp, cnt), h("button", { class: "pill on", "data-rename-task-ok": "1", on: ok }, "저장"),
+      h("button", { class: "pill", "data-rename-task-cancel": "1", on: () => header() }, "취소"), note);
+    count(); inp.select(); };
+  // ⋯: what used to be the header's text links (✎ · 보관 · 완료 풀기), and the folder and the report
+  const more = h("div", { class: "hmenu", id: "more-menu", role: "menu", hidden: true });
+  const item = (icon, label, attrs, on, meta) => h("button", { class: "mi", role: "menuitem", ...attrs,
+    on: e => { more.hidden = true; moreBtn && moreBtn.setAttribute("aria-expanded", "false"); on(e); } }, ico(icon), h("span", null, label), meta ? h("small", null, meta) : null);
+  if (host.renameTask) more.append(item("pencil", "이름 바꾸기", { "data-rename-task": V.task.id }, rename, "F2"));
+  if (host.setUi) more.append(item("check-circle", d.done ? "완료 풀기" : "완료로 옮기기", { "data-done": d.done ? "off" : "on" },
+    () => pabloHost.setUi(V.task.id, "done", !d.done).then(() => refresh())));
+  if (host.archiveTask) more.append(item("folder", d.archived ? "보관 풀기" : "보관", { "data-archive": d.archived ? "off" : "on",
+    title: d.archived ? "작업 목록으로 되돌립니다" : "작업 목록 아래 '보관한 작업'으로 옮깁니다. 기록은 그대로 남습니다." },
+    () => pabloHost.archiveTask(V.task.id, !d.archived).then(() => refresh())));
+  if (d.folder && openWork) more.append(item("folder", "작업 폴더 열기", { "data-open-work": "1" }, () => openWork(V.task.id)));
+  if (host.report && reportDlg) more.append(item("file", "보고서 내보내기", { "data-export": "1" }, () => reportDlg(V.task.id)));
+  if (more.children.length) more.append(h("p", { class: "mfoot" }, "완료한 작업이면 '완료 풀기', 보관한 작업이면 '보관 풀기'로 바뀝니다."));
+  const moreBtn = more.children.length ? h("button", { class: "rn hbtn", id: "more", title: "작업 메뉴", "aria-label": "작업 메뉴", "aria-haspopup": "menu", "aria-expanded": "false",
+    on: () => { more.hidden = !more.hidden; moreBtn.setAttribute("aria-expanded", String(!more.hidden)); } }, ico("more")) : null;
+  // the narrow window has no rail: this opens the right column over the conversation
+  const pnl = h("button", { class: "rn hbtn", id: "pnl", title: "오른쪽 패널", "aria-label": "오른쪽 패널",
+    on: () => document.body.classList.contains("panel") ? close() : show({ mode: "intent" }) }, ico("panel-right"));
+  // A2: the task's kind as a small tag beside its name; a spacer puts the chips and ⋯ on the right
   const kindTag = M.desk ? h("span", { class: "kindtag", "data-kind-tag": deskKind(V.task.id) }, KIND[deskKind(V.task.id)]) : null;
-  $("bar").append(...[name, edit, kindTag, h("span", { class: "grow" }), away, unDone, chips].filter(Boolean));  // 기준 · 계획 · 왜? are the right column's tabs (ptabs)
+  $("bar").append(...[name, kindTag, h("span", { class: "grow" }), chips, pnl, moreBtn, more].filter(Boolean));  // 기준 · 계획 · 왜? are the right column's tabs (ptabs)
 }
 // P7: the task's kind decides its stages; one stored at creation wins, else what its material says
 const KIND = { repro: "논문 재현", read: "논문 읽기", general: "일반" };
@@ -2272,13 +2657,25 @@ function panelBack() {
   panelSaved[V.task.id] = JSON.stringify(pp || { open: false, tab: "intent" });
   if (pp && pp.open) { const st = pp.tab === "evidence" ? evidenceFor() : pp.tab === "plan" && !V.plan ? null : { mode: pp.tab }; if (st) show(st); }
 }
-// M5.1: no task yet -> an empty Pablo screen; the desktop makes tasks in the app (+ 새 작업)
+// M5.1: no task yet -> an empty Pablo screen; the desktop makes tasks in the app (+ 새 작업). A2 complete (A11): two
+// steps, 1 the ChatGPT account (read from #acct's data-state, so it follows sign-in as it happens), 2 a new task
 function empty() {
   const log = $("log"); log.textContent = ""; document.title = "Pablo";
-  log.append(h("div", { class: "empty" }, art("default"), h("b", null, "무엇을 해볼까요?"), h("p", null, "새 작업을 만들어 시작하세요."),
-    window.pabloHost && pabloHost.newTask ? h("button", { class: "pill on", on: () => newTask() }, ico("plus", 14), "새 작업") : null));
+  const app = !!(window.pabloHost && pabloHost.newTask), ac = $("acct"), st = ac ? ac.dataset.state : null, on = st === "connected";
+  const wait = st === "signing_in" ? "브라우저에서 승인을 기다리는 중…" : st === "verifying" ? "플랜 사용 권한을 확인하는 중…" : null;
+  const step1 = ac ? h("div", { class: "fr-step" + (on ? " done" : ""), "data-step": "account" },
+    h("b", null, on ? [ico("check", 14), " ChatGPT 계정 연결됨"] : "1. ChatGPT 계정 연결"),
+    on ? null : wait ? h("span", { class: "fr-wait" }, h("span", { class: "spin", "aria-hidden": "true" }), wait)
+      : h("button", { class: "pill on", "data-signin": "1", on: () => pabloHost.login() }, "ChatGPT로 연결")) : null;
+  const step2 = app ? h("div", { class: "fr-step" + (ac && !on ? " later" : ""), "data-step": "task" }, h("b", null, (ac ? "2. " : "") + "새 작업 만들기"),
+    h("button", { class: "pill on", "data-first-task": "1", on: () => newTask() }, ico("plus", 14), "새 작업")) : null;
+  const err = ac && !on && ac.dataset.error ? h("p", { class: "fr-note bad" }, "연결하지 못했습니다 · " + ac.dataset.error) : null;
+  log.append(h("div", { class: "empty" }, art("default"), h("b", null, "무엇을 해볼까요?"),
+    h("p", null, app ? "논문을 재현하고 점검하거나, 논문에 근거를 묻거나, 작업 폴더에서 에이전트와 일합니다." : "새 작업을 만들어 시작하세요."),
+    app ? h("div", { class: "fr-card" }, step1, step2, err || (ac ? h("p", { class: "fr-note" }, "연결은 시스템 브라우저에서 승인합니다. 연결 중 · 실패 · 플랜 확인 결과도 이 자리에 보입니다.") : null)) : null));
 }
 let tools = () => {}, newTask = () => {}, refresh = () => Promise.resolve();  // desktop only (M5.1): task tools, new task form, live state
+let reportDlg = null, openWork = null, openSettings = null, cardClose = () => {};  // A2 complete · A (desktop): the export dialog, the task's folder, 설정, the chips' card
 
 // ---- one context panel: source | intent | plan | trace ---------------------------------------------------------
 function toggle(st) { (hi >= 0 && document.body.classList.contains("panel") && hist[hi].mode === st.mode && !st.e) ? close() : show(st); }
@@ -2733,16 +3130,30 @@ function picker(p, box, layer, sid, n) {
   return true;
 }
 
-// Esc closes a floating box first (설정, the model menu, the source card), else the right column; a click outside the
-// model menu or the source card closes it (QA 10/26: they only closed from their own button)
-const floating = () => [$("settings"), document.querySelector(".composer > .mmenu:not([hidden])"), document.querySelector("#srccard:not([hidden])")].find(Boolean);
-addEventListener("keydown", e => { if (e.key !== "Escape" || e.isComposing) return;
-  const f = floating(); if (!f) return close();
-  if (f.id === "settings") f.remove(); else if (f.id === "srccard") document.querySelector(".statechip").click(); else f.hidden = true; });
+// Esc closes a floating box first (a dialog, a menu, the chips' card), else the narrow window's drawer, else the right
+// column; a click outside a menu or the card closes it (QA 10/26: they only closed from their own button). A2 complete:
+// Ctrl N (⌘N) 새 작업, Ctrl K (⌘K) the task search, F2 renames the open task
+const floating = () => [$("settings"), $("newtask"), $("report-dlg"), document.querySelector("#more-menu:not([hidden])"),
+  document.querySelector(".composer > .mmenu:not([hidden])"), document.querySelector("#srccard:not([hidden])")].find(Boolean);
+addEventListener("keydown", e => {
+  if (e.isComposing) return;
+  const mod = MAC ? e.metaKey : e.ctrlKey, k = (e.key || "").toLowerCase();
+  if (mod && !e.shiftKey && !e.altKey && k === "n" && window.pabloHost && pabloHost.newTask) { e.preventDefault(); return newTask(); }
+  if (mod && !e.shiftKey && !e.altKey && k === "k") { e.preventDefault(); return findTasks(); }
+  if (e.key === "F2" && V && !floating()) { const b = document.querySelector("[data-rename-task]"); if (b) { e.preventDefault(); b.click(); } return; }
+  if (e.key !== "Escape") return;
+  const f = floating();
+  if (!f) return document.body.classList.contains("side") ? document.body.classList.remove("side") : close();
+  if (["settings", "newtask", "report-dlg"].includes(f.id)) f.remove();
+  else if (f.id === "srccard") cardClose();
+  else { f.hidden = true; if (f.id === "more-menu" && $("more")) $("more").setAttribute("aria-expanded", "false"); } });
+matchMedia("(max-width:900px)").addEventListener("change", () => sidebar());
 addEventListener("mousedown", e => {
   const m = document.querySelector(".composer > .mmenu:not([hidden])"), c = document.querySelector("#srccard:not([hidden])");
+  const o = document.querySelector("#more-menu:not([hidden])");
   if (m && !e.target.closest(".mmenu, .modelbtn")) m.hidden = true;
-  if (c && !e.target.closest("#srccard, .statechip")) document.querySelector(".statechip").click();
+  if (o && !e.target.closest("#more-menu, #more")) { o.hidden = true; if ($("more")) $("more").setAttribute("aria-expanded", "false"); }
+  if (c && !e.target.closest("#srccard, .hchip")) cardClose();
 }, true);
 
 // ---- M4.0/M4.1 desktop host only: ChatGPT connection + composer -> persistent Codex app-server thread (desktop/) ----
@@ -2760,12 +3171,13 @@ if (window.pabloHost && pabloHost.chat) {
   const hint = box.appendChild(h("span", { class: "stagehint", hidden: true }));
   mbtn.addEventListener("click", () => { mmenu.hidden = !mmenu.hidden; if (mmenu.hidden) return; mmenu.textContent = "";
     [...pick.options].forEach(o => mmenu.append(h("button", { class: "mopt" + (o.value === pick.value ? " on" : ""), type: "button",
-      on: () => { pick.value = o.value; pick.dispatchEvent(new Event("change")); mmenu.hidden = true; } }, o.textContent))); });
+      on: () => { pick.value = o.value; pick.dispatchEvent(new Event("change")); mmenu.hidden = true; } }, h("span", null, o.textContent), o.value === pick.value ? ico("check", 14) : null)));
+    mmenu.append(h("p", { class: "mfoot" }, "계정에서 쓸 수 있는 모델입니다. 다음 메시지부터 이 모델로 보냅니다. 답을 받는 중에는 바꿀 수 없습니다.")); });
   pick.addEventListener("change", mlabel);
   const models = () => pabloHost.models().then(r => {
     pick.textContent = ""; r.models.forEach(m => pick.append(h("option", { value: m.slug }, m.name))); pick.value = r.model || ""; mlabel();
   });
-  const acct = $("chat").insertBefore(h("div", { id: "acct" }), box);  // sign-in card, then a one-line connection status
+  const acct = $("side").appendChild(h("div", { id: "acct" }));  // A2 complete (A6): the account card at the sidebar's foot (sidebar() keeps it)
   const LABEL = { Connecting: "연결 중…", Ready: "준비됨", Thinking: "생각 중…", Error: "오류" };
   let out = null, agentSt = "Connecting", authSt = { state: "signed_out" }, turning = false, stopping = false;  // turning: an agent turn (a PDF ask cannot be stopped)
   const gate = () => {
@@ -2786,31 +3198,76 @@ if (window.pabloHost && pabloHost.chat) {
   // ⑤ a PC without PowerShell 7: Codex runs the agent's commands in Windows PowerShell 5.1, which reads 한글 and symbols
   // in a BOM-less UTF-8 file wrongly. Pablo tells the agent to read as UTF-8; this says so once, with how to install,
   // after the account is connected (review: nothing works before sign-in, so the sign-in card comes alone first)
-  const shellBox = $("chat").insertBefore(h("div", { id: "shell-note" }), acct);
+  const shellBox = $("chat").insertBefore(h("div", { id: "shell-note" }), box);
+  const copyLine = cmd => { const b = h("button", { class: "link", "data-copy": "1", on: () => {
+      const ok = () => { b.textContent = "복사함"; setTimeout(() => { b.textContent = "복사"; }, 1500); };
+      (navigator.clipboard ? navigator.clipboard.writeText(cmd) : Promise.reject()).then(ok, () => { const r = document.createRange(); r.selectNodeContents(c);
+        getSelection().removeAllRanges(); getSelection().addRange(r); try { document.execCommand("copy"); ok(); } catch (e) {} }); } }, "복사"), c = h("code", null, cmd);
+    return h("div", { class: "cmdline" }, c, b); };
+  const PS7 = "https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows";
+  const ps51 = (seen, title) => h("div", { class: "call", "data-shell": "5.1" }, h("p", { class: "head" }, title || "한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다"),
+    h("p", null, "지금은 Windows PowerShell 5.1로 실행합니다. 5.1은 한글이 든 코드를 다른 인코딩으로 읽어, 재현 점검에서 글자가 깨져 보일 수 있습니다. 작업과 대화는 그대로 할 수 있습니다."),
+    copyLine("winget install Microsoft.PowerShell"),
+    h("p", { class: "acts" }, seen, h("a", { class: "link", href: PS7, target: "_blank", rel: "noopener noreferrer" }, "설치 방법 ↗"),
+      h("small", null, "설치한 뒤 Pablo를 다시 시작하면 7을 씁니다.")));
+  // S20: once, above the composer, after the account is connected (nothing works before sign-in, so the sign-in card first)
   const shellNote = () => { const host = M.host || {}; shellBox.textContent = "";
     if (host.shell !== "powershell" || host.noticed || authSt.state !== "connected") return;
-    shellBox.append(h("div", { class: "call", "data-shell": "5.1" }, h("p", { class: "head" }, "한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다"),
-      h("p", null, "이 PC에는 Windows PowerShell 5.1만 있어, 에이전트가 한글 주석이나 λ 같은 기호를 깨진 채 읽을 수 있습니다. "
-        + "Pablo가 에이전트에게 UTF-8로 읽으라고 일러 두었지만, 지키지 않으면 재현 점검의 판정이 틀릴 수 있습니다."),
-      h("p", null, "설치: 명령 프롬프트에서 ", h("code", null, "winget install Microsoft.PowerShell"), " · ",
-        h("a", { href: "https://learn.microsoft.com/powershell/scripting/install/installing-powershell-on-windows", target: "_blank", rel: "noopener noreferrer" }, "설치 방법 ↗"),
-        ". 설치한 뒤 Pablo를 다시 시작하세요."),
-      pabloHost.noticeSeen ? h("p", null, link("알겠습니다", () => pabloHost.noticeSeen("shell").then(() => refresh()))) : null)); };
+    shellBox.append(ps51(pabloHost.noticeSeen ? h("button", { class: "pill on", on: () => pabloHost.noticeSeen("shell").then(() => refresh()) }, "알겠습니다") : null)); };
+  // B21 / S1–S4, S32–S35, S37: the account card, one state at a time in the same place. The second line of a connected card
+  // is "플랜 사용 가능 · 설정"; 연결 해제 lives in 설정 · 계정. The words of a failure come from siwc.SAY (a.error), its title
+  // and what to do next from its key (a.code)
+  const PLAN = "https://openai.com/chatgpt/pricing/";
+  const FAILS = { cancelled: ["로그인을 취소했습니다", "다시 시도"], access_denied: ["권한 승인을 거절했습니다", "다시 시도"],
+    timeout: ["응답을 받지 못했습니다 · 시간이 지났습니다", "다시 시도"], state_mismatch: ["로그인 응답이 맞지 않습니다", "다시 시도"],
+    callback_failed: ["로그인 응답을 받지 못했습니다", "다시 시도"], exchange_failed: ["로그인을 마치지 못했습니다", "다시 시도"],
+    bad_id_token: ["로그인 응답을 검증하지 못했습니다", "다시 시도"], no_plan_permission: ["이 계정으로는 에이전트를 쓸 수 없습니다", "다른 계정으로 연결", 1],
+    not_eligible: ["이 계정으로는 에이전트를 쓸 수 없습니다", "다른 계정으로 연결", 1], network: ["OpenAI에 연결하지 못했습니다", "인터넷 확인 뒤 다시 시도"],
+    no_models: ["쓸 수 있는 모델이 없습니다", "다시 시도", 1], overloaded: ["모델이 지금 붐빕니다", "다시 시도"], usage_limit: ["사용 한도에 도달했습니다", "ChatGPT로 다시 연결"],
+    refresh_failed: ["연결이 만료되었습니다", "ChatGPT로 다시 연결"], unauthorized: ["연결이 만료되었습니다", "ChatGPT로 다시 연결"],
+    inference_failed: ["사용량 확인이 잠시 안 됩니다", "잠시 뒤 다시 시도"] };
+  let rechecking = false, checkedAt = null, seenReady = false, hello = null, settingsDraw = null;
+  const hhmm = d => new Date(d).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const paintAcct = () => {
+    const a = authSt; acct.textContent = ""; acct.dataset.state = a.state; acct.dataset.error = a.error || "";
+    const spin = () => h("span", { class: "spin", "aria-hidden": "true" });
+    const card = (cls, title, sub, ...acts) => h("div", { class: "acard " + cls }, h("b", null, title), sub ? h("small", null, sub) : null,
+      acts.filter(Boolean).length ? h("div", { class: "aacts" }, ...acts.filter(Boolean)) : null);
+    const signin = label => h("button", { class: "pill on", id: "signin", on: () => pabloHost.login() }, label);
+    if (hello) acct.append(hello);
+    if (a.state === "connected" && box.dataset.agent === "Connecting" && seenReady)  // S4: the agent restarts (a fresh token, the same thread)
+      acct.append(card("wait", [spin(), "ChatGPT · 다시 연결하는 중…"], "토큰을 갱신하고 같은 대화(thread)를 이어 갑니다. 보내려던 메시지는 입력창에 남아 있습니다."));
+    else if (a.state === "connected") acct.append(card("on", "ChatGPT · 연결됨", ["플랜 사용 가능 · ",
+      pabloHost.setUi ? h("button", { class: "link", "data-settings": "1", on: () => settings("account") }, "설정") : link("연결 해제", () => pabloHost.logout())]));
+    else if (a.state === "signing_in") acct.append(card("wait", [spin(), "브라우저에서 승인을 기다리는 중…"],  // S1
+      "시스템 브라우저 창에서 ChatGPT 로그인을 마치면 자동으로 돌아옵니다. 최대 5분.", h("button", { class: "pill", "data-login-cancel": "1", on: () => pabloHost.cancelLogin() }, "취소")));
+    else if (a.state === "verifying") acct.append(card("wait", [spin(), rechecking ? "ChatGPT 플랜을 다시 확인하는 중…" : "ChatGPT 플랜 사용 권한을 확인하는 중…"],  // S32
+      rechecking ? "몇 초 걸립니다. 그동안에도 작업은 그대로입니다." : "로그인은 끝났습니다. 몇 초 걸립니다."));
+    else if (a.error && /세션 해제/.test(a.error) && !a.code)  // S35
+      acct.append(card("off", "이 기기의 연결은 지웠습니다", a.error, signin("ChatGPT로 계속하기")));
+    else if (a.error) { const f = FAILS[a.code] || ["연결하지 못했습니다", "다시 시도"];  // S2, S3, S34, S37
+      acct.append(card("bad", f[0], a.error, signin(f[1]), f[2] ? h("a", { class: "link", href: PLAN, target: "_blank", rel: "noopener noreferrer" }, "플랜 안내 ↗") : null,
+        a.state === "error" ? link("연결 해제", () => pabloHost.logout()) : null)); }
+    else acct.append(card("off", "ChatGPT · 연결 안 됨", "연결해야 에이전트와 논문 질문을 쓸 수 있습니다", signin("ChatGPT로 연결")));
+  };
   function account(a) {
-    const hello = a.state === "connected" && (authSt.state === "signing_in" || authSt.state === "verifying");  // just signed in
-    authSt = a; acct.dataset.state = a.state; acct.textContent = "";
-    const err = a.error ? h("p", { class: "muted" }, a.error) : null;
-    if (hello) { const x = h("div", { class: "hello" }, art("waving", "pose"), h("p", null, h("b", null, "ChatGPT에 연결되었습니다."))); acct.append(x); setTimeout(() => x.remove(), 8000); }
-    if (a.state === "connected") acct.append(h("p", { class: "muted" }, art("head", "ico"), "ChatGPT · 연결됨 · 플랜 사용 가능 · ", link("연결 해제", () => pabloHost.logout()),
-      pabloHost.setUi ? [" · ", h("button", { class: "link", "data-settings": "1", on: settings }, "설정")] : null));
-    else if (a.state === "signing_in") acct.append(h("div", { class: "call" }, h("p", { class: "head" }, "브라우저에서 ChatGPT 로그인을 마치세요."),
-      h("p", null, link("취소", () => pabloHost.cancelLogin()))));
-    else if (a.state === "verifying") acct.append(h("div", { class: "call" }, h("p", { class: "head" }, "ChatGPT 플랜 사용 권한을 확인하는 중…")));
-    else acct.append(h("div", { class: "call" }, h("p", { class: "head" }, "ChatGPT 계정을 연결하세요"), err,
-      h("p", null, h("button", { class: "pill on", id: "signin", on: () => pabloHost.login() }, "ChatGPT로 계속하기"),
-        a.state === "error" ? [" ", link("연결 해제", () => pabloHost.logout())] : null)));
+    const was = authSt.state;
+    if (a.state === "connected" && (was === "signing_in" || was === "verifying") && !rechecking) {  // S33: just signed in, said for 8 s
+      const x = hello = h("div", { class: "hello", "data-hello": "1" }, h("span", { class: "hav" }, art("waving", "pose")),
+        h("p", null, h("b", null, "ChatGPT에 연결되었습니다"), h("small", null, "이제 대화할 수 있습니다.")));
+      setTimeout(() => { if (hello === x) { hello = null; x.remove(); } }, 8000); }
+    if (a.state === "connected") checkedAt = new Date();
+    if (a.state !== "verifying") rechecking = false;
+    if (a.state !== "connected") seenReady = false;
+    authSt = a; paintAcct();
     gate(); shellNote();
+    if (!V && $("log").querySelector(".empty")) empty();  // the first-run steps follow the account
+    if ($("settings") && settingsDraw) settingsDraw();
   }
+  // S4 reads the agent's own state (the composer's data-agent), so the card follows a restart without touching gate()
+  new MutationObserver(rs => { if (rs.every(r => r.oldValue === (box.dataset.agent || null))) return;
+    if (box.dataset.agent === "Ready" && authSt.state === "connected") seenReady = true; paintAcct(); })
+    .observe(box, { attributes: true, attributeFilter: ["data-agent"], attributeOldValue: true });
   const scroll = () => { $("log").scrollTop = $("log").scrollHeight; };
   pabloHost.onAuth(account);
   pabloHost.onAgent(ev => {
@@ -2920,9 +3377,20 @@ if (window.pabloHost && pabloHost.chat) {
       new FontFace(w[0], "url(pablo://fonts/" + f + ")", w[1]).load().then(x => document.fonts.add(x), () => {}); }); };
   // UI renewal P2: #tools is now the stage bar under the header (it used to sit above the composer)
   const bar = $("chat").insertBefore(h("div", { id: "tools" }), $("log"));
-  let srcOpen = false, shownTask = null, cardOpen = false;  // cardOpen: the header's source card (자료 · 폴더 · 인터넷)  // ② the source list, when it is folded into "자료 N개"; the task the box belongs to
-  const attach = kind => pabloHost[kind](V.task.id).then(name => name && refresh(),
-    e => { live(V.task.id).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + clean(e))))); scroll(); });
+  let srcOpen = false, shownTask = null, cardOpen = null;  // cardOpen: the chip whose part of the card is open (src | dir | net)  // ② the source list, when it is folded into "자료 N개"; the task the box belongs to
+  cardClose = () => { cardOpen = null; const c = $("srccard"); if (c) c.hidden = true; document.querySelectorAll(".hchip").forEach(x => x.setAttribute("aria-expanded", "false")); };
+  // S24 and the like: a notice under the header (what happened, nothing changed, what to do next); one at a time
+  const noticeBox = $("chat").insertBefore(h("div", { id: "notice" }), $("log"));
+  const notice = el => noticeBox.replaceChildren(...(el ? [el] : []));
+  const attach = kind => pabloHost[kind](V.task.id).then(name => { notice(null); return name && refresh(); },
+    e => notice(h("div", { class: "call nb", "data-folder-refused": "1" },
+      h("p", { class: "head" }, /겹치지 않는/.test(clean(e)) ? "이 폴더는 작업 폴더로 쓸 수 없습니다" : "작업 폴더를 바꾸지 못했습니다"),
+      h("p", null, clean(e), " 작업 폴더는 바뀌지 않았습니다."),
+      h("p", { class: "acts" }, h("button", { class: "pill", "data-pick-again": "1", on: () => attach(kind) }, ico("folder", 14), "다른 폴더 고르기"),
+        h("button", { class: "link", on: () => notice(null) }, "닫기")))));
+  // ⋯ / the folder chip: the task's own folder in the file manager
+  openWork = pabloHost.openWork ? t => pabloHost.openWork(t).catch(e => notice(h("div", { class: "call nb" }, h("p", { class: "head" }, "작업 폴더를 열지 못했습니다"),
+    h("p", null, clean(e)), h("p", { class: "acts" }, h("button", { class: "link", on: () => notice(null) }, "닫기"))))) : null;
   // C1/C2: + 추가 -> a PDF file, or an arXiv id / link that main downloads (one row under the tools)
   const adder = $("chat").insertBefore(h("div", { id: "adder", hidden: true }), box);
   // D1/D2: the same box takes an arXiv id or link (C2), a web page's address (D1), or words to find a paper (D2)
@@ -2931,7 +3399,9 @@ if (window.pabloHost && pabloHost.chat) {
   const ARXIV = /^(arxiv:|(https?:\/\/)?(www\.|export\.)?arxiv\.org\/)|^\d{4}\.\d{4,5}(v\d+)?$|^[a-z][a-z-]*(\.[A-Z]{2})?\/\d{7}(v\d+)?$|^(https?:\/\/(dx\.)?doi\.org\/|doi:\s*)?10\.48550\/arxiv\./i;  // ⑬ arXiv's own DOI too
   const moved = m => { const n = Object.values(m).reduce((a, b) => a + b, 0);
     return n ? ` 이전 버전에서 찾은 근거 ${n}개: 그대로 ${m.VALID || 0} · 문맥 바뀜 ${m.STALE || 0} · 찾을 수 없음 ${m.UNRESOLVED || 0}.` : ""; };
-  const hold = on => { get.disabled = find.disabled = on; };
+  const prog = h("span", { class: "ad-prog", hidden: true }, h("i"));
+  const step = (i, n) => { prog.hidden = n < 2; prog.firstChild.style.width = Math.round(i / n * 100) + "%"; };
+  const hold = on => { get.disabled = find.disabled = on; adder.classList.toggle("busy", on); if (!on) prog.hidden = true; };
   // ② several at once: one line per item (✓ added / ⚠ why not) under the box, and a count in the note
   const report = (rows, what) => {  // rows: [ok | same | bad, text]; one already there is not counted as added
     lines.textContent = ""; lines.hidden = !rows.length;
@@ -2943,7 +3413,7 @@ if (window.pabloHost && pabloHost.chat) {
   // picked or dropped PDFs: one at a time, so the note says how far it got ("3개 중 2번째") and a slow one is visible
   async function addPaths(paths) {
     adder.hidden = false; fresh(); hold(true); const rows = [];
-    for (const [i, p] of paths.entries()) {
+    for (const [i, p] of paths.entries()) { step(i, paths.length);
       note.textContent = `PDF ${paths.length}개 중 ${i + 1}번째를 추가하는 중…`;
       try { const r = await pabloHost.addFiles(V.task.id, [p]);
         rows.push(...r.added.map(t => [t.same ? "same" : "ok", `✓ ${t.title}${t.same ? " (이미 있음)" : ""}`]), ...r.failed.map(f => ["bad", `⚠ ${f.file}: ${f.error}`])); }
@@ -2962,7 +3432,7 @@ if (window.pabloHost && pabloHost.chat) {
   const label = r => `${r.title}${r.version ? " " + r.version : ""}`;
   async function batch(vs, doi) {
     hold(true); fresh(); const rows = [];
-    for (const [i, v] of vs.entries()) {
+    for (const [i, v] of vs.entries()) { step(i, vs.length);
       note.textContent = `${vs.length}개 중 ${i + 1}번째를 가져오는 중…`;
       try { const r = await one(v, doi); rows.push([r.same ? "same" : "ok", `✓ ${label(r)}${r.same ? " (이미 있음)" : ""}${r.moved ? " ·" + moved(r.moved) : ""}`]); }
       catch (e) { rows.push(["bad", `⚠ ${v}: ${fail(e)}`]); }
@@ -3001,7 +3471,7 @@ if (window.pabloHost && pabloHost.chat) {
     {
       hold(false); note.textContent = rs.length ? (intro || "") : "arXiv에서 찾은 논문이 없습니다."; hits.textContent = ""; hits.hidden = !rs.length;
       const picked = () => [...hits.querySelectorAll("[data-pick]:checked")].map(c => c.dataset.pick);
-      const many = h("button", { class: "pill", id: "arxiv-many", disabled: true, on: () => picked().length && batch(picked(), doi) }, "고른 논문 가져오기");
+      const many = h("button", { class: "pill on", id: "arxiv-many", disabled: true, on: () => picked().length && batch(picked(), doi) }, "고른 논문 가져오기");
       const have = new Set((((M.desk || {})[V.task.id] || {}).papers || []).map(p => p.arxiv).filter(Boolean));  // already a source here
       hits.append(h("p", { class: "muted", "data-sent": "1" }, sent || "검색어를 arXiv(export.arxiv.org)로 보냈습니다. arXiv의 요청 제한 때문에 3초에 한 번까지 찾습니다."),
         ...rs.map(x => h("div", { class: "hit", "data-hit": x.id, title: x.summary || null },
@@ -3009,18 +3479,30 @@ if (window.pabloHost && pabloHost.chat) {
           h("b", null, x.title), " ", h("small", { class: "muted" }, `${x.authors} · ${x.year} · arXiv ${x.id}${x.version || ""}`), " ",
           have.has(x.id) ? h("small", { class: "have", "data-have": "1" }, "✓ 자료에 있음")
             : h("button", { class: "link", "data-import": x.id, on: () => fetchArxiv(x.id, doi) }, "가져오기"),
-          x.summary ? h("div", { class: "sum" }, x.summary) : null)), h("p", null, many));
+          x.summary ? h("div", { class: "sum" }, x.summary) : null)), h("div", { class: "ad-foot" }, many,
+          h("button", { class: "pill", "data-adder-close": "1", on: () => { adder.hidden = true; } }, "닫기"),
+          h("small", null, "받은 PDF는 이 작업의 자료가 됩니다. 아무것도 고르지 않으면 바뀌는 것이 없습니다.")));
       hits.addEventListener("change", () => { const n = picked().length; many.disabled = !n; many.textContent = n ? `고른 ${n}개 가져오기` : "고른 논문 가져오기"; });
     }
   };
   const get = h("button", { class: "pill", id: "arxiv-get", on: () => fetchArxiv() }, "가져오기");
-  const find = h("button", { class: "pill", id: "arxiv-find", title: "검색어가 arXiv(export.arxiv.org)로 보내집니다. 3초에 한 번까지 찾습니다.", on: search }, "🔎 arXiv에서 찾기");
+  const find = h("button", { class: "pill", id: "arxiv-find", title: "검색어가 arXiv(export.arxiv.org)로 보내집니다. 3초에 한 번까지 찾습니다.", on: search }, ico("search", 14), "arXiv에서 찾기");
   arx.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) fetchArxiv(); });
-  adder.append(...[link("📄 PDF 파일 고르기 (여러 개 가능)", pickPdfs), "또는", arx, get, pabloHost.searchArxiv ? find : null, note, lines, hits].filter(Boolean));
+  find.classList.add("on");
+  adder.append(h("div", { class: "ad-head" }, h("b", null, "자료 추가"), h("small", null, "PDF · arXiv · DOI · OpenReview · 웹 문서"),
+      h("button", { class: "x", title: "닫기", "aria-label": "닫기", on: () => { adder.hidden = true; } }, ico("x"))),
+    h("div", { class: "ad-row" }, ...[h("button", { class: "link ad-pdf", title: "여러 개를 한 번에 고를 수 있습니다", on: pickPdfs }, ico("file", 14), "PDF 파일 고르기"),
+      h("span", { class: "or" }, "또는"), arx, get, pabloHost.searchArxiv ? find : null].filter(Boolean)), h("span", { class: "ad-note" }, prog, note), lines, hits);
   // ② PDFs dropped anywhere on the window become the open task's sources (preload gives each file's path; main checks it)
   if (pabloHost.addFiles && pabloHost.pathOf) {
     const files = e => [...((e.dataTransfer || {}).types || [])].includes("Files");
-    addEventListener("dragover", e => { if (!V || !files(e)) return; e.preventDefault(); document.body.classList.add("dropping"); });
+    const dn = h("span", { class: "dc-n" }), cover = $("chat").appendChild(h("div", { id: "drop-cover", "aria-hidden": "true" },
+      h("div", { class: "dc-in" }, h("span", { class: "dc-ico" }, ico("file", 22)), h("b", null, "PDF를 놓으면 이 작업의 자료로 추가합니다"),
+        h("small", null, "여러 개를 한 번에 놓을 수 있습니다 · PDF가 아닌 파일은 받지 않습니다 · 50 MB까지"), dn)));
+    addEventListener("dragover", e => { if (!V || !files(e)) return; e.preventDefault();
+      if (!document.body.classList.contains("dropping")) { const L = $("log"); cover.style.top = L.offsetTop + 8 + "px"; cover.style.height = Math.max(120, L.clientHeight - 16) + "px"; }
+      const n = ((e.dataTransfer || {}).items || []).length; dn.textContent = n ? `${n}개 파일을 끌고 있음` : ""; dn.hidden = !n;
+      document.body.classList.add("dropping"); });
     addEventListener("dragleave", e => { if (!e.relatedTarget) document.body.classList.remove("dropping"); });
     addEventListener("drop", e => {
       document.body.classList.remove("dropping");
@@ -3035,10 +3517,10 @@ if (window.pabloHost && pabloHost.chat) {
   const say = (text, tag) => { live(V.task.id).append(msg("Pablo", null, h("p", { class: "muted", [tag]: "1" }, text))); scroll(); };
   // P7: the last stage is done -> ask once whether the task moves into 완료 (sidebar); reopening it always works
   const askDone = () => { const d = (M.desk || {})[V.task.id] || {}; if (d.done || !pabloHost.setUi) return;
-    const t = V.task.id, card = h("div", { class: "changes", "data-done-ask": "1" }, h("p", null, h("b", null, "이 작업을 완료로 옮길까요?")),
-      h("p", { class: "muted" }, "사이드바 아래 '완료'로 접힙니다. 다시 열면 언제든 이어서 할 수 있습니다."),
-      h("p", null, h("button", { class: "pill on", "data-done-go": "1", on: () => pabloHost.setUi(t, "done", true).then(() => { card.closest(".msg").remove(); return refresh(); }) }, "완료로 옮기기"),
-        " ", link("나중에", () => card.closest(".msg").remove())));
+    const t = V.task.id, card = h("div", { class: "call done-ask", "data-done-ask": "1" }, h("p", { class: "head" }, "이 작업을 완료로 옮길까요?"),
+      h("p", null, "보고서를 저장했습니다. 완료로 옮기면 사이드바 '완료' 묶음으로 접힙니다. 대화와 기록은 그대로이고, ⋯ 메뉴의 '완료 풀기'로 되돌릴 수 있습니다."),
+      h("p", { class: "acts" }, h("button", { class: "pill on", "data-done-go": "1", on: () => pabloHost.setUi(t, "done", true).then(() => { card.closest(".msg").remove(); return refresh(); }) }, ico("check-circle", 14), "완료로 옮기기"),
+        h("button", { class: "pill", "data-done-later": "1", on: () => card.closest(".msg").remove() }, "나중에")));
     live(t).append(msg("Pablo", null, card)); scroll(); };
   // 0.8 review: 다시 뽑기 says first what it replaces and what it keeps (extractions differ from run to run)
   const redo = () => {
@@ -3053,35 +3535,59 @@ if (window.pabloHost && pabloHost.chat) {
         h("button", { class: "link", on: () => box.closest(".msg").remove() }, "취소")));
     live_(V.task.id).append(msg("Pablo", null, box)); scroll(); };
   const live_ = t => live(t);
+  // A2 complete: the header's three chips (자료 · 폴더 · 인터넷), each opening its part of one card (#srccard: #src, #dir,
+  // #net, same ids and contents as before); the stage bar (stagesOf; a filtered stage says "거르는 중 · N"); the view bar
+  // with what the conversation is filtered by, or "거르기 없음"
   tools = () => {
     bar.textContent = "";
-    if (!V) { adder.hidden = true; return; }
-    if (shownTask !== V.task.id) { shownTask = V.task.id; fresh(); note.textContent = ""; arx.value = ""; }  // another task's results never stay
+    if (!V) { adder.hidden = true; notice(null); return; }
+    if (shownTask !== V.task.id) { shownTask = V.task.id; fresh(); note.textContent = ""; arx.value = ""; notice(null); cardOpen = null; }  // another task's results never stay
     const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [], main = ps.find(p => p.primary);
     const pdfs = ps.filter(p => p.kind !== "web"), several = pdfs.length > 1;  // D1: a web page is asked, never reproduced or a row
     const hasSpec = V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived");
     const kind = kindFor(d), st = stagesOf(V, d, kind);  // D1: the steps and what their actions need
     // ② more than 3 sources: one line "자료 N개 (주 논문 X) ▾", the list opens below it (one per line)
     const many = ps.length > 3, open = !many || srcOpen;
+    // F18: a row is its PDF / WEB mark (CSS), the name and version, 주 논문, a line of what it is; its actions show on hover
+    const pmeta = p => { const pg = ((M.papers || {})[p.id] || {}).pages, ev = Object.values(M.anchors || {}).filter(a => a.source === p.id).length;
+      return [p.kind === "web" ? "웹 문서 · 캡처본" : p.arxiv ? `arXiv ${p.arxiv}` : "PDF", pg ? `${pg}쪽` : null, ev ? `근거 ${ev}` : null].filter(Boolean).join(" · "); };
     const chip = p => h("span", { class: "paper", "data-paper": p.id, "data-kind": p.kind || "pdf" },
-        p.kind === "web" ? h("span", { title: "웹 문서" }, "🌐 ") : null,
-        ...(name => p.kind !== "web" && (M.papers || {})[p.id] ? [h("button", { class: "link", "data-open-paper": p.id,
-          title: "PDF 열기 (문장을 골라 재현 조건으로 더할 수 있습니다)", on: () => show({ mode: "paper", src: p.id }) }, name)] : name)(
-          [h("b", null, p.title), p.version ? h("small", null, " " + p.version) : null]),
-        p.kind !== "web" ? renamer(p.id, p.title, V.task.id) : null,
-        ...codeOf(p.id).filter(x => x.official).map(x => [" ", h("a", { class: "code", href: x.url, target: "_blank", rel: "noopener noreferrer",
-          "data-code": p.id, title: `논문의 공식 코드 (논문 p.${x.page}): ${x.url}` }, "코드 ↗")]),
-        several && p.kind !== "web" ? (p.primary ? h("small", { class: "muted", "data-primary": "1" }, " (주 논문)")
-          : [" ", h("button", { class: "link", title: "이 논문을 재현 대상으로 (재현 조건은 주 논문에서 뽑습니다)", "data-make-primary": p.id,
-              on: () => pabloHost.setPrimary(V.task.id, p.id).then(() => refresh()) }, "주 논문으로")]) : null,
-        h("button", { class: "rm", title: "자료에서 빼기 (찾은 근거 기록은 남습니다)", "data-remove": p.id,
-          on: () => pabloHost.removeSource(V.task.id, p.id).then(() => refresh()) }, "×"));
-    const srcEl = h("span", { id: "src", class: many ? "many" : null }, "📎 자료: ",
+        h("span", { class: "ptitle" }, p.kind === "web" ? h("span", { title: "웹 문서" }, "🌐 ") : null,
+          ...(name => p.kind !== "web" && (M.papers || {})[p.id] ? [h("button", { class: "link", "data-open-paper": p.id,
+            title: "PDF 열기 (문장을 골라 재현 조건으로 더할 수 있습니다)", on: () => { cardClose(); show({ mode: "paper", src: p.id }); } }, name)] : [h("span", { class: "pname" }, name)])(
+            [h("b", null, p.title), p.version ? h("small", null, " " + p.version) : null]),
+          several && p.kind !== "web" && p.primary ? h("small", { class: "ptag", "data-primary": "1" }, "주 논문") : null),
+        h("span", { class: "pacts" }, p.kind !== "web" ? renamer(p.id, p.title, V.task.id) : null,
+          ...codeOf(p.id).filter(x => x.official).map(x => [" ", h("a", { class: "code", href: x.url, target: "_blank", rel: "noopener noreferrer",
+            "data-code": p.id, title: `논문의 공식 코드 (논문 p.${x.page}): ${x.url}` }, "코드 ↗")]),
+          several && p.kind !== "web" && !p.primary ? [" ", h("button", { class: "link", title: "이 논문을 재현 대상으로 (재현 조건은 주 논문에서 뽑습니다)", "data-make-primary": p.id,
+              on: () => pabloHost.setPrimary(V.task.id, p.id).then(() => refresh()) }, "주 논문으로")] : null,
+          h("button", { class: "rm", title: "자료에서 빼기 (찾은 근거 기록은 남습니다)", "aria-label": "자료에서 빼기", "data-remove": p.id,
+            on: () => pabloHost.removeSource(V.task.id, p.id).then(() => refresh()) }, "×")),
+        h("small", { class: "pmeta" }, pmeta(p)));
+    const srcEl = h("span", { id: "src", class: many ? "many" : null }, h("span", { class: "sc-lbl" }, "📎 자료: "),
         many ? h("button", { class: "link", id: "src-toggle", on: () => { srcOpen = !srcOpen; tools(); } },
           `${ps.length}개${main ? ` (주 논문 ${main.title})` : ""} ${open ? "▴" : "▾"}`) : null,
-        ps.length ? h("span", { class: "plist", hidden: !open }, ps.map(p => chip(p))) : "없음", " ",
-        pabloHost.addArxiv ? link("+ 추가", () => { adder.hidden = !adder.hidden; if (!adder.hidden) arx.focus(); }) : link("PDF 추가", pickPdfs));
-    const dirEl = h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder")));
+        ps.length ? h("span", { class: "plist", hidden: !open }, ps.map(p => chip(p))) : h("span", { class: "sc-none" }, "없음"), " ",
+        h("span", { class: "sc-add" }, pabloHost.addArxiv ? h("button", { class: "link", "data-add-source": "1", on: () => { cardClose(); adder.hidden = false; arx.focus(); } }, "+ 추가")
+          : link("PDF 추가", pickPdfs), h("small", null, "PDF · arXiv · DOI · OpenReview · 웹 주소")));
+    const mi = (icon, label, on, attrs, ...tail) => h("button", { class: "mi", ...(attrs || {}), on }, ico(icon), h("span", null, label), ...tail);
+    // S13 / S14: the folder (its first button picks one, as before)
+    const dirEl = h("div", { id: "dir" }, h("span", { class: "sc-lbl" }, "📁 작업 폴더: "), d.folder
+      ? [h("div", { class: "sc-path" }, h("small", null, "작업 폴더"), h("code", null, d.folder)),
+         mi("swap", "폴더 바꾸기", () => { cardClose(); attach("pickFolder"); }, { "data-pick-folder": "1" }),
+         openWork ? mi("folder", "탐색기에서 열기", () => { cardClose(); openWork(V.task.id); }, { "data-open-work": "1" }) : null,
+         h("p", { class: "mfoot" }, "작업 폴더 밖의 파일은 읽지도 바꾸지도 않습니다. 체크포인트는 이 폴더만 저장합니다.")]
+      : [h("b", null, "작업 폴더가 없습니다"), h("p", null, "논문 질문은 할 수 있습니다. 구현·실행과 재현 점검은 폴더가 있어야 열립니다."),
+         h("button", { class: "pill on", "data-pick-folder": "1", on: () => { cardClose(); attach("pickFolder"); } }, ico("folder", 14), "작업 폴더 고르기")]);
+    // S15: 인터넷 (with a folder: it is about the agent's commands); 기본 = the new tasks' default in 설정
+    const netEl = d.folder && pabloHost.setNet ? h("div", { id: "net", "data-on": d.net ? "1" : "", role: "menu" }, h("span", { class: "sc-lbl" }, "🌐 인터넷: "),
+        ...[[false, "globe-off", "차단"], [true, "globe", "허용"]].map(([on, icon, label]) => mi(icon, label,
+          () => on === !!d.net ? cardClose() : pabloHost.setNet(V.task.id, on).then(() => refresh()),
+          { class: "mi" + (on === !!d.net ? " sel" : ""), "data-net": on ? "on" : "off", role: "menuitemradio", "aria-checked": String(on === !!d.net) },
+          !!(M.settings || {}).net === on ? h("small", null, "기본") : null, on === !!d.net ? ico("check", 14) : null)),
+        h("p", { class: "mfoot" }, "허용해도 명령은 하나하나 Guard를 거칩니다. 이 작업에만 적용되고, 새 작업의 기본값은 설정에서 바꿉니다.")) : null;
+    if (!netEl && cardOpen === "net") cardOpen = null;
     const specEl = st.can.spec && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
         link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => hasSpec ? redo() : spec(V.task.id))) : null;
     const compEl = st.can.compare && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null;
@@ -3089,26 +3595,28 @@ if (window.pabloHost && pabloHost.chat) {
         "보낼 곳 ", h("span", { class: "seg" }, ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label]) =>  // A2: a segmented control
           (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh()))))) : null;
     const auditEl = st.can.audit && pabloHost.audit ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null;
-    const reportEl = pabloHost.report && st.can.report ? h("span", { id: "reports" },  // ⑫
-        link("📄 보고서", () => pabloHost.report(V.task.id).then(r => r && (say(`📄 보고서를 저장했습니다: ${r.name} (${r.lines}줄). 조건마다 논문의 쪽, 의도한 차이와 뺀 것의 이유, 마지막 점검을 담았습니다.`, "data-report"), askDone(), refresh()),
-          e => say("⚠ " + fail(e), "data-report-error")))) : null;
-    const netEl = d.folder && pabloHost.setNet ? h("span", { id: "net", "data-on": d.net ? "1" : "", title: "패키지 설치, 데이터 내려받기, git clone에 필요합니다. 켜도 명령마다 Pablo가 검토합니다." },
-        "🌐 인터넷: ", h("b", null, d.net ? "허용" : "차단"), " ",
-        link(d.net ? "차단하기" : "허용하기", () => pabloHost.setNet(V.task.id, !d.net).then(() => refresh()))) : null;
-    // the header: one chip with the task's state (자료 · 폴더 · 인터넷) that opens the source card (team review: the
-    // sources read as a sentence before; now a list with a PDF / WEB mark per item)
-    const card = h("div", { class: "srccard", id: "srccard", hidden: !cardOpen },
-      ...[srcEl, dirEl, netEl].filter(Boolean).map(x => h("div", { class: "sc-sec" }, x)));
-    // A2: one chip, a segment (icon + words) per part of the state; the folder by its last name, the whole path in its title
-    const seg = (icon, text, cls, title) => h("span", { class: "sc-seg" + (cls ? " " + cls : ""), title }, ico(icon, 14), h("span", null, text));
-    const chipBtn = h("button", { class: "statechip", "aria-expanded": String(cardOpen), title: "자료 · 작업 폴더 · 인터넷",
-      "aria-label": [`자료 ${ps.length}`, d.folder || "폴더 없음", d.folder ? (d.net ? "인터넷 허용" : "인터넷 차단") : null].filter(Boolean).join(" · "),
-      on: () => { cardOpen = !cardOpen; card.hidden = !cardOpen; chipBtn.setAttribute("aria-expanded", String(cardOpen)); } },
-      seg("file", `자료 ${ps.length}`, "sc-src"),
-      seg("folder", d.folder ? d.folder.split(/[\\/]/).filter(Boolean).pop() || d.folder : "폴더 없음", "sc-dir" + (d.folder ? "" : " sc-none"), d.folder || null),
-      d.folder ? seg(d.net ? "globe" : "globe-off", d.net ? "인터넷 허용" : "인터넷 차단", "sc-net") : null, ico("chevron-down", 12));
-    const oldChips = $("chips"); if (oldChips) oldChips.remove();
-    $("bar").append(h("span", { id: "chips" }, chipBtn, card));
+    // ⑫ / A13: the report opens the export dialog (parts, format, place) instead of saving at once
+    const reportEl = pabloHost.report && st.can.report ? h("span", { id: "reports" }, link("📄 보고서", () => reportDlg(V.task.id))) : null;
+    const card = h("div", { class: "srccard", id: "srccard", role: "dialog", "aria-label": "자료 · 작업 폴더 · 인터넷", hidden: !cardOpen, "data-sec": cardOpen || "src" },
+      h("div", { class: "sc-sec", "data-sec": "src" }, h("div", { class: "sc-head" }, h("b", null, `자료 ${ps.length}`),
+        main ? h("small", null, `주 논문: ${main.title}${main.version ? " " + main.version : ""}`) : null), srcEl),
+      h("div", { class: "sc-sec", "data-sec": "dir" }, dirEl), netEl ? h("div", { class: "sc-sec", "data-sec": "net" }, netEl) : null);
+    // the card sits under its chip, kept inside the conversation column
+    const place = b => { const c = $("srccard"), w = $("chips"); if (!c || !b || !w) return;
+      c.style.left = Math.max(-w.offsetLeft + 8, Math.min(b.offsetLeft, w.clientWidth - c.offsetWidth)) + "px"; };
+    const chipEl = (sec, icon, text, cls, title) => { const b = h("button", { class: "hchip" + (sec === "src" ? " statechip" : "") + (cls ? " " + cls : ""),
+        "data-chip": sec, title: title || null, "aria-haspopup": "dialog", "aria-expanded": String(cardOpen === sec),
+        on: () => { if (cardOpen === sec) return cardClose(); cardOpen = sec; card.dataset.sec = sec; card.hidden = false;
+          document.querySelectorAll(".hchip").forEach(x => x.setAttribute("aria-expanded", String(x === b))); place(b); } },
+      ico(icon, 14), h("span", null, text), ico("chevron-down", 12)); return b; };
+    const fname = d.folder ? d.folder.split(/[\\/]/).filter(Boolean).pop() || d.folder : null;
+    const chips = h("span", { id: "chips" },
+      chipEl("src", "file", main ? `${main.title}${main.version ? " " + main.version : ""} · 주` : ps.length ? `자료 ${ps.length}편` : "자료 없음", ps.length ? "" : "none",
+        ps.length ? `자료 ${ps.length}${main ? " · 주 논문 " + main.title : ""}` : null),
+      chipEl("dir", "folder", fname || "폴더 없음", d.folder ? "" : "none", d.folder || null),
+      netEl ? chipEl("net", d.net ? "globe" : "globe-off", d.net ? "인터넷 허용" : "인터넷 차단", d.net ? "" : "off") : null, card);
+    const oldChips = $("chips"); if (oldChips) oldChips.replaceWith(chips); else $("bar").insertBefore(chips, $("pnl") || null);
+    if (cardOpen) place(chips.querySelector(`[data-chip="${cardOpen}"]`));
     // the stage bar: always visible; the steps come from stagesOf (D1). Each step carries its old action (#specs /
     // #audits / #compares / #reports, same ids, texts and conditions), by the step's key.
     const acts = { repro: { spec: specEl, audit: auditEl, report: reportEl }, read: { prep: specEl, compare: compEl, wrap: reportEl },
@@ -3124,75 +3632,275 @@ if (window.pabloHost && pabloHost.chat) {
     // done, ↻ when stale, a lock when blocked, else the number as "01"
     const stMark = (s, i) => s.state === "done" ? ico("check", 12) : s.state === "stale" ? ico("rotate", 12) : s.state === "blocked" ? ico("lock", 12)
       : String(i + 1).padStart(2, "0");
+    // A9: the stage the conversation is filtered to says so, with how many of its messages are shown
+    const filt = $("log").dataset.filter || "";
+    const shownIn = label => [...$("log").children].filter(x => x.classList.contains("msg") && !x.classList.contains("filtered") && x.dataset.stage === label).length;
     bar.append(h("nav", { id: "stages", "data-kind": kind }, ...steps.map((s, i) =>
-      h("div", { class: "stage st-" + s.state + ($("log").dataset.filter === s.label ? " picked" : ""), "data-stage": s.key,
+      h("div", { class: "stage st-" + s.state + (filt === s.label ? " picked" : ""), "data-stage": s.key,
         title: `${s.label} 단계의 대화만 보기`, on: e => { if (!e.target.closest("button, a")) stageFilter(s.label); } },
         h("span", { class: "st-n" }, stMark(s, i)),
-        h("span", { class: "st-t" }, h("b", null, s.label), h("small", null, s.sub), s.act || null))),
+        h("span", { class: "st-t" }, h("b", null, s.label), h("small", { "data-filtering": filt === s.label ? "1" : null }, filt === s.label ? `거르는 중 · ${shownIn(s.label)}` : s.sub),
+          s.act || null))),
       more.length ? h("span", { class: "st-more" }, ...more) : null));
-    // P6: how the conversation is grouped (the task's choice, else the settings'; 시간순 by default)
+    // P6: how the conversation is grouped (the task's choice, else the settings'; 시간순 by default). A10: on the right, what
+    // it is filtered by (a stage, or 대화로 거르기's label) as a chip that clears it, else "거르기 없음"
     const view = d.view || (M.settings || {}).view || "time";
+    const fstate = !filt ? h("span", { class: "fnone", "data-filter-state": "" }, "거르기 없음")
+      : h("button", { class: "fchip", "data-filter-state": filt, title: "거르기 풀기", on: () => { const b = $("filter-banner"), x = b && b.querySelector("button");
+          if (x) x.click(); else if (!filt.startsWith("refs:")) stageFilter(filt); } }, filt.startsWith("refs:") ? filt.slice(5) : "단계 · " + filt, ico("x", 12));
     bar.append(h("div", { id: "viewbar" }, h("span", { class: "muted" }, "보기"), h("span", { class: "vseg", role: "group", "aria-label": "보기" },
       ...[["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]].map(([v, t]) =>
       h("button", { class: "vtab" + (view === v ? " on" : ""), "data-view": v, disabled: !pabloHost.setUi, "aria-pressed": String(view === v),
-        on: () => view !== v && pabloHost.setUi(V.task.id, "view", v).then(() => refresh()).then(() => conversation()) }, t)))));
+        on: () => view !== v && pabloHost.setUi(V.task.id, "view", v).then(() => refresh()).then(() => conversation()) }, t))),
+      h("span", { class: "grow" }), fstate));
     box.querySelectorAll("#route").forEach(x => x.remove());  // 보낼 곳 lives in the composer, after the send button (it stays the first button)
     if (routeEl) box.append(routeEl);
   };
+  // a stage filter or 대화로 거르기 (stageFilter / filterBy set #log's data-filter): the stage bar and the view bar follow
+  new MutationObserver(rs => { if (rs.some(r => r.oldValue !== $("log").getAttribute("data-filter"))) tools(); })
+    .observe($("log"), { attributes: true, attributeFilter: ["data-filter"], attributeOldValue: true });
+  // A12: 새 작업 is a dialog over the open task (#goal, #repro / #kind-*, #create as before). What is picked before the task
+  // exists (PDFs, a folder: tokens from main; arXiv · OpenReview · DOI as text) is attached right after it is made
   newTask = () => {
-    V = null; close(); sidebar(); header(); tools(); gate();
-    const ta = h("textarea", { id: "goal", rows: 5,
-      placeholder: "무엇을 할지 적어주세요.\n지켜야 할 조건은 한 줄에 하나씩 적으면 작업 기준이 됩니다." });
+    if ($("newtask")) return $("goal").focus();
+    cardClose();
+    const s = M.settings || {}, picks = { pdfs: [], folder: null, links: [] };
+    let primary = 0, net = !!s.net;
+    const ta = h("textarea", { id: "goal", rows: 1, placeholder: "예: LinearRAG baseline을 2WikiMultiHopQA에서 재현", "aria-label": "작업 목표" });
+    ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 160) + "px"; });
     // P7: three kinds; 논문 재현 keeps id=repro (its criteria come with it); each shows the stages it will go through
-    const kinds = [["repro", "논문 재현", "데이터 누수와 결과 맞추기를 막는 기준 3개를 함께 넣습니다", "준비 → 조건 확정 → 구현·실행 → 재현 점검 → 보고서"],
-      ["read", "논문 읽기", "질문과 비교표 중심, 작업 폴더 없이도 됩니다", "준비 → 질문 → 비교표 → 정리"],
+    const kinds = [["repro", "논문 재현", "기본 기준 3개가 함께 들어갑니다", "준비 → 조건 확정 → 구현·실행 → 재현 점검 → 보고서"],
+      ["read", "논문 읽기", "질문 · 비교표 중심, 폴더 없이", "준비 → 질문 → 비교표 → 정리"],
       ["general", "일반", "기준을 대화로 직접 정합니다", "준비 → 작업 → 검토"]];
     const radios = kinds.map(([k]) => h("input", { type: "radio", name: "kind", value: k, id: k === "repro" ? "repro" : "kind-" + k, checked: k === "general" ? true : null }));
     const repro = radios[0], pickedKind = () => (radios.find(r => r.checked) || radios[2]).value;
-    const stagesLine = h("p", { class: "muted", "data-kind-stages": "1" });
-    const showStages = () => { stagesLine.textContent = "이 작업의 단계: " + kinds.find(k => k[0] === pickedKind())[3]; };
+    const kindBox = h("div", { class: "nt-kind", "data-kind-stages": "1" });
+    const showStages = () => { const k = pickedKind();
+      kindBox.replaceChildren(...[k === "repro" && (M.reproCriteria || []).length ? h("b", null, "함께 들어가는 반드시 기준") : null,
+        k === "repro" && (M.reproCriteria || []).length ? h("ul", null, M.reproCriteria.map(x => h("li", null, x))) : null,
+        h("p", null, h("b", null, "이 작업의 단계: "), kinds.find(x => x[0] === k)[3])].filter(Boolean)); };
     radios.forEach(r => r.addEventListener("change", showStages)); showStages();
-    const err = h("p", { class: "muted" }), make = h("button", { class: "pill on", id: "create", on: () => {
-      const text = ta.value.trim(); if (!text) return;
-      make.disabled = true; err.textContent = "작업을 만드는 중…";
-      pabloHost.newTask(text, { repro: repro.checked, kind: pickedKind() }).then(r => refresh(r.id).then(() => {
+    // 자료: PDFs (picked now, copied once the task exists), arXiv · OpenReview · DOI lines; the first is the 주 논문 unless one is picked
+    const srcNote = h("small", { class: "nt-hint" }, "여러 편을 둘 수 있고, 재현 조건은 주 논문 한 편에서만 뽑습니다. 내려받기 전에 파일 · 출처 · 크기를 보여 줍니다.");
+    const chipsBox = h("div", { class: "nt-chips" });
+    const items = () => [...picks.pdfs.map(p => ({ name: p.name, pdf: p })), ...picks.links.map(l => ({ name: l.label, link: l, title: l.title }))];
+    const drop = x => { if (x.pdf) picks.pdfs.splice(picks.pdfs.indexOf(x.pdf), 1); else picks.links.splice(picks.links.indexOf(x.link), 1);
+      primary = Math.min(primary, Math.max(0, items().length - 1)); drawChips(); };
+    const drawChips = () => chipsBox.replaceChildren(...items().map((x, i) => h("span", { class: "nt-chip" + (i === primary ? " main" : ""), title: x.title || null },
+        h("button", { class: "nt-cname", "data-nt-primary": String(i), on: () => { primary = i; drawChips(); } }, h("b", null, x.name), i === primary ? " · 주 논문" : " · 주 논문으로"),
+        h("button", { class: "nt-x", title: "빼기", "aria-label": "빼기", on: () => drop(x) }, ico("x", 12)))),
+      items().length ? h("button", { class: "nt-chip add", on: pickPdf }, "+ 추가") : null);
+    const pickPdf = () => pabloHost.pickPdfsFree().then(r => { if (r) { picks.pdfs.push(...r); drawChips(); } }, e => { srcNote.textContent = "⚠ " + clean(e); });
+    const linkIn = h("input", { class: "nt-in", id: "nt-link", placeholder: "arXiv 번호·링크, OpenReview, DOI", spellcheck: "false" });
+    const addLink = async () => {
+      for (const v of linkIn.value.trim().split(/[\s,;]+/).filter(Boolean)) {
+        const l = { text: v, label: v.length > 28 ? v.slice(0, 27) + "…" : v, title: null };
+        if (ARXIV.test(v) && pabloHost.peekArxiv) {  // D10: the file, where from and how big, before anything is downloaded
+          try { const p = await pabloHost.peekArxiv(v); l.label = p.title ? (p.title.length > 34 ? p.title.slice(0, 33) + "…" : p.title) + (p.version ? " " + p.version : "") : l.label;
+            l.title = `${p.filename} · 출처 ${p.source}${p.bytes ? ` · ${(p.bytes / 1048576).toFixed(1)} MB` : ""}`; }
+          catch (e) { srcNote.textContent = `⚠ ${v}: ${clean(e)}`; continue; } }
+        picks.links.push(l); }
+      linkIn.value = ""; drawChips(); };
+    linkIn.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); addLink(); } });
+    // 작업 폴더: none, or one picked (refused at once when it overlaps Pablo's own folders)
+    const folderNote = h("small", { class: "nt-hint" }, "에이전트는 이 폴더 안에서만 씁니다. 비워 두면 논문 질문만 합니다.");
+    const noneB = h("button", { class: "pill", "data-folder-none": "1", on: () => { picks.folder = null; drawFolder(); } }, "선택 안 함");
+    const pickB = h("button", { class: "pill", "data-folder-pick": "1", on: () => pabloHost.pickFolderFree().then(r => { if (r) { picks.folder = r; drawFolder(); } },
+      e => { folderNote.textContent = "⚠ " + clean(e); }) }, "폴더 고르기");
+    const drawFolder = () => { noneB.classList.toggle("sel", !picks.folder); pickB.classList.toggle("sel", !!picks.folder);
+      pickB.replaceChildren(ico("folder", 14), picks.folder ? picks.folder.name : "폴더 고르기"); };
+    drawFolder();
+    const netIn = h("input", { type: "checkbox", role: "switch", id: "nt-net", checked: net ? true : null });
+    const netLbl = h("span", null), drawNet = () => { netLbl.textContent = (net ? "허용" : "차단") + (net === !!s.net ? " (기본)" : ""); };
+    netIn.addEventListener("change", () => { net = netIn.checked; drawNet(); }); drawNet();
+    const crit = h("textarea", { id: "nt-crit", rows: 2, placeholder: "예: test 셋은 튜닝에 절대 쓰지 마.", "aria-label": "이 작업만의 기준" });
+    const state = h("div", { class: "nt-state", "aria-live": "polite" });
+    const make = h("button", { class: "pill on", id: "create", on: () => go() }, "만들기");
+    const field = (label, ...kids) => h("div", { class: "nt-field" }, h("h4", null, label), ...kids);
+    const dlg = h("div", { id: "newtask", class: "dlg-dim", role: "dialog", "aria-modal": "true", "aria-label": "새 작업" }, h("div", { class: "dlg nt" },
+      h("div", { class: "dlg-head" }, h("b", null, "새 작업"), h("button", { class: "x", title: "닫기", "aria-label": "닫기", on: () => dlg.remove() }, ico("x"))),
+      h("div", { class: "dlg-body" },
+        field("작업 목표", ta, h("small", { class: "nt-hint" }, "첫 줄이 작업 이름이 됩니다.")),
+        field("작업 종류", h("div", { class: "kinds" }, kinds.map(([k, label, what], i) => h("label", { class: "kind" }, radios[i], h("b", null, label), h("small", null, what)))), kindBox),
+        field("자료 (논문)", h("div", { class: "nt-row" }, h("button", { class: "pill", "data-nt-pdf": "1", on: pickPdf }, ico("file", 14), "PDF 고르기"), linkIn,
+          h("button", { class: "pill", "data-nt-link": "1", on: addLink }, "가져오기")), chipsBox, srcNote),
+        h("div", { class: "nt-two" }, field("작업 폴더", h("div", { class: "nt-row" }, noneB, pickB), folderNote),
+          field("인터넷", h("label", { class: "nt-switch" }, netIn, h("span", { class: "sw", "aria-hidden": "true" }), netLbl),
+            h("small", { class: "nt-hint" }, "허용해도 명령은 하나하나 Guard를 거칩니다."))),
+        field("이 작업만의 기준 (선택)", crit, h("small", { class: "nt-hint" }, "\"절대 · 항상 · 가능하면\"처럼 적으면 기준으로 남습니다. 나중에 대화로 더해도 됩니다.")),
+        state),
+      h("div", { class: "dlg-foot" }, h("button", { class: "pill", on: () => dlg.remove() }, "취소"), make)));
+    dlg.addEventListener("mousedown", e => { if (e.target === dlg && !make.disabled) dlg.remove(); });
+    document.body.append(dlg);
+    // S23: while it is made, the reading of the criteria; a failure says nothing was lost and offers it again
+    const go = () => {
+      const goal = ta.value.trim(); if (!goal) return ta.focus();
+      const text = [goal, crit.value.trim()].filter(Boolean).join("\n"), its = items();
+      make.disabled = true; make.textContent = "작업을 만드는 중…";
+      state.replaceChildren(h("p", { class: "nt-wait" }, h("span", { class: "spin", "aria-hidden": "true" }), "적은 기준을 읽고 있습니다"));
+      pabloHost.newTask(text, { repro: repro.checked, kind: pickedKind() }).then(r => refresh(r.id).then(async () => {
+        dlg.remove();
         const n = r.added, id = r.id;  // what this form's lines recorded (project-wide criteria are in 기준 보기)
         // ③ every criterion line is accounted for: recorded, or waiting above for the user to decide
         live(id).append(msg("Pablo", null, M.tasks.length === 1 ? art("waving", "pose") : null, h("p", { "data-made": "1" }, n ? `작업 기준 ${n}개를 기록했습니다. ` : "작업을 만들었습니다. ",
           r.unread ? h("b", { "data-ask": "1" }, `적은 기준 ${r.lines}줄 중 ${r.unread}줄은 기준으로 읽지 못해, 위에서 정해 주세요. `) : null,
           link("작업 기준 보기", () => show({ mode: "intent" }))),
           h("p", { class: "muted" }, "PDF를 추가하면 근거를 찾아 답하고, 작업 폴더를 고르면 그 폴더에서 작업합니다.")));
-      }), e => { make.disabled = false; err.textContent = clean(e); });
-    } }, "작업 만들기");
-    const log = $("log"); log.textContent = "";
-    log.append(msg("Pablo", null, h("p", null, "새 작업을 시작합니다."), ta,
-      h("div", { class: "kinds" }, kinds.map(([k, label, what], i) => h("label", { class: "kind" }, radios[i], h("b", null, label), h("small", null, what)))),
-      stagesLine,
-      h("p", null, make), err));
+        const tokens = [...picks.pdfs.map(p => p.token), ...(picks.folder ? [picks.folder.token] : [])];
+        if (!tokens.length && !picks.links.length && net === !!s.net) return;
+        const wait = h("p", { class: "muted", "data-attaching": "1" }, "고른 자료와 폴더를 붙이는 중…"); live(id).append(msg("Pablo", null, wait)); scroll();
+        const lines = [], titles = [];
+        if (tokens.length) try { const a = await pabloHost.attachPicked(id, tokens);
+            if (!a.failed.length) a.added.forEach(x => titles.push(x.title)); else picks.pdfs.forEach(() => titles.push(null));
+            a.added.forEach(x => lines.push(`✓ ${x.title}${x.same ? " (이미 있음)" : ""}`)); a.failed.forEach(f => lines.push(`⚠ ${f.file}: ${f.error}`));
+            if (a.folder) lines.push(`✓ 작업 폴더: ${a.folder}`); }
+          catch (e) { lines.push("⚠ " + clean(e)); picks.pdfs.forEach(() => titles.push(null)); }
+        for (const l of picks.links) {
+          try { const x = await (!ARXIV.test(l.text) && DOI.test(l.text) && pabloHost.lookupDoi ? pabloHost.lookupDoi(l.text).then(r => {
+                if (!r.hits.length) throw new Error(`"${r.title}": arXiv에서 같은 제목을 찾지 못했습니다. 출판사의 PDF를 받아 파일로 더하세요.`);
+                return pabloHost.addArxiv(id, r.hits[0].id, { doi: r.doi }); })
+              : (ARXIV.test(l.text) ? pabloHost.addArxiv : OPENREVIEW.test(l.text) && pabloHost.addOpenreview ? pabloHost.addOpenreview : pabloHost.addWeb)(id, l.text));
+            titles.push(x.title); lines.push(`✓ ${label(x)}${x.same ? " (이미 있음)" : ""}`); }
+          catch (e) { titles.push(null); lines.push(`⚠ ${l.text}: ${clean(e)}`); } }
+        if (picks.folder && net !== !!s.net && pabloHost.setNet) await pabloHost.setNet(id, net).catch(e => lines.push("⚠ 인터넷: " + clean(e)));
+        await refresh();
+        const want = its.length > 1 ? titles[primary] : null, p = want && ((M.desk || {})[id] || {}).papers.find(x => x.title === want);
+        if (p && !p.primary) await pabloHost.setPrimary(id, p.id).then(() => refresh()).catch(() => {});
+        wait.replaceWith(h("div", { "data-attached": "1" }, h("p", null, "만들 때 고른 것을 붙였습니다."), h("ul", { class: "muted" }, lines.map(x => h("li", null, x)))));
+      }), e => { make.disabled = false; make.textContent = "만들기";
+        state.replaceChildren(h("div", { class: "call nb", "data-made-error": "1" }, h("p", { class: "head" }, "작업을 만들지 못했습니다"),
+          h("p", null, clean(e), " 적은 목표와 기준은 그대로 있습니다."),
+          h("p", { class: "acts" }, h("button", { class: "pill on", on: () => go() }, "다시 시도"), h("button", { class: "pill", on: () => dlg.remove() }, "닫기")))); });
+    };
     ta.focus();
   };
   const clean = e => String(e.message || e).replace(/^Error invoking remote method '[^']*': (\w*Error: )?/, "");
-  // P7 설정: the app's defaults (the model is chosen in the composer)
-  function settings() {
-    const old = $("settings"); if (old) return old.remove();
-    const s = M.settings || {}, group = (name, label, help, opts, cur) => h("div", { class: "set-row" },
-      h("div", null, h("b", null, label), h("small", null, help)),
-      h("div", { class: "set-opts" }, opts.map(([v, t]) => h("label", null, h("input", { type: "radio", name: "set-" + name, value: v, checked: v === cur ? true : null }), " ", t))));
-    const pickedOf = name => (document.querySelector(`#settings input[name="set-${name}"]:checked`) || {}).value;
-    const err = h("p", { class: "muted" });
-    const dlg = h("div", { id: "settings", role: "dialog" }, h("div", { class: "set-box" },
-      h("div", { class: "set-head" }, h("b", null, "설정"), h("button", { class: "x", title: "닫기", on: () => dlg.remove() }, ico("x"))),
-      group("view", "기본 보기", "대화를 처음 열 때의 보기", [["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]], s.view || "time"),
-      group("tags", "메시지 태그", "단계 · 대상만 보이고 나머지는 'N개 더'로 접습니다", [["main", "단계 · 대상만"], ["all", "전부"]], s.tags || "main"),
-      group("panel", "새 작업의 오른쪽 패널", "그 뒤에는 작업마다 마지막 상태를 기억합니다", [["open", "열림 (기준)"], ["rail", "접힘 (레일)"]], s.panel || "open"),
-      group("net", "새 작업의 인터넷", "허용해도 명령은 하나하나 Guard를 거칩니다", [["off", "차단"], ["on", "허용"]], s.net ? "on" : "off"),
-      h("p", { class: "muted" }, "모델은 입력창에서 고릅니다."), err,
-      h("div", { class: "set-foot" }, h("button", { class: "pill", on: () => dlg.remove() }, "취소"),
-        h("button", { class: "pill on", "data-settings-save": "1", on: () => pabloHost.setUi(null, "settings", { view: pickedOf("view"), tags: pickedOf("tags"),
-          panel: pickedOf("panel"), net: pickedOf("net") === "on" }).then(() => { dlg.remove(); return refresh(); }).then(() => V && conversation(), e => { err.textContent = clean(e); }) }, "저장"))));
-    dlg.addEventListener("click", e => { if (e.target === dlg) dlg.remove(); });
+  // A14 / F12–F15 설정: a list on the left (계정 · 기본값 · 셸 · 인코딩 · 저장 위치 · 정보), a page on the right. A choice applies
+  // at once. The model and its thinking level are chosen in the composer (10/27)
+  function settings(page) {
+    const old = $("settings"); if (old) { old.remove(); if (!page) return; }
+    page = page || "defaults";
+    const PAGES = [["account", "계정"], ["defaults", "기본값"], ["shell", "셸 · 인코딩"], ["storage", "저장 위치"], ["about", "정보"]];
+    const note = h("p", { class: "set-note", role: "status" }), main = h("div", { class: "set-main" });
+    const nav = h("nav", { class: "set-nav" }, h("b", null, "설정"), ...PAGES.map(([k, l]) => h("button", { class: "set-item" + (k === page ? " on" : ""), "data-set-page": k,
+      on: () => { page = k; nav.querySelectorAll(".set-item").forEach(b => b.classList.toggle("on", b.dataset.setPage === k)); draw(); } }, l)));
+    const dlg = h("div", { id: "settings", class: "dlg-dim", role: "dialog", "aria-modal": "true", "aria-label": "설정" }, h("div", { class: "set-box" }, nav, main));
+    const close_ = () => { dlg.remove(); settingsDraw = null; };
+    const row = (title, help, right, attrs) => h("div", { class: "set-row", ...(attrs || {}) }, h("div", null, h("b", null, title), help ? h("small", null, help) : null),
+      right ? h("div", { class: "set-opts" }, right) : null);
+    const tag = t => h("span", { class: "set-tag" }, t);
+    const save = v => { note.textContent = ""; return pabloHost.setUi(null, "settings", v).then(() => refresh()).then(() => V && conversation(), e => { note.textContent = "⚠ " + clean(e); }); };
+    const radios = (name, opts, cur) => h("div", { class: "set-radios", role: "radiogroup" }, opts.map(([v, t]) => { const r = h("input", { type: "radio", name: "set-" + name, value: v, checked: v === cur ? true : null });
+      r.addEventListener("change", () => save({ [name]: v })); return h("label", null, r, h("span", null, t)); }));
+    const opener = (which, label) => h("button", { class: "pill", "data-open-path": which, on: () => pabloHost.openPath(which).then(() => { note.textContent = ""; }, e => { note.textContent = "⚠ " + clean(e); }) },
+      ico("folder", 14), label || "폴더 열기");
+    const size = b => b == null ? null : b >= 1048576 ? `${(b / 1048576).toFixed(b >= 104857600 ? 0 : 1)} MB` : `${Math.ceil(b / 1024)} KB`;
+    const ext = (href, text) => h("a", { class: "link", href, target: "_blank", rel: "noopener noreferrer" }, text);
+    const pages = {
+      account: () => { const on = authSt.state === "connected", n = pick.options.length;
+        const confirm = h("div", { class: "call set-confirm", hidden: true }, h("p", { class: "head" }, "연결을 해제할까요?"),
+          h("p", null, "이 기기의 ChatGPT 토큰을 폐기하고, 작업마다 이어 가던 대화(thread) 연결을 지웁니다. 작업 · 기준 · 대화 기록은 그대로 남습니다. 다시 연결하면 새 대화로 이어 갑니다."),
+          h("p", { class: "acts" }, h("button", { class: "pill warn", "data-logout-ok": "1", on: () => pabloHost.logout().then(() => draw(), e => { note.textContent = "⚠ " + clean(e); }) }, "연결 해제"),
+            h("button", { class: "pill", on: () => { confirm.hidden = true; } }, "취소")));
+        return [h("div", { class: "set-card", "data-account": authSt.state }, h("b", null, on ? "ChatGPT · 연결됨" : "ChatGPT · 연결 안 됨", on ? tag("플랜 사용 가능") : null),
+            h("small", null, on ? `쓸 수 있는 모델 ${n}개${checkedAt ? " · 마지막 확인 " + hhmm(checkedAt) : ""}` : authSt.error || "연결해야 에이전트와 논문 질문을 쓸 수 있습니다.")),
+          ...(on ? [row("플랜 확인", "ChatGPT 플랜으로 에이전트와 논문 질문을 씁니다. API 키는 쓰지 않습니다. 플랜이 바뀌었으면 다시 확인하세요.",
+              pabloHost.recheckPlan ? h("button", { class: "pill", "data-recheck": "1", on: () => { rechecking = true; pabloHost.recheckPlan().catch(e => { rechecking = false; note.textContent = "⚠ " + clean(e); }); } },
+                ico("rotate", 14), "다시 확인") : null),
+            row("연결 해제", "이 기기에 저장된 로그인 토큰을 지웁니다.", h("button", { class: "pill warn", "data-logout": "1", on: () => { confirm.hidden = false; } }, "연결 해제")), confirm]
+            : [row("연결", "시스템 브라우저에서 ChatGPT 로그인을 승인합니다.", authSt.state === "signing_in" || authSt.state === "verifying" ? h("small", null, "연결하는 중…")
+              : h("button", { class: "pill on", "data-set-signin": "1", on: () => pabloHost.login() }, "ChatGPT로 연결"))])]; },
+      defaults: () => { const s = M.settings || {};
+        const sw = h("input", { type: "checkbox", role: "switch", "data-set-net": "1", checked: s.net ? true : null });
+        sw.addEventListener("change", () => save({ net: sw.checked }));
+        return [h("p", { class: "set-lead" }, "모델과 생각 수준은 입력창에서 고릅니다. 새 작업은 마지막에 고른 값으로 시작합니다."),
+          row("새 작업의 인터넷", "작업마다 바꿀 수 있습니다. 허용해도 명령은 하나하나 Guard를 거칩니다.",
+            h("label", { class: "nt-switch" }, sw, h("span", { class: "sw", "aria-hidden": "true" }), h("span", null, s.net ? "허용" : "차단"))),
+          row("오른쪽 패널", "새 작업은 기준 탭이 열린 채 시작하고, 그 뒤에는 작업마다 마지막 상태를 기억합니다.",
+            radios("panel", [["open", "열림 + 작업마다 기억"], ["rail", "레일(접힘)"]], s.panel === "rail" ? "rail" : "open")),
+          row("기본 보기", "대화를 처음 열 때의 보기", radios("view", [["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]], s.view || "time")),
+          row("메시지 태그", "단계 · 대상만 보이고 나머지는 'N개 더'로 접습니다. 전부 보이기를 고를 수 있습니다.",
+            radios("tags", [["main", "단계 · 대상만"], ["all", "전부"]], s.tags || "main"))]; },
+      shell: () => { const sh = (M.host || {}).shell, five = sh === "powershell";
+        return [row(["셸 ", tag("감지됨")], "에이전트가 명령을 실행하는 셸입니다. 시작할 때 한 번 찾습니다.",
+            h("code", null, sh === "pwsh" ? "pwsh.exe · PowerShell 7" : five ? "powershell.exe · 5.1" : String(sh || "—"))),
+          row(["출력 인코딩 ", tag("적용됨")], "한글이 든 파일과 명령 출력을 UTF-8로 읽습니다.", h("code", null, "UTF-8")),
+          row("인코딩 규칙", five ? "에이전트에게 파일을 UTF-8로 읽으라는 규칙을 붙였습니다(재현 점검에도 같은 말을 덧붙입니다)."
+            : "에이전트가 셸을 열 때 출력 인코딩을 UTF-8로 맞추는 규칙을 붙입니다. 바꿀 것은 없습니다."),
+          h("h4", { class: "set-sub" }, "PowerShell 5.1만 있을 때"),
+          five ? ps51(null, "Windows PowerShell 5.1 · 한글 깨짐 위험")
+            : h("p", { class: "set-info" }, ico("info", 14), " 이 PC에는 PowerShell 7이 있어 해당하지 않습니다. 5.1만 있으면 여기와 입력창 위에 설치 안내가 보입니다.")]; },
+      storage: () => { const host = M.host || {};
+        return [row("앱 데이터", "작업 · 기준 · 대화 기록과 로그인 토큰이 있는 곳입니다.", opener("userData")),
+          host.userData ? h("code", { class: "set-path" }, host.userData) : null,
+          row("체크포인트", `되돌리기에 쓰는 파일 사본입니다.${size(host.checkpoints) ? " " + size(host.checkpoints) + "." : ""}`, opener("checkpoints")),
+          row("보고서 기본 위치", "보고서 내보내기에서 작업마다 바꿀 수 있습니다.", h("code", null, "작업 폴더\\reports\\")),
+          h("p", { class: "set-info" }, ico("info", 14), " 작업 폴더는 이 위치와 겹치지 않는 별도 폴더여야 합니다. 겹치는 폴더를 고르면 Pablo가 받지 않습니다.")].filter(Boolean); },
+      about: () => { const host = M.host || {}, REPO = "https://github.com/PabloITMST/Pablo_application";
+        return [h("div", { class: "set-brand" }, h("b", null, "Pablo"), h("code", null, host.version || "")),
+          h("p", { class: "set-lead" }, "논문 재현과 읽기를 돕는 데스크톱 앱. 에이전트가 하는 일을 작업 기준과 대조합니다."),
+          row("버전", "에이전트는 Codex app-server로 실행합니다.", h("code", null, `Pablo ${host.version || "—"} · Codex ${host.codex || "—"}`)),
+          row("로그", host.logs ? "문제를 알릴 때 이 폴더의 로그를 함께 보내 주세요." : "로그는 콘솔에만 남고 파일로 저장하지 않습니다.",
+            host.logs ? opener("logs", "로그 폴더") : h("code", null, "없음")),
+          row("제3자 고지", "Pablo가 쓰는 오픈 소스 구성 요소와 라이선스.", ext(REPO + "/blob/main/desktop/THIRD_PARTY_NOTICES.txt", "보기 ↗")),
+          row("소스", "GitHub 저장소", ext(REPO, "PabloITMST/Pablo_application ↗"))]; } };
+    const draw = () => { const title = PAGES.find(p => p[0] === page)[1];
+      main.replaceChildren(h("div", { class: "set-head" }, h("b", null, title), h("button", { class: "x", title: "닫기", "aria-label": "닫기", on: close_ }, ico("x"))),
+        h("div", { class: "set-page", "data-page": page }, ...pages[page]()), note); };
+    settingsDraw = draw; draw();
+    dlg.addEventListener("mousedown", e => { if (e.target === dlg) close_(); });
     document.body.append(dlg);
   }
+  openSettings = () => settings("defaults");
+  // A13: the report's export dialog: its parts with their counts (pablo:report-preview), the record that goes with it, a
+  // warning when files changed after the last audit, HTML or Markdown, and where (<work folder>/reports by default, 바꾸기 =
+  // the save dialog first); a task without a folder is asked where on export, as before
+  const PARTS = [["goal_criteria", "작업 목표와 기준", c => `반드시 ${c.criteria.hard} · 가능하면 ${c.criteria.soft}`], ["conditions", "재현 조건과 원문 위치", c => `${c.conditions}개`],
+    ["audit", "최근 재현 점검", c => { if (!c.audit || !c.audit.at) return "점검 전"; const d = new Date(c.audit.at), p = n => String(n).padStart(2, "0");
+      return `${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }],
+    ["deviations", "의도한 차이", c => String(c.deviations)], ["decisions", "결정과 이유 (대화에서 고정)", c => String(c.decisions)],
+    ["changes", "변경 기록 · 되돌리기", c => `${c.changes}건`], ["refused", "Pablo가 막거나 확인을 받은 작업", c => `${c.refused}건`], ["conversation", "대화 전체", c => `${c.conversation}개`]];
+  reportDlg = t => {
+    const old = $("report-dlg"); if (old) old.remove();
+    cardClose();
+    let fmt = "html", token = null, where = null;
+    const body = h("div", { class: "dlg-body" }, h("p", { class: "muted" }, "보고서에 넣을 내용을 세는 중…"));
+    const err = h("p", { class: "dlg-err", role: "alert" });
+    const goB = h("button", { class: "pill on", "data-report-go": "1", disabled: true, on: () => exportIt() }, "내보내기");
+    const dlg = h("div", { id: "report-dlg", class: "dlg-dim", role: "dialog", "aria-modal": "true", "aria-label": "보고서 내보내기" }, h("div", { class: "dlg rp" },
+      h("div", { class: "dlg-head" }, h("b", null, kindFor((M.desk || {})[t]) === "repro" ? "재현 보고서 내보내기" : "보고서 내보내기"),
+        h("button", { class: "x", title: "닫기", "aria-label": "닫기", on: () => dlg.remove() }, ico("x"))),
+      body, err, h("div", { class: "dlg-foot" }, h("button", { class: "pill", on: () => dlg.remove() }, "취소"), goB)));
+    dlg.addEventListener("mousedown", e => { if (e.target === dlg) dlg.remove(); });
+    document.body.append(dlg);
+    pabloHost.reportPreview(t).then(pv => {
+      where = pv.where;
+      const placeEl = h("code", { class: "rp-where", "data-report-place": "1" });
+      const place = () => { placeEl.textContent = token ? token.display : where ? where + "/" : "내보낼 때 고릅니다"; };
+      const seg = h("span", { class: "seg2", role: "group", "aria-label": "형식" }, ...[["html", "HTML"], ["md", "Markdown"]].map(([f, l]) =>
+        h("button", { class: "pill" + (f === fmt ? " sel" : ""), "data-format": f, "aria-pressed": String(f === fmt), on: () => { fmt = f; token = null;
+          seg.querySelectorAll("[data-format]").forEach(b => { b.classList.toggle("sel", b.dataset.format === f); b.setAttribute("aria-pressed", String(b.dataset.format === f)); }); place(); } }, l)));
+      const change = h("button", { class: "link", "data-report-where": "1", on: () => pabloHost.pickReportPath(t, fmt).then(r => { if (r) { token = r; place(); } }, e => { err.textContent = "⚠ " + clean(e); }) }, "바꾸기");
+      place();
+      body.replaceChildren(h("h4", null, "포함할 내용"),
+        h("div", { class: "rp-list" }, PARTS.map(([k, label, n]) => h("label", { class: "rp-row" }, h("input", { type: "checkbox", "data-section": k, checked: k !== "conversation" ? true : null }),
+          h("span", null, label), h("small", null, n(pv.counts))))),
+        h("div", { class: "rp-auto" }, h("b", null, "함께 남는 기록 (자동)"), h("code", null, pv.auto)),
+        pv.stale ? h("div", { class: "rp-stale", "data-report-stale": "1" }, h("p", null, "점검 뒤 파일이 바뀌었습니다. 이대로 내보내면 점검 결과가 '오래됨'으로 표시됩니다."),
+          reAudit && pabloHost.audit ? h("button", { class: "pill", "data-report-reaudit": "1", on: () => { dlg.remove(); reAudit(t); } }, "먼저 다시 점검") : null) : null,
+        h("div", { class: "rp-opts" }, h("div", null, h("h4", null, "형식"), seg), h("div", null, h("h4", null, "저장 위치"), h("span", { class: "rp-wrow" }, placeEl, change))));
+      body.addEventListener("change", () => { goB.disabled = !body.querySelector("[data-section]:checked"); });
+      goB.disabled = false;
+    }, e => body.replaceChildren(h("p", { class: "muted" }, "⚠ " + clean(e))));
+    const exportIt = () => {
+      const sections = [...body.querySelectorAll("[data-section]:checked")].map(x => x.dataset.section); if (!sections.length) return;
+      goB.disabled = true; err.textContent = "";
+      pabloHost.report(t, { sections, format: fmt, ...(token ? { token: token.token } : where ? { token: "default" } : {}) }).then(r => {
+        dlg.remove(); if (!r) return;
+        say(`📄 보고서를 저장했습니다: ${r.name} (${r.lines}줄)${r.display ? " · " + r.display : ""}. 조건마다 논문의 쪽, 의도한 차이와 뺀 것의 이유, 마지막 점검을 담았습니다.`, "data-report");
+        askDone(); refresh(); }, e => { goB.disabled = false; err.textContent = "⚠ " + clean(e); });
+    };
+  };
   // A5/A6: 재현 점검 -> one read-only agent turn; its JSON answer comes back as an "audit" event (a table in the conversation)
   reAudit = t => audit(t);
   function audit(t) {

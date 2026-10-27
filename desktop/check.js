@@ -285,7 +285,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "summarize", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "openWork", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "recheckPlan", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "summarize", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -308,13 +308,20 @@ async function authCheck() {
   assert.deepStrictEqual(await js(`(q => [q("#chat > .composer > button, .composer #route .seg"), q(".composer #route .seg > *")])(s =>
     [...new Set([...document.querySelectorAll(s)].filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height)))])`)
     .then(([ctl, inn]) => [ctl, inn.filter(h => h !== 24)]), [[32], []], "composer row: one size scale");
+  // A2 complete · A: connected, the account card says "플랜 사용 가능 · 설정" (연결 해제 lives in 설정 · 계정)
+  assert.deepStrictEqual(await js(`[document.querySelector("#acct .acard b").textContent, [...document.querySelectorAll("#acct .link")].map(x => x.textContent)]`),
+    ["ChatGPT · 연결됨", ["설정"]], "the account card, connected");
+  await js(`document.querySelector("#acct [data-settings]").click()`);
+  assert.match(await until(`(c => c && c.textContent)(document.querySelector('#settings [data-account="connected"]'))`), /^ChatGPT · 연결됨플랜 사용 가능쓸 수 있는 모델 3개 · 마지막 확인 \d\d:\d\d$/);
+  if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "auth-settings-account.png"), (await win.capturePage()).toPNG());
+  await js(`document.querySelector("#settings .x").click()`);
   // ⑤ a PC without PowerShell 7: once connected, the notice (why, winget, the docs link, restart) -> 알겠습니다 -> not again
   const deskFile = path.join(ctl.dir, "desktop.json");
   const unnotice = () => { try { const d = JSON.parse(fs.readFileSync(deskFile, "utf8")); delete d.noticed; fs.writeFileSync(deskFile, JSON.stringify(d)); } catch {} };
   unnotice(); process.env.PABLO_SHELL = "powershell";
   await js(`refresh()`);
   assert.match(await until(`(b => b && b.textContent)(document.querySelector("#shell-note [data-shell]"))`),
-    /^한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다이 PC에는 Windows PowerShell 5\.1만 있어.*winget install Microsoft\.PowerShell · 설치 방법 ↗\. 설치한 뒤 Pablo를 다시 시작하세요\.알겠습니다$/);
+    /^한글이 든 코드를 정확히 읽으려면 PowerShell 7이 필요합니다지금은 Windows PowerShell 5\.1로 실행합니다\..*winget install Microsoft\.PowerShell복사알겠습니다설치 방법 ↗설치한 뒤 Pablo를 다시 시작하면 7을 씁니다\.$/);
   await js(`[...document.querySelectorAll("#shell-note button")].find(b => b.textContent === "알겠습니다").click()`);
   await until(`!document.querySelector("#shell-note [data-shell]")`);
   assert.strictEqual(JSON.parse(fs.readFileSync(deskFile, "utf8")).noticed.shell, true);
@@ -333,8 +340,15 @@ async function authCheck() {
   const saved = JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).threads;
   assert.ok(agent.task().endsWith("#" + await js("V.task.id")) && saved[agent.task()].threadId === agent.thread(), "task -> thread saved for the next launch");
   console.log("ok 401:", shown, "-> refresh -> app-server restart -> thread/resume", agent.thread());
-  await js(`document.querySelector("#acct .link").click()`);
+  // A2 complete: 연결 해제 is in 설정 · 계정, behind a confirm card (the account card's only link is 설정)
+  await js(`document.querySelector("#acct [data-settings]").click()`);
+  await until(`!!document.querySelector("#settings [data-logout]")`);
+  await js(`document.querySelector("#settings [data-logout]").click()`);
+  assert.ok(await js(`!document.querySelector("#settings .set-confirm").hidden && $("acct").dataset.state === "connected"`), "asks first");
+  await js(`document.querySelector("#settings [data-logout-ok]").click()`);
   await until(`$("acct").dataset.state === "signed_out"`);
+  assert.ok(await js(`document.querySelector('#settings [data-account="signed_out"]') && !!$("signin")`), "the page and the card follow");
+  await js(`$("settings").remove()`);
   assert.ok(!siwc.has() && !agent.pid() && !fs.existsSync(path.join(dir, "thread.json")), "credentials, thread, agent gone");
   assert.ok(F.seen.some(x => x[0] === "/revoke" && x[1].token.startsWith("rt-") && x[1].client_id === F.issued), "refresh token revoked");
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`) && hostJson().client_id === F.issued, "composer off; host id + client kept");
@@ -901,6 +915,99 @@ async function uiCheck() {
     in: q("#viewbar .vtab"), tag: q("#log .tg, #log .tagbtn, #log .cite") }))(s => [...new Set([...document.querySelectorAll(s)]
     .filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height)))])`), { ctl: [32], in: [24], tag: [20] }, "one size scale");
   console.log("ok sizes: controls 32, choices in a group 24, labels in text 20");
+  // A2 complete · A (the shell): the sidebar (search with its shortcut, a row's stage progress, the account card at its foot,
+  // the 56px rail), the header (chips, each opening its part of the card; ⋯ with what the text links did), the stage and
+  // view bars' filter state, the first run, the three dialogs, the narrow window
+  const aShot = async n => { if (process.env.PABLO_SHOTS) { await sleep(350); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, n + ".png"), (await win.capturePage()).toPNG()); } };
+  const press = (k, mods = {}) => js(`dispatchEvent(new KeyboardEvent("keydown", ${JSON.stringify({ key: k, bubbles: true, cancelable: true, ...mods })}))`);
+  assert.deepStrictEqual(await js(`[$("task-search").placeholder, document.querySelector("#side .searchbox .kbd").textContent, document.querySelector("#new .kbd").textContent,
+    $("acct").parentNode.id, $("acct").dataset.state, !!$("signin"), document.querySelector("#acct .acard b").textContent]`),
+    ["작업·자료 찾기", "Ctrl K", "Ctrl N", "side", "signed_out", true, "ChatGPT · 연결 안 됨"], "search + shortcuts; the account card at the sidebar's foot");
+  assert.strictEqual(await js(`document.querySelectorAll('#task-list [data-task="T1"] .prog i').length`), await js(`stagesOf(V, M.desk.T1).steps.length`), "a row's stage progress");
+  await press("k", { ctrlKey: true });
+  assert.strictEqual(await js(`document.activeElement.id`), "task-search", "Ctrl K: the search");
+  await js(`(q => { q.value = "없는낱말"; q.dispatchEvent(new Event("input")); })($("task-search"))`);
+  assert.deepStrictEqual(await js(`[document.querySelector("#task-list h4").textContent, !!document.querySelector("[data-no-hit]"), document.querySelector("#side .searchbox .kbd").textContent]`),
+    ["찾은 작업 0개", true, "esc"], "S18: nothing found says so");
+  await js(`$("task-search").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
+  assert.deepStrictEqual(await js(`[$("task-search").value, !!document.querySelector('#task-list > [data-task="T1"]')]`), ["", true], "esc clears the search");
+  await js(`$("task-search").blur()`);
+  // the chips: 자료 · 폴더 (인터넷 only with a folder); each opens its part of one card; Esc / again closes it
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("#chips .hchip")].map(b => b.dataset.chip + ":" + b.textContent)`), ["src:자료 없음", "dir:폴더 없음"]);
+  await js(`document.querySelector('#chips [data-chip="dir"]').click()`);
+  assert.deepStrictEqual(await js(`[$("srccard").hidden, $("srccard").dataset.sec, $("dir").querySelector("button").textContent, getComputedStyle($("src").closest(".sc-sec")).display]`),
+    [false, "dir", "작업 폴더 고르기", "none"], "S14: the folder chip opens the folder part, its first button picks one");
+  await aShot("a-chip-dir");
+  await js(`document.querySelector('#chips [data-chip="dir"]').click()`);
+  assert.strictEqual(await js(`$("srccard").hidden`), true);
+  // ⋯: 이름 바꾸기 (F2) · 완료 · 보관 · 보고서 내보내기, in the DOM while hidden
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("#more-menu .mi")].map(b => b.textContent)`), ["이름 바꾸기F2", "완료로 옮기기", "보관", "보고서 내보내기"], "⋯ items");
+  await js(`$("more").click()`); await aShot("a-more");
+  assert.strictEqual(await js(`$("more-menu").hidden`), false);
+  await press("Escape");
+  assert.strictEqual(await js(`$("more-menu").hidden`), true, "Esc closes ⋯");
+  await press("F2");
+  assert.deepStrictEqual(await js(`[!!$("task-name"), document.querySelector("#bar .rn-cnt").textContent]`), [true, "9/80"], "F2: rename in place with n/80");
+  await js(`(i => { i.value = "가".repeat(81); i.dispatchEvent(new Event("input")); })($("task-name")); document.querySelector("[data-rename-task-ok]").click()`);
+  assert.deepStrictEqual(await js(`[document.querySelector("#bar .rn-box").classList.contains("over"), document.querySelector("#bar .rn-note").textContent.trim()]`),
+    [true, "작업 이름은 80자까지입니다. 이름은 바뀌지 않았습니다."], "S17: over 80 says so, nothing saved");
+  await aShot("a-rename");
+  await js(`header()`);
+  // A9 / A10: a stage filter shows in the stage bar ("거르는 중 · N") and as the view bar's chip, which clears it
+  assert.strictEqual(await js(`document.querySelector("#viewbar [data-filter-state]").textContent`), "거르기 없음");
+  const lbl = await js(`document.querySelectorAll("#stages .stage b")[1].textContent`);
+  await js(`document.querySelectorAll("#stages .stage")[1].click()`); await sleep(100);
+  assert.deepStrictEqual(await js(`[document.querySelector("#viewbar .fchip").textContent, /^거르는 중 · \\d+$/.test(document.querySelectorAll("#stages .stage small")[1].textContent)]`),
+    ["단계 · " + lbl, true], "a stage filter: the stage bar and the view bar say so");
+  await aShot("a-filter");
+  await js(`document.querySelector("#viewbar .fchip").click()`); await sleep(100);
+  assert.deepStrictEqual(await js(`[$("log").dataset.filter, document.querySelector("#viewbar [data-filter-state]").textContent]`), ["", "거르기 없음"], "the chip clears it");
+  // F16: the sidebar folds into the rail, kept in the settings, and back
+  await js(`$("side-fold").click()`); await sleep(200);
+  assert.deepStrictEqual(await js(`[document.body.classList.contains("side-off"), Math.round($("side").getBoundingClientRect().width), document.querySelectorAll("#side [data-rail-task]").length]`),
+    [true, 56, 1], "the rail");
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")).settings.side, true);
+  await aShot("a-rail");
+  await js(`$("side-fold").click()`); await sleep(200);
+  assert.ok(await js(`!document.body.classList.contains("side-off") && !!$("task-search")`), "unfolded");
+  // A11 the first run (drawn over the open task here, then the task again)
+  await js(`empty()`);
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll("#log .empty .fr-step")].map(x => x.dataset.step + ":" + x.querySelector("b").textContent)`),
+    ["account:1. ChatGPT 계정 연결", "task:2. 새 작업 만들기"], "first run: the two steps");
+  await aShot("a-empty");
+  await js(`select("T1")`);
+  // A12 새 작업 (Ctrl N): a dialog over the task; the kind shows its stages, 논문 재현 its default criteria; Esc closes it
+  await press("n", { ctrlKey: true });
+  assert.deepStrictEqual(await js(`[!!$("newtask"), !!$("goal") && !!$("repro") && !!$("kind-read") && !!$("kind-general") && !!$("create"), $("kind-general").checked,
+    document.querySelector("[data-kind-stages]").textContent]`), [true, true, true, "이 작업의 단계: 준비 → 작업 → 검토"], "Ctrl N: the new task dialog");
+  await js(`$("repro").checked = true; $("repro").dispatchEvent(new Event("change"))`);
+  assert.strictEqual(await js(`document.querySelectorAll("[data-kind-stages] li").length`), 3, "논문 재현: its three criteria");
+  await aShot("a-newtask");
+  await press("Escape");
+  assert.ok(await js(`!$("newtask")`), "Esc closes it");
+  // A14 설정: five pages; the defaults page has no model row and two panel choices
+  await js(`openSettings()`);
+  assert.deepStrictEqual(await js(`[[...document.querySelectorAll("#settings .set-item")].map(b => b.textContent), document.querySelector("#settings .set-lead").textContent,
+    [...document.querySelectorAll('#settings input[name="set-panel"]')].map(r => r.value)]`),
+    [["계정", "기본값", "셸 · 인코딩", "저장 위치", "정보"], "모델과 생각 수준은 입력창에서 고릅니다. 새 작업은 마지막에 고른 값으로 시작합니다.", ["open", "rail"]]);
+  await aShot("a-settings");
+  for (const p of ["account", "shell", "storage", "about"]) { await js(`document.querySelector('#settings [data-set-page="${p}"]').click()`); await aShot("a-settings-" + p); }
+  assert.match(await js(`document.querySelector("#settings .set-page").textContent`), /Pablo \d+\.\d+\.\d+ · Codex/, "정보: the versions");
+  await press("Escape");
+  assert.ok(await js(`!$("settings")`));
+  // F26 the narrow window: no sidebar (a drawer from ☰), the chips on their own line, the right column over everything
+  const [w0, h0] = win.getSize(); win.setSize(768, 900); await sleep(500);
+  assert.deepStrictEqual(await js(`(c => [getComputedStyle($("side")).display, getComputedStyle($("pnl")).display !== "none",
+    c.getBoundingClientRect().top >= document.querySelector("#bar h1").getBoundingClientRect().bottom - 1])($("chips"))`), ["none", true, true], "narrow: two header lines");
+  await aShot("a-narrow");
+  await js(`$("menu").click()`); await sleep(150);
+  assert.strictEqual(await js(`getComputedStyle($("side")).display`), "flex", "narrow: the drawer");
+  await aShot("a-narrow-drawer");
+  await press("Escape"); await js(`$("pnl").click()`); await sleep(200);
+  assert.deepStrictEqual(await js(`[document.body.classList.contains("side"), getComputedStyle($("right")).position]`), [false, "fixed"], "narrow: the panel over the conversation");
+  await aShot("a-narrow-panel");
+  await js(`close()`); win.setSize(w0, h0); await sleep(400);
+  console.log("ok shell A: search + Ctrl K / esc, row progress, account card in the sidebar, chips + their card, ⋯ + F2 (n/80), stage / view bar filter state, rail, first run, 새 작업 dialog, 설정 (5 pages), narrow window");
   // PABLO_SHOTS=<dir>: what the fixture looks like (load, the source card, the 기준 panel), state restored after each
   if (process.env.PABLO_SHOTS) {
     const snap = async n => { await sleep(500); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, n + ".png"), (await win.capturePage()).toPNG()); };
@@ -1232,8 +1339,16 @@ async function uiCheck() {
   assert.ok(await js(`!document.querySelector("[data-redo-ask]")`));
   // ⑫ the report: saved where the user picks (the dialog stubbed here), with the fixed sections a reviewer reads first
   const { dialog } = require("electron"), save0 = dialog.showSaveDialog, saved = path.join(S, "report.md");
-  dialog.showSaveDialog = async (w, o) => { assert.match(o.defaultPath, /^인사말 파일 정리 재현 보고서\.md$/); return { canceled: false, filePath: saved }; };
+  dialog.showSaveDialog = async (w, o) => { assert.match(o.defaultPath, /인사말 파일 정리 재현 보고서\.md$/); return { canceled: false, filePath: saved }; };
   await js(`document.querySelector("#reports .link").click()`);
+  await until(`!!document.querySelector('#report-dlg [data-format="md"]')`);
+  assert.deepStrictEqual(await js(`[[...document.querySelectorAll("#report-dlg [data-section]:checked")].map(x => x.dataset.section), !!document.querySelector("#report-dlg [data-report-stale]"),
+    document.querySelector("#report-dlg [data-report-place]").textContent]`),
+    [["goal_criteria", "conditions", "audit", "deviations", "decisions", "changes", "refused"], true, path.basename(W) + "/reports/"], "A13: the parts, stale, the default place");
+  if (process.env.PABLO_SHOTS) { await sleep(200); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "report-dialog.png"), (await win.capturePage()).toPNG()); }
+  await js(`document.querySelector('#report-dlg [data-format="md"]').click(); document.querySelector("#report-dlg [data-report-where]").click()`);
+  await until(`/report\\.md$/.test(document.querySelector("#report-dlg [data-report-place]").textContent)`);
+  await js(`document.querySelector("#report-dlg [data-report-go]").click()`);
   assert.match(await until(`(x => x && x.textContent)(document.querySelector("[data-report]"))`), /^📄 보고서를 저장했습니다: report\.md \(\d+줄\)/);
   dialog.showSaveDialog = save0;
   const md = fs.readFileSync(saved, "utf8");
@@ -1438,7 +1553,7 @@ async function papersUi() {
   const until = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
   const settled = () => until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`);
   const deskJson = () => JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8"));
-  const dir = shots || view, shot = async name => dir && fs.writeFileSync(path.join(dir, name), (await win.capturePage()).toPNG());
+  const dir = shots || view || process.env.PABLO_SHOTS, shot = async name => dir && fs.writeFileSync(path.join(dir, name), (await win.capturePage()).toPNG());
   const tools = () => js(`({ papers: [...document.querySelectorAll("#src .paper")].map(x => [x.querySelector("b").textContent + ((x.querySelector("b + small") || {}).textContent || ""),
     !!x.querySelector("[data-primary]")]), spec: ($("specs") || {}).textContent, compare: !!$("compares") })`);
   const titles = () => js(`[...document.querySelectorAll("#src .paper")].map(x => (x.dataset.kind === "web" ? "🌐 " : "") + x.querySelector("b").textContent)`);
@@ -1572,6 +1687,7 @@ async function papersUi() {
   await js(`$("src-toggle").click()`);
   assert.ok(await until(`!document.querySelector("#src .plist").hidden && $("src-toggle").textContent.endsWith("▴")`));
   await sleep(200); await shot("papers-many.png");
+  await js(`document.querySelector(".statechip").click()`); await sleep(200); await shot("papers-card.png"); await js(`cardClose()`);
   assert.deepStrictEqual(await titles(), ["TinyRAG", "OtherRAG", "🌐 TinyRAG notes", "ThirdRAG", "🌐 Notes two", "FourthRAG"]);
   // ⑪ ThirdRAG links its own code ("Our code is available at …"): 코드 ↗ beside its name, opening outside the app
   assert.deepStrictEqual(await js(`[...document.querySelectorAll("#src [data-code]")].map(a => [a.closest(".paper").querySelector("b").textContent, a.href, a.target])`),
