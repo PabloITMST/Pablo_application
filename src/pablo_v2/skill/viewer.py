@@ -1158,6 +1158,19 @@ body:not(.panel) .ptab small { font:11px/1.4 var(--mono); color:var(--ink-3); }
 .empty .pill { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; }
 .empty .card { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); }
 /* end A2 · right column */
+/* one size scale (10/27, Kit A2 the same): 32 for a control on a row, 24 for a choice inside a group, 20 for a label in a
+   line of text. Heights are set, not left to padding + line-height + border, which gave 22 / 28 / 30 / 33 / 36 for one role */
+:root { --h-ctl:32px; --h-in:24px; --h-tag:20px; }
+.pill, #side .new, #task-search, #bar .rn, #bar h1 .rn-in, .x, .nav, .ext, .statechip, #adder #arxiv, #chat > .composer > button
+  { height:var(--h-ctl); box-sizing:border-box; }
+.pill, .empty .pill { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding-top:0; padding-bottom:0; }
+#bar .rn, .x, .nav, .ext { width:var(--h-ctl); }
+#chat > .composer > button.modelbtn { padding-top:0; padding-bottom:0; }
+.composer #route .seg, #viewbar .vseg { height:var(--h-ctl); box-sizing:border-box; padding:4px; align-items:center; }
+.composer #route .seg > b, .composer #route .seg > button, #viewbar .vtab { height:var(--h-in); box-sizing:border-box; display:inline-flex;
+  align-items:center; padding-top:0; padding-bottom:0; }
+.tg, .tagbtn, .cite { height:var(--h-tag); box-sizing:border-box; padding-top:0; padding-bottom:0; }
+.cite { display:inline-flex; align-items:center; }
 @media (max-width:900px) {
   body { padding:0; } #chat { height:100vh; border-radius:0; border:0; }
   body, body.panel { display:block; }

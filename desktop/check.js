@@ -303,6 +303,11 @@ async function authCheck() {
   await js(`(s => { s.value = "gpt-5.5"; s.dispatchEvent(new Event("change")); })($("model"))`); await sleep(300);
   assert.ok(agent.model === "gpt-5.5" && JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).model === "gpt-5.5", "pick saved");
   console.log("ok model picker:", JSON.stringify(opts), "-> gpt-5.5 saved");
+  // one size scale, connected: the composer's second row (보낼 곳, the model button, send) is 32 high, its choices 24
+  if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "auth-composer.png"), (await win.capturePage()).toPNG());
+  assert.deepStrictEqual(await js(`(q => [q("#chat > .composer > button, .composer #route .seg"), q(".composer #route .seg > *")])(s =>
+    [...new Set([...document.querySelectorAll(s)].filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height)))])`)
+    .then(([ctl, inn]) => [ctl, inn.filter(h => h !== 24)]), [[32], []], "composer row: one size scale");
   // ⑤ a PC without PowerShell 7: once connected, the notice (why, winget, the docs link, restart) -> 알겠습니다 -> not again
   const deskFile = path.join(ctl.dir, "desktop.json");
   const unnotice = () => { try { const d = JSON.parse(fs.readFileSync(deskFile, "utf8")); delete d.noticed; fs.writeFileSync(deskFile, JSON.stringify(d)); } catch {} };
@@ -884,6 +889,11 @@ async function uiCheck() {
   const js = c => win.webContents.executeJavaScript(c);
   await sleep(800);
   assert.deepStrictEqual(errors, [], "no script errors on load");
+  // one size scale (10/27): a control on a row 32, a choice inside a group 24, a label in a line of text 20
+  assert.deepStrictEqual(await js(`(q => ({ ctl: q("#side .new, .statechip, #bar .rn, #viewbar .vseg, #chat > .composer > button, .pill"),
+    in: q("#viewbar .vtab"), tag: q("#log .tg, #log .tagbtn, #log .cite") }))(s => [...new Set([...document.querySelectorAll(s)]
+    .filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height)))])`), { ctl: [32], in: [24], tag: [20] }, "one size scale");
+  console.log("ok sizes: controls 32, choices in a group 24, labels in text 20");
   // PABLO_SHOTS=<dir>: what the fixture looks like (load, the source card, the 기준 panel), state restored after each
   if (process.env.PABLO_SHOTS) {
     const snap = async n => { await sleep(500); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, n + ".png"), (await win.capturePage()).toPNG()); };

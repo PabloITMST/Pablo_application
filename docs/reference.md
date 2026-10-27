@@ -102,7 +102,7 @@ Packaging (M6, Windows x64, 서명 없음): build venv를 한 번 만든다. `py
 - 보낼 곳: PDF와 작업 폴더가 둘 다 있으면 메시지마다 "어디에서 처리할까요?"를 묻던 것을 없앴다. 작업마다 `desktop.json`의 `route`를 따른다(기본 에이전트 — 논문 조건은 brief로 이미 안다. 또는 논문 질문). 도구 막대 "💬 보낼 곳"에서 바꾼다.
 - 처음 상태를 읽기 전에 보낸 메시지가 "먼저 자료나 작업 폴더를 정해 주세요"로 빠지던 경합을 고쳤다.
 - 실제 계정 check: `--spec`(LinearRAG에서 조건 추출 — 실측 25개 고정, 0개 탈락, 논문에 없는 설정 4개, 43초), `--audit`(위 재현 점검), `--shot <view.html> [selector]`(저장된 화면 캡처, offline).
-- 로컬 CI: `npm --prefix desktop run ci`. GitHub workflow의 Python 테스트 루프(`build/venv`가 있으면 그것)와 `check -- --ui`를 차례로 돌린다. `-- --python`, `-- --ui`로 한쪽만 돌린다. Actions를 못 쓸 때 쓴다.
+- 로컬 CI: `npm --prefix desktop run ci`. GitHub workflow의 Python 테스트 루프(`build/venv`가 있으면 그것), `check -- --ui`, `check -- <픽스처 view> --auth`(가짜 로그인 서버로 연결한 화면)를 차례로 돌린다. `-- --python`, `-- --ui`로 한쪽만 돌린다. Actions를 못 쓸 때 쓴다.
 - Check: `npm --prefix desktop run check -- --ui`(offline: 대화 순서, diff/명령 카드, 중지 표시, 체크포인트 diff·되돌리기·거절·CRLF 보존, 점검 확인 표시, 점검표·변경 카드 → 코드 패널, VS Code 열기 가로채기, 폴더 밖 경로 거절, 자료 두 편·비교표 카드·칸 → 그 논문의 쪽·넓은 패널, 주 논문 바꾸기, 가짜 arxiv.org로 가져오기·새 버전·거절 4가지, 자료 빼기). `--agent`에 중지 시나리오를 더했다. Python: `python tests/skill/test_product.py` (화면 스크립트를 `node --check`로도 검사한다 — 문법 오류 하나가 앱 전체를 빈 화면으로 만든다).
 
 ## Backlog (infra)

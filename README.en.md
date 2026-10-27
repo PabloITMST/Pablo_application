@@ -221,7 +221,7 @@ for t in tests/*/test_*.py; do python "$t" || break; done
 # App UI checks (offline)
 npm --prefix desktop run check -- --ui
 
-# Both of the above in order: local CI for when Actions is unavailable
+# Both of the above, then the signed-in screen (--auth, fake sign-in server): local CI for when Actions is unavailable
 npm --prefix desktop run ci
 ```
 
