@@ -1787,6 +1787,36 @@ details.tech > summary::-webkit-details-marker { display:none; } details.tech > 
 /* B1 the stage divider: a grey tag (the task's current stage keeps its orange dot), the time, a hairline */
 .divider .tg.stage { border-radius:var(--r-tag); padding:0 7px; font-weight:500; gap:5px; }
 .divider:not([data-now]) .dot { display:none; }
+/* visual pass (10/27). The column fills the conversation area with 32px sides (01 03 16): no 680 centring */
+#log { padding:28px 32px 40px; }
+.msg, .divider, .stagegroup, .targetgroup, #filter-banner, .hidnote { max-width:none; }
+#chat > .composer { max-width:none; width:calc(100% - 64px); }
+.msg { margin-bottom:20px; } .tags { margin-top:6px; } .hidnote { padding-left:0; }
+/* a record card (조건 · 점검 · 비교표 · 다시 뽑은 뒤) has its tags under the name, above the card (06 07 08 F25) */
+.msg .tags.top { margin:0 0 2px; }
+/* inline [n]: bold ink text in conversation text and cards (03 04 05 08); p.N (.pgc) and web cites stay chips */
+#log .cite:not(.pgc):not(.web) { display:inline; height:auto; padding:0; margin-left:2px; border-radius:0; background:none; box-shadow:none;
+  font-family:var(--sans); font-size:inherit; font-weight:700; line-height:inherit; color:var(--ink); vertical-align:baseline; }
+#log .cite:not(.pgc):not(.web):hover { text-decoration:underline; text-decoration-color:var(--ink-3); }
+#log .cite:not(.pgc):not(.web).on { background:none; color:var(--signal); text-decoration:underline; }
+/* diff lines in the conversation are grey bands, not green / red (04, S50) */
+#log pre.diff .add, #log pre.diff .del { margin:0 6px; padding:0 4px; border-radius:4px; background:var(--a6); }
+/* 08 the compare table: a grey head band, rows split by hairlines only */
+.msg .matrix:not(.wide) .scroll { border-color:var(--a8); }
+.msg .matrix:not(.wide) th, .msg .matrix:not(.wide) td { border-left:0; border-right:0; padding:10px 12px; }
+.msg .matrix:not(.wide) thead th { background:var(--a6); color:var(--ink); border-bottom:0; }
+/* 07 the audit: rows in one hairline box; the category small grey, the condition 14 medium, its p.N on the right */
+.msg .audit > ul { margin:0; padding:0 16px; list-style:none; border:1px solid var(--a8); border-radius:var(--r-in); }
+.msg .audit > ul > li:first-child { border-top:0; }
+.audit .au-cat { margin:0 4px; font-size:12px; color:var(--ink-3); } .audit .au-t { font-weight:500; color:var(--ink); }
+.audit li .au-pg { float:right; margin:1px 0 0 8px; }
+/* 06 the conditions row: its warnings on the row's right, before p.N */
+.spec .sp-cat li > .tg.wv { margin-left:0; }
+/* composer (03 04 06): [모델 · 수준] [준비됨] [보내기]; the status takes the free space when the model chip is hidden */
+#chat > .composer > button.modelbtn { order:3; margin-left:auto; }
+#chat > .composer > #agent { order:4; margin-left:0; }
+#chat > .composer:has(> button.modelbtn[hidden]) > #agent { margin-left:auto; }
+#chat > .composer[data-agent] > button:first-of-type { margin-left:0; }
 /* end A2 complete · B */
 /* A2 complete · C right column: tabs, panel, rail, evidence, wide table (agent C) */
 #panel { position:relative; }
@@ -2472,7 +2502,7 @@ const ASIDE = { fact: "논문의 서술 (코드가 정하지 않음)", scope: "�
 let specAgain = null, addSource = null;  // desktop: 다시 뽑기 (asks first), + 추가 (the add box)
 const KIND_TAG = { setting: "설정", result: "결과", scope: "범위", fact: "서술" };
 const pchip = k => { const e = ((k && k.evidence) || []).find(x => M.anchors[x]); if (!e) return null; const a = M.anchors[e];
-  return h("button", { class: "cite pg", "data-e": e, title: "근거 보기", on: () => show({ mode: "source", e }) }, a.page ? `p.${a.page}` : `[${cites[e] || 1}]`); };
+  return h("button", { class: "cite pgc", "data-e": e, title: "근거 보기", on: () => show({ mode: "source", e }) }, a.page ? `p.${a.page}` : `[${cites[e] || 1}]`); };
 const plain = k => String(k.conclusion || k.title || "").replace(/\s*\[\d+\]/g, "");
 function redone(d) {
   const can = window.pabloHost && pabloHost.condition, task = V.task.id;
@@ -2507,7 +2537,7 @@ function conditions(ids, dropped, diff, secs) {
   const cs = ids.map(id => V.checks[id]).filter(c => c && c.state !== "waived"), all = cs.filter(c => !c.spec.missing);
   const open = cs.filter(c => c.spec.missing), task = V.task.id;
   const box = h("div", { class: "spec", "data-spec": "1" });
-  const again = specAgain ? h("button", { class: "pill", "data-spec-again": "1", on: () => specAgain() }, ico("rotate", 14), "다시 뽑기") : null;
+  const again = specAgain ? h("button", { class: "pill", "data-spec-again": "1", on: () => specAgain() }, "다시 뽑기") : null;  // 06: no icon
   if (!ids.length) return box.append(h("p", { class: "head" }, "위치를 확인한 조건이 없습니다"),  // S6
     h("p", { class: "muted" }, `PDF에서 글자를 거의 읽지 못했거나(스캔본일 수 있음) 모델이 낸 조건의 원문 위치를 찾지 못했습니다.${dropped ? ` 위치가 확인되지 않은 조건 ${dropped}개는 남기지 않았습니다.` : ""} 기준과 작업 폴더는 그대로입니다.`),
     again ? h("p", { class: "acts" }, again) : null), box;
@@ -2530,9 +2560,9 @@ function conditions(ids, dropped, diff, secs) {
   const row = c => h("li", { title: c.id, "data-id": c.id, "data-kind": c.spec.kind || "setting" },
     h("span", { class: "tg kd", title: ASIDE[c.spec.kind] ? ASIDE[c.spec.kind] + " · 재현 점검에서 대조하지 않음" : null }, KIND_TAG[c.spec.kind] || "설정"),
     h("span", { class: "sx" }, rich(plain(c)),
-      c.spec.value_in_quote === false ? h("span", { class: "tg wv", "data-vq": "1", title: "모델이 읽은 값이 고정한 인용 문장 안에 없습니다. 원문에서 직접 확인하세요." }, `값(${c.spec.value})이 인용 안에 없음`) : null,
-      c.spec.header_missing ? h("span", { class: "tg wv", "data-hm": "1", title: "PDF 글자에는 표의 머리가 따로 떨어져 있어, 어느 숫자가 어느 데이터셋·지표인지는 모델의 추측입니다. 원문 표에서 확인하세요." }, "표의 열 이름 없음") : null,
       devOf(c) ? h("span", { class: "chk dev", "data-dev": c.id }, ` ◇ 의도한 차이(${WHERE_DEV[scopeOf(devOf(c))]}): ${devOf(c).why}`) : null),
+    c.spec.value_in_quote === false ? h("span", { class: "tg wv", "data-vq": "1", title: "모델이 읽은 값이 고정한 인용 문장 안에 없습니다. 원문에서 직접 확인하세요." }, `값(${c.spec.value})이 인용 안에 없음`) : null,
+    c.spec.header_missing ? h("span", { class: "tg wv", "data-hm": "1", title: "PDF 글자에는 표의 머리가 따로 떨어져 있어, 어느 숫자가 어느 데이터셋·지표인지는 모델의 추측입니다. 원문 표에서 확인하세요." }, "표의 열 이름 없음") : null,
     pchip(c), window.pabloHost && pabloHost.condition ? h("span", { class: "racts" }, differ(c, task), takeOut(c)) : null);
   const body = h("div", { class: "sp-body" });
   const draw = () => { body.textContent = ""; const shut = [], pass = c => !want || (c.spec.kind || "setting") === want;
@@ -2643,11 +2673,13 @@ function audited(c) {
     lost ? ` ${lost}곳은 그 자리에서 찾지 못했습니다.` : "", off ? ` ${off}곳은 판정과 논문 값이 어긋납니다.` : "",
     lost || off ? " 이 항목은 위에 따로 둡니다." : ""));
   const what = x => { const k = V.checks[x.id];  // ⑤ [5쪽]: a page in the table, not the chat's running number (rows are sorted)
-    if (k) return [h("span", { class: "muted" }, (k.spec && k.spec.missing ? "논문에 없는 설정" : SPEC[(k.spec || {}).category] || "근거") + " · "),
-      rich((k.conclusion || k.title).replace(/\s*\[\d+\]/g, "")), " ", k.evidence.map(e => cite(e, (M.anchors[e] || {}).page ? `${M.anchors[e].page}쪽` : undefined)),
+    if (k) return [k.evidence.filter(e => M.anchors[e]).slice(0, 1).map(e => M.anchors[e].page  // 07: p.N on the row's right
+        ? h("button", { class: "cite pgc au-pg", "data-e": e, title: "근거 보기", on: () => show({ mode: "source", e }) }, `p.${M.anchors[e].page}`) : h("span", { class: "au-pg" }, cite(e))),
+      h("span", { class: "muted au-cat" }, k.spec && k.spec.missing ? "논문에 없는 설정" : SPEC[(k.spec || {}).category] || "근거"),
+      h("span", { class: "au-t" }, rich((k.conclusion || k.title).replace(/\s*\[\d+\]/g, ""))),
       (k.spec || {}).header_missing && st(x) !== "pairing" ? h("span", { class: "chk warn", "data-hm": "1" }, " ⚠ 논문 값의 열 짝 확인 필요") : null];
     const i = [...V.intent.must, ...V.intent.prefer].find(y => y.id === x.id);
-    return [h("span", { class: "muted" }, "작업 기준 · "), i ? i.text : x.id]; };
+    return [h("span", { class: "muted au-cat" }, "작업 기준"), h("span", { class: "au-t" }, i ? i.text : x.id)]; };
   const moved = x => x.check === "moved" ? `모델이 댄 위치(${x.where})에는 없고 ${x.line_found}줄에 있습니다.` : null;
   // the paper's row (where the number was read) and the agent's own verdict, beside the place it named: the user compares
   const paired = x => { const a = (V.checks[x.id].evidence || []).map(e => M.anchors[e]).find(Boolean), src = a && M.sources[a.source];
@@ -3043,8 +3075,11 @@ function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
     more ? h("small", { class: "more" }, `· ${more}개 더`) : null);
   // B2: one "+ 태그" for the stage, the targets, 결정 and 기준으로 만들기 (the popover, B15)
   if (can) row.append(h("button", { class: "tagbtn", "data-tag-edit": "1", title: "이 메시지의 태그 고치기 · 기준으로 만들기", on: () => tagEdit(row, key, stage, o, el) }, "+ 태그"));
-  body.append(row);
-  if (sug) body.append(h("p", { class: "sugwhy", "data-suggest-why": "1" }, sug.why));
+  // 06 07 08 F25: a record card's tags sit under the name, above the card
+  const who = body.querySelector(":scope > .who");
+  if (who && body.querySelector(":scope > .spec, :scope > .specwrap, :scope > .audit, :scope > .matrix, :scope > .redo-card")) { row.classList.add("top"); who.after(row); }
+  else body.append(row);
+  if (sug) row.after(h("p", { class: "sugwhy", "data-suggest-why": "1" }, sug.why));
 }
 // a message's words made a criterion of this task by the person, in a sentence they trim: a rule (반드시 / 가능하면), never
 // the goal. Guard, the brief and 재현 점검 follow at once; the conversation says so
