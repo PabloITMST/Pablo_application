@@ -1328,6 +1328,52 @@ body:not(.panel) .ptab small { font:11px/1.4 var(--mono); color:var(--ink-3); }
 .asmenu button { height:var(--h-in); padding:0 10px; border-radius:var(--r-tag); font:500 12px/1 var(--sans); color:var(--ink); }
 .asmenu button:hover { background:var(--a5); }
 .call .band { margin:6px 0; padding:8px 12px; }
+/* cards: only what waits on the person has the orange edge (WARN, 결정, 다시 뽑기 확인); a record is white on a hairline;
+   a BLOCK or a failure is grey; badges head them (막음 orange, 확인 필요 orange soft) */
+.msg .call { margin:8px 0; padding:14px 18px; border:1px solid var(--a8); border-left:1px solid var(--a8); border-radius:var(--r-card);
+  background:var(--white); box-shadow:var(--sh-sm); }
+.msg .call p { margin:4px 0; } .msg .call .head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 6px; color:var(--ink);
+  font:600 14px/22px var(--sans); }
+.msg .call.warn:not(.settled), .msg .call:not(.block):not(.issue):not(.guard):not(.fail) { border-left:3px solid var(--signal); box-shadow:var(--sh-md); }
+.msg .call.block { background:var(--a4); border-color:var(--a8); box-shadow:none; }
+.msg .call.fail { background:var(--white); box-shadow:var(--sh-sm); } .msg .call.fail .head .ico { color:var(--ink-2); }
+.call.lock .head::before { content:"막음"; flex:none; height:var(--h-tag); box-sizing:border-box; display:inline-flex; align-items:center; padding:0 7px;
+  border-radius:var(--r-tag); background:var(--signal); color:#fff; font:600 11px/1 var(--sans); }
+.call.warn .head::before { content:"확인 필요"; flex:none; height:var(--h-tag); box-sizing:border-box; display:inline-flex; align-items:center; padding:0 7px;
+  border-radius:var(--r-tag); background:var(--signal-soft); color:var(--signal); font:600 11px/1 var(--sans); }
+.call.compact .head code { background:none; padding:0; font:500 13px/22px var(--mono); }
+.call .crit b { font-weight:600; color:var(--ink); } .call .crit:empty { display:none; }
+.call .acts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px !important; }
+.call .foot, .call .acts + .foot { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:8px; }
+.call .foot details.tech { margin:0; } .call .foot details.tech[open] { flex-basis:100%; order:2; }
+details.tech > summary { list-style:none; font:600 12px/20px var(--sans); color:var(--ink); cursor:pointer; }
+details.tech > summary::-webkit-details-marker { display:none; } details.tech > summary::after { content:" ▸"; } details.tech[open] > summary::after { content:" ▾"; }
+.call.issue { box-shadow:var(--sh-sm); } .call.issue .mascot.pose { height:44px; }
+.call.fail .why { color:var(--ink-2); font-size:13px; }
+.rev { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:4px 0; font-size:13px; color:var(--ink-2); }
+.rev.dec .ico { color:var(--ink-2); }
+.tg.rv { background:var(--a6); border-color:transparent; color:var(--ink-2); }
+.tg.rv-aligned { background:var(--a6); color:var(--ink); } .tg.rv-partial, .tg.rv-deviated { background:var(--signal-soft); color:var(--ink); }
+.tg.rv-failed { background:var(--ink); color:#fff; }
+/* B9 the changed files: a grey band, the buttons on its right */
+.msg .changes { padding:0; border:0; background:none; box-shadow:none; }
+.changes .chg-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 12px 10px 16px; background:var(--a5); border-radius:var(--r-in); }
+.changes .chg-row > .ico { flex:none; color:var(--ink-2); }
+.msg .changes .chg-t { flex:1 1 220px; margin:0; font-size:14px; line-height:22px; color:var(--ink); }
+.changes .nums { font:500 12px/1 var(--mono); color:var(--ink-2); } .changes .gone { text-decoration:line-through; color:var(--ink-3); }
+.changes .chg-acts { display:inline-flex; gap:8px; margin-left:auto; align-items:center; }
+.pill.soft { background:var(--signal-soft); border-color:transparent; color:var(--ink); } .pill.soft:hover:not(:disabled) { background:#ffd3bd; }
+.changes > pre.diff { margin:8px 0 0; } .changes .undo-err { margin:8px 0 0; display:flex; gap:6px; align-items:center; }
+/* B7 the verification bar under a paper answer; S42 a stopped answer */
+.msg .verify { display:flex; align-items:center; gap:8px; margin:8px 0; padding:6px 12px; background:var(--a5); border-radius:var(--r-ctl);
+  font-size:12px; line-height:18px; color:var(--ink-2); } .verify .ico { flex:none; color:var(--ink-3); }
+[data-web-only] { display:flex; gap:6px; align-items:center; font-size:12px; }
+.msg .stopped { display:flex; align-items:center; gap:6px; font-size:12px; } .stopped .ico { color:var(--ink-3); }
+.ask-pick { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+/* S53 작업을 마침 */
+.done-card { display:flex; gap:14px; align-items:flex-start; padding:16px 18px; background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card);
+  box-shadow:var(--sh-sm); } .done-card .mascot.pose { height:56px; margin:0; } .done-card .ttl { font:600 14px/22px var(--sans); margin:0 0 4px; }
+.done-card .pill { display:inline-flex; gap:6px; }
 /* end A2 complete · B */
 /* A2 complete · C right column: tabs, panel, rail, evidence, wide table (agent C) */
 /* end A2 complete · C */
@@ -1452,6 +1498,17 @@ function cite(e, n) {  // n: the answer's own number (M3.3 ask); else one number
 // D1: an answer whose every quote is from a web page says so: Pablo did not find it in a paper (it stays PARTIALLY_VERIFIED)
 const webOnly = k => k.evidence.length > 0 && k.evidence.every(onWeb)
   ? h("p", { class: "muted", "data-web-only": "1" }, "🌐 웹 문서에만 근거한 답입니다. 논문에서 확인되지 않았습니다.") : null;
+// A2 complete (B7): under a paper answer, how its quotes were checked: all found in which source's own text; the ones
+// Pablo could not place were left out of the answer
+const verified = (k, dropped) => { const es = [...new Set((k.evidence || []).filter(e => M.anchors[e]))];
+  if (!es.length && !dropped) return null;
+  const ts = [...new Set(es.map(e => (M.sources[M.anchors[e].source] || {}).title).filter(Boolean))];
+  return h("p", { class: "verify", "data-verify": String(es.length) }, ico("check-circle", 14), h("span", null, `인용 ${es.length}개`,
+    es.length ? ` · 모두 ${ts.length === 1 ? ts[0] : "자료"} 원문에서 위치를 확인했습니다` : "",
+    dropped ? ` · 위치를 못 찾은 인용 ${dropped}개는 답에서 뺐습니다` : "")); };
+// S9 / S43 / S55: something did not work: what happened, then what to do (a grey card; .call.block: tests read it)
+const failCard = (title, err, ...more) => h("div", { class: "call block fail" }, h("p", { class: "head" }, ico("info", 14), " ", title),
+  err ? h("p", { class: "why" }, err) : null, ...more);
 // ponytail: a citation goes after the sentence that contains its quote, else after the text; no claim-level matching
 function cited(text, eids) {
   const ns = [...text.matchAll(/\[(\d+)\]/g)].map(m => +m[1]);  // M3.3 ask: the answer already says where [n] goes
@@ -1583,10 +1640,13 @@ function answer(asked) {
   return out;  // M5.0: plan, ALLOW actions and their runs are lifecycle -> Plan / 왜? panels only
 }
 // an ALLOW action whose run failed: the one ALLOW outcome the conversation shows
-const failed = a => a.verdict === "ALLOW" && a.runs.some(r => r.alignment === "failed") && h("div", { class: "call block", title: a.id, "data-id": a.id },
-  h("p", { class: "head" }, "⚠ 작업을 실행하지 못했습니다."), h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))),
-  runs(a).map(x => h("p", { class: "muted" }, x)), tech(a.text),
-  h("p", null, h("button", { class: "link", on: () => show({ mode: "trace", act: a.id }) }, "왜 그런가요?")));
+const failed = a => a.verdict === "ALLOW" && a.runs.some(r => r.alignment === "failed") && h("div", { class: "call block fail", title: a.id, "data-id": a.id },
+  h("p", { class: "head" }, ico("info", 14), " 작업을 실행하지 못했습니다"), h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))),
+  runRows(a), h("div", { class: "foot" }, tech(a.text), h("button", { class: "link", on: () => show({ mode: "trace", act: a.id }) }, "왜 그런가요?")));
+// S40: a run and its review as a badge (계획대로 · 일부만 · 계획과 다르게 · 실패) and what happened
+const BADGE = { aligned: "계획대로", partial: "일부만", deviated: "계획과 다르게", failed: "실패", not_executed: "실행하지 않음" };
+const runRows = a => a.runs.map(r => h("p", { class: "rev" }, r.alignment ? h("span", { class: "tg rv rv-" + r.alignment }, BADGE[r.alignment] || r.alignment) : null,
+  h("span", null, (r.executed ? "실행 결과: " : "") + done(r) + (r.alignment ? ` · ${ALIGN[r.alignment] || r.alignment}` : ""))));
 const done = r => meaning(r.summary.replace(/^실행하지 않음: /, ""));
 const runs = a => a.runs.map(r => (r.executed ? "실행 결과: " : "") + done(r) + (r.alignment ? ` · ${ALIGN[r.alignment] || r.alignment}` : ""));
 // a BLOCK is Pablo's own decision (its card says so); a reason that only repeats who decided is not shown again
@@ -1594,23 +1654,25 @@ const decided = a => a.decision && a.verdict !== "BLOCK"
   ? (DECIDE[a.decision] || a.decision) + (a.decision_reason && !/^(사용자가|Guard )/.test(a.decision_reason) ? ` · ${a.decision_reason}` : "") : null;
 function issues() {
   return V.research.flatMap(id => V.checks[id].issues.map(i => { const c = V.checks[id];
-    return h("div", { class: "call", title: i.id, "data-id": i.id }, art("surprised", "pose"),
-      h("p", { class: "head" }, "⚠ " + (ISSUE[i.type] || ISSUE.other)), h("p", null, rich(i.note), c.evidence.map(cite)),
-      c.evidence.length ? h("p", null, "Pablo는 공식 원문을 기준으로 판단했습니다.") : null); }));
+    return h("div", { class: "call issue", title: i.id, "data-id": i.id }, art("surprised", "pose"),
+      h("p", { class: "head" }, ISSUE[i.type] || ISSUE.other), h("p", null, rich(i.note), c.evidence.map(cite)),
+      c.evidence.length ? h("p", { class: "muted" }, "Pablo는 공식 원문을 기준으로 판단했습니다.") : null); }));
 }
+// B8 / S39: a WARN / BLOCK as recorded; a badge heads it (막음 / 확인 필요, CSS), 기술 세부정보 and 왜? at its foot; a WARN
+// still waiting has the orange edge
 function action(a) {
   const block = a.verdict === "BLOCK", ev = a.criteria.flatMap(c => V.checks[c.id] ? V.checks[c.id].evidence : []);
   const d = decided(a);
-  return h("div", { class: "call" + (block ? " block lock" : ""), title: a.id, "data-id": a.id },
-    h("p", { class: "head" }, block ? "⚠ 이 작업은 현재 기준과 충돌합니다." : "⚠ 이 작업은 확인이 필요합니다."),
+  return h("div", { class: "call guard" + (block ? " block lock" : " warn" + (a.decision ? " settled" : "")), title: a.id, "data-id": a.id },
+    h("p", { class: "head" }, block ? "이 작업은 현재 기준과 충돌합니다" : "이 작업은 현재 기준과 충돌할 수 있습니다"),
     h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))), preview(a.text), current(a.text, V.task.id),
     a.why ? h("p", { class: "muted" }, `제시한 이유: "${a.why}"`) : null,
     a.problems.length ? [reason(a.problems[0], block), [...new Set(ev)].map(cite)] : null,
-    a.criteria.length ? h("p", { class: "muted" }, "관련 기준: ", a.criteria.map(c => c.text).join(" · ")) : null, offer(a),
-    d ? h("p", { class: "muted" }, d) : null, runs(a).map(x => h("p", { class: "muted" }, x)),
-    tech(a.text, ...a.problems.filter(x => !korean(x))),
-    h("p", null, block ? (runs(a).length ? null : h("b", { "data-blocked": "1" }, "Pablo가 막아 실행하지 않았습니다. ")) : !d ? h("b", null, "진행할지 결정이 필요합니다. ") : null,
-      h("button", { class: "link", on: () => show({ mode: "trace", act: a.id }) }, "왜 그런가요?")));
+    a.criteria.length ? h("p", { class: "muted crit" }, "관련 기준: ", h("b", null, a.criteria.map(c => c.text).join(" · "))) : null, offer(a),
+    d ? h("p", { class: "rev dec" }, ico("check-circle", 14), h("span", null, d)) : null, runRows(a),
+    block ? (runs(a).length ? null : h("p", { class: "muted" }, h("b", { "data-blocked": "1" }, "Pablo가 막아 실행하지 않았습니다. ")))
+      : !d ? h("p", { class: "muted" }, h("b", null, "진행할지 결정이 필요합니다. ")) : null,
+    h("div", { class: "foot" }, tech(a.text, ...a.problems.filter(x => !korean(x))), h("button", { class: "link", on: () => show({ mode: "trace", act: a.id }) }, "왜 그런가요?")));
 }
 // the desktop's chat log (chat.json): what the user said, the agent's replies, PDF questions and the check that answered
 const ASKFAIL = "답을 찾지 못했습니다.";
@@ -1626,23 +1688,25 @@ function current(text, task) {
   return ps.length && window.pabloHost && pabloHost.readFile
     ? h("p", { class: "muted" }, "📄 지금 파일 보기: ", ps.map((p, i) => [i ? " · " : "", fileLink(h("code", null, p), task, p)])) : null;
 }
+// B9: a grey band "파일 N개가 바뀌었습니다 · path +42" with [변경 보기] [되돌리기]; the diff opens under it (S50), undone or
+// refused says so under it (S51)
 function changed(c, task) {
-  const list = [c.files.slice(0, 8).map((f, i) => [i ? ", " : "", f.status === "D" ? f.path : fileLink(f.path, task, f.path),
-    ` (${CHANGE[f.status] || f.status})`]), c.files.length > 8 ? ` 외 ${c.files.length - 8}개` : ""];
-  const box = h("div", { class: "changes", "data-to": c.to }, h("p", null, `📝 파일 ${c.files.length}개가 바뀌었습니다: `, list));
+  const fs_ = c.files || [], nums = f => f.add == null || !(f.add || f.del) ? null : h("span", { class: "nums" }, f.add ? ` +${f.add}` : "", f.del ? ` −${f.del}` : "");
+  const one = f => [f.status === "D" ? h("span", { class: "gone" }, f.path) : fileLink(f.path, task, f.path), f.status === "D" ? " (삭제)" : f.status === "A" ? " (새 파일)" : "", nums(f)];
+  const box = h("div", { class: "changes", "data-to": c.to }, h("div", { class: "chg-row" }, ico("file", 14),
+    h("p", { class: "chg-t" }, `파일 ${fs_.length}개가 바뀌었습니다 · `, fs_.slice(0, 3).map((f, i) => [i ? ", " : "", one(f)]), fs_.length > 3 ? ` 외 ${fs_.length - 3}개` : "")));
   if (!window.pabloHost || !pabloHost.undo) return box;
-  const v = M.views[task], undone = v && (v.chat || []).some(x => x.role === "undo" && x.of === c.to), row = h("p", null);
+  const v = M.views[task], undone = v && (v.chat || []).some(x => x.role === "undo" && x.of === c.to), row = box.firstChild;
   let open = null;
-  const look = h("button", { class: "link", "data-look": "1", on: () => {
-    if (open) { open.remove(); open = null; return; }
-    pabloHost.diff(task, c.from, c.to).then(t => { open = preview("", t) || h("p", { class: "muted" }, "표시할 내용이 없습니다."); row.after(open); },
+  const look = h("button", { class: "pill", "data-look": "1", on: () => {
+    if (open) { open.remove(); open = null; look.textContent = "변경 보기"; return; }
+    pabloHost.diff(task, c.from, c.to).then(t => { open = preview("", t) || h("p", { class: "muted" }, "표시할 내용이 없습니다."); row.after(open); look.textContent = "변경 접기"; },
       e => row.after(h("p", { class: "muted" }, fail(e)))); } }, "변경 보기");
   const back = undone ? h("span", { class: "muted", "data-undone": "1" }, "되돌렸습니다.")
-    : h("button", { class: "link", "data-undo": "1", on: () => pabloHost.undo(task, c.from, c.to).then(() => {
+    : h("button", { class: "pill soft", "data-undo": "1", on: () => pabloHost.undo(task, c.from, c.to).then(() => {
         back.replaceWith(h("span", { class: "muted", "data-undone": "1" }, "되돌렸습니다. 다음 요청 때 에이전트에게도 알립니다.")); refresh(); },
-        e => row.after(h("p", { class: "muted", "data-undo-error": "1" }, fail(e)))) }, "되돌리기");
-  row.append(look, " · ", back);
-  box.append(row);
+        e => box.append(h("p", { class: "muted undo-err", "data-undo-error": "1" }, ico("info", 14), " 되돌리지 않았습니다. ", fail(e)))) }, ico("rotate", 14), "되돌리기");
+  row.append(h("span", { class: "chg-acts" }, look, back));
   return box;
 }
 // A2: a paper's reproduction conditions (PabloSkill.spec), by category, each with its page [n]; what the paper leaves open
@@ -1971,15 +2035,15 @@ function said(c) {
   if (c.role === "changes") return [msg("Pablo", null, changed(c, V.task.id))];
   if (c.role === "user") return [msg("You", c.at, h("p", null, c.text))];
   if (c.role === "agent") return [msg("Pablo", null, h("p", { class: "stream", style: "white-space:pre-wrap" }, c.text || ""),
-    c.status === "interrupted" ? h("p", { class: "muted", "data-stopped": "1" }, "중지했습니다.") : null,
-    c.error ? h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + c.error)) : null)];
+    c.status === "interrupted" ? stopped() : null, c.error ? failCard("실행하지 못했습니다", c.error) : null)];
   if (c.role !== "ask") return [];
   const k = c.check && V.checks[c.check];
   return [msg("You", c.at, h("p", null, c.text)), msg("Pablo", null, h("div", { class: "asked", "data-check": c.check || "" },
-    k ? [h("p", null, cited(k.conclusion || k.title, k.evidence)), webOnly(k),
-         c.dropped ? h("p", { class: "muted" }, `자료에서 찾지 못한 인용 ${c.dropped}개는 뺐습니다.`) : null]
-      : h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + (c.error || ASKFAIL)))))];
+    k ? [h("p", null, cited(k.conclusion || k.title, k.evidence)), webOnly(k), verified(k, c.dropped)]
+      : failCard(c.error ? "답을 찾지 못했습니다" : ASKFAIL.replace(/\.$/, ""), c.error || null)))];
 }
+// S42: a stopped answer keeps what came; said right under it
+const stopped = () => h("p", { class: "muted stopped", "data-stopped": "1" }, ico("info", 14), " 중지했습니다. 여기까지 받은 답은 남겨 둡니다.");
 // an edit made just now (panel, picked sentence): its line joins the conversation at once (chat.json has it for later)
 function echo(task, c) {
   if (!V || V.task.id !== task) return;
@@ -2371,7 +2435,11 @@ function conversation() {
 // every plan step done -> one closing message (in the live part, so a refresh can add it too)
 function finish() {
   if (!V.plan || !V.plan.steps.length || V.plan.steps.some(st => stepState(st)[0] !== "done") || $("log").querySelector(".finish")) return;
-  live().append(h("div", { class: "finish" }, msg("Pablo", null, art("confident", "pose"), h("p", null, "작업을 마쳤습니다."))));
+  const rep = document.querySelector("#reports .link");  // S53: what can come next
+  live().append(h("div", { class: "finish" }, msg("Pablo", null, h("div", { class: "done-card" }, art("confident", "pose"),
+    h("div", null, h("p", { class: "ttl" }, "작업을 마쳤습니다."), h("p", { class: "muted" }, `계획 ${V.plan.steps.length}단계를 모두 마쳤습니다. 보고서를 내보내거나 완료로 옮길 수 있습니다.`),
+      rep ? h("p", null, h("button", { class: "pill on", "data-finish-report": "1", on: () => { const r = document.querySelector("#reports .link"); if (r) r.click(); } },
+        ico("file", 14), "보고서 내보내기")) : null)))));
 }
 // QA 10/26 (D3): a finished turn's live messages (what was said, the agent's reply) get their tag row (✎ 태그, 📌 기준으로)
 // once the log has them, paired from the end with the log entries not drawn yet; the live part itself stays (the checks
@@ -2487,7 +2555,7 @@ function differ(c, task = V.task.id) {
 }
 // ⑦ a BLOCK on a paper condition: the way forward when the difference is on purpose, on the card itself
 function offer(a, v = V) {
-  const ks = a.verdict === "BLOCK" ? a.criteria.map(x => v.checks[x.id]).filter(k => k && k.spec && !k.spec.missing && k.state !== "waived" && !devOf(k)) : [];
+  const ks = a.verdict === "BLOCK" || (a.verdict === "WARN" && !a.decision) ? a.criteria.map(x => v.checks[x.id]).filter(k => k && k.spec && !k.spec.missing && k.state !== "waived" && !devOf(k)) : [];
   return ks.length && window.pabloHost && pabloHost.condition ? h("div", { class: "offer", "data-offer": a.id },
     h("p", { class: "muted" }, "일부러 논문과 다르게 하려는 것이라면 이유를 남기고 의도한 차이로 둘 수 있습니다. 그 뒤로는 이 조건으로 막지 않습니다:"),
     h("ul", { class: "ck" }, ks.map(k => h("li", { "data-id": k.id }, (SPEC[k.spec.category] || k.spec.category) + " · ",
@@ -2958,19 +3026,23 @@ if (window.pabloHost && pabloHost.chat) {
       // a message is on its way (Pablo prepares it, or app-server restarts for a fresh token first): stay Thinking until done
       if (turning && (ev.status === "Ready" || ev.status === "Connecting")) return;
       status(ev.status, ev.error);
-      if (ev.status === "Error" && ev.error && authSt.state === "connected") live(talk).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + ev.error)))), scroll();
+      if (ev.status === "Error" && ev.error && authSt.state === "connected") live(talk).append(msg("Pablo", null, failCard("실행하지 못했습니다", ev.error))), scroll();
     } else if (ev.type === "delta" && out) { out.textContent += ev.text; scroll(); }
     else if (ev.type === "done") {
       refresh(); turning = stopping = false; busy = null; gate();
-      if (out && ev.status === "interrupted") out.after(h("p", { class: "muted", "data-stopped": "1" }, "중지했습니다."));
+      if (out && ev.status === "interrupted") out.after(stopped());
       const lg = ev.logged;  // the keys main just wrote: the turn's messages get their tag row now, not after the next state read
       if (lg && V && lg.task === V.task.id && lives[lg.task]) {
         if (lg.user) tagLive([...lives[lg.task].querySelectorAll(":scope > .msg.user")].at(-1), "user", lg.user);
         if (out) tagLive(out.closest(".msg"), "agent", lg.agent);
       }
       if (out) { out.title = `첫 토큰 ${ev.first ?? "-"} ms · 전체 ${ev.total} ms`; out = null; }
-      if (ev.retry) setTimeout(() => { const b = link("다른 모델로 다시 시도", () => { b.remove(); stream(talk); pabloHost.retry().catch(e => { status("Error", e.message); out = null; }); });
-        live(talk).append(msg("Pablo", null, h("p", null, b))); scroll(); });  // after the Error card
+      // B22 / S9: 다른 모델로 다시 시도 on the error card itself (else on its own line)
+      if (ev.retry) setTimeout(() => { const b = h("button", { class: "pill on", "data-retry": "1", on: () => { b.remove(); stream(talk); pabloHost.retry().catch(e => { status("Error", e.message); out = null; }); } }, "다른 모델로 다시 시도");
+        const card = [...live(talk).querySelectorAll(".call.fail")].at(-1);
+        if (card) card.append(h("p", { class: "acts" }, b, h("span", { class: "muted" }, "아무것도 실행되지 않았습니다.")));
+        else live(talk).append(msg("Pablo", null, h("p", null, b)));
+        scroll(); });  // after the Error card
     } else if (ev.type === "guard") { live(ev.task).append(msg("Pablo", null, guard(ev))); scroll(); refresh(); }
     else if (ev.type === "audit") {
       const p = live(ev.task).querySelector("[data-auditing]"), card = audited(ev);
@@ -2983,27 +3055,32 @@ if (window.pabloHost && pabloHost.chat) {
     }
     else if (ev.type === "review") {  // PostReview of a WARN/BLOCK action, under its card (ALLOW has no card: stays silent)
       const card = Object.values(lives).map(l => l.querySelector(`[data-act="${CSS.escape(ev.act)}"]`)).find(Boolean);
-      if (card) card.append(h("p", { class: "muted", "data-review": ev.alignment || "" },
-        "검토: " + (ALIGN[ev.alignment] || (ev.executed ? "실행했습니다" : "실행하지 않았습니다"))));
+      if (card) card.insertBefore(h("p", { class: "rev", "data-review": ev.alignment || "" }, ev.alignment ? h("span", { class: "tg rv rv-" + ev.alignment }, BADGE[ev.alignment] || ev.alignment) : null,
+        h("span", null, "검토: " + (ALIGN[ev.alignment] || (ev.executed ? "실행했습니다" : "실행하지 않았습니다")))), card.querySelector(":scope > .foot"));
       refresh();  // Plan / 왜? follow the review without a reload
     }
   });
   // M4.2 Guard on the agent's actions: ALLOW stays silent; WARN asks, BLOCK and failures explain (no rule/action ids)
-  const HEAD = { WARN: "⚠ 이 작업은 현재 기준과 충돌할 가능성이 있습니다.", BLOCK: "⚠ 이 작업은 현재 기준과 충돌해 실행하지 않았습니다.",
-                 ERROR: "⚠ 작업을 실행하지 못했습니다." };
+  const HEAD = { WARN: "이 작업은 현재 기준과 충돌할 수 있습니다", BLOCK: "Pablo가 이 작업을 막았습니다", ERROR: "작업을 실행하지 못했습니다" };
+  // B8 / S38: the live card; a badge heads WARN (확인 필요) and BLOCK (막음, .lock); ERROR is a grey card with an info mark.
+  // A WARN on a command in a task without a paper is compact: the command, why, [진행][취소]
   function guard(ev) {
-    // "막음" heads Guard's own BLOCK only (.lock); a command that failed shares the grey box, not the word (rehearsal 10/27)
-    const card = h("div", { class: "call" + (ev.verdict === "WARN" ? "" : ev.verdict === "BLOCK" ? " block lock" : " block"), "data-verdict": ev.verdict, "data-act": ev.act || "" },
-      h("p", { class: "head" }, HEAD[ev.verdict]), h("p", null, "제안된 작업: ", h("b", null, meaning(ev.text))),
-      ev.verdict === "ERROR" ? null : preview(ev.text, ev.detail), ev.verdict === "ERROR" ? null : current(ev.text, ev.task),
-      reason(ev.reason, ev.verdict === "BLOCK"), h("p", { class: "muted crit" }), tech(ev.text, korean(ev.reason) ? null : ev.reason),
-      ev.act ? h("p", null, h("button", { class: "link", on: () => show({ mode: "trace", act: ev.act }) }, "왜 그런가요?")) : null);
+    const cmd = ev.verdict === "WARN" && /^명령 실행: /.test(ev.text || "") && kindFor((M.desk || {})[ev.task]) === "general";
+    const foot = h("div", { class: "foot" }, tech(ev.text, korean(ev.reason) ? null : ev.reason),
+      ev.act ? h("button", { class: "link", on: () => show({ mode: "trace", act: ev.act }) }, "왜 그런가요?") : null);
+    const card = h("div", { class: "call guard" + (ev.verdict === "WARN" ? " warn" + (cmd ? " compact" : "") : ev.verdict === "BLOCK" ? " block lock" : " block fail"),
+        "data-verdict": ev.verdict, "data-act": ev.act || "" },
+      h("p", { class: "head" }, ev.verdict === "ERROR" ? [ico("info", 14), " "] : null,
+        cmd ? ["명령: ", h("code", null, shell((ev.text || "").split("\n")[0].replace(/^명령 실행: /, "")))] : HEAD[ev.verdict]),
+      cmd ? null : h("p", null, "제안된 작업: ", h("b", null, meaning(ev.text))),
+      cmd ? null : ev.verdict === "ERROR" ? preview((ev.text || "").split("\n")[0]) : preview(ev.text, ev.detail), ev.verdict === "ERROR" ? null : current(ev.text, ev.task),
+      reason(ev.reason, ev.verdict === "BLOCK"), h("p", { class: "muted crit" }), foot);
     if (ev.verdict !== "WARN") return card;
-    const row = h("p", null), answer = yes => pabloHost.decide(ev.id, yes)
+    const row = h("p", { class: "acts" }), answer = yes => pabloHost.decide(ev.id, yes)
       .then(() => { row.textContent = yes ? "진행했습니다." : "취소했습니다."; }, () => { row.textContent = "이미 끝난 요청입니다."; });
     row.append(h("button", { class: "pill on", "data-answer": "proceed", on: () => answer(true) }, "진행"), " ",
       h("button", { class: "pill", "data-answer": "cancel", on: () => answer(false) }, "취소"));
-    card.insertBefore(row, card.querySelector("details"));
+    card.insertBefore(row, foot);
     return card;
   }
   let talk = null;  // the task whose turn is running; its answer stays in that task's chat
@@ -3173,7 +3250,7 @@ if (window.pabloHost && pabloHost.chat) {
   const say = (text, tag) => { live(V.task.id).append(msg("Pablo", null, h("p", { class: "muted", [tag]: "1" }, text))); scroll(); };
   // P7: the last stage is done -> ask once whether the task moves into 완료 (sidebar); reopening it always works
   const askDone = () => { const d = (M.desk || {})[V.task.id] || {}; if (d.done || !pabloHost.setUi) return;
-    const t = V.task.id, card = h("div", { class: "changes", "data-done-ask": "1" }, h("p", null, h("b", null, "이 작업을 완료로 옮길까요?")),
+    const t = V.task.id, card = h("div", { class: "call ask", "data-done-ask": "1" }, h("p", { class: "head" }, "이 작업을 완료로 옮길까요?"),
       h("p", { class: "muted" }, "사이드바 아래 '완료'로 접힙니다. 다시 열면 언제든 이어서 할 수 있습니다."),
       h("p", null, h("button", { class: "pill on", "data-done-go": "1", on: () => pabloHost.setUi(t, "done", true).then(() => { card.closest(".msg").remove(); return refresh(); }) }, "완료로 옮기기"),
         " ", link("나중에", () => card.closest(".msg").remove())));
@@ -3365,13 +3442,12 @@ if (window.pabloHost && pabloHost.chat) {
       box.textContent = ""; box.dataset.check = r.check.id;
       box.append(h("p", null, cited(r.check.conclusion, r.check.evidence)));
       const w = webOnly(r.check); if (w) box.append(w);
-      if (r.dropped.length) box.append(h("p", { class: "muted" }, `자료에서 찾지 못한 인용 ${r.dropped.length}개는 뺐습니다.`));
+      const vb = verified(r.check, r.dropped.length); if (vb) box.append(vb);  // B7
       busy = null; status("Ready"); scroll(); refresh();
     }, e => {
-      box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e))));
-      const ps = ((M.desk || {})[t] || {}).papers || [];
-      if (/물어볼 (논문|자료)를 골라/.test(fail(e)) && ps.length > 1) box.firstChild.append(h("div", { class: "ask-pick" },
-        ps.map(p => h("button", { class: "pill", "data-ask-only": p.id, on: () => ask(text, t, [p.id]) }, `${p.title}에만 묻기`))));
+      const ps = ((M.desk || {})[t] || {}).papers || [];  // S43: what failed, then the papers to ask one at a time
+      box.textContent = ""; box.append(failCard("답을 찾지 못했습니다", fail(e), /물어볼 (논문|자료)를 골라/.test(fail(e)) && ps.length > 1 ? h("div", { class: "ask-pick" },
+        ps.map(p => h("button", { class: "pill", "data-ask-only": p.id, on: () => ask(text, t, [p.id]) }, `${p.title}에만 묻기`))) : null));
       busy = null; status("Ready");
     });
   }
