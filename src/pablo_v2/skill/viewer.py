@@ -1913,8 +1913,53 @@ function echo(task, c) {
 // one timeline: the task, its research, the chat log and the Guard cards, in the order they happened
 // P4: each message's stage, from what the record is (a spec is 조건 확정, an audit 재현 점검, ...), a divider where
 // the stage changes, and a tag row: the stage, then what it is about (files, [n]); the rest folds into "N개 더"
-function kindOf() { const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [];
+function kindOf() { return kindFor((M.desk || {})[V.task.id]); }
+// any task's kind from its desk entry (M.desk[id]): the one it was made as, else what it has (folder + paper, paper, none)
+function kindFor(d) { d = d || {}; const ps = d.papers || [];
   return d.kind || (d.folder && ps.length ? "repro" : ps.length ? "read" : "general"); }
+// D1: a task's stages from its records alone, for any task (the stage bar; the sidebar's progress): v = M.views[id],
+// d = M.desk[id], kind = kindFor(d) when not given. A step's state comes from what is recorded, nothing is enforced.
+// -> {steps: [{key, label, state: done|current|todo|blocked|stale, sub}], current: index of the current step or -1,
+//     can: {spec, compare, audit, report}: what the stage bar's actions need (#specs/#compares/#audits/#reports)}
+function stagesOf(v, d, kind) {
+  d = d || {}; kind = kind || kindFor(d);
+  const ps = d.papers || [], pdfs = ps.filter(p => p.kind !== "web"), chat = v.chat || [], checks = v.checks || {};
+  const intent = v.intent || {}, actions = v.actions || [];
+  const specs = (v.research || []).map(id => checks[id]).filter(k => k && k.spec && k.state !== "waived"), hasSpec = specs.length > 0;
+  const audits = chat.filter(c => c.role === "audit"), la = audits[audits.length - 1];
+  const staleAudit = !!la && chat.some(c => (c.role === "changes" || c.role === "undo") && c.at > la.at);
+  const differ = la ? (la.items || []).filter(x => x.status === "differs").length : 0;
+  const toDecide = specs.filter(k => k.state === "pending").length + (intent.questions || []).length;
+  const waiting = actions.some(a => a.verdict === "WARN" && !a.decision);
+  const reported = chat.some(c => c.role === "report"), asked = chat.filter(c => c.role === "ask").length;
+  const compared = chat.some(c => c.role === "compare");
+  const changedFiles = chat.filter(c => c.role === "changes").reduce((n, c) => n + (c.files || []).length, 0);
+  // an audit needs a folder and something to hold the code to; a report needs a record to report
+  const can = { spec: ps.length > 0, compare: pdfs.length > 1,
+    audit: !!d.folder && (hasSpec || (intent.must || []).length > 0 || (intent.prefer || []).length > 0),
+    report: hasSpec || actions.length > 0 || audits.length > 0 };
+  const step = (key, label, state, sub) => ({ key, label, state, sub });
+  const steps = kind === "repro" ? [
+    step("prep", "준비", ps.length && d.folder ? "done" : "todo", ps.length && d.folder ? `논문 ${pdfs.length} · 폴더` : !ps.length ? "논문 필요" : "폴더 필요"),
+    step("spec", "조건 확정", !ps.length ? "blocked" : hasSpec && !toDecide ? "done" : "todo",
+      !ps.length ? "주 논문 필요" : !hasSpec ? "조건 뽑기 전" : toDecide ? `정할 일 ${toDecide}` : `조건 ${specs.length}`),
+    step("run", "구현·실행", !d.folder ? "blocked" : la && !waiting ? "done" : "todo",
+      !d.folder ? "폴더 필요" : waiting ? "확인 기다림" : actions.length ? `행동 ${actions.length}` : "—"),
+    step("audit", "재현 점검", !can.audit ? "blocked" : staleAudit ? "stale" : la ? "done" : "todo",
+      !can.audit ? "폴더 · 조건 필요" : staleAudit ? "오래됨 · 다시 필요" : la ? (differ ? `다름 ${differ}` : "점검함") : "점검 전"),
+    step("report", "보고서", reported ? "done" : "todo", reported ? "저장함" : can.report ? "할 수 있음" : "—")]
+  : kind === "read" ? [
+    step("prep", "준비", ps.length ? "done" : "todo", ps.length ? `논문 ${ps.length}` : "논문 필요"),
+    step("ask", "질문", asked && compared ? "done" : "todo", asked ? `질문 ${asked}` : "질문 전"),
+    step("compare", "비교표", pdfs.length < 2 ? "blocked" : compared ? "done" : "todo", pdfs.length < 2 ? "논문 2편 필요" : compared ? "만듦" : "할 수 있음"),
+    step("wrap", "정리", reported ? "done" : "todo", reported ? "저장함" : "—")]
+  : [step("prep", "준비", d.folder ? "done" : "todo", d.folder ? "폴더" : "폴더 필요"),
+    step("work", "작업", reported ? "done" : "todo", waiting ? "확인 기다림" : changedFiles ? `바뀐 파일 ${changedFiles}` : "—"),
+    // the audit of the folder against the task's criteria is part of 검토 (QA 10/26: it floated past the last stage)
+    step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—")];
+  const current = steps.findIndex(s => s.state === "todo"); if (current >= 0) steps[current].state = "current";
+  return { steps, current, can };
+}
 function stageOfRole(role, kind) {
   const r = String(role || "");
   if (kind === "repro") return r === "start" ? "준비" : /^(spec|criterion|intent)/.test(r) || r === "ask" ? "조건 확정"
@@ -2049,6 +2094,82 @@ function byTarget(log, rows) {
       h("summary", null, h("span", { class: "tg" + (t === "대상 없음" ? "" : " tgt") }, t), h("small", null, `대화 ${n(t)}`)), rs.map(r => r[0]), more)); });
   rest.forEach(x => log.append(x));
 }
+// D2 back-links. A ref is what a chat-log entry names: a criterion (C4; a held-back or unread line the user promoted
+// counts as the criterion it became, V.intent.promoted), a check (SC5: a condition, a PDF answer, a table cell) with its
+// anchors (E12) and their pages ("SRC1:p9"), a work-folder file ("file:config.yaml"), a plan step (P3.1).
+// The audit's "where" ("config.yaml:5; run.py:10-11") -> the files (the same reading as where.js, without the lines)
+function placePaths(raw) {
+  return String(raw || "").split(/\s*;\s*|\s*,\s+(?=\S*(?:[\w-]\.[A-Za-z]|[\\/]))/).map(x => x.trim().replace(/^`+|`+$/g, "").trim()
+    .replace(/\s+\((?!\s*(?:lines?|l\.)\s*\d)[^()]*\)$/i, "").replace(/#L?\d[\dLl\s,~–-]*$/, "")
+    .replace(/[\s,(]+(?:lines?|l\.)\s*[\dLl\s,~–-]+\)?$/i, "").replace(/\s*[\d\s,~–-]+(?:행|번째\s*줄|줄)\)?$/, "")
+    .replace(/:L?\d[\dL\s,~–-]*(?::\d+)?$/, "").replace(/^[`'"(]+|[`'"),:]+$/g, "").trim().replace(/\\/g, "/").replace(/^(\.\/)+/, ""))
+    .filter(s => s && s.length <= 500 && !/^(?:-+|n\/?a|none|null|없음|해당\s*없음)$/i.test(s) && (!/\s/.test(s) || /\/|\.[A-Za-z0-9]{1,8}$/.test(s)));
+}
+function refsOf(c, v = V) {
+  if (!c || !v) return [];
+  const out = new Set(), add = x => { if (x) out.add(String(x)); }, promoted = (v.intent || {}).promoted || {};
+  const check = id => { if (!id) return; add(id); const k = (v.checks || {})[id];
+    ((k && k.evidence) || []).forEach(e => { add(e); const a = (M.anchors || {})[e]; if (a && a.page) add(a.source + ":p" + a.page); }); };
+  const r = String(c.role || "");
+  if (r === "intent") { (c.items || []).forEach(i => add(i.id)); [...(c.pending || []), ...(c.unread || [])].forEach(k => add(promoted[k.id])); }
+  else if (r === "criterion-edit") add(c.id);
+  else if (r === "spec") [...(c.checks || []), ...(c.missing || [])].forEach(check);
+  else if (r === "ask" || r.startsWith("spec-")) check(c.check);
+  else if (r === "audit") [...(c.items || []), ...(c.outside || [])].forEach(x => { add(x.id); placePaths(x.where).forEach(f => add("file:" + f)); });
+  else if (r === "changes" || r === "undo") (c.files || []).forEach(f => add("file:" + (typeof f === "string" ? f : f.path)));
+  else if (r === "compare") (c.cells || []).forEach(check);
+  add(c.step);  // D4: the plan step a chat request / its reply was
+  return [...out];
+}
+// an intent entry 1 ms after a user message is that message's turn (chatTurn logs them so): -> the user message's key
+function turnsOf(v = V) {
+  const chat = (v && v.chat) || [], users = new Map(chat.filter(x => x.role === "user").map(x => [Date.parse(x.at), "user@" + x.at])), t = new Map();
+  chat.forEach(c => { if (c.role === "intent" && users.has(Date.parse(c.at) - 1)) t.set("intent@" + c.at, users.get(Date.parse(c.at) - 1)); });
+  return t;
+}
+// every message key the conversation draws (role@time, act:ACT3) -> its refs; a user message also gets its turn's intent's
+function refsByKey(v = V) {
+  const m = new Map(), put = (k, xs) => { if (xs.length) m.set(k, [...new Set([...(m.get(k) || []), ...xs])]); }, turn = turnsOf(v);
+  ((v && v.chat) || []).forEach(c => { const k = c.role + "@" + c.at, rs = refsOf(c, v); put(k, rs); if (turn.has(k)) put(turn.get(k), rs); });
+  ((v && v.actions) || []).forEach(a => put("act:" + a.id, [...(a.criteria || []).map(x => x.id), a.step].filter(Boolean)));
+  return m;
+}
+// ref -> {chat: [message keys, one per turn], verdicts: [{act, verdict, decision}]}: the "대화 N" / "판정 N" of a
+// criterion, a condition, a page, a file, a plan step. Verdicts: the Guard's, by the criteria an action conflicted with
+// (판정) and by its plan step
+function linksOf(v = V) {
+  const L = new Map(), get = r => { if (!L.has(r)) L.set(r, { chat: [], verdicts: [] }); return L.get(r); }, turn = turnsOf(v);
+  ((v && v.chat) || []).forEach(c => { const k = c.role + "@" + c.at, key = turn.get(k) || k;
+    refsOf(c, v).forEach(r => { const x = get(r); if (!x.chat.includes(key)) x.chat.push(key); }); });
+  ((v && v.actions) || []).forEach(a => [...new Set([...(a.criteria || []).map(x => x.id), a.step].filter(Boolean))]
+    .forEach(r => get(r).verdicts.push({ act: a.id, verdict: a.verdict, decision: a.decision || null })));
+  return L;
+}
+// the drawn messages get data-refs (a JSON list) from their data-key; -> how many have some
+function stampRefs(root = $("log"), v = V) {
+  if (!root || !v) return 0;
+  const by = refsByKey(v); let n = 0;
+  root.querySelectorAll("[data-key]").forEach(el => { const rs = by.get(el.dataset.key);
+    if (rs && rs.length) { el.dataset.refs = JSON.stringify(rs); n++; } else delete el.dataset.refs; });
+  return n;
+}
+// "대화로 거르기": only the messages naming one of refs stay (the dividers above them too), as a stage filter does
+// (.filtered, #filter-banner, #log[data-filter] = "refs:" + label); the same label again -> all. -> {kept, hid}
+function filterBy(refs, label) {
+  const log = $("log"), want = new Set([].concat(refs || []).map(String)), tag = "refs:" + label;
+  const on = log.dataset.filter === tag || !want.size ? "" : tag; log.dataset.filter = on;
+  const old = $("filter-banner"); if (old) old.remove();
+  let hid = 0, kept = 0;
+  log.querySelectorAll(".msg[data-key]").forEach(x => { let rs = []; try { rs = JSON.parse(x.dataset.refs || "[]"); } catch (e) {}
+    const hide = !!on && !rs.some(r => want.has(r)); x.classList.toggle("filtered", hide); if (hide) hid++; else kept++; });
+  [...log.children].filter(x => x.classList.contains("divider")).forEach(dv => { let n = dv.nextElementSibling, any = false;
+    for (; n && !n.classList.contains("divider"); n = n.nextElementSibling) if (n.matches(".msg[data-key]:not(.filtered)")) any = true;
+    dv.classList.toggle("filtered", !!on && !any); });
+  if (on) log.prepend(h("div", { id: "filter-banner", "data-refs": JSON.stringify([...want]) }, h("span", null, `${label} 대화만 보는 중 · ${kept}개 · 다른 대화 ${hid}개 숨김`),
+    h("button", { class: "link", on: () => filterBy(refs, label) }, "전체 보기")));
+  document.querySelectorAll("#stages .stage.picked").forEach(x => x.classList.remove("picked"));
+  return { kept, hid };
+}
 // a stage in the stage bar: only that stage's messages (and its dividers) stay; again -> all
 function stageFilter(label) {
   const log = $("log"), on = log.dataset.filter === label ? "" : label; log.dataset.filter = on;
@@ -2100,6 +2221,7 @@ function conversation() {
     h("p", null, h("button", { class: "link", on: () => show({ mode: "intent" }) }, "작업 기준 보기")))));
   log.append(live());
   finish();
+  stampRefs(log);  // D2: data-refs from each message's data-key
   log.scrollTop = chat.length ? log.scrollHeight : 0;  // a conversation reopens at its latest message
 }
 // every plan step done -> one closing message (in the live part, so a refresh can add it too)
@@ -2127,6 +2249,7 @@ function tagLive(el, role, at) {
   if (!el || el.dataset.key || !V) return;
   const key = role + "@" + at, s = stageOfRole(role, kindOf()), o = (((M.desk || {})[V.task.id] || {}).tags || {})[key] || {};
   el.dataset.stage = o.stage || s; el.dataset.key = key; tagRow(el, o.stage || s, key, o, s, (M.settings || {}).tags === "all");
+  const rs = refsByKey(V).get(key); if (rs) el.dataset.refs = JSON.stringify(rs);  // D2
 }
 function select(tid) {
   V = M.views[tid] || M.views[M.current] || null; lastEv = null;
@@ -2931,6 +3054,7 @@ if (window.pabloHost && pabloHost.chat) {
     const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [], main = ps.find(p => p.primary);
     const pdfs = ps.filter(p => p.kind !== "web"), several = pdfs.length > 1;  // D1: a web page is asked, never reproduced or a row
     const hasSpec = V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived");
+    const kind = kindFor(d), st = stagesOf(V, d, kind);  // D1: the steps and what their actions need
     // ② more than 3 sources: one line "자료 N개 (주 논문 X) ▾", the list opens below it (one per line)
     const many = ps.length > 3, open = !many || srcOpen;
     const chip = p => h("span", { class: "paper", "data-paper": p.id, "data-kind": p.kind || "pdf" },
@@ -2952,15 +3076,14 @@ if (window.pabloHost && pabloHost.chat) {
         ps.length ? h("span", { class: "plist", hidden: !open }, ps.map(p => chip(p))) : "없음", " ",
         pabloHost.addArxiv ? link("+ 추가", () => { adder.hidden = !adder.hidden; if (!adder.hidden) arx.focus(); }) : link("PDF 추가", pickPdfs));
     const dirEl = h("span", { id: "dir" }, "📁 작업 폴더: ", d.folder ? h("b", null, d.folder) : "없음", " ", link(d.folder ? "바꾸기" : "선택", () => attach("pickFolder")));
-    const specEl = ps.length && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
+    const specEl = st.can.spec && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
         link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => hasSpec ? redo() : spec(V.task.id))) : null;
-    const compEl = several && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null;
+    const compEl = st.can.compare && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null;
     const routeEl = ps.length && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
         "보낼 곳 ", h("span", { class: "seg" }, ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label]) =>  // A2: a segmented control
           (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh()))))) : null;
-    const auditEl = d.folder && pabloHost.audit && (V.research.some(id => V.checks[id].spec && V.checks[id].state !== "waived") || V.intent.must.length || V.intent.prefer.length)
-        ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null;
-    const reportEl = pabloHost.report && (hasSpec || V.actions.length || V.chat.some(c => c.role === "audit")) ? h("span", { id: "reports" },  // ⑫
+    const auditEl = st.can.audit && pabloHost.audit ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null;
+    const reportEl = pabloHost.report && st.can.report ? h("span", { id: "reports" },  // ⑫
         link("📄 보고서", () => pabloHost.report(V.task.id).then(r => r && (say(`📄 보고서를 저장했습니다: ${r.name} (${r.lines}줄). 조건마다 논문의 쪽, 의도한 차이와 뺀 것의 이유, 마지막 점검을 담았습니다.`, "data-report"), askDone(), refresh()),
           e => say("⚠ " + fail(e), "data-report-error")))) : null;
     const netEl = d.folder && pabloHost.setNet ? h("span", { id: "net", "data-on": d.net ? "1" : "", title: "패키지 설치, 데이터 내려받기, git clone에 필요합니다. 켜도 명령마다 Pablo가 검토합니다." },
@@ -2980,38 +3103,11 @@ if (window.pabloHost && pabloHost.chat) {
       d.folder ? seg(d.net ? "globe" : "globe-off", d.net ? "인터넷 허용" : "인터넷 차단", "sc-net") : null, ico("chevron-down", 12));
     const oldChips = $("chips"); if (oldChips) oldChips.remove();
     $("bar").append(h("span", { id: "chips" }, chipBtn, card));
-    // the stage bar: always visible; a step's state comes from what is already recorded, nothing is enforced.
-    // Each step carries its old action (#specs / #audits / #compares / #reports, same ids, texts and conditions).
-    const chat = V.chat || [], audits = chat.filter(c => c.role === "audit"), la = audits[audits.length - 1];
-    const staleAudit = !!la && chat.some(c => (c.role === "changes" || c.role === "undo") && c.at > la.at);
-    const differ = la ? (la.items || []).filter(x => x.status === "differs").length : 0;
-    const specs = V.research.map(id => V.checks[id]).filter(k => k.spec && k.state !== "waived");
-    const toDecide = specs.filter(k => k.state === "pending").length + (V.intent.questions || []).length;
-    const waiting = V.actions.some(a => a.verdict === "WARN" && !a.decision);
-    const reported = chat.some(c => c.role === "report"), asked = chat.filter(c => c.role === "ask").length;
-    const compared = chat.some(c => c.role === "compare");
-    const changedFiles = chat.filter(c => c.role === "changes").reduce((n, c) => n + (c.files || []).length, 0);
-    const kind = d.kind || (d.folder && ps.length ? "repro" : ps.length ? "read" : "general");
-    const step = (key, label, state, sub, act) => ({ key, label, state, sub, act });
-    const steps = kind === "repro" ? [
-      step("prep", "준비", ps.length && d.folder ? "done" : "todo", ps.length && d.folder ? `논문 ${pdfs.length} · 폴더` : !ps.length ? "논문 필요" : "폴더 필요"),
-      step("spec", "조건 확정", !ps.length ? "blocked" : hasSpec && !toDecide ? "done" : "todo",
-        !ps.length ? "주 논문 필요" : !hasSpec ? "조건 뽑기 전" : toDecide ? `정할 일 ${toDecide}` : `조건 ${specs.length}`, specEl),
-      step("run", "구현·실행", !d.folder ? "blocked" : la && !waiting ? "done" : "todo",
-        !d.folder ? "폴더 필요" : waiting ? "확인 기다림" : V.actions.length ? `행동 ${V.actions.length}` : "—"),
-      step("audit", "재현 점검", !auditEl ? "blocked" : staleAudit ? "stale" : la ? "done" : "todo",
-        !auditEl ? "폴더 · 조건 필요" : staleAudit ? "오래됨 · 다시 필요" : la ? (differ ? `다름 ${differ}` : "점검함") : "점검 전", auditEl),
-      step("report", "보고서", reported ? "done" : "todo", reported ? "저장함" : reportEl ? "할 수 있음" : "—", reportEl)]
-    : kind === "read" ? [
-      step("prep", "준비", ps.length ? "done" : "todo", ps.length ? `논문 ${ps.length}` : "논문 필요", specEl),
-      step("ask", "질문", asked && compared ? "done" : "todo", asked ? `질문 ${asked}` : "질문 전"),
-      step("compare", "비교표", pdfs.length < 2 ? "blocked" : compared ? "done" : "todo", pdfs.length < 2 ? "논문 2편 필요" : compared ? "만듦" : "할 수 있음", compEl),
-      step("wrap", "정리", reported ? "done" : "todo", reported ? "저장함" : "—", reportEl)]
-    : [step("prep", "준비", d.folder ? "done" : "todo", d.folder ? "폴더" : "폴더 필요"),
-      step("work", "작업", reported ? "done" : "todo", waiting ? "확인 기다림" : changedFiles ? `바뀐 파일 ${changedFiles}` : "—", specEl),
-      // the audit of the folder against the task's criteria is part of 검토 (QA 10/26: it floated past the last stage)
-      step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—", [auditEl, reportEl].filter(Boolean))];
-    const cur = steps.find(s => s.state === "todo"); if (cur) cur.state = "current";
+    // the stage bar: always visible; the steps come from stagesOf (D1). Each step carries its old action (#specs /
+    // #audits / #compares / #reports, same ids, texts and conditions), by the step's key.
+    const acts = { repro: { spec: specEl, audit: auditEl, report: reportEl }, read: { prep: specEl, compare: compEl, wrap: reportEl },
+      general: { work: specEl, review: [auditEl, reportEl].filter(Boolean) } };
+    const steps = st.steps.map(s => ({ ...s, act: (acts[kind] || acts.general)[s.key] }));
     // the composer says which stage a new message will be tagged with: its record's role, read as the tags read it (QA
     // 10/26: it showed the stage bar's current step, so "조건 확정" for a message the log then tagged 구현·실행). A message
     // goes to the paper question (ask) or the agent (user) as send() decides; with neither, it is not recorded
