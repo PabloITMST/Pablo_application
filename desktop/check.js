@@ -431,9 +431,10 @@ async function guardCheck() {
   await new Promise(r => win.webContents.once("did-finish-load", r));
   const js = code => win.webContents.executeJavaScript(code);
   const until = async (code, ms = 300000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
-  // the Guard's cards; a command that ran and failed gets its own card (controller.js: ERROR, "실행에 실패했습니다.")
-  // that tells how it went, not what the Guard decided, so it is counted apart (QA 10/26: an ALLOW `git status` in the
-  // fixture folder, not a repository, failed and made "ALLOW is silent" fail on the model's choice of command)
+  // the Guard's cards; an action that failed after [진행] or never ran gets its own card (controller.js: ERROR,
+  // "실행에 실패했습니다.") that tells how it went, not what the Guard decided, so it is counted apart (QA 10/26: an ALLOW
+  // `git status` in the fixture folder, not a repository, failed and made "ALLOW is silent" fail on the model's choice
+  // of command; since 10/27 an ALLOW command that ran and failed has no card)
   const ranFailed = `[...document.querySelectorAll("#live [data-verdict=ERROR]")].filter(c => c.textContent.includes("실행에 실패했습니다."))`;
   const cards = () => js(`document.querySelectorAll("#live [data-verdict]").length - ${ranFailed}.length`);
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`, 60000);

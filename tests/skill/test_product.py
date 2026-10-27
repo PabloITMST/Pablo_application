@@ -49,6 +49,8 @@ def test_brief():
     assert render_brief(s, t.id) == ("", [])  # nothing to tell -> nothing is sent
     s.intent.process_message("test split은 절대 학습에 쓰지 마.")
     s.intent.process_message("가능하면 PyTorch로 짜줘.")
+    text, _ = render_brief(s, t.id)  # criteria and no source yet: asked for pages, the agent made one up (10/27 u2-c-r1)
+    assert "쪽" not in text and "근거" not in text.splitlines()[0], text
     if os.path.exists(PDF):  # LinearRAG.pdf is not in the repo (see README)
         from test_pdf import Judge
         s.judge = Judge()
