@@ -287,7 +287,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "efforts", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "openWork", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "recheckPlan", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setEffort", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "summarize", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "efforts", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "openWork", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "recheckPlan", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setEffort", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "similar", "spec", "state", "stop", "summarize", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -973,8 +973,10 @@ async function uiCheck() {
   assert.deepStrictEqual(await js(`[document.querySelector("#viewbar .fchip").textContent, /^거르는 중 · \\d+$/.test(document.querySelectorAll("#stages .stage small")[1].textContent)]`),
     ["단계 · " + lbl, true], "a stage filter: the stage bar and the view bar say so");
   await aShot("a-filter");
-  await js(`document.querySelector("#viewbar .fchip").click()`); await sleep(100);
-  assert.deepStrictEqual(await js(`[$("log").dataset.filter, document.querySelector("#viewbar [data-filter-state]").textContent]`), ["", "거르기 없음"], "the chip clears it");
+  await js(`document.querySelector("#viewbar .fchip").click()`); await sleep(100);  // F24: the chip opens the 거르기 menu; 거르기 풀기 there
+  assert.ok(await js(`!!$("filter-menu") && $("filter-menu").querySelector(".mi.on .mi-t").textContent === "단계 · " + ${JSON.stringify(lbl)}`), "the chip opens the 거르기 menu");
+  await js(`$("filter-menu").querySelector("[data-filter-off]").click()`); await sleep(100);
+  assert.deepStrictEqual(await js(`[$("log").dataset.filter, document.querySelector("#viewbar [data-filter-state]").textContent, !$("filter-menu")]`), ["", "거르기 없음", true], "거르기 풀기 clears it");
   // F16: the sidebar folds into the rail, kept in the settings, and back
   await js(`$("side-fold").click()`); await sleep(200);
   assert.deepStrictEqual(await js(`[document.body.classList.contains("side-off"), Math.round($("side").getBoundingClientRect().width), document.querySelectorAll("#side [data-rail-task]").length]`),
@@ -1447,7 +1449,8 @@ async function uiCheck() {
   await js(`document.querySelector('#report-dlg [data-format="md"]').click(); document.querySelector("#report-dlg [data-report-where]").click()`);
   await until(`/report\\.md$/.test(document.querySelector("#report-dlg [data-report-place]").textContent)`);
   await js(`document.querySelector("#report-dlg [data-report-go]").click()`);
-  assert.match(await until(`(x => x && x.textContent)(document.querySelector("[data-report]"))`), /^📄 보고서를 저장했습니다: report\.md \(\d+줄\)/);
+  assert.match(await until(`(x => x && x.textContent)(document.querySelector("[data-report]"))`), /^보고서를 저장했습니다[^·]*report\.md · \d+줄$/, "S52: saved, where, how long");
+  assert.ok(await js(`!document.querySelector("[data-report] [data-report-open]")`), "outside the work folder: no 폴더에서 보기 · VS Code에서 열기");
   dialog.showSaveDialog = save0;
   const md = fs.readFileSync(saved, "utf8");
   for (const h of ["# 재현 보고서: 인사말 파일 정리", "## 재현 조건 (", "## 논문과 다르게 한 것 (의도한 차이)", "## 뺀 조건과 지운 기준", "## 작업 기준",
@@ -1480,8 +1483,28 @@ async function uiCheck() {
   assert.match(await js(`pabloHost.report("T1", { token: ${JSON.stringify(picked.token)} }).then(() => "", e => e.message)`), /bad report/, "a place is used once");
   const def = await js(`pabloHost.report("T1", { format: "md", token: "default" })`);
   assert.ok(fs.existsSync(path.join(W, "reports", def.name)) && def.display === "reports/" + def.name, "default: the work folder's reports/");
+  assert.strictEqual(def.rel, "reports/" + def.name, "S52: its place in the work folder");
+  // S52 in the conversation: the default place (the work folder) -> the card can show it there; a folder that is not there ->
+  // the failure card, nothing saved, 다른 위치에 저장
+  await js(`document.querySelectorAll("[data-report]").forEach(x => x.closest(".msg").remove()); document.querySelector("#reports .link").click()`);
+  await until(`!!document.querySelector('#report-dlg [data-format="md"]') && !document.querySelector("#report-dlg [data-report-go]").disabled`);
+  await js(`document.querySelector('#report-dlg [data-format="md"]').click(); document.querySelector("#report-dlg [data-report-go]").click()`);
+  assert.deepStrictEqual(await until(`(x => x && [x.querySelector("code").textContent, [...x.querySelectorAll("[data-report-open]")].map(b => b.textContent)])(document.querySelector("[data-report]"))`),
+    ["reports/" + def.name, ["폴더에서 보기", "VS Code에서 열기"]]);
+  if (process.env.PABLO_SHOTS) { await sleep(300); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "s52-saved.png"), (await win.capturePage()).toPNG()); }
+  dialog.showSaveDialog = async () => ({ canceled: false, filePath: path.join(S, "no-such-folder", "report.md") });
+  await js(`document.querySelector("#reports .link").click()`);
+  await until(`!!document.querySelector('#report-dlg [data-format="md"]')`);
+  await js(`document.querySelector('#report-dlg [data-format="md"]').click(); document.querySelector("#report-dlg [data-report-where]").click()`);
+  await until(`/report\\.md$/.test(document.querySelector("#report-dlg [data-report-place]").textContent)`);
+  await js(`document.querySelector("#report-dlg [data-report-go]").click()`);
+  assert.deepStrictEqual(await until(`(x => x && [x.querySelector(".head").textContent, x.querySelectorAll("p")[1].textContent, !!x.querySelector("[data-report-again]"), !$("report-dlg")])(document.querySelector("[data-report-fail]"))`),
+    ["보고서를 저장하지 못했습니다", "그 폴더에 저장하지 못했습니다(폴더가 없습니다). 보고서는 저장되지 않았습니다.", true, true]);
+  if (process.env.PABLO_SHOTS) { await sleep(300); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "s52-failed.png"), (await win.capturePage()).toPNG()); }
+  dialog.showSaveDialog = save0;
+  await js(`document.querySelectorAll("[data-report], [data-report-fail]").forEach(x => x.closest(".msg").remove())`);
   fs.rmSync(path.join(W, "reports"), { recursive: true, force: true });
-  console.log("ok report A13: preview counts, a place picked first, parts + HTML, the work folder's reports/ by default");
+  console.log("ok report A13: preview counts, a place picked first, parts + HTML, the work folder's reports/ by default; S52 saved (in the folder: 보기 · 열기) and failed");
   // ⑤ a PC without PowerShell 7: said once above the account line, with how to install; 알겠습니다 -> not again
   assert.ok(await js(`!document.querySelector("#shell-note [data-shell]")`), "pwsh 7 here: no notice");
   process.env.PABLO_SHELL = "powershell";  // review: before sign-in the sign-in card comes alone (--auth shows the notice)
@@ -1833,8 +1856,10 @@ async function papersUi() {
   // arXiv: a new paper; refusals (not arXiv, no such paper, not a PDF, sent elsewhere); a newer version; the same file again
   await js(`[...$("src").querySelectorAll(".link")].find(b => b.textContent === "+ 추가").click()`);
   assert.ok(await js(`!$("adder").hidden`));
+  // B24 / S12: one arXiv paper asks first (file, source, size: [받기] [취소]); this takes it (window.dlSeen counts the cards)
   const fetchArxiv = async text => { await js(`$("arxiv").value = ${JSON.stringify(text)}; $("arxiv").dispatchEvent(new Event("input")); $("arxiv-get").click()`);
-    return until(`(n => !$("arxiv-get").disabled && n.textContent && !/중…$/.test(n.textContent) && n.textContent)($("arxiv-note"))`); };
+    return until(`(n => { const g = document.querySelector("#arxiv-dl [data-dl-get]"); if (g) { window.dlSeen = (window.dlSeen || 0) + 1; g.click(); return ""; }
+      return !$("arxiv-get").disabled && n.textContent && !/중…$/.test(n.textContent) && n.textContent; })($("arxiv-note"))`); };
   // D2: words are a search (the API gets all:w1 AND all:w2); the user picks a result and it is imported like an id
   await js(`$("arxiv").value = "hypergraph retrieval"; $("arxiv-get").click()`);
   await until(`document.querySelectorAll("#arxiv-hits .hit").length === 3 && !$("arxiv-get").disabled`);
@@ -1899,8 +1924,20 @@ async function papersUi() {
   assert.deepStrictEqual(refused.map(x => x.split(".")[0]), ["⚠ arXiv 번호나 링크를 읽지 못했습니다", "⚠ arXiv에 그 번호의 논문이 없습니다",
     "⚠ 받은 파일이 PDF가 아닙니다", "⚠ arXiv 밖으로 넘겨져 받지 않았습니다"], JSON.stringify(refused));
   assert.strictEqual(third(), third0, "the redirect elsewhere was never followed");
+  assert.strictEqual(await js(`window.dlSeen`), 2, "the two the server answers asked first; the unreadable link and the missing paper were said at once");
   assert.match(await fetchArxiv("https://arxiv.org/abs/2501.00001"), /^추가했습니다: TinyRAG v3\. 이전 버전에서 찾은 근거 3개: 그대로 3 · 문맥 바뀜 0 · 찾을 수 없음 0\.$/);
   assert.strictEqual(await fetchArxiv("2501.00001"), "이미 있는 자료입니다: TinyRAG v3.");
+  // 취소 on the card: nothing downloaded, said so
+  const kept0 = fs.readdirSync(path.join(S, "papers")).length;
+  await js(`$("arxiv").value = "2502.00003v9"; $("arxiv-get").click()`);
+  assert.match(await until(`(n => !$("arxiv-get").disabled && /^⚠/.test(n.textContent) && n.textContent)($("arxiv-note"))`), /arXiv에 그 번호의 논문이 없습니다/, "a missing paper: no card");
+  await js(`$("arxiv").value = "arXiv:2502.00002"; $("arxiv-get").click()`);
+  const card12 = await until(`(c => c && [c.querySelector(".head").textContent, c.querySelector("code").textContent, /^출처 127\\.0\\.0\\.1:\\d+ · \\d+ KB · 50 MB 상한 안$/.test(c.querySelector(".dl-file small").textContent)])(document.querySelector("#arxiv-dl [data-download]"))`);
+  assert.deepStrictEqual(card12, ["arXiv에서 받을까요?", "arxiv-2502.00002.pdf", true]);
+  await js(`$("adder").hidden = false`); await sleep(200); await shot("papers-download.png");
+  await js(`document.querySelector("#arxiv-dl [data-dl-cancel]").click()`);
+  assert.strictEqual(await js(`$("arxiv-note").textContent + "|" + $("arxiv-dl").hidden`), "받지 않았습니다. 자료는 그대로입니다.|true");
+  assert.strictEqual(fs.readdirSync(path.join(S, "papers")).length, kept0, "취소 downloads nothing");
   const ps = deskJson().pdf.T1;
   assert.deepStrictEqual(ps.map(p => [p.title, p.kind || "pdf", p.version || null, !!p.sha256]), [["TinyRAG", "pdf", "v3", true], ["OtherRAG", "pdf", null, false],
     ["TinyRAG notes", "web", null, false], ["ThirdRAG", "pdf", "v1", true], ["Notes two", "web", null, false], ["FourthRAG", "pdf", null, false]]);
@@ -1913,7 +1950,22 @@ async function papersUi() {
     ["2502.00002", "v1", true, "arxiv-2502.00002.pdf", `127.0.0.1:${port}`, fs.statSync(path.join(fx.arxiv, "2502.00002")).size]);
   assert.match(await js(`pabloHost.peekArxiv("2502.00003").then(() => "", e => e.message)`), /arXiv에 그 번호의 논문이 없습니다/);
   assert.strictEqual(fs.readdirSync(path.join(S, "papers")).length, kept, "a peek downloads nothing");
-  console.log("ok arXiv peek: title, file name, source and size before downloading; a missing paper said");
+  await js(`$("new").click()`);
+  await until(`!!$("newtask")`);
+  const ntLink = v => js(`$("nt-link").value = ${JSON.stringify(v)}; document.querySelector("[data-nt-link]").click()`);
+  await ntLink("2502.00002");
+  await until(`!!document.querySelector("#newtask [data-nt-dl] [data-download]")`);
+  await js(`document.querySelector("#newtask [data-dl-cancel]").click()`);
+  await until(`!document.querySelector("#newtask [data-download]")`);
+  assert.strictEqual(await js(`document.querySelectorAll("#newtask .nt-chip:not(.add)").length`), 0, "취소: not picked");
+  assert.ok(await js(`!$("newtask").innerText.includes("null")`), "nothing printed as null where the chips were");
+  await ntLink("2502.00002");
+  await until(`!!document.querySelector("#newtask [data-nt-dl] [data-download]")`);
+  await sleep(200); await shot("papers-newtask-download.png");
+  await js(`document.querySelector("#newtask [data-dl-get]").click()`);
+  assert.match(await until(`(c => c && c.textContent)(document.querySelector("#newtask .nt-chip:not(.add) b"))`), /^ThirdRAG/, "받기: the paper is picked, downloaded when the task is made");
+  await js(`$("newtask").remove()`);
+  console.log("ok arXiv peek: title, file name, source and size before downloading; a missing paper said; the add box and the new-task dialog ask first (S12)");
   // removing a paper: the table and the answers keep what was found in it
   await js(`document.querySelector('[data-remove="${fx.b}"]').click()`);
   await until(`document.querySelectorAll("#src .paper").length === 5`);
@@ -1998,8 +2050,9 @@ async function papersUi() {
   console.log("ok conditions: a sentence picked on page 2 of the 주 논문 -> a condition (kind chosen first), its [n] boxed; the same again -> named first; ThirdRAG refused; 빼기 needs why -> 뺀 조건 -> 되살림, each said in the conversation");
   // ⑬ an OpenReview link -> its PDF (openreview.net only); arXiv's own DOI -> the arXiv paper; another DOI -> its title,
   // then the same title on arXiv to pick from; a DOI Crossref does not know -> said
-  const add = async v => { await js(`$("adder").hidden = false; $("arxiv").value = ${JSON.stringify(v)}; $("arxiv-get").click()`);
-    return until(`(n => !$("arxiv-get").disabled && n.textContent && !/중…$/.test(n.textContent) && n.textContent)($("arxiv-note"))`); };
+  const add = async v => { await js(`$("adder").hidden = false; $("arxiv").value = ${JSON.stringify(v)}; $("arxiv-get").click()`);  // an arXiv paper asks first (S12): 받기
+    return until(`(n => { const g = document.querySelector("#arxiv-dl [data-dl-get]"); if (g) { g.click(); return ""; }
+      return !$("arxiv-get").disabled && n.textContent && !/중…$/.test(n.textContent) && n.textContent; })($("arxiv-note"))`); };
   assert.strictEqual(await add("https://openreview.net/forum?id=Open123"), "추가했습니다: OpenRAG.");
   assert.deepStrictEqual(deskJson().pdf.T1.filter(p => p.openreview).map(p => [p.title, p.openreview]), [["OpenRAG", "Open123"]]);
   assert.match(await add("https://openreview.net/forum?id=Gone404"), /^⚠ OpenReview에 그 논문의 PDF가 없습니다/);

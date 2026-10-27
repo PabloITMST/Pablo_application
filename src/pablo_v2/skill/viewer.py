@@ -1411,12 +1411,10 @@ body.side-off #side > #acct { display:none; }
 /* notices under the header (S24) and cards that ask (S20, S21): white + the orange edge (the .call card) */
 #notice { padding:0 20px; } #notice:empty { display:none; }
 #notice .call { max-width:680px; margin:10px auto 0; }
-.call .acts { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:10px 0 0; }
+/* .call .acts: one definition with B's cards (finishing pass) */
 .call .acts small { font-size:12px; color:var(--ink-3); }
 .cmdline { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:8px 0 0; padding:8px 12px; border-radius:var(--r-ctl); background:var(--a5); }
 .cmdline code { padding:0; background:none; font-size:12px; }
-.pill.warn { background:var(--signal-soft); border-color:transparent; color:var(--ink); }
-.pill.warn:hover:not(:disabled) { background:#FFD3BD; }
 .pill.sel { border-color:var(--ink); box-shadow:inset 0 0 0 1px var(--ink); }
 /* first run (A11): the mascot, the question, the two steps */
 .empty .mascot { height:120px; }
@@ -1636,7 +1634,7 @@ body.dropping #log { outline:0; } body.dropping #log::before { content:none; dis
   background:var(--white); box-shadow:var(--sh-sm); }
 .msg .call p { margin:4px 0; } .msg .call .head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 6px; color:var(--ink);
   font:600 14px/22px var(--sans); }
-.msg .call.warn:not(.settled), .msg .call:not(.block):not(.issue):not(.guard):not(.fail) { border-left:3px solid var(--signal); box-shadow:var(--sh-md); }
+.msg .call.warn:not(.settled), .msg .call:not(.block):not(.issue):not(.guard):not(.fail):not(.rp-done) { border-left:3px solid var(--signal); box-shadow:var(--sh-md); }
 .msg .call.block { background:var(--a4); border-color:var(--a8); box-shadow:none; }
 .msg .call.fail { background:var(--white); box-shadow:var(--sh-sm); } .msg .call.fail .head .ico { color:var(--ink-2); }
 .call.lock .head::before { content:"막음"; flex:none; height:var(--h-tag); box-sizing:border-box; display:inline-flex; align-items:center; padding:0 7px;
@@ -1645,7 +1643,7 @@ body.dropping #log { outline:0; } body.dropping #log::before { content:none; dis
   border-radius:var(--r-tag); background:var(--signal-soft); color:var(--signal); font:600 11px/1 var(--sans); }
 .call.compact .head code { background:none; padding:0; font:500 13px/22px var(--mono); }
 .call .crit b { font-weight:600; color:var(--ink); } .call .crit:empty { display:none; }
-.call .acts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px !important; }
+.call .acts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0 0 !important; }  /* areas A and B: the one rule */
 .call .foot, .call .acts + .foot { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:8px; }
 .call .foot details.tech { margin:0; } .call .foot details.tech[open] { flex-basis:100%; order:2; }
 details.tech > summary { list-style:none; font:600 12px/20px var(--sans); color:var(--ink); cursor:pointer; }
@@ -1664,7 +1662,7 @@ details.tech > summary::-webkit-details-marker { display:none; } details.tech > 
 .msg .changes .chg-t { flex:1 1 220px; margin:0; font-size:14px; line-height:22px; color:var(--ink); }
 .changes .nums { font:500 12px/1 var(--mono); color:var(--ink-2); } .changes .gone { text-decoration:line-through; color:var(--ink-3); }
 .changes .chg-acts { display:inline-flex; gap:8px; margin-left:auto; align-items:center; }
-.pill.soft { background:var(--signal-soft); border-color:transparent; color:var(--ink); } .pill.soft:hover:not(:disabled) { background:#ffd3bd; }
+.pill.soft, .pill.warn { background:var(--signal-soft); border-color:transparent; color:var(--ink); } .pill.soft:hover:not(:disabled), .pill.warn:hover:not(:disabled) { background:#ffd3bd; }
 .changes > pre.diff { margin:8px 0 0; } .changes .undo-err { margin:8px 0 0; display:flex; gap:6px; align-items:center; }
 /* B7 the verification bar under a paper answer; S42 a stopped answer */
 .msg .verify { display:flex; align-items:center; gap:8px; margin:8px 0; padding:6px 12px; background:var(--a5); border-radius:var(--r-ctl);
@@ -1973,6 +1971,16 @@ body.panel.wide { grid-template-columns:var(--side-w) minmax(0, 1fr) min(835px, 
 #log .matrix.flash { box-shadow:0 0 0 3px var(--signal-soft); transition:box-shadow .3s; }
 /* end A2 complete · C */
 /* A2 complete · finishing pass (S8 비슷한 문장, S12 내려받기 확인 자리, S52, merged card actions) */
+#viewbar .fchip { height:var(--h-ctl); gap:6px; padding:0 10px; border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white); font:600 12px/1 var(--sans); max-width:320px; }
+#viewbar .fchip:hover { background:var(--a4); } #viewbar .fchip .fc-t { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.call.rp-done .head { display:flex; align-items:center; gap:8px; }
+.call.rp-done .rp-file { margin-top:6px; font-size:12px; color:var(--ink-3); }
+.call.rp-done .rp-file code { padding:0; background:none; font:12px/1.5 var(--mono); color:var(--ink-2); }
+.call.rp-done .acts .link { font:600 12px/1.4 var(--sans); color:var(--ink); }
+#arxiv-dl .dl-card, .nt-dl .dl-card { margin:8px 0 0; max-width:420px; }
+.call.dl-card { background:var(--a5); border-left:0; box-shadow:none; }  /* S12 asks, but is not a Guard-like decision: grey, no orange edge */
+.msg .call.rp-done { box-shadow:var(--sh-sm); }  /* S52: a result, not a question (no orange edge) */
+.nt-dl:empty { display:none; }
 #pbody.pdf.s8 { padding:12px 16px 16px 18px; }
 .pcard.s8 { margin:0; }
 .pcard.s8 .s8head { margin:-2px -4px 0; padding:8px 12px; border-radius:var(--r-ctl); background:var(--a8); font:600 12px/1.5 var(--sans); color:var(--ink); }
@@ -2178,7 +2186,7 @@ function sidebar() {
       on: () => { select(t.id); document.body.classList.remove("side"); } }, h("span", { class: "tn" }, words.length ? marked(nameOf(t), words) : nameOf(t)),
       h("small", null, st ? h("span", { class: "prog", "aria-hidden": "true" }, st.steps.map(s => h("i", { class: "p-" + s.state }))) : null,
         src ? ["자료 · ", marked(src.title, words)] : goal ? ["목표 · ", marked(t.text, words)]
-          : M.desk ? `${KIND[k]}${now ? " · " + now : ""}` : time(t.at)));
+          : M.desk ? `${KIND[k]}${now ? " · " + now : ""}` : `${day(t.at)} ${time(t.at)}`));
   };
   const ordered = [...M.tasks].reverse(), keptAll = ordered.filter(t => !(d[t.id] || {}).archived && !(d[t.id] || {}).done);
   const fold = h("button", { class: "fold", id: "side-fold", title: off ? "사이드바 펼치기" : "사이드바 접기", "aria-label": off ? "사이드바 펼치기" : "사이드바 접기",
@@ -3937,7 +3945,7 @@ function source(p, st) {
     : asText ? h("div", { class: "info" }, `PDF에서 추출한 본문입니다 · 근거 [${numOf(st.e)}]을 강조했습니다. `,
         h("button", { class: "link", on: () => show({ mode: "source", e: st.e }) }, "PDF로 보기"))
     : h("div", { class: "info " + (st.failed ? "STALE" : ok ? a.status : "broken"), title: src.hash },
-      st.failed ? "⚠ " + (pdf ? PDF_FALLBACK : FALLBACK) : [`${ok && a.status === "VALID" ? "✓ " : "⚠ "}캡처한 원문 · ${time(src.captured_at)} · `,
+      st.failed ? "⚠ " + (pdf ? PDF_FALLBACK : FALLBACK) : [`${ok && a.status === "VALID" ? "✓ " : "⚠ "}캡처한 원문 · ${day(src.captured_at)} ${time(src.captured_at)} · `,
         ok ? a.message : "캡처본이 이 근거와 맞지 않아 표시하지 않습니다."], " ",
       window.pabloHost && !st.failed && !pdf ? h("button", { class: "link", on: () => show({ mode: "source", e: st.e, live: true }) }, "현재 원문 열기")
         : h("a", { href: live, target: "_blank", rel: "noopener noreferrer" }, "원본에서 보기 ↗"));
@@ -4499,7 +4507,7 @@ if (window.pabloHost && pabloHost.chat) {
   const adder = $("chat").insertBefore(h("div", { id: "adder", hidden: true }), box);
   // D1/D2: the same box takes an arXiv id or link (C2), a web page's address (D1), or words to find a paper (D2)
   const arx = h("input", { id: "arxiv", placeholder: "arXiv 번호·링크, OpenReview·DOI, 웹 문서 주소(여러 개 가능), 또는 찾을 말" }), note = h("span", { id: "arxiv-note" });
-  const hits = h("div", { id: "arxiv-hits", hidden: true }), lines = h("ul", { id: "arxiv-lines", hidden: true });
+  const hits = h("div", { id: "arxiv-hits", hidden: true }), lines = h("ul", { id: "arxiv-lines", hidden: true }), dl = h("div", { id: "arxiv-dl", hidden: true });
   const ARXIV = /^(arxiv:|(https?:\/\/)?(www\.|export\.)?arxiv\.org\/)|^\d{4}\.\d{4,5}(v\d+)?$|^[a-z][a-z-]*(\.[A-Z]{2})?\/\d{7}(v\d+)?$|^(https?:\/\/(dx\.)?doi\.org\/|doi:\s*)?10\.48550\/arxiv\./i;  // ⑬ arXiv's own DOI too
   const moved = m => { const n = Object.values(m).reduce((a, b) => a + b, 0);
     return n ? ` 이전 버전에서 찾은 근거 ${n}개: 그대로 ${m.VALID || 0} · 문맥 바뀜 ${m.STALE || 0} · 찾을 수 없음 ${m.UNRESOLVED || 0}.` : ""; };
@@ -4513,7 +4521,7 @@ if (window.pabloHost && pabloHost.chat) {
     const n = rows.filter(([st]) => st === "ok").length, same = rows.filter(([st]) => st === "same").length;
     note.textContent = `${what} ${rows.length}개 중 ${n}개를 추가했습니다${same ? `(${same}개는 이미 있음)` : ""}.`;
   };
-  const fresh = () => { lines.textContent = ""; lines.hidden = hits.hidden = true; };  // one action's result at a time
+  const fresh = () => { lines.textContent = dl.textContent = ""; lines.hidden = hits.hidden = dl.hidden = true; };  // one action's result at a time
   // picked or dropped PDFs: one at a time, so the note says how far it got ("3개 중 2번째") and a slow one is visible
   async function addPaths(paths) {
     adder.hidden = false; fresh(); hold(true); const rows = [];
@@ -4543,13 +4551,20 @@ if (window.pabloHost && pabloHost.chat) {
     }
     hold(false); arx.value = ""; report(rows, "자료"); refresh();
   }
-  const fetchArxiv = (v = arx.value.trim(), foundBy) => {
+  const fetchArxiv = (v = arx.value.trim(), foundBy, sure) => {
     if (!v || get.disabled) return;
     const parts = v.replace(/arxiv:\s+/gi, "arxiv:").split(/[\s,;]+/).filter(Boolean);
     if (parts.length > 1 && parts.every(item)) return batch(parts);  // ② several ids / links / addresses
     if (!ARXIV.test(v) && DOI.test(v) && pabloHost.lookupDoi) return doi(v);
     const or = !ARXIV.test(v) && OPENREVIEW.test(v) && !!pabloHost.addOpenreview, web = !ARXIV.test(v) && !or && /^https?:\/\//i.test(v);
     if (!web && !or && !ARXIV.test(v)) return search();  // words: find the paper first
+    if (!web && !or && !sure && pabloHost.peekArxiv) {  // B24 / S12: the file, where from and how big, then 받기 · 취소
+      hold(true); fresh(); note.textContent = "arXiv에서 받을 파일을 확인하는 중…";
+      return pabloHost.peekArxiv(v).then(p => { hold(false); note.textContent = ""; dl.hidden = false;
+        dl.replaceChildren(downloadCard(p, () => { dl.hidden = true; fetchArxiv(v, foundBy, true); },
+          () => { dl.hidden = true; note.textContent = "받지 않았습니다. 자료는 그대로입니다."; })); },
+        e => { hold(false); note.textContent = "⚠ " + fail(e); });
+    }
     hold(true); fresh(); note.textContent = or ? "OpenReview에서 받는 중…" : web ? "웹 문서를 가져오는 중…" : "arXiv에서 받는 중…";
     (or ? pabloHost.addOpenreview : web ? pabloHost.addWeb : pabloHost.addArxiv)(V.task.id, v, foundBy ? { doi: foundBy } : undefined).then(r => {
       hold(false); arx.value = "";
@@ -4596,7 +4611,7 @@ if (window.pabloHost && pabloHost.chat) {
   adder.append(h("div", { class: "ad-head" }, h("b", null, "자료 추가"), h("small", null, "PDF · arXiv · DOI · OpenReview · 웹 문서"),
       h("button", { class: "x", title: "닫기", "aria-label": "닫기", on: () => { adder.hidden = true; } }, ico("x"))),
     h("div", { class: "ad-row" }, ...[h("button", { class: "link ad-pdf", title: "여러 개를 한 번에 고를 수 있습니다", on: pickPdfs }, ico("file", 14), "PDF 파일 고르기"),
-      h("span", { class: "or" }, "또는"), arx, get, pabloHost.searchArxiv ? find : null].filter(Boolean)), h("span", { class: "ad-note" }, prog, note), lines, hits);
+      h("span", { class: "or" }, "또는"), arx, get, pabloHost.searchArxiv ? find : null].filter(Boolean)), h("span", { class: "ad-note" }, prog, note), dl, lines, hits);
   // ② PDFs dropped anywhere on the window become the open task's sources (preload gives each file's path; main checks it)
   if (pabloHost.addFiles && pabloHost.pathOf) {
     const files = e => [...((e.dataTransfer || {}).types || [])].includes("Files");
@@ -4761,8 +4776,8 @@ if (window.pabloHost && pabloHost.chat) {
     // it is filtered by (a stage, or 대화로 거르기's label) as a chip that clears it, else "거르기 없음"
     const view = d.view || (M.settings || {}).view || "time";
     const fstate = !filt ? h("span", { class: "fnone", "data-filter-state": "" }, "거르기 없음")
-      : h("button", { class: "fchip", "data-filter-state": filt, title: "거르기 풀기", on: () => { const b = $("filter-banner"), x = b && b.querySelector("button");
-          if (x) x.click(); else if (!filt.startsWith("refs:")) stageFilter(filt); } }, filt.startsWith("refs:") ? filt.slice(5) : "단계 · " + filt, ico("x", 12));
+      : h("button", { class: "fchip", "data-filter-state": filt, title: "거르기", "aria-haspopup": "menu", on: e => filterMenu(e.currentTarget) },
+          ico("filter", 14), h("span", { class: "fc-t" }, filt.startsWith("refs:") ? filt.slice(5) : "단계 · " + filt), ico("chevron-down", 12));  // F24: the 거르기 menu (풀기 is in it)
     bar.append(h("div", { id: "viewbar" }, h("span", { class: "muted" }, "보기"), h("span", { class: "vseg", role: "group", "aria-label": "보기" },
       ...[["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]].map(([v, t]) =>
       h("button", { class: "vtab" + (view === v ? " on" : ""), "data-view": v, disabled: !pabloHost.setUi, "aria-pressed": String(view === v),
@@ -4805,18 +4820,20 @@ if (window.pabloHost && pabloHost.chat) {
     const drawChips = () => chipsBox.replaceChildren(...items().map((x, i) => h("span", { class: "nt-chip" + (i === primary ? " main" : ""), title: x.title || null },
         h("button", { class: "nt-cname", "data-nt-primary": String(i), on: () => { primary = i; drawChips(); } }, h("b", null, x.name), i === primary ? " · 주 논문" : " · 주 논문으로"),
         h("button", { class: "nt-x", title: "빼기", "aria-label": "빼기", on: () => drop(x) }, ico("x", 12)))),
-      items().length ? h("button", { class: "nt-chip add", on: pickPdf }, "+ 추가") : null);
+      ...(items().length ? [h("button", { class: "nt-chip add", on: pickPdf }, "+ 추가")] : []));
     const pickPdf = () => pabloHost.pickPdfsFree().then(r => { if (r) { picks.pdfs.push(...r); drawChips(); } }, e => { srcNote.textContent = "⚠ " + clean(e); });
     const linkIn = h("input", { class: "nt-in", id: "nt-link", placeholder: "arXiv 번호·링크, OpenReview, DOI", spellcheck: "false" });
     const addLink = async () => {
       for (const v of linkIn.value.trim().split(/[\s,;]+/).filter(Boolean)) {
         const l = { text: v, label: v.length > 28 ? v.slice(0, 27) + "…" : v, title: null };
-        if (ARXIV.test(v) && pabloHost.peekArxiv) {  // D10: the file, where from and how big, before anything is downloaded
-          try { const p = await pabloHost.peekArxiv(v); l.label = p.title ? (p.title.length > 34 ? p.title.slice(0, 33) + "…" : p.title) + (p.version ? " " + p.version : "") : l.label;
-            l.title = `${p.filename} · 출처 ${p.source}${p.bytes ? ` · ${(p.bytes / 1048576).toFixed(1)} MB` : ""}`; }
-          catch (e) { srcNote.textContent = `⚠ ${v}: ${clean(e)}`; continue; } }
-        picks.links.push(l); }
+        if (ARXIV.test(v) && pabloHost.peekArxiv) {  // D10 / B24 (S12): the file, where from and how big; 받기 keeps it, 취소 drops it
+          let p; try { p = await pabloHost.peekArxiv(v); } catch (e) { srcNote.textContent = `⚠ ${v}: ${clean(e)}`; continue; }
+          l.label = p.title ? (p.title.length > 34 ? p.title.slice(0, 33) + "…" : p.title) + (p.version ? " " + p.version : "") : l.label;
+          l.title = `${p.filename} · 출처 ${p.source}${p.bytes ? ` · ${(p.bytes / 1048576).toFixed(1)} MB` : ""}`;
+          if (!await new Promise(res => dlSlot.replaceChildren(downloadCard(p, () => res(true), () => res(false))))) continue; }
+        picks.links.push(l); drawChips(); }
       linkIn.value = ""; drawChips(); };
+    const dlSlot = h("div", { class: "nt-dl", "data-nt-dl": "1" });
     linkIn.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); addLink(); } });
     // 작업 폴더: none, or one picked (refused at once when it overlaps Pablo's own folders)
     const folderNote = h("small", { class: "nt-hint" }, "에이전트는 이 폴더 안에서만 씁니다. 비워 두면 논문 질문만 합니다.");
@@ -4839,7 +4856,7 @@ if (window.pabloHost && pabloHost.chat) {
         field("작업 목표", ta, h("small", { class: "nt-hint" }, "첫 줄이 작업 이름이 됩니다.")),
         field("작업 종류", h("div", { class: "kinds" }, kinds.map(([k, label, what], i) => h("label", { class: "kind" }, radios[i], h("b", null, label), h("small", null, what)))), kindBox),
         field("자료 (논문)", h("div", { class: "nt-row" }, h("button", { class: "pill", "data-nt-pdf": "1", on: pickPdf }, ico("file", 14), "PDF 고르기"), linkIn,
-          h("button", { class: "pill", "data-nt-link": "1", on: addLink }, "가져오기")), chipsBox, srcNote),
+          h("button", { class: "pill", "data-nt-link": "1", on: addLink }, "가져오기")), dlSlot, chipsBox, srcNote),
         h("div", { class: "nt-two" }, field("작업 폴더", h("div", { class: "nt-row" }, noneB, pickB), folderNote),
           field("인터넷", h("label", { class: "nt-switch" }, netIn, h("span", { class: "sw", "aria-hidden": "true" }), netLbl),
             h("small", { class: "nt-hint" }, "허용해도 명령은 하나하나 Guard를 거칩니다."))),
@@ -5011,12 +5028,31 @@ if (window.pabloHost && pabloHost.chat) {
     const exportIt = () => {
       const sections = [...body.querySelectorAll("[data-section]:checked")].map(x => x.dataset.section); if (!sections.length) return;
       goB.disabled = true; err.textContent = "";
-      pabloHost.report(t, { sections, format: fmt, ...(token ? { token: token.token } : where ? { token: "default" } : {}) }).then(r => {
-        dlg.remove(); if (!r) return;
-        say(`📄 보고서를 저장했습니다: ${r.name} (${r.lines}줄)${r.display ? " · " + r.display : ""}. 조건마다 논문의 쪽, 의도한 차이와 뺀 것의 이유, 마지막 점검을 담았습니다.`, "data-report");
-        askDone(); refresh(); }, e => { goB.disabled = false; err.textContent = "⚠ " + clean(e); });
+      saveReport(t, { sections, format: fmt, ...(token ? { token: token.token } : where ? { token: "default" } : {}) }, () => dlg.remove(), () => { goB.disabled = false; });
     };
   };
+  // S52: after 내보내기, one card in the conversation: where it was saved (폴더에서 보기 · VS Code에서 열기 when it is in the
+  // work folder), or why it was not and 다른 위치에 저장 (the save dialog, then the same parts and format again)
+  const saveReport = (t, opts, done, back) => pabloHost.report(t, opts).then(r => {
+    if (!r) return back(); done();
+    const open = how => pabloHost.openFile(t, r.rel, null, how).catch(e => notice(h("div", { class: "call nb" }, h("p", { class: "head" }, "보고서를 열지 못했습니다"),
+      h("p", null, clean(e)), h("p", { class: "acts" }, h("button", { class: "link", on: () => notice(null) }, "닫기")))));
+    if (V && V.task.id === t) { live(t).append(msg("Pablo", null, h("div", { class: "call rp-done", "data-report": "1" },
+      h("p", { class: "head" }, ico("file", 14), "보고서를 저장했습니다"),
+      h("p", { class: "rp-file" }, h("code", null, r.rel || r.display || r.name), ` · ${r.lines}줄`),
+      r.rel && pabloHost.openFile ? h("p", { class: "acts" }, h("button", { class: "link", "data-report-open": "folder", on: () => open("folder") }, "폴더에서 보기"),
+        h("button", { class: "link", "data-report-open": "vscode", on: () => open("vscode") }, "VS Code에서 열기")) : null))); scroll(); }
+    askDone(); refresh();
+  }, e => {
+    done();
+    if (!V || V.task.id !== t) return;
+    const card = h("div", { class: "call rp-done fail", "data-report-fail": "1" }, h("p", { class: "head" }, ico("info", 14), "보고서를 저장하지 못했습니다"),
+      h("p", null, clean(e)),
+      h("p", { class: "acts" }, h("button", { class: "pill", "data-report-again": "1", on: () => pabloHost.pickReportPath(t, opts.format || "md").then(p => {
+        if (!p) return; card.closest(".msg").remove(); saveReport(t, { ...opts, token: p.token }, () => {}, () => {}); }, x => notice(h("div", { class: "call nb" },
+          h("p", { class: "head" }, "저장 위치를 고르지 못했습니다"), h("p", null, clean(x)), h("p", { class: "acts" }, h("button", { class: "link", on: () => notice(null) }, "닫기"))))) }, "다른 위치에 저장")));
+    live(t).append(msg("Pablo", null, card)); scroll();
+  });
   // A5/A6: 재현 점검 -> one read-only agent turn; its JSON answer comes back as an "audit" event (a table in the conversation)
   reAudit = t => audit(t);
   function audit(t) {

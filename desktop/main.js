@@ -757,11 +757,13 @@ ipcMain.handle("pablo:report", async (e, task, opts) => {
   try { fs.writeFileSync(res.filePath, r.text, "utf8"); if (opts.token && opts.token !== "default") reportTo.delete(opts.token); }
   catch (err) {  // review: OneDrive folders answer EBUSY; say it in the user's words
     const why = { ENOENT: "폴더가 없습니다", EACCES: "쓰기 권한이 없습니다", EPERM: "쓰기 권한이 없습니다", EBUSY: "다른 프로그램(동기화 등)이 쓰고 있습니다", EROFS: "읽기 전용입니다" }[err.code];
-    throw new Error(`그 폴더에 저장하지 못했습니다(${why || err.code || "알 수 없는 이유"}). 다른 폴더를 골라 주세요.`);
+    throw new Error(`그 폴더에 저장하지 못했습니다(${why || err.code || "알 수 없는 이유"}). 보고서는 저장되지 않았습니다.`);
   }
   logChat(task, { role: "report", at: new Date().toISOString(), name: path.basename(res.filePath),  // the stage bar's 보고서 step
     ...(format !== "md" ? { format } : {}), ...(sections ? { sections } : {}) });
-  return { name: path.basename(res.filePath), lines: r.text.split("\n").length, format, display: shownPath(res.filePath) };
+  // S52: inside the work folder -> its path there, so the card can show it in the folder or open it in VS Code (pablo:open-file)
+  const rel = work ? path.relative(work, res.filePath) : null, inWork = !!rel && !rel.startsWith("..") && !path.isAbsolute(rel);
+  return { name: path.basename(res.filePath), lines: r.text.split("\n").length, format, display: shownPath(res.filePath), rel: inWork ? rel.split(path.sep).join("/") : null };
 });
 // A5/A6 재현 점검: the agent reads the work folder (read-only sandbox, nothing can change, so no Guard per read) and
 // judges every paper condition, open setting and task criterion against the code, configs and run logs -> a table
