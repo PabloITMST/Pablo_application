@@ -1367,11 +1367,13 @@ body:not(.panel) #ptabs .unfold:hover { background:var(--a5); color:var(--ink); 
 #panel ul.ck .edits .link.ib { width:24px; height:24px; justify-content:center; border-radius:6px; }
 #panel ul.ck .edits .link.ib:hover { background:var(--a5); }
 /* a row's form (S56 고치기, S57 지우기, S58 의도한 차이, S59 빼기): the box, then the buttons; " · " between them goes */
-#panel .edits:has(input, select) { display:block !important; font-size:0; }
+#panel .edits:has(input, select), #panel ul.ck li .edits:has(input, select) { display:block !important; font-size:0; }
 #panel .edits:has(input, select) > * { font-size:12px; }
-#panel .edits:has(input, select) .why { display:block; width:100%; height:var(--h-ctl); box-sizing:border-box; margin:6px 0 8px; font-size:13px; }
+#panel .edits:has(input, select) .why, #panel ul.ck li .edits:has(input, select) .why { display:block; width:100%; height:var(--h-ctl); box-sizing:border-box; margin:6px 0 8px; font-size:13px; }
 #panel .edits:has(input, select) > .link, #panel .edits .ebtns .link { display:inline-flex; align-items:center; height:28px; padding:0 12px; margin-right:8px;
   border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white); color:var(--ink); font:600 12px/1 var(--sans); }
+#panel ul.ck .acts:has(input, select) { font-size:0; opacity:1; position:static; display:block; margin-top:6px; padding:0; background:none; }
+#panel ul.ck .acts:has(input, select) > .edits:not(:has(input, select)) { display:none !important; }
 #panel .edits .ebtns { display:flex; align-items:center; flex-wrap:wrap; gap:0; }
 #panel .edits .ebtns small { font-size:11px; color:var(--ink-3); }
 #panel .edits .link.dark, #panel [data-deviate-ok] { background:var(--primary) !important; color:var(--on-primary) !important; border-color:var(--primary) !important; }

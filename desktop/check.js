@@ -1422,6 +1422,18 @@ async function uiCheck() {
       await snapC("c-code");
     } else assert.strictEqual(live, "ERROR", "the code panel opened or said why not");
   }
+  // what the empty and failed places look like (PABLO_SHOTS only): S69, S65, the extracted text, S11, S56 / S57 / S58 forms
+  if (process.env.PABLO_SHOTS) {
+    await js(`show({ mode: "evhome" })`); await snapC("c-s69-no-cites");
+    await js(`show({ mode: "paper", src: "nope" })`); await snapC("c-s65-no-pdf");
+    await js(`show({ mode: "source", e: evList()[0], failed: "TEXT" })`); await snapC("c-text");
+    await js(`(I => { V.intent = { ...I, must: [], prefer: [] }; show({ mode: "intent" }); V.intent = I; })(V.intent)`); await snapC("c-s11-no-criteria");
+    await js(`show({ mode: "intent" }); document.querySelector("#panel ul.ck.must > li [data-edit]").click()`); await snapC("c-s56-edit");
+    await js(`show({ mode: "intent" }); document.querySelector("#panel ul.ck.must > li [data-drop]").click()`); await snapC("c-s57-drop");
+    await js(`condOpen[V.task.id] = true; show({ mode: "intent" }); (b => { b.scrollIntoView(); b.click(); })(document.querySelector("#panel [data-cond-list] [data-deviate]"))`); await snapC("c-s58-deviate");
+    await js(`show({ mode: "intent" }); (b => { b.scrollIntoView(); b.click(); })(document.querySelector("#panel [data-cond-list] [data-spec-drop]"))`); await snapC("c-s59-drop");
+    await js(`condOpen[V.task.id] = false`);
+  }
   await js(`close()`);
   console.log("ok right column: tabs (S67, 펼치기), 기준 back-links + ✎ 고치기 + 대화로 거르기, C7, S68; T1 계획 · 왜? · code 파일 고르기");
   // ⑭ the task list: search over names, goals and sources; a task's own name (its goal stays); 보관 folds it away, kept whole
