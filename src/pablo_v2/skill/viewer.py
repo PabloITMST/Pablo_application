@@ -1374,6 +1374,58 @@ details.tech > summary::-webkit-details-marker { display:none; } details.tech > 
 .done-card { display:flex; gap:14px; align-items:flex-start; padding:16px 18px; background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card);
   box-shadow:var(--sh-sm); } .done-card .mascot.pose { height:56px; margin:0; } .done-card .ttl { font:600 14px/22px var(--sans); margin:0 0 4px; }
 .done-card .pill { display:inline-flex; gap:6px; }
+/* B10 the conditions card · F25 the re-extraction diff · B11 the audit · B12 the table */
+.msg .spec, .msg .audit, .msg .matrix:not(.wide), .redo-card { margin:10px 0; padding:16px 18px; background:var(--white); border:1px solid var(--a8);
+  border-radius:var(--r-card); box-shadow:var(--sh-sm); }
+.sp-top, .au-top, .mx-top { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+.sp-top .head, .au-top .head, .mx-top .head { flex:1 1 200px; margin:0 !important; font:600 16px/24px var(--sans); }
+.sp-acts { display:inline-flex; align-items:center; gap:12px; margin-left:auto; } .sp-acts .pill { gap:6px; }
+.msg .sp-sub, .msg .au-sub { margin:4px 0 10px; font-size:12px; color:var(--ink-3); }
+.chips { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 10px; }
+.pill.chip { padding:0 12px; font-size:12px; } .pill.chip.on { background:var(--white); color:var(--ink); border:1.5px solid var(--ink); font-weight:600; }
+.spec .sp-cat { margin:0 0 8px; border:1px solid var(--a8); border-radius:var(--r-in); overflow:hidden; }
+.spec .sp-cat h4 { display:flex; align-items:center; gap:6px; margin:0; padding:8px 12px; border:0; background:var(--a6); color:var(--ink);
+  font:600 13px/20px var(--sans); cursor:pointer; } .spec .sp-cat h4 small { font-weight:400; color:var(--ink-3); }
+.spec .sp-cat h4 .car { font-size:9px; color:var(--ink-2); } .spec .sp-cat h4 .hint { margin-left:auto; font-weight:400; font-size:12px; color:var(--ink-3); }
+.spec .sp-cat ul, .redo-card .rd-list { list-style:none; margin:0; padding:0; }
+.spec .sp-cat li, .redo-card .rd-list li { position:relative; display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0; padding:9px 12px;
+  border-top:1px solid var(--a6); font-size:14px; line-height:22px; color:var(--ink); }
+.spec .sp-cat li:first-child, .redo-card .rd-list li:first-child { border-top:0; }
+.spec li .sx, .redo-card li .sx { flex:1 1 200px; min-width:0; }
+.tg.kd { background:var(--a6); border-color:transparent; color:var(--ink-2); } .tg.wv { background:var(--signal-soft); border-color:transparent; color:var(--ink); margin-left:6px; }
+.spec .sp-shutline { display:flex; flex-wrap:wrap; gap:4px 16px; margin:0 0 8px; padding:8px 12px; background:var(--a6); border-radius:var(--r-in); }
+.sp-shut { background:none; border:0; padding:0; font:500 13px/20px var(--sans); color:var(--ink); cursor:pointer; } .sp-shut small { color:var(--ink-3); font-weight:400; }
+.racts { display:inline-flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:12px; }
+.spec li > .racts, .audit li > .racts { opacity:0; transition:opacity .12s; }
+.spec li:hover > .racts, .spec li:focus-within > .racts, .audit li:hover > .racts, .audit li:focus-within > .racts,
+.spec li > .racts:has(input, select, .muted), .audit li > .racts:has(input, select, .muted) { opacity:1; }
+.racts .edits .link, .racts > .link { font-size:12px; color:var(--ink-2); } .racts .why { max-width:220px; height:28px; box-sizing:border-box;
+  border:1px solid var(--a12); border-radius:var(--r-ctl); padding:0 8px; font-size:12px; background:var(--white); }
+.racts .why.need { border-color:var(--signal); box-shadow:0 0 0 3px var(--signal-soft); }
+.redo-card .head { display:flex; align-items:center; gap:8px; margin:0 0 4px; font:600 14px/22px var(--sans); }
+.redo-card .rd-sec { margin:10px 0 4px; font:500 12px/16px var(--sans); color:var(--ink-3); }
+.redo-card .rd-list li { background:var(--a4); border-radius:var(--r-ctl); border-top:0; margin-top:4px; font-size:13px; }
+.redo-card s { font:400 12px/1 var(--mono); color:var(--ink-3); } .redo-card .nv { font:600 12px/1 var(--mono); }
+.redo-card .rd-gone > summary { list-style:none; margin-top:10px; font-size:12px; color:var(--ink-2); cursor:pointer; }
+.redo-card .rd-gone > summary::-webkit-details-marker { display:none; } .redo-card .rd-gone:not([open]) > summary .ico { transform:rotate(-90deg); }
+.redo-card .rd-list .rt { margin-left:auto; } .redo-card .rd-new { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:10px 0 0; }
+.redo-card .rd-new .rd-sec { margin:0 4px 0 0; }
+.spec.replaced { background:var(--a4); box-shadow:none; } .spec.replaced .head { display:flex; align-items:center; gap:6px; font-size:14px; }
+.audit .chips { margin-top:10px; } .msg .audit li { position:relative; padding:12px 0; }
+.audit li > b.vb { display:inline-flex; align-items:center; height:var(--h-tag); box-sizing:border-box; padding:0 7px; border-radius:var(--r-tag);
+  background:var(--a6); color:var(--ink-2); font:600 11px/1 var(--sans); vertical-align:1px; }
+.audit li > b.vb-differs { background:var(--signal); color:#fff; } .audit li > b.vb-pairing, .audit li > b.vb-unclear { background:var(--signal-soft); color:var(--signal); }
+.audit li > b.vb-intended { background:var(--white); border:1px solid var(--a12); color:var(--ink); } .audit li > b.vb-followed { background:var(--a6); color:var(--ink); }
+.audit li > b.vb-missing { background:var(--white); border:1px solid var(--a12); color:var(--ink-2); }
+.audit .pv { font:400 12px/1 var(--mono); color:var(--ink-3); } .audit li[hidden], .audit .outside[hidden] { display:none; }
+.audit li > .racts { position:absolute; right:0; top:10px; background:linear-gradient(90deg, transparent, var(--white) 14px); padding-left:18px; }
+.audit .stale { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 16px !important; border-radius:var(--r-in) !important; font-size:13px; }
+.audit .stale > .pill { margin-left:auto; flex:none; }
+.audit.au-fail { background:var(--white); } .audit.au-fail .head { display:flex; align-items:center; gap:6px; }
+.matrix .metric { display:block; margin-top:2px; font:400 11px/16px var(--mono); color:var(--ink-3); }
+.matrix .metric.differ { color:var(--signal); }
+.matrix td:has(.cite.on) { background:var(--a5); box-shadow:inset 0 0 0 1.5px var(--a12); }
+.matrix .mx-foot, .matrix .common { display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; margin:10px 0 0; font-size:12px; }
 /* end A2 complete · B */
 /* A2 complete · C right column: tabs, panel, rail, evidence, wide table (agent C) */
 /* end A2 complete · C */
@@ -1716,49 +1768,102 @@ const SPEC = { dataset: "데이터셋", split: "데이터 분할", preprocessing
 const fact = c => [rich((c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")), c.evidence.length ? " " : null, c.evidence.map(e => cite(e))];  // [n] numbered in this chat
 const ASIDE = { fact: "논문의 서술 (코드가 정하지 않음)", scope: "실험 범위 (이 재현 밖일 수 있는 실험)" };  // ⑥ not checked
 // 0.8 review: a re-extraction of the same paper says what changed; what the last one had and this one did not find comes
-// back with 되살리기 (extractions differ from run to run); what the user made of the conditions was kept
+// back with 되살리기 (extractions differ from run to run); what the user made of the conditions was kept.
+// A2 complete (F25): its own card above the new list: 바뀜 (the same setting with another value: the old one struck
+// through -> the new one, with its page), 빠짐 (되살리기), 새로. "The same setting": same category, the same words once
+// the value and the numbers are taken out (a rule, no model call)
+let specAgain = null, addSource = null;  // desktop: 다시 뽑기 (asks first), + 추가 (the add box)
+const KIND_TAG = { setting: "설정", result: "결과", scope: "범위", fact: "서술" };
+const pchip = k => { const e = ((k && k.evidence) || []).find(x => M.anchors[x]); if (!e) return null; const a = M.anchors[e];
+  return h("button", { class: "cite pg", "data-e": e, title: "근거 보기", on: () => show({ mode: "source", e }) }, a.page ? `p.${a.page}` : `[${cites[e] || 1}]`); };
+const plain = k => String(k.conclusion || k.title || "").replace(/\s*\[\d+\]/g, "");
 function redone(d) {
-  const gone = (d.gone || []).map(id => V.checks[id]).filter(k => k && k.state === "waived" && k.waived_by === "pablo");
   const can = window.pabloHost && pabloHost.condition, task = V.task.id;
+  const subj = k => { const v = String(k.spec.value || ""); return plain(k).replace(v, "").replace(/[\d.,%]+/g, "").replace(/\s+/g, "").slice(0, 40); };
+  const gone = (d.gone || []).map(id => V.checks[id]).filter(k => k && k.spec), fresh = (d.new || []).map(id => V.checks[id]).filter(k => k && k.spec);
+  const pairs = [], used = new Set();
+  gone.forEach(g => { const n = fresh.find(x => !used.has(x.id) && x.spec.category === g.spec.category && subj(x) === subj(g) && String(x.spec.value) !== String(g.spec.value));
+    if (n) { used.add(n.id); used.add(g.id); pairs.push([g, n]); } });
+  const out = gone.filter(k => !used.has(k.id)), add = fresh.filter(k => !used.has(k.id));
+  const lost = out.filter(k => k.state === "waived" && k.waived_by === "pablo");
   const back = k => { const at = h("span");
     return [at, h("button", { class: "link", "data-redo-restore": k.id, on: () => pabloHost.condition(task, "restore", { id: k.id }).then(() => {
       echo(task, { role: "spec-restore", check: k.id }); return refresh(); }, e => at.replaceChildren(h("span", { class: "muted" }, fail(e) + " "))) }, "되살리기")]; };
-  return h("div", { class: "muted", "data-redo": "1" },
-    h("p", null, `다시 뽑았습니다: 이전 ${d.before}개 중 ${d.same}개는 이번에도 나왔고, 새로 생긴 것 ${(d.new || []).length}개, 이번에 빠진 것 ${(d.gone || []).length}개입니다.`,
-      (d.kept || []).length ? ` 직접 더하거나 되살리거나 의도한 차이로 둔 조건 ${d.kept.length}개는 그대로 두었습니다.` : "",
-      (d.out || []).length ? ` 이전에 뺀 조건 ${d.out.length}개는 다시 넣지 않았습니다.` : ""),
-    gone.length ? h("details", { "data-gone": String(gone.length) }, h("summary", null, `이번에 빠진 조건 ${gone.length}개`),
-      h("ul", null, gone.map(k => h("li", { "data-id": k.id }, h("span", null, (SPEC[k.spec.category] || k.spec.category) + " · "), fact(k), can ? [" · ", back(k)] : null)))) : null);
+  const cat = k => h("span", { class: "tg kd" }, SPEC[k.spec.category] || k.spec.category);
+  return h("div", { class: "redo-card", "data-redo": "1" },
+    h("p", { class: "head" }, ico("rotate", 14), h("span", null, `다시 뽑았습니다: 이전 ${d.before}개 중 ${d.same}개 그대로 · 바뀜 ${pairs.length} · 빠짐 ${out.length} · 새로 ${add.length}`)),
+    (d.kept || []).length || (d.out || []).length ? h("p", { class: "muted" }, (d.kept || []).length ? `직접 더하거나 되살리거나 의도한 차이로 둔 조건 ${d.kept.length}개는 그대로 두었습니다. ` : "",
+      (d.out || []).length ? `이전에 뺀 조건 ${d.out.length}개는 다시 넣지 않았습니다. ` : "", "이전 목록은 위쪽 카드에 남습니다.") : null,
+    pairs.length ? [h("p", { class: "rd-sec" }, `바뀜 ${pairs.length}`), h("ul", { class: "rd-list", "data-changed": String(pairs.length) }, pairs.map(([g, n]) =>
+      h("li", { "data-id": n.id }, cat(n), h("span", { class: "sx" }, clip(plain(n).replace(String(n.spec.value), "").trim() || plain(n), 40)), " ",
+        h("s", null, g.spec.value), " → ", h("b", { class: "nv" }, n.spec.value), " ", pchip(n))))] : null,
+    out.length ? h("details", { class: "rd-gone", "data-gone": String(out.length) }, h("summary", null, ico("chevron-down", 12), ` 이번에 빠진 조건 ${out.length}개`),
+      h("ul", { class: "rd-list" }, out.map(k => h("li", { "data-id": k.id }, cat(k), h("span", { class: "sx" }, plain(k)), h("small", { class: "muted" }, " 이번 추출에 없음"),
+        can && lost.includes(k) ? h("span", { class: "rt" }, back(k)) : null)))) : null,
+    add.length ? h("p", { class: "rd-new" }, h("span", { class: "rd-sec" }, `새로 ${add.length}`), add.slice(0, 4).map(k => h("span", { class: "tg tgt" },
+      `${SPEC[k.spec.category] || k.spec.category} · ${clip(k.spec.value || plain(k), 20)}`)), add.length > 4 ? h("small", { class: "muted" }, ` 외 ${add.length - 4}`) : null) : null);
 }
-function conditions(ids, dropped, diff) {
+// B10: the conditions card. Its head (재현 조건 N개 · paper, 다시 뽑기, PDF에서 조건 더하기), how they were kept (located
+// only, left out, seconds), kind chips (전체 · 설정 · 결과 · 범위 · 서술), a grey head per category (a long list folds all
+// but two into one line "▸ 이름 N"), rows: kind · sentence · warnings · p.N · actions on hover; then 논문에 없는 설정
+function conditions(ids, dropped, diff, secs) {
   const cs = ids.map(id => V.checks[id]).filter(c => c && c.state !== "waived"), all = cs.filter(c => !c.spec.missing);
-  const stated = all.filter(c => !ASIDE[c.spec.kind]);
-  const open = cs.filter(c => c.spec.missing);
+  const open = cs.filter(c => c.spec.missing), task = V.task.id;
   const box = h("div", { class: "spec", "data-spec": "1" });
-  if (!cs.length) return box.appendChild(h("p", { class: "muted" }, "이 조건 목록은 다시 뽑은 목록으로 바뀌었습니다.")), box;
+  const again = specAgain ? h("button", { class: "pill", "data-spec-again": "1", on: () => specAgain() }, ico("rotate", 14), "다시 뽑기") : null;
+  if (!ids.length) return box.append(h("p", { class: "head" }, "위치를 확인한 조건이 없습니다"),  // S6
+    h("p", { class: "muted" }, `PDF에서 글자를 거의 읽지 못했거나(스캔본일 수 있음) 모델이 낸 조건의 원문 위치를 찾지 못했습니다.${dropped ? ` 위치가 확인되지 않은 조건 ${dropped}개는 남기지 않았습니다.` : ""} 기준과 작업 폴더는 그대로입니다.`),
+    again ? h("p", { class: "acts" }, again) : null), box;
+  if (!cs.length) { box.classList.add("replaced");  // S46: an older list, replaced by a re-extraction
+    box.append(h("p", { class: "head" }, ico("info", 14), " 이 조건 목록은 다시 뽑은 목록으로 바뀌었습니다"),
+      h("p", { class: "muted" }, "이 목록은 기록으로만 남고, 기준 탭과 재현 점검은 새 목록을 씁니다."),
+      h("p", null, h("button", { class: "link", "data-spec-newest": "1", on: () => { const x = [...document.querySelectorAll("#log [data-spec]:not(.replaced)")].at(-1); if (x) x.scrollIntoView({ block: "start" }); } }, "새 목록으로 가기")));
+    return box; }
   const paper = (cs.find(c => c.paper) || {}).paper;  // C1: which of the task's papers they are from
-  box.append(h("p", { class: "head" }, `📋 ${paper ? paper + "에서" : "논문에서"} 재현 조건 ${stated.length}개를 찾았습니다.`));
-  if (diff && !diff.first) box.append(redone(diff));
-  for (const k of Object.keys(SPEC)) {
-    const xs = stated.filter(c => c.spec.category === k);
-    if (xs.length) box.append(h("h4", null, SPEC[k]), h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id },
-      fact(c), c.spec.value_in_quote === false ? h("span", { class: "chk warn", "data-vq": "1", title: "모델이 읽은 값이 고정한 인용 문장 안에 없습니다. 원문에서 직접 확인하세요." },
-        ` ⚠ 값(${c.spec.value})이 인용 안에 없음`) : null,
-      c.spec.header_missing ? h("span", { class: "chk warn", "data-hm": "1", title: "PDF 글자에는 표의 머리가 따로 떨어져 있어, 어느 숫자가 어느 데이터셋·지표인지는 모델의 추측입니다." },
-        " ⚠ 인용에 표의 열 이름이 없습니다. 숫자와 데이터셋 짝을 원문 표에서 확인하세요") : null,
-      devOf(c) ? h("span", { class: "chk dev", "data-dev": c.id }, ` ◇ 의도한 차이(${WHERE_DEV[scopeOf(devOf(c))]}): ${devOf(c).why}`) : null))));
-  }
-  for (const [k, label] of Object.entries(ASIDE)) { const xs = all.filter(c => c.spec.kind === k);
-    if (xs.length) box.append(h("details", { "data-aside": k }, h("summary", null, `${label} ${xs.length}개 · 재현 점검에서 대조하지 않음`),
-      h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id }, h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), fact(c))))));
-  }
+  const pp = (((M.desk || {})[task] || {}).papers || []).find(p => p.primary && p.kind !== "web");
+  const pick = pp && (M.papers || {})[pp.id] ? h("button", { class: "link", "data-spec-pick": "1", title: "PDF에서 문장을 골라 재현 조건으로 더합니다", on: () => show({ mode: "paper", src: pp.id }) }, "PDF에서 조건 더하기") : null;
+  box.append(h("div", { class: "sp-top" }, h("p", { class: "head" }, `재현 조건 ${all.length}개 · ${paper || "논문"}${pp && paper === pp.title ? " (주 논문)" : ""}`),
+      h("span", { class: "sp-acts" }, again, pick)),
+    h("p", { class: "muted sp-sub" }, `원문에서 위치를 확인한 것만 남겼습니다 · 뺀 것 ${dropped || 0}개${secs ? ` · ${secs}초` : ""}`));
+  const kinds = Object.keys(KIND_TAG).map(k => [k, all.filter(c => (c.spec.kind || "setting") === k).length]).filter(x => x[1]);
+  let want = "";
+  const chips = kinds.length > 1 ? h("div", { class: "chips", role: "group", "aria-label": "종류" }) : null;
+  const cats = Object.keys(SPEC).map(k => [k, all.filter(c => c.spec.category === k)]).filter(x => x[1].length);
+  const opened = new Set(all.length <= 8 ? cats.map(x => x[0]) : cats.slice(0, 2).map(x => x[0]));
+  const row = c => h("li", { title: c.id, "data-id": c.id, "data-kind": c.spec.kind || "setting" },
+    h("span", { class: "tg kd", title: ASIDE[c.spec.kind] ? ASIDE[c.spec.kind] + " · 재현 점검에서 대조하지 않음" : null }, KIND_TAG[c.spec.kind] || "설정"),
+    h("span", { class: "sx" }, rich(plain(c)),
+      c.spec.value_in_quote === false ? h("span", { class: "tg wv", "data-vq": "1", title: "모델이 읽은 값이 고정한 인용 문장 안에 없습니다. 원문에서 직접 확인하세요." }, `값(${c.spec.value})이 인용 안에 없음`) : null,
+      c.spec.header_missing ? h("span", { class: "tg wv", "data-hm": "1", title: "PDF 글자에는 표의 머리가 따로 떨어져 있어, 어느 숫자가 어느 데이터셋·지표인지는 모델의 추측입니다. 원문 표에서 확인하세요." }, "표의 열 이름 없음") : null,
+      devOf(c) ? h("span", { class: "chk dev", "data-dev": c.id }, ` ◇ 의도한 차이(${WHERE_DEV[scopeOf(devOf(c))]}): ${devOf(c).why}`) : null),
+    pchip(c), window.pabloHost && pabloHost.condition ? h("span", { class: "racts" }, differ(c, task), takeOut(c)) : null);
+  const body = h("div", { class: "sp-body" });
+  const draw = () => { body.textContent = ""; const shut = [], pass = c => !want || (c.spec.kind || "setting") === want;
+    if (chips) chips.replaceChildren(...[["", "전체", all.length], ...kinds.map(([k, n]) => [k, KIND_TAG[k], n])].map(([k, t, n]) =>
+      h("button", { class: "pill chip" + (want === k ? " on" : ""), "data-kind-chip": k || "all", "aria-pressed": String(want === k), on: () => { want = k; draw(); } }, `${t} ${n}`)));
+    cats.forEach(([k, xs]) => { const ys = xs.filter(pass); if (!ys.length) return;
+      if (!opened.has(k) && !want) return shut.push(h("button", { class: "sp-shut", "data-cat-open": k, on: () => { opened.add(k); draw(); } }, "▸ ", h("b", null, SPEC[k]), " ", h("small", null, ys.length)));
+      body.append(h("section", { class: "sp-cat", "data-cat": k }, h("h4", { title: "접기", on: () => { opened.delete(k); draw(); } },
+        h("span", { class: "car" }, "▾"), h("span", { class: "nm" }, SPEC[k]), h("small", null, ys.length)), h("ul", null, ys.map(row)))); });
+    if (shut.length) body.append(h("div", { class: "sp-shutline" }, shut)); };
+  draw();
+  box.append(...[chips, body].filter(Boolean));
   const own = codeOf((cs.find(c => c.spec.source_id) || { spec: {} }).spec.source_id).find(x => x.official);  // ⑪
-  if (open.length) box.append(h("h4", null, "논문에 없는 설정"), h("ul", { class: "open" }, open.map(c => h("li", { title: c.id }, rich(c.title)))),
+  const decide = c => { if (!window.pabloHost || !pabloHost.makeCriterion) return null;  // B11 / B10: a setting the paper leaves open, decided = a criterion
+    const at = h("span", { class: "racts" }), go = h("button", { class: "link", "data-decide": c.id, on: () => {
+      const inp = h("input", { class: "why", "data-decide-in": c.id, value: plain(c).replace(/[가-힣\s]*(적혀|나와)\s*있지\s*않다\.?$/, "").trim() + " = " });
+      const ok = () => inp.value.trim() && pabloHost.makeCriterion(task, inp.value.trim(), "hard").then(items => { at.replaceChildren(h("span", { class: "muted" }, items.length ? "기준으로 정했습니다." : "이미 같은 기준이 있습니다."));
+        if (items.length) echo(task, { role: "intent", items }); return refresh(); }, e => at.append(h("span", { class: "muted" }, " " + fail(e))));
+      inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); });
+      at.replaceChildren(inp, " ", h("button", { class: "link", "data-decide-ok": c.id, on: ok }, "정하기")); inp.focus(); } }, "정하기");
+    at.append(go); return at; };
+  if (open.length) box.append(h("section", { class: "sp-cat open-set" }, h("h4", null, h("span", { class: "car" }, "▾"), h("span", { class: "nm" }, "논문에 없는 설정"),
+      h("small", null, open.length), h("span", { class: "hint" }, "정하면 이 작업의 기준이 됩니다")),
+    h("ul", { class: "open" }, open.map(c => h("li", { title: c.id, "data-id": c.id }, h("span", { class: "tg kd" }, "정할 일"), h("span", { class: "sx" }, rich(c.title)), decide(c))))),
     h("p", { class: "muted" }, "정할 때는 무엇을 근거로 정했는지 남기세요. 에이전트에게도 그렇게 알립니다.",
       own ? [" 논문의 공식 코드(", h("a", { href: own.url, target: "_blank", rel: "noopener noreferrer", "data-code-hint": "1" }, short_(own.url) + " ↗"), ")에서 먼저 찾아보세요."] : null));
-  if (dropped) box.append(h("p", { class: "muted" }, `원문에서 위치를 찾지 못한 조건 ${dropped}개는 뺐습니다.`));
   box.append(h("p", { class: "muted" }, "에이전트는 이 조건을 알고 작업하고, 바꾸려 하면 Pablo가 근거와 함께 막습니다."));
-  return box;
+  return diff && !diff.first ? h("div", { class: "specwrap" }, redone(diff), box) : box;
 }
 // A5/A6 재현 점검: each paper condition / open setting / task criterion against the work folder (code line or log value)
 const AUDIT = { differs: ["✗", "다름"], pairing: ["?", "열 짝 확인 필요"], chosen: ["•", "코드가 정함"], intended: ["◇", "의도한 차이"], missing: ["○", "아직 없음"],
@@ -1785,11 +1890,18 @@ function mark(x) {
     value_mismatch: `⚠ 논문 값(${v})이 이 자리에 ${x.status === "followed" ? "없음" : "그대로 있음"}` }[x.check];
   return t ? h("span", { class: "chk " + (warned(x) ? "warn" : x.check), "data-check": x.check }, t) : null;
 }
+// B11: the audit card: 재현 점검 · folder (+ 보고서로), what it held the folder to and when, an old-result band with 다시 점검,
+// chips by verdict (badges on the rows), "· 논문 값 X" beside what was found, and per row 의도한 차이로 / 논문 표 행 보기 /
+// 정하기. S55: one that did not finish says why, that nothing changed, and 다시 점검
+const VGROUP = { differs: "다름", pairing: "확인 필요", unclear: "확인 필요", chosen: "코드가 정함", intended: "의도한 차이", missing: "아직 없음", followed: "따름" };
 function audited(c) {
-  const box = h("div", { class: "audit", "data-audit": "1" });
+  const box = h("div", { class: "audit", "data-audit": "1" }), task = c.task || V.task.id;
+  const again = reAudit && V && V.task.id === task ? h("button", { class: "pill", "data-reaudit": "1", on: () => reAudit(task) }, ico("rotate", 14), "다시 점검") : null;
   if (c.error || c.status === "interrupted" || c.unreadable || !(c.items || []).length) {
-    box.append(h("p", { class: "head" }, "🔎 재현 점검을 마치지 못했습니다."), h("p", { class: "muted" },
-      c.status === "interrupted" ? "중지했습니다." : c.error || (c.unreadable ? "에이전트의 답을 읽지 못했습니다." : "판정된 항목이 없습니다.")));
+    box.classList.add("au-fail");
+    box.append(h("p", { class: "head" }, ico("info", 14), " 재현 점검을 마치지 못했습니다"), h("p", { class: "muted" },
+      c.status === "interrupted" ? "중지했습니다." : c.error || (c.unreadable ? "에이전트의 답을 읽지 못했습니다." : "판정된 항목이 없습니다."),
+      " 파일은 읽기만 했고 아무것도 바뀌지 않았습니다."), again ? h("p", { class: "acts" }, again) : null);
     return box;
   }
   // e2e3 (c86a409): a value read from a table row without its column names: the agent's 따름 / 다름 rests on which number
@@ -1797,9 +1909,23 @@ function audited(c) {
   const unpaired = x => !!((V.checks[x.id] || {}).spec || {}).header_missing && (x.status === "followed" || x.status === "differs");
   const dev = x => devOf(V.checks[x.id], c.at), st = x => x.status === "differs" && dev(x) && scopeOf(dev(x)) === "task" ? "intended"
     : unpaired(x) ? "pairing" : x.status;
-  const n = k => c.items.filter(x => st(x) === k).length, task = c.task || V.task.id, out = c.outside || [];
-  box.append(h("p", { class: "head" }, "🔎 재현 점검: ", [...Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`),
-    ...(out.length ? [`조건 밖 ${out.length}`] : [])].join(" · ")));
+  const out = c.outside || [], d0 = (M.desk || {})[task] || {};
+  const folder = d0.folder ? d0.folder.split(/[\\/]/).filter(Boolean).pop() : "작업 폴더", nCond = c.items.filter(x => V.checks[x.id]).length;
+  const rep = document.querySelector("#reports .link");
+  box.append(h("div", { class: "au-top" }, h("p", { class: "head" }, `재현 점검 · ${folder}`),
+      rep ? h("button", { class: "link", "data-to-report": "1", on: () => { const r = document.querySelector("#reports .link"); if (r) r.click(); } }, "보고서로") : null),
+    h("p", { class: "muted au-sub" }, `조건 ${nCond} + 작업 기준 ${c.items.length - nCond} · 읽기 전용으로 실행 · ${time(c.at)}`));
+  const GORDER = ["다름", "확인 필요", "코드가 정함", "의도한 차이", "아직 없음", "따름", "조건 밖"];
+  const groups = [...new Set([...c.items.map(x => VGROUP[st(x)] || st(x)), ...(out.length ? ["조건 밖"] : [])])].sort((a, b) => GORDER.indexOf(a) - GORDER.indexOf(b));
+  const count = g => g === "조건 밖" ? out.length : c.items.filter(x => (VGROUP[st(x)] || st(x)) === g).length;
+  let want = "";
+  const chips = h("div", { class: "chips", role: "group", "aria-label": "판정" }), filter = () => {
+    chips.replaceChildren(...[["", `전체 ${c.items.length + out.length}`], ...groups.map(g => [g, `${g} ${count(g)}`])].map(([g, t]) =>
+      h("button", { class: "pill chip" + (want === g ? " on" : ""), "data-verdict-chip": g || "all", "aria-pressed": String(want === g), on: () => { want = g; filter(); } }, t)));
+    box.querySelectorAll("li[data-g]").forEach(li => { li.hidden = !!want && li.dataset.g !== want; });
+    box.querySelectorAll("details").forEach(dt => { if (want) dt.open = !!dt.querySelector("li[data-g]:not([hidden])"); });
+    const o = box.querySelector(".outside"); if (o) o.hidden = !!want && want !== "조건 밖"; };
+  box.append(chips);
   box._c = c; aged(box);  // ⑤ files changed after it: said at the top (again after every refresh)
   if (c.shell === "powershell") box.append(h("p", { class: "ps51", "data-shell": "5.1" }, "⚠ 이 점검은 Windows PowerShell 5.1에서 했습니다. "
     + "에이전트가 한글 주석이나 λ 같은 기호를 깨진 채 읽었다면 그 줄의 판정이 틀릴 수 있습니다. PowerShell 7을 설치하면 정확히 읽습니다."));
@@ -1836,13 +1962,27 @@ function audited(c) {
   const via = x => { const s = x.via, v = ((V.checks[x.id] || {}).spec || {}).value;
     return s ? h("div", { class: "at via", "data-via": s.where }, "↳ 값을 정하는 곳: ", fileLink(h("code", null, s.where), task, s.where, null, null, s.found), " ",
       h("span", null, s.found), s.agrees === false ? h("span", { class: "chk warn", "data-via-warn": "1" }, ` ⚠ 논문 값(${v})이 여기에 ${x.status === "followed" ? "없음" : "그대로 있음"}`) : null) : null; };
-  const row = x => h("li", { class: "st-" + st(x), title: x.id, "data-id": x.id }, h("b", null, (AUDIT[st(x)] || ["", x.status]).join(" ")), " ", what(x),
+  // the row's own actions (hover / focus): a paper condition that differs -> 의도한 차이로; a value read from a table row
+  // without its column names -> that row in the paper; a setting the paper leaves open -> 정하기 (a criterion)
+  const acts = x => { const k = V.checks[x.id]; if (!k || !k.spec || !window.pabloHost) return null;
+    const a = (k.evidence || []).find(e => M.anchors[e]);
+    return h("span", { class: "racts" }, st(x) === "differs" && !k.spec.missing && pabloHost.condition ? differ(k, task) : null,
+      st(x) === "pairing" && a ? h("button", { class: "link", "data-table-row": x.id, on: () => show({ mode: "source", e: a }) }, "논문 표 행 보기") : null,
+      st(x) === "missing" && k.spec.missing && pabloHost.makeCriterion ? h("button", { class: "link", "data-decide": x.id, on: () => {
+        const v0 = h("input", { class: "why", "data-decide-in": x.id, value: (k.title || "").replace(/[가-힣\s]*(적혀|나와)\s*있지\s*않다\.?$/, "").trim() + " = " });
+        const ok = () => v0.value.trim() && pabloHost.makeCriterion(task, v0.value.trim(), "hard").then(items => { if (items.length) echo(task, { role: "intent", items }); return refresh(); },
+          e => v0.after(h("span", { class: "muted" }, " " + fail(e))));
+        v0.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); });
+        const li = box.querySelector(`li[data-id="${CSS.escape(x.id)}"] .racts`); if (li) li.replaceChildren(v0, " ", h("button", { class: "link", on: ok }, "정하기")); v0.focus(); } }, "정하기") : null); };
+  const pv = x => { const k = V.checks[x.id] || {}, v0 = (k.spec || {}).value; return v0 && !(k.spec || {}).missing && x.found ? h("span", { class: "pv" }, ` · 논문 값 ${v0}`) : null; };
+  const row = x => h("li", { class: "st-" + st(x), title: x.id, "data-id": x.id, "data-g": VGROUP[st(x)] || st(x) },
+    h("b", { class: "vb vb-" + st(x) }, (AUDIT[st(x)] || ["", x.status])[1]), " ", what(x), acts(x),
     st(x) === "pairing" ? paired(x) : null,
     dev(x) ? h("div", { class: "muted", "data-dev-why": x.id }, st(x) === "intended" ? `이유: ${dev(x).why}`
       : x.status === "differs" ? `의도한 차이는 별도 실행에서만 두기로 했는데(이유: ${dev(x).why}), 기본 실행이 논문과 다릅니다.`
       : `의도한 차이로 두었지만(이유: ${dev(x).why}) 이 점검에서는 다르지 않았습니다.`) : null,
     x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x), seen(x)) : null,
-      x.found ? [" ", h("span", null, x.found)] : null, mark(x)) : null, via(x),
+      x.found ? [" ", h("span", null, x.found)] : null, pv(x), mark(x)) : null, via(x),
     x.status === "missing" && x.seen ? h("div", { class: "at seen", "data-seen": x.seen.where }, h("span", { class: "chk warn" }, "⚠ 모델은 아직 없다고 했지만 Pablo가 찾았습니다: "),
       fileLink(h("code", null, x.seen.where), task, x.seen.where, null, null, x.seen.found), " ", h("span", null, x.seen.found)) : null,
     x.note ? h("div", { class: "muted" }, x.note) : null);
@@ -1862,7 +2002,7 @@ function audited(c) {
   // what no item covers (main.js audited): how the method is done stays open, the paper's experiments the folder does not
   // have fold away. The model wrote them from the code and the items, not from the paper: no page is attached.
   if (out.length) {
-    const orow = x => h("li", { class: "st-outside" }, h("b", null, "△"), " ", x.what,
+    const orow = x => h("li", { class: "st-outside", "data-g": "조건 밖" }, h("b", { class: "vb vb-outside" }, "△"), " ", x.what,
       x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x), seen(x)) : null,
         x.found ? [" ", h("span", null, x.found)] : null, mark(x)) : null);
     const m = out.filter(x => x.kind !== "scope").sort((a, b) => warned(b) - warned(a)), s = out.filter(x => x.kind === "scope");
@@ -1871,6 +2011,7 @@ function audited(c) {
       s.length ? h("details", null, h("summary", null, `논문의 실험 가운데 이 폴더에 없는 것 ${s.length}개`), h("ul", null, s.map(orow))) : null,
       h("p", { class: "muted" }, "재현 조건 목록 밖이라 논문 쪽이 붙지 않습니다. 중요한 차이면 논문에서 확인하고 조건을 다시 뽑아 보세요.")));
   }
+  filter();
   return box;
 }
 // ⑤ an audit card is a moment: the files its rows name may have changed since (an agent turn, an undo). Said at its top.
@@ -1881,8 +2022,8 @@ function aged(box) {  // (not fresh(): the desktop's add box has its own)
   const c = box._c, task = c.task || V.task.id, v = M.views[task] || V, t = Date.parse(c.at);
   const files = [...new Set((v.chat || []).filter(x => (x.role === "changes" || x.role === "undo") && Date.parse(x.at) > t)
     .flatMap(x => (x.files || []).map(f => typeof f === "string" ? f : f.path)))];
-  const again = () => reAudit && V && V.task.id === task ? [" ", h("button", { class: "link", "data-reaudit": "1", on: () => reAudit(task) }, "다시 점검")] : null;
-  const put = line => { const old = box.querySelector(":scope > .stale"); if (old) old.replaceWith(line || ""); else if (line) box.querySelector(".head").after(line); };
+  const again = () => reAudit && V && V.task.id === task ? [" ", h("button", { class: "pill on", "data-reaudit": "1", on: () => reAudit(task) }, "다시 점검")] : null;
+  const put = line => { const old = box.querySelector(":scope > .stale"); if (old) old.replaceWith(line || ""); else if (line) (box.querySelector(":scope > .au-sub") || box.querySelector(".head")).after(line); };
   const changed = () => files.length ? h("p", { class: "stale", "data-stale": String(files.length) },
     `⚠ 이 점검 뒤 파일 ${files.length}개가 바뀌었습니다(${files.slice(0, 3).join(", ")}${files.length > 3 ? " 외" : ""}). 판정이 지금 파일과 다를 수 있습니다.`, again()) : null;
   // places, not rows: a condition and a criterion often point at the same line (rehearsal 10/27: "config.yaml:5, config.yaml:5")
@@ -1944,7 +2085,10 @@ function matrix(c, wide) {
   const mixed = col => new Set(c.papers.map(p => norm(((cell(p, col) || {}).matrix || {}).metric)).filter(Boolean)).size > 1;
   const why = (p, col) => { const x = (c.empty || []).find(y => y.source === p.id && y.column === col);
     return x && x.value ? `모델은 "${x.value}"라고 했지만 논문에서 그 문장을 찾지 못해 비웠습니다.` : "이 논문에서 찾지 못했습니다."; };
-  if (!wide) box.append(h("p", { class: "head" }, `📊 비교표: 논문 ${c.papers.length}편 × 항목 ${c.columns.length}개`),
+  const tsk = c.task || V.task.id;  // B12: 항목 바꾸기 (the 비교표 form with these columns) and 크게 보기 in the head
+  if (!wide) box.append(h("div", { class: "mx-top" }, h("p", { class: "head" }, `비교표 · 논문 ${c.papers.length}편 × 항목 ${c.columns.length}개`),
+      h("span", { class: "sp-acts" }, compareAgain ? h("button", { class: "pill", "data-columns": "1", on: () => compareAgain(tsk, c.columns) }, "항목 바꾸기") : null,
+        h("button", { class: "link", "data-wide": "1", on: () => show({ mode: "matrix", c }) }, "크게 보기"))),
     h("p", { class: "muted" }, `칸 ${all}개 중 ${cells.length}개는 논문에서 위치를 찾은 값입니다.`,
       cells.length < all ? ` 나머지 ${all - cells.length}개는 근거를 찾지 못해 비웠습니다.` : ""));
   box.append(h("div", { class: "scroll" }, h("table", null,
@@ -1961,7 +2105,7 @@ function matrix(c, wide) {
   if (!wide && both.length && compareAgain) box.append(h("p", { class: "muted common", "data-common": both.join("|") },
     `${c.papers.length === 2 ? "두" : "모든"} 논문이 ${both.join(", ")}을(를) 함께 씁니다. 같은 데이터셋의 결과를 나란히 보려면: `,
     both.map(x => [h("button", { class: "link", "data-add-column": x, on: () => compareAgain(c.task || V.task.id, [...c.columns, `${x} 결과`].slice(-8), c, `${x} 결과`) }, `+ "${x} 결과" 열`), " "])));
-  if (!wide) box.append(h("p", null, h("button", { class: "link", "data-wide": "1", on: () => show({ mode: "matrix", c }) }, "크게 보기")));
+  if (!wide && addSource) box.append(h("p", { class: "mx-foot" }, h("button", { class: "link", "data-add-paper": "1", title: "자료에 논문을 더한 뒤 항목 바꾸기로 표를 다시 만듭니다", on: () => addSource() }, "+ 논문 추가")));
   return box;
 }
 // criteria the user said in a chat message, now this task's intent (Guard and the agent's brief use them).
@@ -2016,7 +2160,7 @@ function held(k, task, compact) {
 }
 function said(c) {
   if (c.role === "audit") return [msg("Pablo", null, audited(c))];
-  if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped, c.diff))];
+  if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped, c.diff, c.secs))];
   const said1 = { "spec-drop": "📋 재현 조건에서 뺐습니다: ", "spec-restore": "📋 뺀 재현 조건을 되살렸습니다: ",  // ⑩ taken out / back
     "spec-deviate": `◇ 논문 조건을 의도한 차이(${WHERE_DEV[c.scope || "task"]})로 두었습니다: `, "spec-undeviate": "📋 의도한 차이를 거두고 논문 조건으로 되돌렸습니다: " }[c.role];  // ⑦
   if (said1) { const k = V.checks[c.check];
@@ -3260,7 +3404,7 @@ if (window.pabloHost && pabloHost.chat) {
     const live = V.research.map(id => V.checks[id]).filter(k => k.spec && k.state !== "waived");
     const own = live.filter(k => k.spec.by === "user" || k.spec.kept).length, dev = live.filter(k => devOf(k)).length;
     const outn = V.research.map(id => V.checks[id]).filter(k => k.spec && k.state === "waived" && k.waived_by === "user").length;
-    const box = h("div", { class: "call", "data-redo-ask": "1" }, h("p", { class: "head" }, "📋 재현 조건을 다시 뽑을까요?"),
+    const box = h("div", { class: "call", "data-redo-ask": "1" }, h("p", { class: "head" }, "재현 조건을 다시 뽑을까요?"),
       h("p", { class: "muted" }, "Pablo가 뽑은 조건은 새로 뽑은 목록으로 바뀝니다. 뽑을 때마다 조금씩 다를 수 있어, 이번에 빠진 조건은 되살릴 수 있게 남겨 둡니다.",
         own || dev ? ` 직접 더하거나 되살린 조건 ${own}개와 의도한 차이로 둔 조건 ${dev}개는 그대로 둡니다.` : "",
         outn ? ` 이전에 뺀 조건 ${outn}개는 다시 넣지 않습니다.` : ""),
@@ -3268,6 +3412,8 @@ if (window.pabloHost && pabloHost.chat) {
         h("button", { class: "link", on: () => box.closest(".msg").remove() }, "취소")));
     live_(V.task.id).append(msg("Pablo", null, box)); scroll(); };
   const live_ = t => live(t);
+  specAgain = () => redo();  // B10: the conditions card's own 다시 뽑기 (asks first)
+  addSource = () => { adder.hidden = false; arx.focus(); };  // B12: + 논문 추가
   tools = () => {
     bar.textContent = "";
     if (!V) { adder.hidden = true; return; }
@@ -3416,7 +3562,7 @@ if (window.pabloHost && pabloHost.chat) {
     live(t).append(msg("Pablo", null, h("div", { class: "audit", "data-auditing": "1" },
       h("p", { class: "muted" }, "작업 폴더를 논문 조건·작업 기준과 대조하는 중… (파일을 읽기만 합니다)")))); scroll(); gate();
     pabloHost.audit(t).catch(e => { turning = false; busy = null; status("Error", fail(e));
-      const p = live(t).querySelector("[data-auditing]"); if (p) p.replaceWith(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e)))); });
+      const p = live(t).querySelector("[data-auditing]"); if (p) p.replaceWith(failCard("재현 점검을 시작하지 못했습니다", fail(e) + " 아무것도 바뀌지 않았습니다.")); });
   }
   // A2: the paper's reproduction conditions -> a card in the conversation (+ the 기준 panel); the agent's brief has them
   function spec(t) {
@@ -3427,7 +3573,7 @@ if (window.pabloHost && pabloHost.chat) {
     pabloHost.spec(t).then(r => {
       Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources);
       for (const c of [...r.stated, ...r.missing]) M.views[t].checks[c.id] = c;
-      box.replaceWith(conditions([...r.stated, ...r.missing].map(c => c.id), r.dropped.length, r.diff));
+      box.replaceWith(conditions([...r.stated, ...r.missing].map(c => c.id), r.dropped.length, r.diff, r.secs));
       busy = null; status("Ready"); scroll(); refresh();
     }, e => { box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e)))); busy = null; status("Ready"); });
   }
