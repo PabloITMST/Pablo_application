@@ -1711,6 +1711,13 @@ async function uiCheck() {
       l.querySelectorAll(".msg").forEach(m => m.dataset.figShot = "1"); $("log").scrollTop = $("log").scrollHeight; })(V.task.id)`);
     await fig("S5-S7-S12");
     await js(`document.querySelectorAll('[data-fig-shot="1"]').forEach(m => m.remove())`);
+    // S1 · S2 · S3 · S32 · S34: the account card's states (account() is the page's own; signed out again after)
+    for (const [n, a] of [["S1", { state: "signing_in" }], ["S2", { state: "signed_out", code: "timeout", error: "브라우저 창을 닫았거나 시간이 지났습니다. 저장된 것은 없습니다." }],
+      ["S3", { state: "signed_out", code: "no_plan_permission", error: "플랜 확인: 쓸 수 있는 모델이 없습니다. 논문 질문도 같은 계정을 씁니다." }], ["S32", { state: "verifying" }],
+      ["S34", { state: "signed_out", code: "refresh_failed", error: "작업과 기록은 그대로입니다. 다시 연결하면 같은 대화로 이어 갑니다." }]]) {
+      await js(`account(${JSON.stringify(a)})`); await fig("acct-" + n);
+    }
+    await js(`account({ state: "signed_out" })`);
     // 01: no task yet (the model as a first run has it), then the fixture again
     await js(`window.__M = M; M = { ...M, tasks: [], views: {}, current: null }; select(null)`); await fig("01-first-run");
     await js(`M = window.__M; delete window.__M; select("T1")`);

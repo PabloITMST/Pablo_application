@@ -1976,6 +1976,13 @@ body.panel.wide { grid-template-columns:var(--side-w) minmax(0, 1fr) min(835px, 
 /* 13–15 values on the right are plain mono text; a path is a grey box */
 #settings .set-opts code { padding:0; background:none; color:var(--ink-2); font:400 12px/1.5 var(--mono); }
 .set-path { margin:-4px 0 8px; padding:7px 10px; border-radius:var(--r-ctl); background:var(--a5); font:400 12px/1.4 var(--mono); color:var(--ink-2); }
+/* S2 · S3 · S34: a failed account card is a plain card (the orange edge is for cards that ask: S20 · S21 · S45) */
+#acct .acard.bad { border-left:1px solid var(--a8); }
+/* 26a 좁은 창: the conversation and the composer run 16 from the column's edges */
+@media (max-width:900px) { #log { padding-left:16px; padding-right:16px; } .msg, .divider { max-width:none; }
+  #chat > .composer { max-width:none; width:calc(100% - 32px); } }
+/* S17: while the name is edited, the row is the field and its buttons (the kind tag waits) */
+#bar:has(#task-name) .kindtag { display:none; }
 /* 18 the source card rows: two tight lines, the second in the text font */
 .srccard #src .ptitle { line-height:20px; } .srccard #src .pmeta { font:400 11px/16px var(--sans); }
 /* 02 새 작업: one-line fields (32), kind cards on a light fill, the picked one filled and edged; 선택 안 함 when picked */
@@ -4341,7 +4348,7 @@ if (window.pabloHost && pabloHost.chat) {
     const spin = () => h("span", { class: "spin", "aria-hidden": "true" });
     const card = (cls, title, sub, ...acts) => h("div", { class: "acard " + cls }, h("b", null, title), sub ? h("small", null, sub) : null,
       acts.filter(Boolean).length ? h("div", { class: "aacts" }, ...acts.filter(Boolean)) : null);
-    const signin = label => h("button", { class: "pill on", id: "signin", on: () => pabloHost.login() }, label);
+    const signin = (label, quiet) => h("button", { class: "pill" + (quiet ? "" : " on"), id: "signin", on: () => pabloHost.login() }, label);  // S3: 다른 계정으로 연결 is a plain pill
     if (hello) acct.append(hello);
     if (a.state === "connected" && box.dataset.agent === "Connecting" && seenReady)  // S4: the agent restarts (a fresh token, the same thread)
       acct.append(card("wait", [spin(), "ChatGPT · 다시 연결하는 중…"], "토큰을 갱신하고 같은 대화(thread)를 이어 갑니다. 보내려던 메시지는 입력창에 남아 있습니다."));
@@ -4354,7 +4361,7 @@ if (window.pabloHost && pabloHost.chat) {
     else if (a.error && /세션 해제/.test(a.error) && !a.code)  // S35
       acct.append(card("off", "이 기기의 연결은 지웠습니다", a.error, signin("ChatGPT로 계속하기")));
     else if (a.error) { const f = FAILS[a.code] || ["연결하지 못했습니다", "다시 시도"];  // S2, S3, S34, S37
-      acct.append(card("bad", f[0], a.error, signin(f[1]), f[2] ? h("a", { class: "link", href: PLAN, target: "_blank", rel: "noopener noreferrer" }, "플랜 안내 ↗") : null,
+      acct.append(card("bad", f[0], a.error, signin(f[1], f[2]), f[2] ? h("a", { class: "link", href: PLAN, target: "_blank", rel: "noopener noreferrer" }, "플랜 안내 ↗") : null,
         a.state === "error" ? link("연결 해제", () => pabloHost.logout()) : null)); }
     else acct.append(card("off", "ChatGPT · 연결 안 됨", "연결해야 에이전트와 논문 질문을 쓸 수 있습니다", signin("ChatGPT로 연결")));
   };
