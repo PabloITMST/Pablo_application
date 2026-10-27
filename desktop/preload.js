@@ -62,4 +62,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   logout: () => ipcRenderer.invoke("pablo:logout"),
   authStatus: () => ipcRenderer.invoke("pablo:auth-status"),
   onAuth: cb => ipcRenderer.on("pablo:auth", (_, ev) => cb(ev)),
+  // A2 complete · A: the task's folder in the file manager; 설정 · 계정 "다시 확인" (the plan check again)
+  openWork: task => ipcRenderer.invoke("pablo:open-work", task),
+  recheckPlan: () => ipcRenderer.invoke("pablo:recheck-plan"),
 });

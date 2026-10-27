@@ -1081,4 +1081,27 @@ async function launch(dir = path.join(app.getPath("userData"), "state")) {
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => { clearTimeout(timer); agent.stop(); });
 
+// A2 complete · A: the header's ⋯ / the folder chip "작업 폴더 열기" (the task's own folder only, never a path from the page),
+// and 설정 · 계정 "다시 확인" (the plan check of sign-in again, on the saved credentials; the agent keeps running)
+ipcMain.handle("pablo:open-work", async (e, task) => {
+  fromWindow(e); known(task);
+  const w = workOf(task); if (!w) throw new Error("이 작업에는 작업 폴더가 없습니다.");
+  const err = await shell.openPath(w);
+  if (err) throw new Error(`폴더를 열지 못했습니다: ${err}`);
+  return true;
+});
+ipcMain.handle("pablo:recheck-plan", async e => {
+  fromWindow(e);
+  if (!siwc.has()) throw new Error("ChatGPT에 연결되어 있지 않습니다.");
+  if (auth.state === "signing_in" || auth.state === "verifying") return auth.state;
+  setAuth("verifying");
+  try {
+    const v = await siwc.verify();
+    if (!v) return setAuth("signed_out");
+    account = { models: v.models };
+  } catch (err) { return fail(err); }
+  setAuth("connected");
+  return auth.state;
+});
+
 module.exports = { open, boot, launch, auth: () => auth, arxiv, openreview, crossref, agentRules, forShell };
