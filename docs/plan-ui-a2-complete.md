@@ -45,23 +45,27 @@ A2를 처음 구현할 때 "다르게 둔 것" 4개(`docs/plan-ui-a2.md`)도 포
 ## To-do (전부 구현, 저장소 `docs/plan-ui-a2-complete.md`에도 같은 목록을 두고 체크)
 
 ### 0. 공용 데이터 (먼저)
-- [ ] D1 `stagesOf(v, d)`: `tools()`(viewer.py ~2866–2895)의 단계 계산을 순수 함수로 뺀다. `auditEl`/`reportEl` 대신 술어를 쓴다. 현재 작업은 V, 다른 작업은 `M.views[id]`로 계산한다.
-- [ ] D2 `refsOf(entry)` + 작업별 `Map<id, entryKeys>`: 대화 기록(chat)의 intent/criterion-edit/spec*/ask/audit/changes/undo/compare 항목과 `V.actions[].criteria`를 모은다. intent 항목은 1ms 앞의 user 메시지와 한 턴으로 묶는다. 메시지 요소에 `data-refs`를 단다.
-- [ ] D3 `model()`(viewer.py ~152–162)에 승격된 후보 K→기준 id 대응을 더한다.
-- [ ] D4 계획: `model()`에 작업의 모든 plan을 `created_at`과 함께 내보낸다. main.js `chatTurn`의 user/agent 항목에 `step`(Pn.1)을 기록한다.
-- [ ] D5 auth 상태에 `code`(no_plan_permission 등)를 실어 S2와 S3를 구분한다(main.js ~753).
-- [ ] D6 host 정보: `pablo:state`의 `m.host`에 다음을 더하고, IPC `pablo:open-path`(userData·로그 폴더만 허용)를 만든다.
+- [x] D1 `stagesOf(v, d)`: `tools()`(viewer.py ~2866–2895)의 단계 계산을 순수 함수로 뺀다. `auditEl`/`reportEl` 대신 술어를 쓴다. 현재 작업은 V, 다른 작업은 `M.views[id]`로 계산한다.
+- [x] D2 `refsOf(entry)` + 작업별 `Map<id, entryKeys>`: 대화 기록(chat)의 intent/criterion-edit/spec*/ask/audit/changes/undo/compare 항목과 `V.actions[].criteria`를 모은다. intent 항목은 1ms 앞의 user 메시지와 한 턴으로 묶는다. 메시지 요소에 `data-refs`를 단다.
+- [x] D3 `model()`(viewer.py ~152–162)에 승격된 후보 K→기준 id 대응을 더한다.
+- [x] D4 계획: `model()`에 작업의 모든 plan을 `created_at`과 함께 내보낸다. main.js `chatTurn`의 user/agent 항목에 `step`(Pn.1)을 기록한다.
+- [x] D5 auth 상태에 `code`(no_plan_permission 등)를 실어 S2와 S3를 구분한다(main.js ~753).
+- [x] D6 host 정보: `pablo:state`의 `m.host`에 다음을 더하고, IPC `pablo:open-path`(userData·로그 폴더만 허용)를 만든다.
   - 앱 버전
   - Codex 버전
   - userData 경로
   - 로그 폴더
   - 체크포인트 크기
-- [ ] D7 checkpoint.js: `--numstat`으로 파일별 +/− 줄 수를 낸다(변경 카드 "+42").
-- [ ] D8 조건 뽑기 걸린 시간: main.js `pablo:spec`이 시간을 재서 spec 항목에 `secs`로 남긴다.
-- [ ] D9 진행률과 중지:
+- [x] D7 checkpoint.js: `--numstat`으로 파일별 +/− 줄 수를 낸다(변경 카드 "+42").
+- [x] D8 조건 뽑기 걸린 시간: main.js `pablo:spec`이 시간을 재서 spec 항목에 `secs`로 남긴다.
+- [x] D9 진행률과 중지:
   - spec은 Python이 쪽 진행을 stderr 줄로 내보내고, controller가 이를 읽어 `pablo:progress` 이벤트로 알린다. 오래 걸리는 py 호출은 kill로 중지할 수 있게 한다.
   - audit은 agent item(파일 읽기)을 세어 알린다.
-- [ ] D10 내려받기 확인: arXiv 메타데이터나 HEAD 요청으로 파일 이름·출처·크기를 먼저 알려 주는 `pablo:peek-arxiv`.
+- [x] D10 내려받기 확인: arXiv 메타데이터나 HEAD 요청으로 파일 이름·출처·크기를 먼저 알려 주는 `pablo:peek-arxiv`.
+- 단계 0에서 다르게 한 것(10/27):
+  - D6 로그 폴더: 앱은 로그를 콘솔에만 쓰고 파일로 남기지 않는다. 그래서 `m.host.logs`는 `null`이고 화면에는 "없음"으로 보인다. `pablo:open-path("logs")`는 "로그 폴더가 없습니다…" 오류를 낸다. `open-path`는 `checkpoints`도 받는다(저장 위치의 체크포인트 크기 옆 "폴더 열기").
+  - D9 spec 진행률: 조건 뽑기는 논문 전체를 한 번에 모델에 보낸다. 그래서 쪽 단위 진행은 실제로 읽은 쪽이 아니다. 스트리밍 답에 지금까지 나온 가장 큰 `page`로 어림한다(처음 0, 끝나면 전체 쪽 수). 비교표는 중지만 되고 진행률은 없다.
+  - D9 audit 진행률: 파일 수는 Codex `commandExecution` 항목의 `commandActions[type=read].path`를 중복 없이 센 값이다. 판정 수는 스트리밍 답에 나온 `"status":`의 개수다(점검 항목 수가 상한).
 - [x] D11 기기 코드 로그인 조사 — **불가(10/27)**: auth.openai.com의 openid-configuration은 `grant_types_supported: authorization_code, refresh_token`뿐이고 device_authorization_endpoint가 없음. SIWC 문서(developers.openai.com/siwc/token-sharing-open-source)도 PKCE + 루프백만 설명. S2의 "기기 코드로 연결"은 넣지 않는다. (원래 항목:(siwc.js, 로그인 서버): 지원하면 S2의 "기기 코드로 연결"을 구현하고, 지원하지 않으면 근거와 함께 보고한다.)
 
 ### A. 셸 (사이드바 · 머리줄 · 단계 · 보기 줄 · 대화상자)
@@ -83,7 +87,7 @@ A2를 처음 구현할 때 "다르게 둔 것" 4개(`docs/plan-ui-a2.md`)도 포
 - [ ] A10 보기 줄 오른쪽 상태 "거르기 없음". 거를 때는 칩 "단계 · X ×"를 띄우고, 같은 칩을 "대화로 거르기"(C6)에도 쓴다.
 - [ ] A11 첫 실행 화면: 마스코트, "무엇을 해볼까요?", 부제, 단계 카드를 둔다. 연결 상태는 DOM `#acct`의 data-state로 읽는다.
   - 단계 카드: "1. ChatGPT 계정 연결 [ChatGPT로 연결]", "2. 새 작업 만들기 [+ 새 작업]", 안내 문장
-- [ ] A12 새 작업을 대화상자로 바꾼다(Dim + 카드, `#goal`/`#repro`/`#kind-*`/`#create`는 유지).
+- [ ] A12 새 작업을 대화상자로 바꾼다(Dim + 카드, `#goal`/`#repro`/`#kind-*`/`#create`는 유지). (백엔드는 단계 0에서 끝남: `m.reproCriteria`, `pickPdfsFree`/`pickFolderFree`/`attachPicked`)
   - 목표 + "첫 줄이 작업 이름이 됩니다"
   - 종류 카드 3개
   - 논문 재현일 때 기본 기준 목록(`REPRO_CRITERIA`를 state로 내보냄) + 단계
@@ -93,13 +97,13 @@ A2를 처음 구현할 때 "다르게 둔 것" 4개(`docs/plan-ui-a2.md`)도 포
   - "이 작업만의 기준" 칸
   - [취소][만들기]
   - 구현: 고른 값은 만든 뒤 차례로 붙인다(만들기 → add-files/add-arxiv/pick-folder 결과 경로 → set-net). 작업 없이 고르는 IPC `pablo:pick-pdfs-free`, `pablo:pick-folder-free`를 둔다.
-- [ ] A13 보고서 내보내기 대화상자.
+- [ ] A13 보고서 내보내기 대화상자. (백엔드는 단계 0에서 끝남: `reportPreview`, `pickReportPath`, `report(task, opts)`, Python `report --sections --format --preview`)
   - 포함할 내용 체크 8개와 개수: 목표·기준, 조건, 최근 점검, 의도한 차이, 결정과 이유, 변경·되돌리기, 거절한 요청, 대화 전체
   - "함께 남는 기록(자동)"
   - 점검이 오래됐으면 경고 + [먼저 다시 점검]
   - 형식 [HTML|Markdown], 저장 위치 + 바꾸기, [취소][내보내기]
   - Python `report --sections --format html`: `render_report`의 구획을 고를 수 있게 하고 "대화 전체"를 추가한다. HTML은 Markdown을 변환해 앱 글꼴·색을 입힌 한 파일로 만든다.
-- [ ] A14 설정 대화상자: 왼쪽 목록(계정 · 기본값 · 셸·인코딩 · 저장 위치 · 정보).
+- [ ] A14 설정 대화상자: 왼쪽 목록(계정 · 기본값 · 셸·인코딩 · 저장 위치 · 정보). (백엔드는 단계 0에서 끝남: `m.host`, `openPath`, SETTINGS `panel:"always"`·`side`)
   - 기본값: 모델 칩, 새 작업의 인터넷 토글, 오른쪽 패널(열림+기억 / 늘 열림 / 레일), 기본 보기, 메시지 태그. SETTINGS에 `panel:"always"`를 더한다.
   - 계정: 연결 상태, 플랜, 연결 해제
   - 셸·인코딩: PowerShell 7 감지, UTF-8, 5.1 안내 상태
@@ -181,7 +185,7 @@ A2를 처음 구현할 때 "다르게 둔 것" 4개(`docs/plan-ui-a2.md`)도 포
   - 근거: 마지막 근거 위치("config.yaml:5", "칸 [7]", "p.9"), 없으면 "인용 N"
   - 주의 점: 확인 기다림이 있는 탭에도 주황 점
 - [ ] C2 패널 머리줄 제목을 디자인 문구로 바꾸고, 오른쪽에 "접기 ›" 글자 링크. 레일 맨 위에 "‹ 펼치기".
-- [ ] C3 기준 탭.
+- [ ] C3 기준 탭. (백엔드는 단계 0에서 끝남: `criterion(task, id, "edit", text)`, Python `restate`)
   - 목표는 상자 없이 글로
   - 머리줄에 개수("반드시 지킬 것 N", "가능하면 N"으로 이름 변경)
   - 행에 뒷링크 칩 "대화 N"/"판정 N(막음/확인 필요)"(D2)
@@ -247,3 +251,119 @@ A2를 처음 구현할 때 "다르게 둔 것" 4개(`docs/plan-ui-a2.md`)도 포
 - 화면: `PABLO_SHOTS`로 픽스처 화면을 찍어 Figma 01–11, V2–V4, S1–S12와 하나씩 나란히 비교하고, 남는 차이를 To-do 문서에 기록한다.
 - 실제 계정이 필요한 것(진행률, 내려받기 확인, 기기 코드)은 픽스처나 가짜 서버로 확인하고, 실제 확인은 사용자에게 요청한다.
 - 끝나면 워크트리를 정리한다(junction 먼저).
+
+## 단계 0 API
+
+UI 에이전트가 코드를 읽지 않고 쓸 수 있도록 정리한 목록이다. 커밋은 2bb4cad(Python), c4d0cb4(페이지), c014334(desktop)이다. 모양은 JSON/JS 표기로 적었다. `?`는 없을 수 있다는 뜻이다.
+
+### 페이지 함수 (viewer.py PAGE, 전역 스코프)
+
+- `kindFor(d)` → `"repro" | "read" | "general"`
+  - `d = M.desk[id]`이다. 만들 때 고른 종류가 있으면 그것을 쓴다.
+  - 없으면 폴더+논문은 repro, 논문만 있으면 read, 그 밖은 general이다. `kindOf()`는 이제 `kindFor(M.desk[V.task.id])`를 부른다.
+- `stagesOf(v, d, kind?)` → `{ steps: [{ key, label, state, sub }], current, can }`
+  - `v = M.views[id]`, `d = M.desk[id]`이다. kind를 주지 않으면 `kindFor(d)`를 쓴다. 어느 작업에나 쓸 수 있다(사이드바 진행 막대).
+  - `state`: `"done" | "current" | "todo" | "blocked" | "stale"`. `sub`은 단계 막대의 둘째 줄 글이다(예: `"정할 일 2"`).
+  - `current`: 첫 todo 단계의 index다. 없으면 -1이다.
+  - `can`: `{ spec, compare, audit, report }` (boolean). 각 단계 동작(`#specs/#compares/#audits/#reports`)이 생길 조건이다. 동작은 pabloHost도 있어야 생긴다.
+  - key와 label:
+    - repro: prep 준비 · spec 조건 확정 · run 구현·실행 · audit 재현 점검 · report 보고서
+    - read: prep · ask 질문 · compare 비교표 · wrap 정리
+    - general: prep · work 작업 · review 검토
+  - `tools()`는 이 결과로 `#stages`를 그린다. 동작은 key로 붙인다(repro spec/audit/report, read prep/compare/wrap, general work/review).
+- ref 문자열 형식
+  - 기준 id: `"C4"`. 승격된 K 후보는 그 기준 id로 바뀐다.
+  - check id: `"SC5"`. 조건, 논문 답, 비교표 칸이다.
+  - 근거 anchor: `"E12"`
+  - 근거 쪽: `"SRC1:p9"`
+  - 작업 폴더 파일: `"file:config.yaml"`. 경로는 `/`로 쓰고 줄 번호는 뺀다.
+  - 계획 단계: `"P3.1"`
+- `refsOf(entry, v = V)` → `string[]`: chat 항목 하나가 가리키는 ref들이다.
+  - intent: `items[].id`, 그리고 `pending/unread[].id`를 `v.intent.promoted`로 바꾼 것
+  - criterion-edit: `id`
+  - spec: `checks` + `missing`, 각각의 anchor와 쪽
+  - ask, spec-*: `check`와 그 anchor·쪽
+  - audit: `items[].id`, 그리고 `items/outside[].where`의 파일
+  - changes, undo: `files`의 경로
+  - compare: `cells`와 그 anchor·쪽
+  - 모든 항목: `step`이 있으면 그것도 넣는다.
+- `placePaths(where)` → `string[]`: `"config.yaml:3; src\run.py:16,25 (top_k)"`에서 `["config.yaml", "src/run.py"]`를 뽑는다.
+- `turnsOf(v = V)` → `Map<intentKey, userKey>`: user 메시지보다 정확히 1 ms 뒤인 intent 항목을 그 메시지의 턴으로 묶는다(chatTurn이 그렇게 기록한다).
+- `refsByKey(v = V)` → `Map<messageKey, string[]>`
+  - messageKey는 conversation()의 `data-key`와 같다: `role + "@" + at`, 행동 카드는 `"act:ACT3"`.
+  - user 메시지는 같은 턴 intent의 ref도 받는다. 행동 카드는 `criteria[].id`와 `step`을 받는다.
+- `linksOf(v = V)` → `Map<ref, { chat: messageKey[], verdicts: [{ act, verdict, decision }] }>`
+  - `chat`은 턴마다 하나다(묶인 intent는 user 키로 센다). → "대화 N"
+  - `verdicts`는 행동의 `criteria[].id`와 `step`으로 모은다(ALLOW 포함, `decision`은 `"proceed" | "reject" | "defer" | null`). → "판정 N"
+- `stampRefs(root = $("log"), v = V)` → 개수
+  - `[data-key]` 요소마다 `data-refs`(JSON 배열)를 단다. conversation() 끝과 tagLive()에서 이미 부른다.
+- `filterBy(refs, label)` → `{ kept, hid }`: "대화로 거르기"
+  - `refs`는 문자열 하나 또는 배열이다. 그중 하나라도 `data-refs`에 있는 `.msg`만 남기고, 아래 메시지가 다 숨은 구분선도 숨긴다.
+  - `#log[data-filter] = "refs:" + label`, `.filtered`, `#filter-banner`(`data-refs`, "<label> 대화만 보는 중 · N개 · 다른 대화 M개 숨김", [전체 보기])를 쓴다.
+  - 같은 label로 다시 부르면 모두 보인다. 단계 거르기(`stageFilter`)와 같은 장치라서, 하나를 켜면 다른 하나는 꺼진다.
+  - CSS는 아직 `#log > .filtered`만 숨긴다(단계별·대상별 보기 안의 메시지는 숨지 않는다).
+
+### 뷰 모델 (`M.views[id]` = Python `model()`)
+
+- `V.plans`: `[{ id: "P3", created_at, status: "active" | "superseded", steps: [{ id: "P3.1", action }] }]`
+  - 작업의 모든 계획이다. 오래된 것부터 놓는다. `V.plan`(현재 계획, 자세한 것)은 그대로다.
+- `V.intent.promoted`: `{ K12: "C4" }`
+  - chat의 `pending`/`unread` 줄 가운데 사용자가 기준으로 올린 것이다.
+- chat 항목에 더한 필드
+  - `user.step?`, `agent.step?`: `"P3.1"`. 작업 폴더가 있는 작업의 요청만 기록하고, 예전 항목에는 없다.
+  - `spec.secs`: 걸린 초
+  - `changes.files[]`: `{ status, path, add, del }`. 바이너리 파일이면 `add`/`del`이 `null`이다.
+  - `criterion-edit`: action `"edit"`이 생겼고 `prev?`(고치기 전 문장)를 둔다.
+  - `report`: `format?: "html"`, `sections?`
+
+### `pablo:state` (M)
+
+- `M.reproCriteria`: `string[3]`. 재현 작업의 기본 기준 문장이다.
+- `M.host`: `{ shell, noticed, fonts, version: "0.9.0", codex: "0.152.0" | null, userData: "<절대 경로>", logs: null, checkpoints: <bytes> | null }`
+  - checkpoints는 30초 캐시다.
+- `M.settings`: `panel`은 `"open" | "rail" | "always"`, `side`는 boolean(사이드바 접힘)이 더해졌다. 저장은 `setUi(null, "settings", {...})`로 한다.
+
+### pabloHost (preload) — 새 것과 바뀐 것
+
+- `cancel(what)` → boolean
+  - what은 `"spec"` 또는 `"compare"`(비교표, 열 추가)다. 대기 중이거나 실행 중인 Python 호출을 끝낸다.
+  - 그 호출은 `"중지했습니다."` 오류로 끝난다. 재현 점검(에이전트 턴)은 기존 `stop()`을 쓴다.
+- `onAgent` 이벤트 `{ type: "progress", task, what, ... }`
+  - `what: "spec"`: `page, pages`
+  - `what: "audit"`: `files, judged, total`
+- `openPath(which)` → true
+  - which는 `"userData" | "checkpoints" | "logs"`다. logs는 늘 오류("로그 폴더가 없습니다…")다.
+- `peekArxiv(text)` → `{ id, version | null, title | null, filename: "arxiv-<id>.pdf", source: "arxiv.org", bytes | null }`
+  - 내려받지 않는다. 없는 번호면 "arXiv에 그 번호의 논문이 없습니다."라고 거절한다. 실제 받기는 기존 `addArxiv`가 한다.
+- `pickPdfsFree()` → `[{ token, name }] | null`
+- `pickFolderFree()` → `{ token, name } | null`
+  - Pablo 폴더와 겹치면 고를 때 바로 오류를 낸다.
+- `attachPicked(task, tokens)` → `{ added: [{ title, same }], failed: [{ file, error }], folder: name | null }`
+  - 토큰은 한 번만 쓸 수 있다. PDF는 20개까지, 폴더는 하나다.
+  - 순서: `newTask` → `attachPicked` → arXiv/DOI는 `addArxiv`/`lookupDoi`, 인터넷은 `setNet`.
+- `reportPreview(task)` → `{ counts, stale, auto, where }`
+  - `counts`: `{ criteria: { hard, soft }, conditions, audit: { at | null }, deviations, decisions, changes, refused, conversation }`
+  - `stale`: 마지막 점검 뒤에 changes나 undo가 있는가
+  - `auto`: `"점검 시각 2026-10-27 14:03 · git HEAD 1a2b3c4 · Pablo 0.9.0"`. 점검이 없으면 "점검 전"이고, git이 아니면 HEAD를 뺀다.
+  - `where`: `"<폴더 이름>/reports"` | null
+- `pickReportPath(task, format)` → `{ token, display: "<폴더>/<파일>" } | null`
+  - format은 `"md" | "html"`이다. 저장 대화상자를 먼저 연다. 기본 위치는 `<작업 폴더>/reports`(없으면 작업 폴더)다.
+- `report(task, opts?)` → `{ name, lines, format, display } | null`
+  - `opts`: `{ sections?: [...], format?: "md" | "html", token?: <pickReportPath 토큰> | "default" }`
+  - sections 값: goal_criteria, conditions, audit, deviations, decisions, changes, refused, conversation. 없으면 대화를 뺀 전부(이전과 같은 보고서)다.
+  - `token: "default"`: `<작업 폴더>/reports/<이름>`에 저장한다. 작업 폴더가 없으면 오류다.
+  - 토큰이 없으면 이전처럼 저장 대화상자를 연다.
+- `criterion(task, id, "edit", text)`
+  - text는 500자까지다. 같은 기준(세기·범위)의 문장만 바꾼다. 대화에 criterion-edit `"edit"`이 남는다.
+- `authStatus()`, `onAuth` → `{ state, error?, code? }`
+  - code는 siwc SAY의 키다: no_plan_permission, not_eligible, timeout, cancelled, access_denied, network, usage_limit, overloaded 등.
+  - S2(실패)와 S3(플랜 불가: no_plan_permission / not_eligible)를 이것으로 가른다. 토큰은 여전히 넘어오지 않는다.
+
+### Python CLI
+
+- `restate C4 "<새 문장>"` → `{ item, before }`
+  - 활성 기준만 바꿀 수 있다. 1–500자이고, 기록의 reason은 "사용자가 고침"이다.
+- `report T1 [--sections a,b] [--format md|html] [--preview] [--now JSON]`
+  - 기본: `{ text, title, format }`
+  - `--preview`: `{ counts, stale, title }`
+- `spec`: 진행 줄 `{"progress": {"page", "pages"}}`을 stderr로 낸다(stdout의 JSON은 그대로다).
