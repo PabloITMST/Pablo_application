@@ -187,6 +187,9 @@ def build(d: str) -> str:
          "outside": [
              {"kind": "method", "what": "설정한 임베딩 모델을 불러 쓰는 코드가 없습니다.", "where": "run.py:1-3",
               "found": "cfg = yaml.safe_load(open('config.yaml'))", "check": "verified"},
+             # the same line as an item's: one place, not two, when the card counts what changed (rehearsal 10/27)
+             {"kind": "method", "what": "검색 깊이를 설정 파일 한 줄로만 정합니다.", "where": "config.yaml:5",
+              "found": "top_k: 10", "check": "verified"},
              {"kind": "scope", "what": "논문의 baseline 비교 실험이 이 폴더에 없습니다.", "where": "", "found": "", "check": "unchecked"},
              {"kind": "method", "what": "PageRank 대신 차수로 순위를 매깁니다.", "where": "retrieve.py:22",
               "found": "scores = sub.degree()", "check": "no_file"}]},
