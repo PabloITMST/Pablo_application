@@ -1582,6 +1582,211 @@ body.dropping #log { outline:0; } body.dropping #log::before { content:none; dis
 }
 /* end A2 complete · A */
 /* A2 complete · B conversation: messages, cards, views, composer, state cards (agent B) */
+/* B1 messages: the person's avatar ink 6%, name 13 / time mono 11 */
+.msg.user .av { background:var(--a6); color:var(--ink-2); border-color:transparent; }
+.who small { font:400 11px/1 var(--mono); color:var(--ink-3); }
+/* B2 / B3 tags: targets white on a hairline; a suggestion orange soft with 맞음 / 아님 and its reason under the row */
+.tags { position:relative; gap:6px; }
+.tg.tgt { background:var(--white); border:1px solid var(--a12); color:var(--ink-2); }
+.tg.sug { background:var(--signal-soft); border:1px solid transparent; color:var(--ink); font-weight:600; }
+.tg.sug .ico { color:var(--signal); } button.tg.sug { cursor:pointer; }
+.tags .tagbtn.yes, .tags .tagbtn.no { color:var(--ink); font-weight:600; }
+.tags .tagbtn[data-tag-edit] { color:var(--ink-3); }
+.msg .sugwhy { margin:4px 0 0; font-size:12px; line-height:18px; color:var(--ink-3); }
+/* B15 the tag popover (320) */
+.tagedit { position:absolute; z-index:30; top:calc(100% + 6px); left:0; width:320px; max-width:calc(100vw - 32px); box-sizing:border-box;
+  margin:0; padding:14px 16px; background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); box-shadow:var(--sh-lg);
+  display:flex; flex-direction:column; gap:6px; font-size:13px; line-height:20px; color:var(--ink); }
+.tagedit > b { font:600 14px/20px var(--sans); }
+.te-sec { margin-top:6px; font:500 12px/16px var(--sans); color:var(--ink-3); }
+.tagedit .te-stage { flex-direction:column; gap:2px; }
+.te-stage label { display:flex; align-items:center; gap:8px; height:var(--h-in); padding:0 8px; border-radius:var(--r-tag); cursor:pointer; }
+.te-stage label:has(input:checked) { background:var(--a6); font-weight:600; }
+.te-stage label small { margin-left:auto; font:400 11px/1 var(--sans); color:var(--ink-3); }
+.tagedit input[type=radio], .tagedit input[type=checkbox] { accent-color:var(--ink); margin:0; }
+.te-tg { display:flex; flex-wrap:wrap; gap:6px; }
+.te-x { margin-left:2px; padding:0 2px; border:0; background:none; color:var(--ink-3); font-size:12px; line-height:1; cursor:pointer; }
+.te-x:hover { color:var(--ink); }
+.te-add { height:var(--h-ctl); box-sizing:border-box; padding:0 10px; border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white);
+  font-size:12px; outline:none; } .te-add:focus { border-color:var(--ink-3); }
+.te-dec { display:flex; align-items:center; gap:8px; min-height:var(--h-in); cursor:pointer; }
+.te-crit { display:flex; flex-direction:column; gap:6px; padding-left:22px; } .te-crit[hidden] { display:none; }
+.tagedit .te-foot { align-items:center; margin-top:6px; } .te-foot .te-note { flex:1; margin:0; font-size:11px; line-height:16px; color:var(--ink-3); }
+/* B4-B6 the criteria notes: no avatar; added = orange soft band, held back = a card that asks, not read = grey band */
+.msg.note { grid-template-columns:minmax(0, 1fr); margin-bottom:16px; }
+.msg.note > .av, .msg.note .who, .msg.note .tags { display:none; }
+.msg .band { display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; margin:0 0 8px; padding:10px 16px; border-radius:var(--r-in);
+  font-size:14px; line-height:22px; color:var(--ink); }
+.band.ok { background:var(--signal-soft); } .band.ok > .ico { flex:none; color:var(--signal); }
+.band.q { background:var(--a5); color:var(--ink-2); font-size:13px; } .band.q > .ico { flex:none; color:var(--ink-3); }
+.band .bt { flex:1 1 240px; min-width:0; } .band .bt b { font-weight:500; color:var(--ink); }
+.band .rt { margin-left:auto; flex:none; display:inline-flex; align-items:center; gap:8px; } .band .em { display:none; }
+.band .link .ico { vertical-align:-2px; }
+.hold { margin:0 0 8px; padding:16px 20px; background:var(--white); border-left:3px solid var(--signal); border-radius:var(--r-card); box-shadow:var(--sh-md); }
+.msg .hold p { margin:0; } .hold .ttl { font:600 14px/22px var(--sans); margin-bottom:6px !important; }
+.hold b { font-weight:500; } .hold .acts { display:flex; gap:8px; margin-top:12px !important; }
+.asmenu { display:inline-flex; gap:2px; padding:2px; background:var(--white); border:1px solid var(--a8); border-radius:var(--r-ctl); }
+.asmenu[hidden] { display:none; }
+.asmenu button { height:var(--h-in); padding:0 10px; border-radius:var(--r-tag); font:500 12px/1 var(--sans); color:var(--ink); }
+.asmenu button:hover { background:var(--a5); }
+.call .band { margin:6px 0; padding:8px 12px; }
+/* cards: only what waits on the person has the orange edge (WARN, 결정, 다시 뽑기 확인); a record is white on a hairline;
+   a BLOCK or a failure is grey; badges head them (막음 orange, 확인 필요 orange soft) */
+.msg .call { margin:8px 0; padding:14px 18px; border:1px solid var(--a8); border-left:1px solid var(--a8); border-radius:var(--r-card);
+  background:var(--white); box-shadow:var(--sh-sm); }
+.msg .call p { margin:4px 0; } .msg .call .head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 6px; color:var(--ink);
+  font:600 14px/22px var(--sans); }
+.msg .call.warn:not(.settled), .msg .call:not(.block):not(.issue):not(.guard):not(.fail) { border-left:3px solid var(--signal); box-shadow:var(--sh-md); }
+.msg .call.block { background:var(--a4); border-color:var(--a8); box-shadow:none; }
+.msg .call.fail { background:var(--white); box-shadow:var(--sh-sm); } .msg .call.fail .head .ico { color:var(--ink-2); }
+.call.lock .head::before { content:"막음"; flex:none; height:var(--h-tag); box-sizing:border-box; display:inline-flex; align-items:center; padding:0 7px;
+  border-radius:var(--r-tag); background:var(--signal); color:#fff; font:600 11px/1 var(--sans); }
+.call.warn .head::before { content:"확인 필요"; flex:none; height:var(--h-tag); box-sizing:border-box; display:inline-flex; align-items:center; padding:0 7px;
+  border-radius:var(--r-tag); background:var(--signal-soft); color:var(--signal); font:600 11px/1 var(--sans); }
+.call.compact .head code { background:none; padding:0; font:500 13px/22px var(--mono); }
+.call .crit b { font-weight:600; color:var(--ink); } .call .crit:empty { display:none; }
+.call .acts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px !important; }
+.call .foot, .call .acts + .foot { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:8px; }
+.call .foot details.tech { margin:0; } .call .foot details.tech[open] { flex-basis:100%; order:2; }
+details.tech > summary { list-style:none; font:600 12px/20px var(--sans); color:var(--ink); cursor:pointer; }
+details.tech > summary::-webkit-details-marker { display:none; } details.tech > summary::after { content:" ▸"; } details.tech[open] > summary::after { content:" ▾"; }
+.call.issue { box-shadow:var(--sh-sm); } .call.issue .mascot.pose { height:44px; }
+.call.fail .why { color:var(--ink-2); font-size:13px; }
+.rev { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:4px 0; font-size:13px; color:var(--ink-2); }
+.rev.dec .ico { color:var(--ink-2); }
+.tg.rv { background:var(--a6); border-color:transparent; color:var(--ink-2); }
+.tg.rv-aligned { background:var(--a6); color:var(--ink); } .tg.rv-partial, .tg.rv-deviated { background:var(--signal-soft); color:var(--ink); }
+.tg.rv-failed { background:var(--ink); color:#fff; }
+/* B9 the changed files: a grey band, the buttons on its right */
+.msg .changes { padding:0; border:0; background:none; box-shadow:none; }
+.changes .chg-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 12px 10px 16px; background:var(--a5); border-radius:var(--r-in); }
+.changes .chg-row > .ico { flex:none; color:var(--ink-2); }
+.msg .changes .chg-t { flex:1 1 220px; margin:0; font-size:14px; line-height:22px; color:var(--ink); }
+.changes .nums { font:500 12px/1 var(--mono); color:var(--ink-2); } .changes .gone { text-decoration:line-through; color:var(--ink-3); }
+.changes .chg-acts { display:inline-flex; gap:8px; margin-left:auto; align-items:center; }
+.pill.soft { background:var(--signal-soft); border-color:transparent; color:var(--ink); } .pill.soft:hover:not(:disabled) { background:#ffd3bd; }
+.changes > pre.diff { margin:8px 0 0; } .changes .undo-err { margin:8px 0 0; display:flex; gap:6px; align-items:center; }
+/* B7 the verification bar under a paper answer; S42 a stopped answer */
+.msg .verify { display:flex; align-items:center; gap:8px; margin:8px 0; padding:6px 12px; background:var(--a5); border-radius:var(--r-ctl);
+  font-size:12px; line-height:18px; color:var(--ink-2); } .verify .ico { flex:none; color:var(--ink-3); }
+[data-web-only] { display:flex; gap:6px; align-items:center; font-size:12px; }
+.msg .stopped { display:flex; align-items:center; gap:6px; font-size:12px; } .stopped .ico { color:var(--ink-3); }
+.ask-pick { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+/* S53 작업을 마침 */
+.done-card { display:flex; gap:14px; align-items:flex-start; padding:16px 18px; background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card);
+  box-shadow:var(--sh-sm); } .done-card .mascot.pose { height:56px; margin:0; } .done-card .ttl { font:600 14px/22px var(--sans); margin:0 0 4px; }
+.done-card .pill { display:inline-flex; gap:6px; }
+/* B10 the conditions card · F25 the re-extraction diff · B11 the audit · B12 the table */
+.msg .spec, .msg .audit, .msg .matrix:not(.wide), .redo-card { margin:10px 0; padding:16px 18px; background:var(--white); border:1px solid var(--a8);
+  border-radius:var(--r-card); box-shadow:var(--sh-sm); }
+.sp-top, .au-top, .mx-top { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+.sp-top .head, .au-top .head, .mx-top .head { flex:1 1 200px; margin:0 !important; font:600 16px/24px var(--sans); }
+.sp-acts { display:inline-flex; align-items:center; gap:12px; margin-left:auto; } .sp-acts .pill { gap:6px; }
+.msg .sp-sub, .msg .au-sub { margin:4px 0 10px; font-size:12px; color:var(--ink-3); }
+.chips { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 10px; }
+.pill.chip { padding:0 12px; font-size:12px; } .pill.chip.on { background:var(--white); color:var(--ink); border:1.5px solid var(--ink); font-weight:600; }
+.spec .sp-cat { margin:0 0 8px; border:1px solid var(--a8); border-radius:var(--r-in); overflow:hidden; }
+.spec .sp-cat h4 { display:flex; align-items:center; gap:6px; margin:0; padding:8px 12px; border:0; background:var(--a6); color:var(--ink);
+  font:600 13px/20px var(--sans); cursor:pointer; } .spec .sp-cat h4 small { font-weight:400; color:var(--ink-3); }
+.spec .sp-cat h4 .car { font-size:9px; color:var(--ink-2); } .spec .sp-cat h4 .hint { margin-left:auto; font-weight:400; font-size:12px; color:var(--ink-3); }
+.spec .sp-cat ul, .redo-card .rd-list { list-style:none; margin:0; padding:0; }
+.spec .sp-cat li, .redo-card .rd-list li { position:relative; display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0; padding:9px 12px;
+  border-top:1px solid var(--a6); font-size:14px; line-height:22px; color:var(--ink); }
+.spec .sp-cat li:first-child, .redo-card .rd-list li:first-child { border-top:0; }
+.spec li .sx, .redo-card li .sx { flex:1 1 200px; min-width:0; }
+.tg.kd { background:var(--a6); border-color:transparent; color:var(--ink-2); } .tg.wv { background:var(--signal-soft); border-color:transparent; color:var(--ink); margin-left:6px; }
+.spec .sp-shutline { display:flex; flex-wrap:wrap; gap:4px 16px; margin:0 0 8px; padding:8px 12px; background:var(--a6); border-radius:var(--r-in); }
+.sp-shut { background:none; border:0; padding:0; font:500 13px/20px var(--sans); color:var(--ink); cursor:pointer; } .sp-shut small { color:var(--ink-3); font-weight:400; }
+.racts { display:inline-flex; align-items:center; gap:4px; flex-wrap:wrap; font-size:12px; }
+.spec li > .racts, .audit li > .racts { opacity:0; transition:opacity .12s; }
+.spec li:hover > .racts, .spec li:focus-within > .racts, .audit li:hover > .racts, .audit li:focus-within > .racts,
+.spec li > .racts:has(input, select, .muted), .audit li > .racts:has(input, select, .muted) { opacity:1; }
+.racts .edits .link, .racts > .link { font-size:12px; color:var(--ink-2); } .racts .why { max-width:220px; height:28px; box-sizing:border-box;
+  border:1px solid var(--a12); border-radius:var(--r-ctl); padding:0 8px; font-size:12px; background:var(--white); }
+.racts .why.need { border-color:var(--signal); box-shadow:0 0 0 3px var(--signal-soft); }
+.redo-card .head { display:flex; align-items:center; gap:8px; margin:0 0 4px; font:600 14px/22px var(--sans); }
+.redo-card .rd-sec { margin:10px 0 4px; font:500 12px/16px var(--sans); color:var(--ink-3); }
+.redo-card .rd-list li { background:var(--a4); border-radius:var(--r-ctl); border-top:0; margin-top:4px; font-size:13px; }
+.redo-card s { font:400 12px/1 var(--mono); color:var(--ink-3); } .redo-card .nv { font:600 12px/1 var(--mono); }
+.redo-card .rd-gone > summary { list-style:none; margin-top:10px; font-size:12px; color:var(--ink-2); cursor:pointer; }
+.redo-card .rd-gone > summary::-webkit-details-marker { display:none; } .redo-card .rd-gone:not([open]) > summary .ico { transform:rotate(-90deg); }
+.redo-card .rd-list .rt { margin-left:auto; } .redo-card .rd-new { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:10px 0 0; }
+.redo-card .rd-new .rd-sec { margin:0 4px 0 0; }
+.spec.replaced { background:var(--a4); box-shadow:none; } .spec.replaced .head { display:flex; align-items:center; gap:6px; font-size:14px; }
+.audit .chips { margin-top:10px; } .msg .audit li { position:relative; padding:12px 0; }
+.audit li > b.vb { display:inline-flex; align-items:center; height:var(--h-tag); box-sizing:border-box; padding:0 7px; border-radius:var(--r-tag);
+  background:var(--a6); color:var(--ink-2); font:600 11px/1 var(--sans); vertical-align:1px; }
+.audit li > b.vb-differs { background:var(--signal); color:#fff; } .audit li > b.vb-pairing, .audit li > b.vb-unclear { background:var(--signal-soft); color:var(--signal); }
+.audit li > b.vb-intended { background:var(--white); border:1px solid var(--a12); color:var(--ink); } .audit li > b.vb-followed { background:var(--a6); color:var(--ink); }
+.audit li > b.vb-missing { background:var(--white); border:1px solid var(--a12); color:var(--ink-2); }
+.audit .pv { font:400 12px/1 var(--mono); color:var(--ink-3); } .audit li[hidden], .audit .outside[hidden] { display:none; }
+.audit li > .racts { position:absolute; right:0; top:10px; background:linear-gradient(90deg, transparent, var(--white) 14px); padding-left:18px; }
+.audit .stale { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:12px 16px !important; border-radius:var(--r-in) !important; font-size:13px; }
+.audit .stale > .pill { margin-left:auto; flex:none; }
+.audit.au-fail { background:var(--white); } .audit.au-fail .head { display:flex; align-items:center; gap:6px; }
+.matrix .metric { display:block; margin-top:2px; font:400 11px/16px var(--mono); color:var(--ink-3); }
+.matrix .metric.differ { color:var(--signal); }
+.matrix td:has(.cite.on) { background:var(--a5); box-shadow:inset 0 0 0 1.5px var(--a12); }
+.matrix .mx-foot, .matrix .common { display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; margin:10px 0 0; font-size:12px; }
+/* B13 단계별 · B16 대상별 · F24 거르기 */
+#log .filtered { display:none !important; }
+.stagegroup .sg-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.sg-head .sg-tog { margin-left:auto; font-size:12px; color:var(--ink-2); }
+.sg-sum .sum-k { font-weight:600; } .sg-sum .sg-own { display:flex; align-items:center; gap:8px; margin:8px 0 0; }
+.sg-sum .sg-own small { font-size:11px; color:var(--ink-3); } .sg-sum .sg-tools { margin:6px 0 0; font-size:12px; }
+.sg-sum .sg-tools .link { font-size:12px; color:var(--ink-2); }
+.sg-dh { margin:10px 0 4px; font:500 12px/16px var(--sans); color:var(--ink-3); } .sg-dec small { color:var(--ink-3); font-family:var(--mono); }
+.sg-msgs[hidden] { display:none; } .sg-msgs { margin-top:12px; }
+.spin { display:inline-block; width:10px; height:10px; border:1.5px solid var(--a12); border-top-color:var(--ink-2); border-radius:50%; animation:spin .8s linear infinite; vertical-align:-1px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.targetgroup > summary { list-style:none; display:flex; align-items:center; gap:8px; } .targetgroup > summary::-webkit-details-marker { display:none; }
+.targetgroup > summary small { font-size:12px; color:var(--ink-3); font-family:var(--sans); }
+.targetgroup > summary .tog { margin-left:auto; font-size:12px; color:var(--ink-2); } .targetgroup > summary .tog::after { content:"펼치기 ▸"; }
+.targetgroup[open] > summary .tog::after { content:"접기 ▾"; }
+.targetgroup:not([open]) { background:var(--a4); border-color:transparent; }
+.targetgroup .tg-band { margin:0 0 12px; padding:6px 12px; background:var(--a5); border-radius:var(--r-ctl); font-size:12px; line-height:20px; color:var(--ink-2); }
+#filter-banner { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:0 auto 16px; padding:8px 16px; font-size:13px; color:var(--ink-2); }
+#filter-banner .fb-t { flex:1 1 auto; } #filter-banner .link { font-size:13px; color:var(--ink); } #filter-banner .link .ico { vertical-align:-2px; }
+.hidnote { max-width:680px; margin:-12px auto 16px; padding-left:40px; } .hidnote .link { font-size:12px; font-weight:500; color:var(--ink-3); }
+.fmenu { position:fixed; z-index:40; width:320px; max-width:calc(100vw - 16px); box-sizing:border-box; padding:4px; background:var(--white);
+  border:1px solid var(--a8); border-radius:10px; box-shadow:var(--sh-lg); }
+.fmenu .mi { display:flex; align-items:center; gap:10px; width:100%; height:var(--h-ctl); padding:0 10px; border-radius:var(--r-ctl); background:none;
+  font:500 13px/1 var(--sans); color:var(--ink); text-align:left; } .fmenu .mi:hover, .fmenu .mi.on { background:var(--a5); }
+.fmenu .mi .mi-t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .fmenu .mi small { color:var(--ink-3); font:400 11px/1 var(--mono); }
+.fmenu .mi .ico { flex:none; color:var(--ink-2); } .fmenu .mi-note, .fmenu .mi-none { margin:4px 0 0; padding:6px 10px; border-top:1px solid var(--a6); font-size:11px; line-height:16px; color:var(--ink-3); }
+/* B17 the composer: 보낼 곳 always, the stage it is recorded in, the model chip (모델 · 생각 수준) on a hairline, status, send */
+#chat > .composer[data-agent] > button:first-of-type { order:6; width:auto; min-width:64px; height:var(--h-ctl); padding:0 14px; gap:6px;
+  display:inline-flex; align-items:center; justify-content:center; border-radius:var(--r-ctl); background:var(--primary); color:var(--on-primary);
+  font:600 13px/1 var(--sans); }
+#chat > .composer[data-agent] > button:first-of-type:disabled { background:var(--a12); color:var(--white); }
+#chat > .composer[data-agent][data-running="1"] > button:first-of-type { background:var(--signal-soft); color:var(--ink); }
+#chat > .composer[data-agent][data-running="1"] > button:first-of-type .ico { fill:currentColor; color:var(--ink); }
+#chat > .composer > button.modelbtn { border:1px solid var(--a12); padding:0 10px; gap:6px; font-family:var(--sans); color:var(--ink); }
+.composer #route .seg > button:disabled { color:var(--ink-3); opacity:.55; cursor:not-allowed; }
+#chat > .composer > .stagehint { order:2; color:var(--ink-3); } #chat > .composer > .stagehint .tg.stage { margin:0 2px; border-radius:var(--r-tag); padding:0 6px; font-weight:500; }
+#chat > .composer > .mmenu { width:260px; padding:4px; border-radius:10px; }
+.composer .mmenu .mm-h { margin:6px 10px 4px; font:500 11px/16px var(--sans); color:var(--ink-3); }
+.composer .mmenu button.mopt { display:flex; align-items:center; justify-content:space-between; width:100%; height:var(--h-ctl); padding:0 10px; }
+.composer .mm-seg { display:flex; gap:2px; margin:0 6px; padding:2px; background:var(--a5); border-radius:var(--r-ctl); }
+.composer .mm-seg .mlv { flex:1; height:var(--h-in); padding:0 6px; border-radius:var(--r-tag); font:500 12px/1 var(--sans); color:var(--ink-2); background:none; }
+.composer .mm-seg .mlv.on { background:var(--white); color:var(--ink); font-weight:600; box-shadow:var(--sh-sm); }
+.composer .mmenu .mm-note { margin:6px 10px 6px; font-size:11px; line-height:16px; color:var(--ink-3); }
+/* B18 / B19 progress cards (S5 / S7) · S12 download · S22 nowhere to send */
+.msg .prog { margin:8px 0; padding:14px 16px; background:var(--a4); border-radius:var(--r-card); }
+.prog .pg-bar0 { width:100px; height:3px; margin:0 0 8px; border-radius:2px; background:var(--signal); }
+.msg .prog p { margin:0; } .prog .pg-st { font:600 13px/20px var(--sans); color:var(--ink); } .prog .pg-n { font:600 11px/1 var(--mono); color:var(--signal); }
+.prog .pg-sub { font-size:12px; color:var(--ink-3); } .msg .prog .pg-t { margin-top:6px; font:500 14px/22px var(--sans); color:var(--ink); }
+.prog .pg-bar { height:4px; margin:8px 0 10px; border-radius:2px; background:var(--a8); overflow:hidden; }
+.prog .pg-bar > i { display:block; height:100%; width:3%; background:var(--ink); border-radius:2px; transition:width .4s ease; }
+.prog .pg-foot { display:flex; align-items:center; gap:12px; font-size:12px; color:var(--ink-2); }
+.dl-card .dl-file { display:flex; flex-direction:column; gap:2px; margin:6px 0; padding:10px 12px; background:var(--white); border:1px solid var(--a8); border-radius:var(--r-in); }
+.dl-card .dl-file code { background:none; padding:0; font:500 13px/20px var(--mono); } .dl-card .dl-file small { font-size:12px; color:var(--ink-3); }
+.call[data-route="none"] .acts .pill { gap:6px; }
+@media (max-width:900px) { .tagedit { left:-34px; } .audit li > .racts { position:static; background:none; padding:0; opacity:1; }
+  .spec li > .racts { opacity:1; } #chat > .composer > .stagehint { display:none; } }
+/* B1 the stage divider: a grey tag (the task's current stage keeps its orange dot), the time, a hairline */
+.divider .tg.stage { border-radius:var(--r-tag); padding:0 7px; font-weight:500; gap:5px; }
+.divider:not([data-now]) .dot { display:none; }
 /* end A2 complete · B */
 /* A2 complete · C right column: tabs, panel, rail, evidence, wide table (agent C) */
 #panel { position:relative; }
@@ -1830,7 +2035,8 @@ const ALIGN = { aligned: "계획대로 실행했습니다", partial: "일부만 
                 failed: "실행에 실패했습니다", not_executed: "실행하지 않았습니다" };
 const DECIDE = { proceed: "사용자가 진행을 승인했습니다", defer: "사용자가 보류했습니다", reject: "사용자가 취소했습니다" };
 // stored times are UTC ISO; shown in the user's local time
-const time = s => s ? new Date(s).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+// A2 complete (B1): a message's time is HH:mm (the stage dividers too); the day is the task's
+const time = s => { if (!s) return ""; const d = new Date(s); return isNaN(d) ? "" : String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
 const day = s => new Date(s).toLocaleDateString("ko-KR");
 // M5.1 presentation only: the stored action text (raw command / full path) -> what it does; raw stays in 기술 세부정보
 const base = p => p.trim().replace(/["']/g, "").split(/[\\/]/).pop();
@@ -1887,6 +2093,17 @@ function cite(e, n) {  // n: the answer's own number (M3.3 ask); else one number
 // D1: an answer whose every quote is from a web page says so: Pablo did not find it in a paper (it stays PARTIALLY_VERIFIED)
 const webOnly = k => k.evidence.length > 0 && k.evidence.every(onWeb)
   ? h("p", { class: "muted", "data-web-only": "1" }, "🌐 웹 문서에만 근거한 답입니다. 논문에서 확인되지 않았습니다.") : null;
+// A2 complete (B7): under a paper answer, how its quotes were checked: all found in which source's own text; the ones
+// Pablo could not place were left out of the answer
+const verified = (k, dropped) => { const es = [...new Set((k.evidence || []).filter(e => M.anchors[e]))];
+  if (!es.length && !dropped) return null;
+  const ts = [...new Set(es.map(e => (M.sources[M.anchors[e].source] || {}).title).filter(Boolean))];
+  return h("p", { class: "verify", "data-verify": String(es.length) }, ico("check-circle", 14), h("span", null, `인용 ${es.length}개`,
+    es.length ? ` · 모두 ${ts.length === 1 ? ts[0] : "자료"} 원문에서 위치를 확인했습니다` : "",
+    dropped ? ` · 위치를 못 찾은 인용 ${dropped}개는 답에서 뺐습니다` : "")); };
+// S9 / S43 / S55: something did not work: what happened, then what to do (a grey card; .call.block: tests read it)
+const failCard = (title, err, ...more) => h("div", { class: "call block fail" }, h("p", { class: "head" }, ico("info", 14), " ", title),
+  err ? h("p", { class: "why" }, err) : null, ...more);
 // ponytail: a citation goes after the sentence that contains its quote, else after the text; no claim-level matching
 function cited(text, eids) {
   const ns = [...text.matchAll(/\[(\d+)\]/g)].map(m => +m[1]);  // M3.3 ask: the answer already says where [n] goes
@@ -2152,8 +2369,11 @@ function ptabs() {
 }
 
 // ---- conversation: built from the stored research / plan / guard / review records --------------------------
+// B1: the person is "나"; a message without its own time (a live Pablo card) is stamped now (conversation() stamps the
+// stored ones with their record's time)
 const msg = (who, at, ...kids) => h("div", { class: "msg " + (who === "Pablo" ? "pablo" : "user") },
-  h("div", { class: "av" }, who === "Pablo" ? "P" : "나"), h("div", null, h("div", { class: "who" }, who, h("small", null, time(at))), kids));
+  h("div", { class: "av" }, who === "Pablo" ? "P" : "나"), h("div", null, h("div", { class: "who" }, who === "Pablo" ? "Pablo" : "나",
+    h("small", null, time(at === null ? new Date().toISOString() : at))), kids));
 // Normal progress is one Pablo answer; only research issues, WARN/BLOCK and open decisions get their own message.
 const SURE = { PARTIALLY_VERIFIED: "일부만 확인했습니다.", NOT_FOUND: "공식 근거를 찾지 못해 추정했습니다.",
                CONFLICTING: "출처끼리 내용이 다릅니다." };
@@ -2169,10 +2389,13 @@ function answer(asked) {
   return out;  // M5.0: plan, ALLOW actions and their runs are lifecycle -> Plan / 왜? panels only
 }
 // an ALLOW action whose run failed: the one ALLOW outcome the conversation shows
-const failed = a => a.verdict === "ALLOW" && a.runs.some(r => r.alignment === "failed") && h("div", { class: "call block", title: a.id, "data-id": a.id },
-  h("p", { class: "head" }, "⚠ 작업을 실행하지 못했습니다."), h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))),
-  runs(a).map(x => h("p", { class: "muted" }, x)), tech(a.text),
-  h("p", null, h("button", { class: "link", on: () => show({ mode: "trace", act: a.id }) }, "왜 그런가요?")));
+const failed = a => a.verdict === "ALLOW" && a.runs.some(r => r.alignment === "failed") && h("div", { class: "call block fail", title: a.id, "data-id": a.id },
+  h("p", { class: "head" }, ico("info", 14), " 작업을 실행하지 못했습니다"), h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))),
+  runRows(a), h("div", { class: "foot" }, tech(a.text), h("button", { class: "link", on: () => show({ mode: "trace", act: a.id }) }, "왜 그런가요?")));
+// S40: a run and its review as a badge (계획대로 · 일부만 · 계획과 다르게 · 실패) and what happened
+const BADGE = { aligned: "계획대로", partial: "일부만", deviated: "계획과 다르게", failed: "실패", not_executed: "실행하지 않음" };
+const runRows = a => a.runs.map(r => h("p", { class: "rev" }, r.alignment ? h("span", { class: "tg rv rv-" + r.alignment }, BADGE[r.alignment] || r.alignment) : null,
+  h("span", null, (r.executed ? "실행 결과: " : "") + done(r) + (r.alignment ? ` · ${ALIGN[r.alignment] || r.alignment}` : ""))));
 const done = r => meaning(r.summary.replace(/^실행하지 않음: /, ""));
 const runs = a => a.runs.map(r => (r.executed ? "실행 결과: " : "") + done(r) + (r.alignment ? ` · ${ALIGN[r.alignment] || r.alignment}` : ""));
 // a BLOCK is Pablo's own decision (its card says so); a reason that only repeats who decided is not shown again
@@ -2180,23 +2403,25 @@ const decided = a => a.decision && a.verdict !== "BLOCK"
   ? (DECIDE[a.decision] || a.decision) + (a.decision_reason && !/^(사용자가|Guard )/.test(a.decision_reason) ? ` · ${a.decision_reason}` : "") : null;
 function issues() {
   return V.research.flatMap(id => V.checks[id].issues.map(i => { const c = V.checks[id];
-    return h("div", { class: "call", title: i.id, "data-id": i.id }, art("surprised", "pose"),
-      h("p", { class: "head" }, "⚠ " + (ISSUE[i.type] || ISSUE.other)), h("p", null, rich(i.note), c.evidence.map(cite)),
-      c.evidence.length ? h("p", null, "Pablo는 공식 원문을 기준으로 판단했습니다.") : null); }));
+    return h("div", { class: "call issue", title: i.id, "data-id": i.id }, art("surprised", "pose"),
+      h("p", { class: "head" }, ISSUE[i.type] || ISSUE.other), h("p", null, rich(i.note), c.evidence.map(cite)),
+      c.evidence.length ? h("p", { class: "muted" }, "Pablo는 공식 원문을 기준으로 판단했습니다.") : null); }));
 }
+// B8 / S39: a WARN / BLOCK as recorded; a badge heads it (막음 / 확인 필요, CSS), 기술 세부정보 and 왜? at its foot; a WARN
+// still waiting has the orange edge
 function action(a) {
   const block = a.verdict === "BLOCK", ev = a.criteria.flatMap(c => V.checks[c.id] ? V.checks[c.id].evidence : []);
   const d = decided(a);
-  return h("div", { class: "call" + (block ? " block lock" : ""), title: a.id, "data-id": a.id },
-    h("p", { class: "head" }, block ? "⚠ 이 작업은 현재 기준과 충돌합니다." : "⚠ 이 작업은 확인이 필요합니다."),
+  return h("div", { class: "call guard" + (block ? " block lock" : " warn" + (a.decision ? " settled" : "")), title: a.id, "data-id": a.id },
+    h("p", { class: "head" }, block ? "이 작업은 현재 기준과 충돌합니다" : "이 작업은 현재 기준과 충돌할 수 있습니다"),
     h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))), preview(a.text), current(a.text, V.task.id),
     a.why ? h("p", { class: "muted" }, `제시한 이유: "${a.why}"`) : null,
     a.problems.length ? [reason(a.problems[0], block), [...new Set(ev)].map(cite)] : null,
-    a.criteria.length ? h("p", { class: "muted" }, "관련 기준: ", a.criteria.map(c => c.text).join(" · ")) : null, offer(a),
-    d ? h("p", { class: "muted" }, d) : null, runs(a).map(x => h("p", { class: "muted" }, x)),
-    tech(a.text, ...a.problems.filter(x => !korean(x))),
-    h("p", null, block ? (runs(a).length ? null : h("b", { "data-blocked": "1" }, "Pablo가 막아 실행하지 않았습니다. ")) : !d ? h("b", null, "진행할지 결정이 필요합니다. ") : null,
-      h("button", { class: "link", on: () => show({ mode: "trace", act: a.id }) }, "왜 그런가요?")));
+    a.criteria.length ? h("p", { class: "muted crit" }, "관련 기준: ", h("b", null, a.criteria.map(c => c.text).join(" · "))) : null, offer(a),
+    d ? h("p", { class: "rev dec" }, ico("check-circle", 14), h("span", null, d)) : null, runRows(a),
+    block ? (runs(a).length ? null : h("p", { class: "muted" }, h("b", { "data-blocked": "1" }, "Pablo가 막아 실행하지 않았습니다. ")))
+      : !d ? h("p", { class: "muted" }, h("b", null, "진행할지 결정이 필요합니다. ")) : null,
+    h("div", { class: "foot" }, tech(a.text, ...a.problems.filter(x => !korean(x))), h("button", { class: "link", on: () => show({ mode: "trace", act: a.id }) }, "왜 그런가요?")));
 }
 // the desktop's chat log (chat.json): what the user said, the agent's replies, PDF questions and the check that answered
 const ASKFAIL = "답을 찾지 못했습니다.";
@@ -2212,23 +2437,25 @@ function current(text, task) {
   return ps.length && window.pabloHost && pabloHost.readFile
     ? h("p", { class: "muted" }, "📄 지금 파일 보기: ", ps.map((p, i) => [i ? " · " : "", fileLink(h("code", null, p), task, p)])) : null;
 }
+// B9: a grey band "파일 N개가 바뀌었습니다 · path +42" with [변경 보기] [되돌리기]; the diff opens under it (S50), undone or
+// refused says so under it (S51)
 function changed(c, task) {
-  const list = [c.files.slice(0, 8).map((f, i) => [i ? ", " : "", f.status === "D" ? f.path : fileLink(f.path, task, f.path),
-    ` (${CHANGE[f.status] || f.status})`]), c.files.length > 8 ? ` 외 ${c.files.length - 8}개` : ""];
-  const box = h("div", { class: "changes", "data-to": c.to }, h("p", null, `📝 파일 ${c.files.length}개가 바뀌었습니다: `, list));
+  const fs_ = c.files || [], nums = f => f.add == null || !(f.add || f.del) ? null : h("span", { class: "nums" }, f.add ? ` +${f.add}` : "", f.del ? ` −${f.del}` : "");
+  const one = f => [f.status === "D" ? h("span", { class: "gone" }, f.path) : fileLink(f.path, task, f.path), f.status === "D" ? " (삭제)" : f.status === "A" ? " (새 파일)" : "", nums(f)];
+  const box = h("div", { class: "changes", "data-to": c.to }, h("div", { class: "chg-row" }, ico("file", 14),
+    h("p", { class: "chg-t" }, `파일 ${fs_.length}개가 바뀌었습니다 · `, fs_.slice(0, 3).map((f, i) => [i ? ", " : "", one(f)]), fs_.length > 3 ? ` 외 ${fs_.length - 3}개` : "")));
   if (!window.pabloHost || !pabloHost.undo) return box;
-  const v = M.views[task], undone = v && (v.chat || []).some(x => x.role === "undo" && x.of === c.to), row = h("p", null);
+  const v = M.views[task], undone = v && (v.chat || []).some(x => x.role === "undo" && x.of === c.to), row = box.firstChild;
   let open = null;
-  const look = h("button", { class: "link", "data-look": "1", on: () => {
-    if (open) { open.remove(); open = null; return; }
-    pabloHost.diff(task, c.from, c.to).then(t => { open = preview("", t) || h("p", { class: "muted" }, "표시할 내용이 없습니다."); row.after(open); },
+  const look = h("button", { class: "pill", "data-look": "1", on: () => {
+    if (open) { open.remove(); open = null; look.textContent = "변경 보기"; return; }
+    pabloHost.diff(task, c.from, c.to).then(t => { open = preview("", t) || h("p", { class: "muted" }, "표시할 내용이 없습니다."); row.after(open); look.textContent = "변경 접기"; },
       e => row.after(h("p", { class: "muted" }, fail(e)))); } }, "변경 보기");
   const back = undone ? h("span", { class: "muted", "data-undone": "1" }, "되돌렸습니다.")
-    : h("button", { class: "link", "data-undo": "1", on: () => pabloHost.undo(task, c.from, c.to).then(() => {
+    : h("button", { class: "pill soft", "data-undo": "1", on: () => pabloHost.undo(task, c.from, c.to).then(() => {
         back.replaceWith(h("span", { class: "muted", "data-undone": "1" }, "되돌렸습니다. 다음 요청 때 에이전트에게도 알립니다.")); refresh(); },
-        e => row.after(h("p", { class: "muted", "data-undo-error": "1" }, fail(e)))) }, "되돌리기");
-  row.append(look, " · ", back);
-  box.append(row);
+        e => box.append(h("p", { class: "muted undo-err", "data-undo-error": "1" }, ico("info", 14), " 되돌리지 않았습니다. ", fail(e)))) }, ico("rotate", 14), "되돌리기");
+  row.append(h("span", { class: "chg-acts" }, look, back));
   return box;
 }
 // A2: a paper's reproduction conditions (PabloSkill.spec), by category, each with its page [n]; what the paper leaves open
@@ -2238,49 +2465,102 @@ const SPEC = { dataset: "데이터셋", split: "데이터 분할", preprocessing
 const fact = c => [rich((c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")), c.evidence.length ? " " : null, c.evidence.map(e => cite(e))];  // [n] numbered in this chat
 const ASIDE = { fact: "논문의 서술 (코드가 정하지 않음)", scope: "실험 범위 (이 재현 밖일 수 있는 실험)" };  // ⑥ not checked
 // 0.8 review: a re-extraction of the same paper says what changed; what the last one had and this one did not find comes
-// back with 되살리기 (extractions differ from run to run); what the user made of the conditions was kept
+// back with 되살리기 (extractions differ from run to run); what the user made of the conditions was kept.
+// A2 complete (F25): its own card above the new list: 바뀜 (the same setting with another value: the old one struck
+// through -> the new one, with its page), 빠짐 (되살리기), 새로. "The same setting": same category, the same words once
+// the value and the numbers are taken out (a rule, no model call)
+let specAgain = null, addSource = null;  // desktop: 다시 뽑기 (asks first), + 추가 (the add box)
+const KIND_TAG = { setting: "설정", result: "결과", scope: "범위", fact: "서술" };
+const pchip = k => { const e = ((k && k.evidence) || []).find(x => M.anchors[x]); if (!e) return null; const a = M.anchors[e];
+  return h("button", { class: "cite pg", "data-e": e, title: "근거 보기", on: () => show({ mode: "source", e }) }, a.page ? `p.${a.page}` : `[${cites[e] || 1}]`); };
+const plain = k => String(k.conclusion || k.title || "").replace(/\s*\[\d+\]/g, "");
 function redone(d) {
-  const gone = (d.gone || []).map(id => V.checks[id]).filter(k => k && k.state === "waived" && k.waived_by === "pablo");
   const can = window.pabloHost && pabloHost.condition, task = V.task.id;
+  const subj = k => { const v = String(k.spec.value || ""); return plain(k).replace(v, "").replace(/[\d.,%]+/g, "").replace(/\s+/g, "").slice(0, 40); };
+  const gone = (d.gone || []).map(id => V.checks[id]).filter(k => k && k.spec), fresh = (d.new || []).map(id => V.checks[id]).filter(k => k && k.spec);
+  const pairs = [], used = new Set();
+  gone.forEach(g => { const n = fresh.find(x => !used.has(x.id) && x.spec.category === g.spec.category && subj(x) === subj(g) && String(x.spec.value) !== String(g.spec.value));
+    if (n) { used.add(n.id); used.add(g.id); pairs.push([g, n]); } });
+  const out = gone.filter(k => !used.has(k.id)), add = fresh.filter(k => !used.has(k.id));
+  const lost = out.filter(k => k.state === "waived" && k.waived_by === "pablo");
   const back = k => { const at = h("span");
     return [at, h("button", { class: "link", "data-redo-restore": k.id, on: () => pabloHost.condition(task, "restore", { id: k.id }).then(() => {
       echo(task, { role: "spec-restore", check: k.id }); return refresh(); }, e => at.replaceChildren(h("span", { class: "muted" }, fail(e) + " "))) }, "되살리기")]; };
-  return h("div", { class: "muted", "data-redo": "1" },
-    h("p", null, `다시 뽑았습니다: 이전 ${d.before}개 중 ${d.same}개는 이번에도 나왔고, 새로 생긴 것 ${(d.new || []).length}개, 이번에 빠진 것 ${(d.gone || []).length}개입니다.`,
-      (d.kept || []).length ? ` 직접 더하거나 되살리거나 의도한 차이로 둔 조건 ${d.kept.length}개는 그대로 두었습니다.` : "",
-      (d.out || []).length ? ` 이전에 뺀 조건 ${d.out.length}개는 다시 넣지 않았습니다.` : ""),
-    gone.length ? h("details", { "data-gone": String(gone.length) }, h("summary", null, `이번에 빠진 조건 ${gone.length}개`),
-      h("ul", null, gone.map(k => h("li", { "data-id": k.id }, h("span", null, (SPEC[k.spec.category] || k.spec.category) + " · "), fact(k), can ? [" · ", back(k)] : null)))) : null);
+  const cat = k => h("span", { class: "tg kd" }, SPEC[k.spec.category] || k.spec.category);
+  return h("div", { class: "redo-card", "data-redo": "1" },
+    h("p", { class: "head" }, ico("rotate", 14), h("span", null, `다시 뽑았습니다: 이전 ${d.before}개 중 ${d.same}개 그대로 · 바뀜 ${pairs.length} · 빠짐 ${out.length} · 새로 ${add.length}`)),
+    (d.kept || []).length || (d.out || []).length ? h("p", { class: "muted" }, (d.kept || []).length ? `직접 더하거나 되살리거나 의도한 차이로 둔 조건 ${d.kept.length}개는 그대로 두었습니다. ` : "",
+      (d.out || []).length ? `이전에 뺀 조건 ${d.out.length}개는 다시 넣지 않았습니다. ` : "", "이전 목록은 위쪽 카드에 남습니다.") : null,
+    pairs.length ? [h("p", { class: "rd-sec" }, `바뀜 ${pairs.length}`), h("ul", { class: "rd-list", "data-changed": String(pairs.length) }, pairs.map(([g, n]) =>
+      h("li", { "data-id": n.id }, cat(n), h("span", { class: "sx" }, clip(plain(n).replace(String(n.spec.value), "").trim() || plain(n), 40)), " ",
+        h("s", null, g.spec.value), " → ", h("b", { class: "nv" }, n.spec.value), " ", pchip(n))))] : null,
+    out.length ? h("details", { class: "rd-gone", "data-gone": String(out.length) }, h("summary", null, ico("chevron-down", 12), ` 이번에 빠진 조건 ${out.length}개`),
+      h("ul", { class: "rd-list" }, out.map(k => h("li", { "data-id": k.id }, cat(k), h("span", { class: "sx" }, plain(k)), h("small", { class: "muted" }, " 이번 추출에 없음"),
+        can && lost.includes(k) ? h("span", { class: "rt" }, back(k)) : null)))) : null,
+    add.length ? h("p", { class: "rd-new" }, h("span", { class: "rd-sec" }, `새로 ${add.length}`), add.slice(0, 4).map(k => h("span", { class: "tg tgt" },
+      `${SPEC[k.spec.category] || k.spec.category} · ${clip(k.spec.value || plain(k), 20)}`)), add.length > 4 ? h("small", { class: "muted" }, ` 외 ${add.length - 4}`) : null) : null);
 }
-function conditions(ids, dropped, diff) {
+// B10: the conditions card. Its head (재현 조건 N개 · paper, 다시 뽑기, PDF에서 조건 더하기), how they were kept (located
+// only, left out, seconds), kind chips (전체 · 설정 · 결과 · 범위 · 서술), a grey head per category (a long list folds all
+// but two into one line "▸ 이름 N"), rows: kind · sentence · warnings · p.N · actions on hover; then 논문에 없는 설정
+function conditions(ids, dropped, diff, secs) {
   const cs = ids.map(id => V.checks[id]).filter(c => c && c.state !== "waived"), all = cs.filter(c => !c.spec.missing);
-  const stated = all.filter(c => !ASIDE[c.spec.kind]);
-  const open = cs.filter(c => c.spec.missing);
+  const open = cs.filter(c => c.spec.missing), task = V.task.id;
   const box = h("div", { class: "spec", "data-spec": "1" });
-  if (!cs.length) return box.appendChild(h("p", { class: "muted" }, "이 조건 목록은 다시 뽑은 목록으로 바뀌었습니다.")), box;
+  const again = specAgain ? h("button", { class: "pill", "data-spec-again": "1", on: () => specAgain() }, ico("rotate", 14), "다시 뽑기") : null;
+  if (!ids.length) return box.append(h("p", { class: "head" }, "위치를 확인한 조건이 없습니다"),  // S6
+    h("p", { class: "muted" }, `PDF에서 글자를 거의 읽지 못했거나(스캔본일 수 있음) 모델이 낸 조건의 원문 위치를 찾지 못했습니다.${dropped ? ` 위치가 확인되지 않은 조건 ${dropped}개는 남기지 않았습니다.` : ""} 기준과 작업 폴더는 그대로입니다.`),
+    again ? h("p", { class: "acts" }, again) : null), box;
+  if (!cs.length) { box.classList.add("replaced");  // S46: an older list, replaced by a re-extraction
+    box.append(h("p", { class: "head" }, ico("info", 14), " 이 조건 목록은 다시 뽑은 목록으로 바뀌었습니다"),
+      h("p", { class: "muted" }, "이 목록은 기록으로만 남고, 기준 탭과 재현 점검은 새 목록을 씁니다."),
+      h("p", null, h("button", { class: "link", "data-spec-newest": "1", on: () => { const x = [...document.querySelectorAll("#log [data-spec]:not(.replaced)")].at(-1); if (x) x.scrollIntoView({ block: "start" }); } }, "새 목록으로 가기")));
+    return box; }
   const paper = (cs.find(c => c.paper) || {}).paper;  // C1: which of the task's papers they are from
-  box.append(h("p", { class: "head" }, `📋 ${paper ? paper + "에서" : "논문에서"} 재현 조건 ${stated.length}개를 찾았습니다.`));
-  if (diff && !diff.first) box.append(redone(diff));
-  for (const k of Object.keys(SPEC)) {
-    const xs = stated.filter(c => c.spec.category === k);
-    if (xs.length) box.append(h("h4", null, SPEC[k]), h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id },
-      fact(c), c.spec.value_in_quote === false ? h("span", { class: "chk warn", "data-vq": "1", title: "모델이 읽은 값이 고정한 인용 문장 안에 없습니다. 원문에서 직접 확인하세요." },
-        ` ⚠ 값(${c.spec.value})이 인용 안에 없음`) : null,
-      c.spec.header_missing ? h("span", { class: "chk warn", "data-hm": "1", title: "PDF 글자에는 표의 머리가 따로 떨어져 있어, 어느 숫자가 어느 데이터셋·지표인지는 모델의 추측입니다." },
-        " ⚠ 인용에 표의 열 이름이 없습니다. 숫자와 데이터셋 짝을 원문 표에서 확인하세요") : null,
-      devOf(c) ? h("span", { class: "chk dev", "data-dev": c.id }, ` ◇ 의도한 차이(${WHERE_DEV[scopeOf(devOf(c))]}): ${devOf(c).why}`) : null))));
-  }
-  for (const [k, label] of Object.entries(ASIDE)) { const xs = all.filter(c => c.spec.kind === k);
-    if (xs.length) box.append(h("details", { "data-aside": k }, h("summary", null, `${label} ${xs.length}개 · 재현 점검에서 대조하지 않음`),
-      h("ul", null, xs.map(c => h("li", { title: c.id, "data-id": c.id }, h("span", { class: "muted" }, (SPEC[c.spec.category] || c.spec.category) + " · "), fact(c))))));
-  }
+  const pp = (((M.desk || {})[task] || {}).papers || []).find(p => p.primary && p.kind !== "web");
+  const pick = pp && (M.papers || {})[pp.id] ? h("button", { class: "link", "data-spec-pick": "1", title: "PDF에서 문장을 골라 재현 조건으로 더합니다", on: () => show({ mode: "paper", src: pp.id }) }, "PDF에서 조건 더하기") : null;
+  box.append(h("div", { class: "sp-top" }, h("p", { class: "head" }, `재현 조건 ${all.length}개 · ${paper || "논문"}${pp && paper === pp.title ? " (주 논문)" : ""}`),
+      h("span", { class: "sp-acts" }, again, pick)),
+    h("p", { class: "muted sp-sub" }, `원문에서 위치를 확인한 것만 남겼습니다 · 뺀 것 ${dropped || 0}개${secs ? ` · ${secs}초` : ""}`));
+  const kinds = Object.keys(KIND_TAG).map(k => [k, all.filter(c => (c.spec.kind || "setting") === k).length]).filter(x => x[1]);
+  let want = "";
+  const chips = kinds.length > 1 ? h("div", { class: "chips", role: "group", "aria-label": "종류" }) : null;
+  const cats = Object.keys(SPEC).map(k => [k, all.filter(c => c.spec.category === k)]).filter(x => x[1].length);
+  const opened = new Set(all.length <= 8 ? cats.map(x => x[0]) : cats.slice(0, 2).map(x => x[0]));
+  const row = c => h("li", { title: c.id, "data-id": c.id, "data-kind": c.spec.kind || "setting" },
+    h("span", { class: "tg kd", title: ASIDE[c.spec.kind] ? ASIDE[c.spec.kind] + " · 재현 점검에서 대조하지 않음" : null }, KIND_TAG[c.spec.kind] || "설정"),
+    h("span", { class: "sx" }, rich(plain(c)),
+      c.spec.value_in_quote === false ? h("span", { class: "tg wv", "data-vq": "1", title: "모델이 읽은 값이 고정한 인용 문장 안에 없습니다. 원문에서 직접 확인하세요." }, `값(${c.spec.value})이 인용 안에 없음`) : null,
+      c.spec.header_missing ? h("span", { class: "tg wv", "data-hm": "1", title: "PDF 글자에는 표의 머리가 따로 떨어져 있어, 어느 숫자가 어느 데이터셋·지표인지는 모델의 추측입니다. 원문 표에서 확인하세요." }, "표의 열 이름 없음") : null,
+      devOf(c) ? h("span", { class: "chk dev", "data-dev": c.id }, ` ◇ 의도한 차이(${WHERE_DEV[scopeOf(devOf(c))]}): ${devOf(c).why}`) : null),
+    pchip(c), window.pabloHost && pabloHost.condition ? h("span", { class: "racts" }, differ(c, task), takeOut(c)) : null);
+  const body = h("div", { class: "sp-body" });
+  const draw = () => { body.textContent = ""; const shut = [], pass = c => !want || (c.spec.kind || "setting") === want;
+    if (chips) chips.replaceChildren(...[["", "전체", all.length], ...kinds.map(([k, n]) => [k, KIND_TAG[k], n])].map(([k, t, n]) =>
+      h("button", { class: "pill chip" + (want === k ? " on" : ""), "data-kind-chip": k || "all", "aria-pressed": String(want === k), on: () => { want = k; draw(); } }, `${t} ${n}`)));
+    cats.forEach(([k, xs]) => { const ys = xs.filter(pass); if (!ys.length) return;
+      if (!opened.has(k) && !want) return shut.push(h("button", { class: "sp-shut", "data-cat-open": k, on: () => { opened.add(k); draw(); } }, "▸ ", h("b", null, SPEC[k]), " ", h("small", null, ys.length)));
+      body.append(h("section", { class: "sp-cat", "data-cat": k }, h("h4", { title: "접기", on: () => { opened.delete(k); draw(); } },
+        h("span", { class: "car" }, "▾"), h("span", { class: "nm" }, SPEC[k]), h("small", null, ys.length)), h("ul", null, ys.map(row)))); });
+    if (shut.length) body.append(h("div", { class: "sp-shutline" }, shut)); };
+  draw();
+  box.append(...[chips, body].filter(Boolean));
   const own = codeOf((cs.find(c => c.spec.source_id) || { spec: {} }).spec.source_id).find(x => x.official);  // ⑪
-  if (open.length) box.append(h("h4", null, "논문에 없는 설정"), h("ul", { class: "open" }, open.map(c => h("li", { title: c.id }, rich(c.title)))),
+  const decide = c => { if (!window.pabloHost || !pabloHost.makeCriterion) return null;  // B11 / B10: a setting the paper leaves open, decided = a criterion
+    const at = h("span", { class: "racts" }), go = h("button", { class: "link", "data-decide": c.id, on: () => {
+      const inp = h("input", { class: "why", "data-decide-in": c.id, value: plain(c).replace(/[가-힣\s]*(적혀|나와)\s*있지\s*않다\.?$/, "").trim() + " = " });
+      const ok = () => inp.value.trim() && pabloHost.makeCriterion(task, inp.value.trim(), "hard").then(items => { at.replaceChildren(h("span", { class: "muted" }, items.length ? "기준으로 정했습니다." : "이미 같은 기준이 있습니다."));
+        if (items.length) echo(task, { role: "intent", items }); return refresh(); }, e => at.append(h("span", { class: "muted" }, " " + fail(e))));
+      inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); });
+      at.replaceChildren(inp, " ", h("button", { class: "link", "data-decide-ok": c.id, on: ok }, "정하기")); inp.focus(); } }, "정하기");
+    at.append(go); return at; };
+  if (open.length) box.append(h("section", { class: "sp-cat open-set" }, h("h4", null, h("span", { class: "car" }, "▾"), h("span", { class: "nm" }, "논문에 없는 설정"),
+      h("small", null, open.length), h("span", { class: "hint" }, "정하면 이 작업의 기준이 됩니다")),
+    h("ul", { class: "open" }, open.map(c => h("li", { title: c.id, "data-id": c.id }, h("span", { class: "tg kd" }, "정할 일"), h("span", { class: "sx" }, rich(c.title)), decide(c))))),
     h("p", { class: "muted" }, "정할 때는 무엇을 근거로 정했는지 남기세요. 에이전트에게도 그렇게 알립니다.",
       own ? [" 논문의 공식 코드(", h("a", { href: own.url, target: "_blank", rel: "noopener noreferrer", "data-code-hint": "1" }, short_(own.url) + " ↗"), ")에서 먼저 찾아보세요."] : null));
-  if (dropped) box.append(h("p", { class: "muted" }, `원문에서 위치를 찾지 못한 조건 ${dropped}개는 뺐습니다.`));
   box.append(h("p", { class: "muted" }, "에이전트는 이 조건을 알고 작업하고, 바꾸려 하면 Pablo가 근거와 함께 막습니다."));
-  return box;
+  return diff && !diff.first ? h("div", { class: "specwrap" }, redone(diff), box) : box;
 }
 // A5/A6 재현 점검: each paper condition / open setting / task criterion against the work folder (code line or log value)
 const AUDIT = { differs: ["✗", "다름"], pairing: ["?", "열 짝 확인 필요"], chosen: ["•", "코드가 정함"], intended: ["◇", "의도한 차이"], missing: ["○", "아직 없음"],
@@ -2307,11 +2587,18 @@ function mark(x) {
     value_mismatch: `⚠ 논문 값(${v})이 이 자리에 ${x.status === "followed" ? "없음" : "그대로 있음"}` }[x.check];
   return t ? h("span", { class: "chk " + (warned(x) ? "warn" : x.check), "data-check": x.check }, t) : null;
 }
+// B11: the audit card: 재현 점검 · folder (+ 보고서로), what it held the folder to and when, an old-result band with 다시 점검,
+// chips by verdict (badges on the rows), "· 논문 값 X" beside what was found, and per row 의도한 차이로 / 논문 표 행 보기 /
+// 정하기. S55: one that did not finish says why, that nothing changed, and 다시 점검
+const VGROUP = { differs: "다름", pairing: "확인 필요", unclear: "확인 필요", chosen: "코드가 정함", intended: "의도한 차이", missing: "아직 없음", followed: "따름" };
 function audited(c) {
-  const box = h("div", { class: "audit", "data-audit": "1" });
+  const box = h("div", { class: "audit", "data-audit": "1" }), task = c.task || V.task.id;
+  const again = reAudit && V && V.task.id === task ? h("button", { class: "pill", "data-reaudit": "1", on: () => reAudit(task) }, ico("rotate", 14), "다시 점검") : null;
   if (c.error || c.status === "interrupted" || c.unreadable || !(c.items || []).length) {
-    box.append(h("p", { class: "head" }, "🔎 재현 점검을 마치지 못했습니다."), h("p", { class: "muted" },
-      c.status === "interrupted" ? "중지했습니다." : c.error || (c.unreadable ? "에이전트의 답을 읽지 못했습니다." : "판정된 항목이 없습니다.")));
+    box.classList.add("au-fail");
+    box.append(h("p", { class: "head" }, ico("info", 14), " 재현 점검을 마치지 못했습니다"), h("p", { class: "muted" },
+      c.status === "interrupted" ? "중지했습니다." : c.error || (c.unreadable ? "에이전트의 답을 읽지 못했습니다." : "판정된 항목이 없습니다."),
+      " 파일은 읽기만 했고 아무것도 바뀌지 않았습니다."), again ? h("p", { class: "acts" }, again) : null);
     return box;
   }
   // e2e3 (c86a409): a value read from a table row without its column names: the agent's 따름 / 다름 rests on which number
@@ -2319,9 +2606,23 @@ function audited(c) {
   const unpaired = x => !!((V.checks[x.id] || {}).spec || {}).header_missing && (x.status === "followed" || x.status === "differs");
   const dev = x => devOf(V.checks[x.id], c.at), st = x => x.status === "differs" && dev(x) && scopeOf(dev(x)) === "task" ? "intended"
     : unpaired(x) ? "pairing" : x.status;
-  const n = k => c.items.filter(x => st(x) === k).length, task = c.task || V.task.id, out = c.outside || [];
-  box.append(h("p", { class: "head" }, "🔎 재현 점검: ", [...Object.keys(AUDIT).filter(n).map(k => `${AUDIT[k][1]} ${n(k)}`),
-    ...(out.length ? [`조건 밖 ${out.length}`] : [])].join(" · ")));
+  const out = c.outside || [], d0 = (M.desk || {})[task] || {};
+  const folder = d0.folder ? d0.folder.split(/[\\/]/).filter(Boolean).pop() : "작업 폴더", nCond = c.items.filter(x => V.checks[x.id]).length;
+  const rep = document.querySelector("#reports .link");
+  box.append(h("div", { class: "au-top" }, h("p", { class: "head" }, `재현 점검 · ${folder}`),
+      rep ? h("button", { class: "link", "data-to-report": "1", on: () => { const r = document.querySelector("#reports .link"); if (r) r.click(); } }, "보고서로") : null),
+    h("p", { class: "muted au-sub" }, `조건 ${nCond} + 작업 기준 ${c.items.length - nCond} · 읽기 전용으로 실행 · ${time(c.at)}`));
+  const GORDER = ["다름", "확인 필요", "코드가 정함", "의도한 차이", "아직 없음", "따름", "조건 밖"];
+  const groups = [...new Set([...c.items.map(x => VGROUP[st(x)] || st(x)), ...(out.length ? ["조건 밖"] : [])])].sort((a, b) => GORDER.indexOf(a) - GORDER.indexOf(b));
+  const count = g => g === "조건 밖" ? out.length : c.items.filter(x => (VGROUP[st(x)] || st(x)) === g).length;
+  let want = "";
+  const chips = h("div", { class: "chips", role: "group", "aria-label": "판정" }), filter = () => {
+    chips.replaceChildren(...[["", `전체 ${c.items.length + out.length}`], ...groups.map(g => [g, `${g} ${count(g)}`])].map(([g, t]) =>
+      h("button", { class: "pill chip" + (want === g ? " on" : ""), "data-verdict-chip": g || "all", "aria-pressed": String(want === g), on: () => { want = g; filter(); } }, t)));
+    box.querySelectorAll("li[data-g]").forEach(li => { li.hidden = !!want && li.dataset.g !== want; });
+    box.querySelectorAll("details").forEach(dt => { if (want) dt.open = !!dt.querySelector("li[data-g]:not([hidden])"); });
+    const o = box.querySelector(".outside"); if (o) o.hidden = !!want && want !== "조건 밖"; };
+  box.append(chips);
   box._c = c; aged(box);  // ⑤ files changed after it: said at the top (again after every refresh)
   if (c.shell === "powershell") box.append(h("p", { class: "ps51", "data-shell": "5.1" }, "⚠ 이 점검은 Windows PowerShell 5.1에서 했습니다. "
     + "에이전트가 한글 주석이나 λ 같은 기호를 깨진 채 읽었다면 그 줄의 판정이 틀릴 수 있습니다. PowerShell 7을 설치하면 정확히 읽습니다."));
@@ -2358,13 +2659,27 @@ function audited(c) {
   const via = x => { const s = x.via, v = ((V.checks[x.id] || {}).spec || {}).value;
     return s ? h("div", { class: "at via", "data-via": s.where }, "↳ 값을 정하는 곳: ", fileLink(h("code", null, s.where), task, s.where, null, null, s.found), " ",
       h("span", null, s.found), s.agrees === false ? h("span", { class: "chk warn", "data-via-warn": "1" }, ` ⚠ 논문 값(${v})이 여기에 ${x.status === "followed" ? "없음" : "그대로 있음"}`) : null) : null; };
-  const row = x => h("li", { class: "st-" + st(x), title: x.id, "data-id": x.id }, h("b", null, (AUDIT[st(x)] || ["", x.status]).join(" ")), " ", what(x),
+  // the row's own actions (hover / focus): a paper condition that differs -> 의도한 차이로; a value read from a table row
+  // without its column names -> that row in the paper; a setting the paper leaves open -> 정하기 (a criterion)
+  const acts = x => { const k = V.checks[x.id]; if (!k || !k.spec || !window.pabloHost) return null;
+    const a = (k.evidence || []).find(e => M.anchors[e]);
+    return h("span", { class: "racts" }, st(x) === "differs" && !k.spec.missing && pabloHost.condition ? differ(k, task) : null,
+      st(x) === "pairing" && a ? h("button", { class: "link", "data-table-row": x.id, on: () => show({ mode: "source", e: a }) }, "논문 표 행 보기") : null,
+      st(x) === "missing" && k.spec.missing && pabloHost.makeCriterion ? h("button", { class: "link", "data-decide": x.id, on: () => {
+        const v0 = h("input", { class: "why", "data-decide-in": x.id, value: (k.title || "").replace(/[가-힣\s]*(적혀|나와)\s*있지\s*않다\.?$/, "").trim() + " = " });
+        const ok = () => v0.value.trim() && pabloHost.makeCriterion(task, v0.value.trim(), "hard").then(items => { if (items.length) echo(task, { role: "intent", items }); return refresh(); },
+          e => v0.after(h("span", { class: "muted" }, " " + fail(e))));
+        v0.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); });
+        const li = box.querySelector(`li[data-id="${CSS.escape(x.id)}"] .racts`); if (li) li.replaceChildren(v0, " ", h("button", { class: "link", on: ok }, "정하기")); v0.focus(); } }, "정하기") : null); };
+  const pv = x => { const k = V.checks[x.id] || {}, v0 = (k.spec || {}).value; return v0 && !(k.spec || {}).missing && x.found ? h("span", { class: "pv" }, ` · 논문 값 ${v0}`) : null; };
+  const row = x => h("li", { class: "st-" + st(x), title: x.id, "data-id": x.id, "data-g": VGROUP[st(x)] || st(x) },
+    h("b", { class: "vb vb-" + st(x) }, (AUDIT[st(x)] || ["", x.status])[1]), " ", what(x), acts(x),
     st(x) === "pairing" ? paired(x) : null,
     dev(x) ? h("div", { class: "muted", "data-dev-why": x.id }, st(x) === "intended" ? `이유: ${dev(x).why}`
       : x.status === "differs" ? `의도한 차이는 별도 실행에서만 두기로 했는데(이유: ${dev(x).why}), 기본 실행이 논문과 다릅니다.`
       : `의도한 차이로 두었지만(이유: ${dev(x).why}) 이 점검에서는 다르지 않았습니다.`) : null,
     x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x), seen(x)) : null,
-      x.found ? [" ", h("span", null, x.found)] : null, mark(x)) : null, via(x),
+      x.found ? [" ", h("span", null, x.found)] : null, pv(x), mark(x)) : null, via(x),
     x.status === "missing" && x.seen ? h("div", { class: "at seen", "data-seen": x.seen.where }, h("span", { class: "chk warn" }, "⚠ 모델은 아직 없다고 했지만 Pablo가 찾았습니다: "),
       fileLink(h("code", null, x.seen.where), task, x.seen.where, null, null, x.seen.found), " ", h("span", null, x.seen.found)) : null,
     x.note ? h("div", { class: "muted" }, x.note) : null);
@@ -2384,7 +2699,7 @@ function audited(c) {
   // what no item covers (main.js audited): how the method is done stays open, the paper's experiments the folder does not
   // have fold away. The model wrote them from the code and the items, not from the paper: no page is attached.
   if (out.length) {
-    const orow = x => h("li", { class: "st-outside" }, h("b", null, "△"), " ", x.what,
+    const orow = x => h("li", { class: "st-outside", "data-g": "조건 밖" }, h("b", { class: "vb vb-outside" }, "△"), " ", x.what,
       x.where || x.found || mark(x) ? h("div", { class: "at" }, x.where ? fileLink(h("code", null, x.where), task, x.where, x.line_found, moved(x), seen(x)) : null,
         x.found ? [" ", h("span", null, x.found)] : null, mark(x)) : null);
     const m = out.filter(x => x.kind !== "scope").sort((a, b) => warned(b) - warned(a)), s = out.filter(x => x.kind === "scope");
@@ -2393,6 +2708,7 @@ function audited(c) {
       s.length ? h("details", null, h("summary", null, `논문의 실험 가운데 이 폴더에 없는 것 ${s.length}개`), h("ul", null, s.map(orow))) : null,
       h("p", { class: "muted" }, "재현 조건 목록 밖이라 논문 쪽이 붙지 않습니다. 중요한 차이면 논문에서 확인하고 조건을 다시 뽑아 보세요.")));
   }
+  filter();
   return box;
 }
 // ⑤ an audit card is a moment: the files its rows name may have changed since (an agent turn, an undo). Said at its top.
@@ -2403,8 +2719,8 @@ function aged(box) {  // (not fresh(): the desktop's add box has its own)
   const c = box._c, task = c.task || V.task.id, v = M.views[task] || V, t = Date.parse(c.at);
   const files = [...new Set((v.chat || []).filter(x => (x.role === "changes" || x.role === "undo") && Date.parse(x.at) > t)
     .flatMap(x => (x.files || []).map(f => typeof f === "string" ? f : f.path)))];
-  const again = () => reAudit && V && V.task.id === task ? [" ", h("button", { class: "link", "data-reaudit": "1", on: () => reAudit(task) }, "다시 점검")] : null;
-  const put = line => { const old = box.querySelector(":scope > .stale"); if (old) old.replaceWith(line || ""); else if (line) box.querySelector(".head").after(line); };
+  const again = () => reAudit && V && V.task.id === task ? [" ", h("button", { class: "pill on", "data-reaudit": "1", on: () => reAudit(task) }, "다시 점검")] : null;
+  const put = line => { const old = box.querySelector(":scope > .stale"); if (old) old.replaceWith(line || ""); else if (line) (box.querySelector(":scope > .au-sub") || box.querySelector(".head")).after(line); };
   const changed = () => files.length ? h("p", { class: "stale", "data-stale": String(files.length) },
     `⚠ 이 점검 뒤 파일 ${files.length}개가 바뀌었습니다(${files.slice(0, 3).join(", ")}${files.length > 3 ? " 외" : ""}). 판정이 지금 파일과 다를 수 있습니다.`, again()) : null;
   // places, not rows: a condition and a criterion often point at the same line (rehearsal 10/27: "config.yaml:5, config.yaml:5")
@@ -2466,7 +2782,10 @@ function matrix(c, wide) {
   const mixed = col => new Set(c.papers.map(p => norm(((cell(p, col) || {}).matrix || {}).metric)).filter(Boolean)).size > 1;
   const why = (p, col) => { const x = (c.empty || []).find(y => y.source === p.id && y.column === col);
     return x && x.value ? `모델은 "${x.value}"라고 했지만 논문에서 그 문장을 찾지 못해 비웠습니다.` : "이 논문에서 찾지 못했습니다."; };
-  if (!wide) box.append(h("p", { class: "head" }, `📊 비교표: 논문 ${c.papers.length}편 × 항목 ${c.columns.length}개`),
+  const tsk = c.task || V.task.id;  // B12: 항목 바꾸기 (the 비교표 form with these columns) and 크게 보기 in the head
+  if (!wide) box.append(h("div", { class: "mx-top" }, h("p", { class: "head" }, `비교표 · 논문 ${c.papers.length}편 × 항목 ${c.columns.length}개`),
+      h("span", { class: "sp-acts" }, compareAgain ? h("button", { class: "pill", "data-columns": "1", on: () => compareAgain(tsk, c.columns) }, "항목 바꾸기") : null,
+        h("button", { class: "link", "data-wide": "1", on: () => show({ mode: "matrix", c }) }, "크게 보기"))),
     h("p", { class: "muted" }, `칸 ${all}개 중 ${cells.length}개는 논문에서 위치를 찾은 값입니다.`,
       cells.length < all ? ` 나머지 ${all - cells.length}개는 근거를 찾지 못해 비웠습니다.` : ""));
   box.append(h("div", { class: "scroll" }, h("table", null,
@@ -2483,45 +2802,62 @@ function matrix(c, wide) {
   if (!wide && both.length && compareAgain) box.append(h("p", { class: "muted common", "data-common": both.join("|") },
     `${c.papers.length === 2 ? "두" : "모든"} 논문이 ${both.join(", ")}을(를) 함께 씁니다. 같은 데이터셋의 결과를 나란히 보려면: `,
     both.map(x => [h("button", { class: "link", "data-add-column": x, on: () => compareAgain(c.task || V.task.id, [...c.columns, `${x} 결과`].slice(-8), c, `${x} 결과`) }, `+ "${x} 결과" 열`), " "])));
-  if (!wide) box.append(h("p", null, h("button", { class: "link", "data-wide": "1", on: () => show({ mode: "matrix", c }) }, "크게 보기")));
+  if (!wide && addSource) box.append(h("p", { class: "mx-foot" }, h("button", { class: "link", "data-add-paper": "1", title: "자료에 논문을 더한 뒤 항목 바꾸기로 표를 다시 만듭니다", on: () => addSource() }, "+ 논문 추가")));
   return box;
 }
-// criteria the user said in a chat message, now this task's intent (Guard and the agent's brief use them)
-const noted = c => msg("Pablo", null, (c.items || []).length ? h("p", { class: "muted", "data-intent": "1" }, "📌 작업 기준에 추가했습니다: ",
-  c.items.map(i => `${i.text} (${i.strength === "hard" ? "반드시" : "가능하면"})`).join(" · "), " ",
-  h("button", { class: "link", on: () => show({ mode: "intent" }) }, "기준 보기")) : null,
-  (c.pending || []).map(k => held({ ...k, live: c.live }, c.task || (V && V.task.id))),
-  (c.unread || []).map(u => unreadRow({ ...u, live: c.live }, c.task || (V && V.task.id))));
-// ③ a line the reader could not classify is shown, never dropped: the user makes it a rule (반드시 / 가능하면) or lets it go
+// criteria the user said in a chat message, now this task's intent (Guard and the agent's brief use them).
+// A2 complete (B4-B6): one band per kind, no avatar (.msg.note): added (orange soft), held back (a card that asks),
+// not read (grey). [data-intent] keeps its words ("📌 작업 기준에 추가했습니다: …"); the pin is an icon on screen
+const noted = c => { const task = c.task || (V && V.task.id), m = msg("Pablo", null,
+  (c.items || []).length ? h("p", { class: "band ok", "data-intent": "1" }, ico("check-circle", 16), h("span", { class: "bt" }, h("span", { class: "em" }, "📌 "),
+    "작업 기준에 추가했습니다: ", c.items.map(i => `${i.text} (${i.strength === "hard" ? "반드시" : "가능하면"})`).join(" · ")), " ",
+    h("button", { class: "link rt", on: () => show({ mode: "intent" }) }, "기준 보기")) : null,
+  (c.pending || []).map(k => held({ ...k, live: c.live }, task)),
+  (c.unread || []).map(u => unreadRow({ ...u, live: c.live }, task)));
+  m.classList.add("note"); return m; };
+// ③ a line the reader could not classify is shown, never dropped: the user makes it a rule (반드시 / 가능하면) or lets it go.
+// B6 / S48: a grey band; "기준으로 추가 ▾" opens the three choices (the buttons stay in the DOM: [data-as])
 function unreadRow(u, task) {
   const open = u.live || (V && (V.intent.unread || []).includes(u.id));
-  const row = h("p", { class: "muted", "data-unread": u.id }, "❔ 기준으로 읽지 못했습니다: ", h("b", null, u.text), " ");
+  const row = h("div", { class: "band q", "data-unread": u.id }, ico("info", 14),
+    h("span", { class: "bt" }, "기준으로 읽지 못했습니다 · “", h("b", null, u.text), "” — 요청으로만 처리했습니다"), " ");
   const was = { hard: "(반드시로 둠)", soft: "(가능하면으로 둠)", skip: "(넘김)", rule: "(기준으로 둠)" }[((V && V.intent.decided) || {})[u.id]] || "(처리함)";
-  if (!open || !window.pabloHost || !pabloHost.intent) return row.append(open ? "" : was), row;
+  if (!open || !window.pabloHost || !pabloHost.intent) return row.append(h("span", { class: "rt muted" }, open ? "" : was)), row;
   const act = (a, done) => () => pabloHost.intent(task, u.id, a).then(() => {
-    row.lastChild.replaceWith(h("span", { "data-decided": a }, done));
+    row.lastChild.replaceWith(h("span", { class: "rt muted", "data-decided": a }, done));
     // the new-task message counts what is still to decide, and stops asking once nothing is
     const left = document.querySelectorAll("[data-unread] [data-as]").length, ask = document.querySelector("[data-made] [data-ask]");
     if (ask) ask.textContent = left ? `아직 정하지 않은 줄 ${left}개가 위에 있습니다. ` : "읽지 못한 줄도 모두 정했습니다. ";
-    refresh(); }, e => row.append(h("span", null, " " + fail(e))));
-  row.append(h("span", null, h("button", { class: "link", "data-as": "hard", on: act("hard", "반드시 지킬 기준으로 두었습니다.") }, "반드시"), " · ",
-    h("button", { class: "link", "data-as": "soft", on: act("soft", "가능하면 지킬 기준으로 두었습니다.") }, "가능하면"), " · ",
-    h("button", { class: "link", "data-as": "skip", on: act("reject", "기준으로 두지 않았습니다.") }, "괜찮음")));
+    refresh(); }, e => row.append(h("span", { class: "muted" }, " " + fail(e))));
+  const menu = h("span", { class: "asmenu", role: "group", "aria-label": "기준으로 둘까요?", hidden: true },
+    h("button", { type: "button", "data-as": "hard", on: act("hard", "반드시 지킬 기준으로 두었습니다.") }, "반드시"),
+    h("button", { type: "button", "data-as": "soft", on: act("soft", "가능하면 지킬 기준으로 두었습니다.") }, "가능하면"),
+    h("button", { type: "button", "data-as": "skip", on: act("reject", "기준으로 두지 않았습니다.") }, "괜찮음"));
+  const tog = h("button", { class: "link", "data-as-open": "1", "aria-expanded": "false", on: () => { menu.hidden = !menu.hidden; tog.setAttribute("aria-expanded", String(!menu.hidden)); } },
+    "기준으로 추가 ", ico("chevron-down", 12));
+  row.append(h("span", { class: "rt" }, tog, menu));
   return row;
 }
-// B4: a criterion said in hedged words is held back until the user decides; decided ones show what was decided
-function held(k, task) {
-  const open = k.live || (V && V.intent.questions.some(q => q.id === k.id)), row = h("p", { class: "muted", "data-held": k.id }, "❔ 기준으로 둘까요? ", h("b", null, k.text), " ");
-  if (!open || !window.pabloHost || !pabloHost.intent) return row.append(open ? "" : "(처리함)"), row;
-  const act = (a, done) => () => pabloHost.intent(task, k.id, a).then(() => { row.lastChild.replaceWith(h("span", null, done)); refresh(); },
-    e => row.append(h("span", null, " " + fail(e))));
-  row.append(h("span", null, h("button", { class: "link", "data-promote": k.id, on: act("promote", "기준에 추가했습니다.") }, "기준으로 추가"), " · ",
+// B4: a criterion said in hedged words is held back until the user decides. B5: under its message a card that asks (an
+// orange edge: it waits on the person); compact (S47) in the closing 결정 card and once decided
+function held(k, task, compact) {
+  const open = k.live || (V && V.intent.questions.some(q => q.id === k.id)), can = !k.done && open && window.pabloHost && pabloHost.intent;
+  let el = null;
+  const act = (a, done) => () => pabloHost.intent(task, k.id, a).then(() => { el.replaceWith(held({ ...k, live: false, done }, task, true)); refresh(); },
+    e => el.append(h("span", { class: "muted" }, " " + fail(e))));
+  if (can && !compact) return el = h("div", { class: "hold", "data-held": k.id }, h("p", { class: "ttl" }, "결정이 필요합니다"),
+    h("p", null, "“", h("b", null, k.text), "” — 이 작업의 기준으로 남길까요?"),
+    h("p", { class: "acts" }, h("button", { class: "pill on", "data-promote": k.id, on: act("promote", "기준에 추가했습니다.") }, "기준으로 추가 (가능하면)"),
+      h("button", { class: "pill", "data-reject": k.id, on: act("reject", "무시했습니다.") }, "무시")));
+  el = h("p", { class: "band q", "data-held": k.id }, ico("info", 14), h("span", { class: "bt" }, "기준으로 둘까요? ", h("b", null, k.text)), " ");
+  if (!can) return el.append(h("span", { class: "rt muted" }, k.done || (open ? "" : "(처리함)"))), el;
+  el.append(h("span", { class: "rt" }, h("button", { class: "link", "data-promote": k.id, on: act("promote", "기준에 추가했습니다.") }, "기준으로 추가"), " ",
     h("button", { class: "link", "data-reject": k.id, on: act("reject", "무시했습니다.") }, "무시")));
-  return row;
+  return el;
 }
 function said(c) {
   if (c.role === "audit") return [msg("Pablo", null, audited(c))];
-  if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped, c.diff))];
+  if (c.role === "spec") return [msg("Pablo", null, conditions([...(c.checks || []), ...(c.missing || [])], c.dropped, c.diff, c.secs))];
   const said1 = { "spec-drop": "📋 재현 조건에서 뺐습니다: ", "spec-restore": "📋 뺀 재현 조건을 되살렸습니다: ",  // ⑩ taken out / back
     "spec-deviate": `◇ 논문 조건을 의도한 차이(${WHERE_DEV[c.scope || "task"]})로 두었습니다: `, "spec-undeviate": "📋 의도한 차이를 거두고 논문 조건으로 되돌렸습니다: " }[c.role];  // ⑦
   if (said1) { const k = V.checks[c.check];
@@ -2540,15 +2876,35 @@ function said(c) {
   if (c.role === "changes") return [msg("Pablo", null, changed(c, V.task.id))];
   if (c.role === "user") return [msg("You", c.at, h("p", null, c.text))];
   if (c.role === "agent") return [msg("Pablo", null, h("p", { class: "stream", style: "white-space:pre-wrap" }, c.text || ""),
-    c.status === "interrupted" ? h("p", { class: "muted", "data-stopped": "1" }, "중지했습니다.") : null,
-    c.error ? h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + c.error)) : null)];
+    c.status === "interrupted" ? stopped() : null, c.error ? failCard("실행하지 못했습니다", c.error) : null)];
   if (c.role !== "ask") return [];
   const k = c.check && V.checks[c.check];
   return [msg("You", c.at, h("p", null, c.text)), msg("Pablo", null, h("div", { class: "asked", "data-check": c.check || "" },
-    k ? [h("p", null, cited(k.conclusion || k.title, k.evidence)), webOnly(k),
-         c.dropped ? h("p", { class: "muted" }, `자료에서 찾지 못한 인용 ${c.dropped}개는 뺐습니다.`) : null]
-      : h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + (c.error || ASKFAIL)))))];
+    k ? [h("p", null, cited(k.conclusion || k.title, k.evidence)), webOnly(k), verified(k, c.dropped)]
+      : failCard(c.error ? "답을 찾지 못했습니다" : ASKFAIL.replace(/\.$/, ""), c.error || null)))];
 }
+// B24 / S12: before an arXiv download, the file it is saved as, where from and how big: [받기] [취소] (peek =
+// pabloHost.peekArxiv(text); nothing is downloaded until 받기). The add box and the new-task dialog put it where they ask
+function downloadCard(peek, onGet, onCancel) {
+  const size = b => b == null ? "크기 모름" : b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+  const card = h("div", { class: "call dl-card", "data-download": peek.id || "" }, h("p", { class: "head" }, "arXiv에서 받을까요?"),
+    h("div", { class: "dl-file" }, h("code", null, peek.filename), h("small", null, `출처 ${peek.source} · ${size(peek.bytes)} · 50 MB 상한 안`)),
+    peek.title ? h("p", { class: "muted" }, peek.title + (peek.version ? " " + peek.version : "")) : null,
+    h("p", { class: "acts" }, h("button", { class: "pill on", "data-dl-get": "1", on: () => { card.remove(); if (onGet) onGet(); } }, "받기"),
+      h("button", { class: "pill", "data-dl-cancel": "1", on: () => { card.remove(); if (onCancel) onCancel(); } }, "취소")));
+  return card;
+}
+// B18 / B19 (S5 / S7): a running extraction or audit is a card with its stage, how far it got (D9 progress), how long it
+// usually takes or that it only reads, and 중지
+function progCard(key, label, sub, what, foot, stop) {
+  const s = stagesOf(V, (M.desk || {})[V.task.id]), i = s.steps.findIndex(x => x.key === key), bar = h("i"), line = h("p", { class: "pg-t" }, what);
+  const box = h("div", { class: "prog" }, h("div", { class: "pg-bar0" }), h("p", { class: "pg-st" }, i >= 0 ? [h("span", { class: "pg-n" }, String(i + 1).padStart(2, "0")), " "] : null, label),
+    h("p", { class: "pg-sub" }, sub), line, h("div", { class: "pg-bar" }, bar),
+    h("p", { class: "pg-foot" }, h("span", null, foot), stop ? h("button", { class: "pill soft", "data-prog-stop": key, on: e => { e.currentTarget.disabled = true; stop(); } }, "중지") : null));
+  box._set = (text, frac) => { line.textContent = text; bar.style.width = Math.round(Math.max(0.03, Math.min(1, frac)) * 100) + "%"; };
+  box._set(what, 0.03); return box; }
+// S42: a stopped answer keeps what came; said right under it
+const stopped = () => h("p", { class: "muted stopped", "data-stopped": "1" }, ico("info", 14), " 중지했습니다. 여기까지 받은 답은 남겨 둡니다.");
 // an edit made just now (panel, picked sentence): its line joins the conversation at once (chat.json has it for later)
 function echo(task, c) {
   if (!V || V.task.id !== task) return;
@@ -2614,128 +2970,224 @@ function stageOfRole(role, kind) {
 const STAGE_LIST = { repro: ["준비", "조건 확정", "구현·실행", "재현 점검", "보고서"], read: ["준비", "질문", "비교표", "정리"], general: ["준비", "작업", "검토"] };
 const STAGE_KEY = { "준비": "prep", "조건 확정": "spec", "구현·실행": "run", "재현 점검": "audit", "보고서": "report",  // the stage bar's data-stage
   "질문": "ask", "비교표": "compare", "정리": "wrap", "작업": "work", "검토": "review" };
-// o: the person's override for this message (P5: {stage, decision}); auto: the stage Pablo computed
+// A2 complete (B2): what a message is about, as [label, ref]: the criteria and paper conditions it names (D2 refs; only
+// for what a person or the agent said, a Guard card, a criterion change: a conditions card or an audit names dozens), its
+// work-folder files, the pages it quotes ("LinearRAG p.9", not the chat's running [n])
+const clip = (s, n) => { s = String(s || "").replace(/\s*\[\d+\]/g, "").replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+let refMemo = null;
+const refsFor = key => { if (!V || !key) return [];
+  if (!refMemo || refMemo.v !== V || refMemo.n !== (V.chat || []).length) refMemo = { v: V, n: (V.chat || []).length, m: refsByKey(V) };
+  return refMemo.m.get(key) || []; };
+const critOf = id => V ? [...V.intent.must, ...V.intent.prefer].find(x => x.id === id) : null;
+const RECORDS = ["spec", "spec-loose", "audit", "compare", "changes", "undo", "research", "start", "report"];
+function targetsOf(el, key) {
+  const out = [], seen = new Set(), put = (label, ref) => { if (!seen.has(label)) { seen.add(label); out.push([label, ref || null]); } };
+  const role = !key ? "" : key.startsWith("act:") ? "act" : key.split("@")[0];
+  if (key && !RECORDS.includes(role) && !role.startsWith("issue")) refsFor(key).forEach(r => {
+    if (/^[CK]\d+$/.test(r)) { const c = critOf(r); if (c) put("기준 · " + clip(c.text, 18), r); }
+    else if (/^SC\d+$/.test(r)) { const k = V.checks[r]; if (k && k.spec && !k.spec.missing && !k.matrix) put("조건 · " + clip(k.conclusion || k.title, 18), r); } });
+  [...new Set([...el.querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))].forEach(f => put("파일 · " + f, "file:" + f));
+  el.querySelectorAll(".cite").forEach(c => { const a = M.anchors[c.dataset.e], s = a && M.sources[a.source];
+    if (a && a.page && s && s.title) put(`근거 · ${clip(s.title, 24)} p.${a.page}`, a.source + ":p" + a.page); else put("근거 · " + c.textContent, c.dataset.e); });
+  return out;
+}
+// every target label the conversation has drawn -> its ref (the popover's suggestions; a label added by hand finds its ref)
+const knownTargets = () => { const m = new Map(); document.querySelectorAll("#log .msg[data-trefs]").forEach(x => {
+  let t = {}; try { t = JSON.parse(x.dataset.trefs); } catch (e) {} Object.entries(t).forEach(([k, r]) => m.set(k, r)); });
+  if (V) { [...V.intent.must, ...V.intent.prefer].forEach(c => m.has("기준 · " + clip(c.text, 18)) || m.set("기준 · " + clip(c.text, 18), c.id));
+    V.research.map(id => V.checks[id]).filter(k => k && k.spec && !k.spec.missing && k.state !== "waived").forEach(k => m.set("조건 · " + clip(k.conclusion || k.title, 18), k.id)); }
+  return m; };
+// B3 (user decision 10/27: rules, no model call): a message whose words or refs belong to another stage than the one it
+// was sent in gets "✦ 제안 · <stage>" with 맞음 / 아님 and why. 맞음 = the person's stage (tags[key] {stage, ok}); 아님 =
+// {suggest: "no"}: not asked again
+function suggestFor(el, key, stage) {
+  const role = key && !key.startsWith("act:") ? key.split("@")[0] : "", kind = kindOf();
+  if (role !== "user") return null;  // what the person said; a record's stage is what it is
+  const text = msgWords(el, 2000), rs = refsFor(key);
+  const paper = rs.some(r => /^SC\d+$/.test(r) && ((V.checks[r] || {}).spec)) || !!el.querySelector(".cite")
+    || /논문|조건|부록|근거|원문|저자|\bp\.\s?\d|\d+\s?쪽|표\s?\d|Table\s?\d|appendix/i.test(text);
+  const want = kind === "repro" ? (/보고서/.test(text) ? "보고서" : /점검|논문과\s*(같|다르|맞)|재현이?\s*(됐|되었|맞)/.test(text) ? "재현 점검" : paper ? "조건 확정" : null)
+    : kind === "read" ? (/비교|표로|표에/.test(text) ? "비교표" : /정리|요약|보고서/.test(text) ? "정리" : null)
+    : (/보고서|검토/.test(text) ? "검토" : null);
+  if (!want || want === stage || !(STAGE_LIST[kind] || []).includes(want)) return null;
+  const why = { "조건 확정": "논문 조건·근거를 가리키는 말", "재현 점검": "논문과 맞는지 보는 말", "보고서": "보고서에 대한 말", "비교표": "비교에 대한 말",
+    "정리": "정리에 대한 말", "검토": "검토에 대한 말" }[want];
+  return { stage: want, why: `${stage} 중에 보낸 말이지만 ${why}이라 ${want} 단계로 볼 수 있습니다.` };
+}
+// a person's tag for one message (P5), kept in desktop.json; then the view is drawn again
+const setTag = (key, v) => { const task = V.task.id, tags = { ...(((M.desk || {})[task] || {}).tags || {}) };
+  if (v && Object.keys(v).length) tags[key] = v; else delete tags[key];
+  return pabloHost.setUi(task, "tags", tags).then(() => refresh()).then(() => V && V.task.id === task && conversation()); };
+// held-back criteria of this message's turn that still wait: "✦ 제안 · 기준(가능하면)" on the message (B3)
+const heldOf = key => { if (!V || !key || !key.startsWith("user@")) return [];
+  const turn = turnsOf(V), open = new Set(V.intent.questions.map(q => q.id));
+  return (V.chat || []).filter(c => c.role === "intent" && turn.get("intent@" + c.at) === key).flatMap(c => c.pending || []).filter(k => open.has(k.id)); };
+// o: the person's override for this message (P5: {stage, decision, targets, ok, suggest}); auto: the stage Pablo computed
 function tagRow(el, stage, key, o = {}, auto = stage, all = false) {
   const body = el.children && el.children[1]; if (!body || body.querySelector(":scope > .tags")) return;
-  const files = [...new Set([...el.querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))];
-  // a quote by its paper and page ("LinearRAG p.9"), not the chat's running [n] (QA 10/26: 대상별 grouped by "[1]")
-  const refName = c => { const a = M.anchors[c.dataset.e], s = a && M.sources[a.source];
-    return a && a.page && s && s.title ? `${s.title.length > 24 ? s.title.slice(0, 23) + "…" : s.title} p.${a.page}` : c.textContent; };
-  const refs = [...new Set([...el.querySelectorAll(".cite")].map(refName))];
-  const targets = [...files.map(f => "파일 · " + f), ...refs.map(r => "근거 · " + r)]; el.dataset.targets = JSON.stringify(targets);
-  const shown = all ? targets : [...files.slice(0, 2).map(f => "파일 · " + f), ...refs.slice(0, 2).map(r => "근거 · " + r)];
-  const more = all ? 0 : Math.max(0, files.length - 2) + Math.max(0, refs.length - 2);
+  const found = targetsOf(el, key), refOf = new Map(found);
+  const pairs = Array.isArray(o.targets) ? o.targets.map(t => [t, refOf.get(t) || knownTargets().get(t) || null]) : found;
+  const targets = pairs.map(p => p[0]);
+  el.dataset.targets = JSON.stringify(targets); el.dataset.trefs = JSON.stringify(Object.fromEntries(pairs.filter(p => p[1])));
+  const shown = all ? targets : targets.slice(0, 2), more = targets.length - shown.length;
+  const can = !!(key && window.pabloHost && pabloHost.setUi);
+  const sug = can && !o.stage && !o.ok && o.suggest !== "no" ? suggestFor(el, key, stage) : null, wait = heldOf(key);
   const row = h("div", { class: "tags", "data-auto": auto }, h("span", { class: "tg stage" + (o.stage ? " mine" : ""), title: o.stage ? `사람이 고침 (자동: ${auto})` : null }, stage),
     o.decision ? h("span", { class: "tg manual", "data-decision": "1" }, "결정") : null, ...shown.map(t => h("span", { class: "tg tgt" }, t)),
+    sug ? [h("span", { class: "tg sug", "data-suggest": sug.stage, title: sug.why }, ico("sparkle", 12), "제안 · " + sug.stage),
+      h("button", { class: "tagbtn yes", "data-suggest-ok": "1", on: () => setTag(key, { ...o, stage: sug.stage, ok: true }) }, "맞음"),
+      h("button", { class: "tagbtn no", "data-suggest-no": "1", on: () => setTag(key, { ...o, suggest: "no" }) }, "아님")] : null,
+    wait.length ? h("button", { class: "tg sug", "data-suggest-crit": wait[0].id, title: "이 말에서 기준이 될 만한 줄을 찾았습니다. 아래에서 정해 주세요.",
+      on: () => { const x = document.querySelector(`#log [data-held="${CSS.escape(wait[0].id)}"]`); if (x) x.scrollIntoView({ block: "center" }); } },
+      ico("sparkle", 12), "제안 · 기준(가능하면)") : null,
     more ? h("small", { class: "more" }, `· ${more}개 더`) : null);
-  if (key && window.pabloHost && pabloHost.setUi) row.append(h("button", { class: "tagbtn", "data-tag-edit": "1", title: "이 메시지의 태그 고치기",
-    on: () => tagEdit(row, key, stage, o) }, ico("pencil", 12), "태그"));
-  if (window.pabloHost && pabloHost.makeCriterion && el.classList.contains("msg")) row.append(h("button", { class: "tagbtn", "data-crit-make": "1",
-    title: "이 메시지의 글을 작업 기준으로", on: () => critMake(row, el) }, ico("pin", 12), "기준으로"));
+  // B2: one "+ 태그" for the stage, the targets, 결정 and 기준으로 만들기 (the popover, B15)
+  if (can) row.append(h("button", { class: "tagbtn", "data-tag-edit": "1", title: "이 메시지의 태그 고치기 · 기준으로 만들기", on: () => tagEdit(row, key, stage, o, el) }, "+ 태그"));
   body.append(row);
+  if (sug) body.append(h("p", { class: "sugwhy", "data-suggest-why": "1" }, sug.why));
 }
 // a message's words made a criterion of this task by the person, in a sentence they trim: a rule (반드시 / 가능하면), never
 // the goal. Guard, the brief and 재현 점검 follow at once; the conversation says so
-const msgWords = (el, max) => [...el.children[1].children].filter(c => !c.classList.contains("who") && !c.classList.contains("tags"))
+const msgWords = (el, max) => [...el.children[1].children].filter(c => !c.classList.contains("who") && !c.classList.contains("tags") && !c.classList.contains("sugwhy"))
   .map(c => c.textContent).join(" ").replace(/\s+/g, " ").trim().slice(0, max);
-function critMake(row, el) {
-  const old = row.querySelector(".tagedit"); if (old) return old.remove();
-  const task = V.task.id, words = msgWords(el, 300);
-  const text = h("textarea", { class: "ce-text", "data-crit-text": "1", rows: 3, maxlength: 1000 }); text.value = words;
-  const note = h("p", { class: "muted" }, "이 작업에만 적용됩니다. 지킬 내용만 한 문장으로 남겨 주세요.");
-  const ed = h("div", { class: "tagedit" }, h("b", null, "이 글을 작업 기준으로"), text,
-    h("div", { class: "te-st" }, [["hard", "반드시"], ["soft", "가능하면"]].map(([v, n]) =>
-      h("label", null, h("input", { type: "radio", name: "ce-" + task, value: v, checked: v === "hard" ? true : null }), " ", n))), note,
-    h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => ed.remove() }, "취소"), h("button", { class: "pill on", "data-crit-save": "1", on: () => {
-      const t = text.value.trim(), st = ed.querySelector("input[type=radio]:checked").value;
-      if (!t) return text.focus();
-      pabloHost.makeCriterion(task, t, st).then(items => {
-        if (!items.length) return note.replaceChildren("이미 같은 기준이 있습니다.");
-        ed.remove(); echo(task, { role: "intent", items }); return refresh(); }, e => note.replaceChildren(fail(e))); } }, "기준으로 추가")));
-  row.append(ed); text.focus();
-}
-// P5: the person changes a message's stage or pins it as a decision; that wins over what Pablo computes, on every redraw
-function tagEdit(row, key, stage, o) {
-  const old = row.querySelector(".tagedit"); if (old) return old.remove();
-  const names = STAGE_LIST[kindOf()] || STAGE_LIST.general, task = V.task.id;
-  const ed = h("div", { class: "tagedit" }, h("b", null, "이 메시지의 태그"),
-    h("div", { class: "te-st" }, names.map(n => h("label", null, h("input", { type: "radio", name: "te-" + key, value: n, checked: n === stage ? true : null }), " ", n,
-      n === row.dataset.auto ? h("small", null, " (자동)") : null))),
-    h("label", { class: "te-dec" }, h("input", { type: "checkbox", checked: o.decision ? true : null }), " 결정으로 고정 — 단계별 보기의 결정 목록과 보고서의 근거가 됩니다"),
-    h("p", { class: "muted" }, "사람이 고친 태그는 다시 계산해도 바뀌지 않습니다."),
-    h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => ed.remove() }, "취소"), h("button", { class: "pill on", "data-tag-save": "1", on: () => {
-      const st = (ed.querySelector("input[type=radio]:checked") || {}).value || stage, dec = ed.querySelector("input[type=checkbox]").checked;
-      const tags = { ...(((M.desk || {})[task] || {}).tags || {}) }, v = { ...(st !== row.dataset.auto ? { stage: st } : {}), ...(dec ? { decision: true } : {}) };
-      if (Object.keys(v).length) tags[key] = v; else delete tags[key];
-      pabloHost.setUi(task, "tags", tags).then(() => refresh()).then(() => V && V.task.id === task && conversation()); } }, "저장")));
+// P5 + B15: the tag popover (320): the stage (the computed one says so), the targets (× / + 잇기), 결정으로 고정, and 기준으로
+// 만들기 (the message's words, trimmed, 반드시 / 가능하면: makeCriterion). The person's tag wins over every redraw
+function tagEdit(row, key, stage, o, el) {
+  const old = document.querySelector(".tagedit"); if (old) { const mine = old.parentNode === row; old.remove(); if (mine) return; }
+  const names = STAGE_LIST[kindOf()] || STAGE_LIST.general, task = V.task.id, auto = row.dataset.auto, id = key.replace(/[^\w]/g, "");
+  const targets = JSON.parse(el.dataset.targets || "[]"), orig = JSON.stringify(targets);
+  const chips = h("div", { class: "te-tg" }), draw = () => chips.replaceChildren(...(targets.length ? targets.map((t, i) => h("span", { class: "tg tgt" }, t,
+    h("button", { class: "te-x", type: "button", title: "이 대상 빼기", "data-tag-drop": t, on: () => { targets.splice(i, 1); draw(); } }, "×"))) : [h("small", { class: "muted" }, "대상 없음")]));
+  draw();
+  const add = h("input", { class: "te-add", placeholder: "+ 조건 · 기준 · 파일 잇기", list: "te-dl-" + id, "data-tag-add": "1" });
+  add.addEventListener("keydown", e => { if (e.key !== "Enter" || e.isComposing || !add.value.trim()) return; e.preventDefault();
+    const t = add.value.trim(); if (!targets.includes(t)) targets.push(t); add.value = ""; draw(); });
+  const dec = h("input", { type: "checkbox", "data-tag-dec": "1", checked: o.decision ? true : null });
+  const mk = h("input", { type: "checkbox", "data-crit-on": "1" });
+  const text = h("textarea", { class: "ce-text", "data-crit-text": "1", rows: 2, maxlength: 1000 }); text.value = msgWords(el, 300);
+  const crit = h("div", { class: "te-crit", hidden: true }, text, h("div", { class: "te-st" }, [["hard", "반드시"], ["soft", "가능하면"]].map(([v, n]) =>
+    h("label", null, h("input", { type: "radio", name: "ce-" + id, value: v, checked: v === "hard" ? true : null }), " ", n))));
+  mk.addEventListener("change", () => { crit.hidden = !mk.checked; if (mk.checked) text.focus(); });
+  const note = h("p", { class: "te-note" }, "사람이 고친 태그는 다시 계산해도 유지됩니다");
+  const save = async () => {
+    const st = (ed.querySelector(`input[name="te-${id}"]:checked`) || {}).value || stage, v = { ...o };
+    delete v.stage; delete v.decision; delete v.targets;
+    if (st !== auto) v.stage = st; if (dec.checked) v.decision = true;
+    if (JSON.stringify(targets) !== orig) v.targets = targets; else if (Array.isArray(o.targets)) v.targets = o.targets;
+    if (mk.checked) { const t = text.value.trim(); if (!t) return text.focus();
+      try { const items = await pabloHost.makeCriterion(task, t, ed.querySelector(`input[name="ce-${id}"]:checked`).value);
+        if (!items.length) return note.replaceChildren("이미 같은 기준이 있습니다."); echo(task, { role: "intent", items }); }
+      catch (e) { return note.replaceChildren(fail(e)); } }
+    ed.remove();
+    return JSON.stringify(v) !== JSON.stringify(o) ? setTag(key, v) : mk.checked ? refresh() : null; };
+  const ed = h("div", { class: "tagedit", role: "dialog", "aria-label": "이 메시지의 태그" }, h("b", null, "이 메시지의 태그"),
+    h("div", { class: "te-sec" }, "단계"),
+    h("div", { class: "te-st te-stage" }, names.map(n => h("label", null, h("input", { type: "radio", name: "te-" + id, value: n, checked: n === stage ? true : null }), " ", n,
+      n === auto ? h("small", null, "자동 · 보낸 때 단계") : null))),
+    h("div", { class: "te-sec" }, "대상"), chips, add, h("datalist", { id: "te-dl-" + id }, [...knownTargets().keys()].map(t => h("option", { value: t }))),
+    h("div", { class: "te-sec" }, "표시"),
+    h("label", { class: "te-dec" }, dec, " 결정으로 고정 — 결정 목록 · 보고서에 들어감"),
+    h("label", { class: "te-dec" }, mk, " 기준으로 만들기"), crit,
+    h("div", { class: "te-foot" }, note, h("button", { class: "pill on", "data-tag-save": "1", on: save }, "완료")));
+  ed.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); ed.remove(); } });
   row.append(ed);
 }
+// a click outside the tag popover closes it (Esc too)
+addEventListener("mousedown", e => { const ed = document.querySelector(".tagedit"); if (ed && !e.target.closest(".tagedit, [data-tag-edit]")) ed.remove(); }, true);
 const firstText = el => { const p = el.querySelector("p"); return (p ? p.textContent : el.textContent).replace(/\s+/g, " ").trim().slice(0, 90); };
 // P6 단계별: one box per stage; past ones show a summary (the person's text wins over the record-based one) and the
-// decisions, their messages folded; the current stage is open; stages not reached yet are placeholders
+// decisions, their messages folded; the current stage is open; stages not reached yet are placeholders.
+// A2 complete (B13): the head says the stage, its state, "메시지 N · HH:mm–HH:mm" and 대화 펼치기 ▸ / 접기 ▾; the summary
+// reads "모델 요약 — …" or "사람이 고친 요약 — …" (사람이 고침 · 다시 만들어도 이 글이 유지됩니다) with ✎ 요약 고치기 ·
+// 다시 만들기; each decision has its time
 function byStage(log, rows, kind, D) {
   const names = STAGE_LIST[kind] || STAGE_LIST.general, cur = (document.querySelector("#stages .st-current b") || {}).textContent;
   const ci = names.indexOf(cur), can = window.pabloHost && pabloHost.setUi;
   names.forEach((n, i) => {
     const mine = rows.filter(r => r[1] === n), msgs = mine.filter(r => r[0].classList && r[0].classList.contains("msg")), decs = mine.filter(r => r[2].decision);
     const files = new Set(mine.flatMap(r => [...r[0].querySelectorAll("button.file code, .at code")].map(c => c.textContent.split(":")[0]))).size;
-    const facts = msgs.length ? [`메시지 ${msgs.length}`, decs.length ? `결정 ${decs.length}` : null, files ? `파일 ${files}` : null].filter(Boolean).join(" · ") : "아직 대화가 없습니다";
     // a stage with messages is never 아직, whatever the stage bar computes from the material (진행: talked about, not done);
     // one the bar marks done (✓) is 완료 here too (QA 10/26: ✓ above, 진행 below for the same stage)
     const done = !!document.querySelector(`#stages .stage.st-done[data-stage="${STAGE_KEY[n] || ""}"]`);
     const state = i === ci ? "지금" : done || (ci >= 0 && i < ci) ? "완료" : !msgs.length ? "아직" : "진행", own = (D.summary || {})[n];
+    const ts = msgs.map(r => r[3]).filter(Boolean), span = ts.length ? `${time(Math.min(...ts))}–${state === "지금" ? "" : time(Math.max(...ts))}` : "";
+    const facts = msgs.length ? [`메시지 ${msgs.length}`, span, decs.length ? `결정 ${decs.length}` : null, files ? `파일 ${files}` : null].filter(Boolean).join(" · ") : "아직 대화가 없습니다";
     // the model's summary, written on request; behind once the stage has more messages than it read. A person's text wins
     const auto = (D.auto || {})[n], behind = auto ? msgs.length - auto.n : 0;
     const write = can && pabloHost.summarize && !own && msgs.length && ($("acct") || { dataset: {} }).dataset.state === "connected";
     // `x` in a summary is code, as in the cards (QA 10/26: the model's backticks showed as they are)
-    const sum = h("div", { class: "sg-sum" }, own ? [h("span", { class: "tg manual" }, "사람이 고침"), " ", rich(own)]
-      : auto ? [h("span", { class: "tg", "data-auto-summary": "1" }, ico("sparkle", 12), "모델 요약"), " ", rich(auto.text),
+    const sum = h("div", { class: "sg-sum" }, own ? [h("b", { class: "sum-k" }, "사람이 고친 요약"), " — ", rich(own)]
+      : auto ? [h("b", { class: "sum-k", "data-auto-summary": "1" }, "모델 요약"), " — ", rich(auto.text),
         behind > 0 ? h("small", { class: "muted", "data-behind": behind }, ` · 그 뒤 메시지 ${behind}개`) : null]
       : h("span", { class: "muted" }, "기록 요약 — " + facts),
-      write ? [" ", h("button", { class: "link", "data-summarize": n, on: () => summarize(sum, n, msgs) }, ico("sparkle", 12), auto ? " 다시 쓰기" : " 요약 쓰기")] : null,
-      can && msgs.length ? [" ", h("button", { class: "link", "data-summary-edit": n, on: () => summaryEdit(sum, n, own || (auto && auto.text) || "") }, ico("pencil", 12), " 요약 고치기")] : null);
+      own ? h("p", { class: "sg-own" }, h("span", { class: "tg manual" }, "사람이 고침"), h("small", null, "다시 만들어도 이 글이 유지됩니다")) : null,
+      can && msgs.length || write ? h("p", { class: "sg-tools" },
+        can && msgs.length ? h("button", { class: "link", "data-summary-edit": n, on: () => summaryEdit(sum, n, own || (auto && auto.text) || "") }, ico("pencil", 12), " 요약 고치기") : null,
+        write ? [can && msgs.length ? h("span", { class: "muted" }, " · ") : null, h("button", { class: "link", "data-summarize": n, on: () => summarize(sum, n, msgs) }, auto ? "다시 만들기" : "요약 쓰기")] : null) : null);
+    const opened = state === "지금" || (ci < 0 && state === "진행");
+    const box = h("div", { class: "sg-msgs", hidden: !opened }, mine.map(r => r[0]));
+    const tog = mine.length ? h("button", { class: "link sg-tog", "data-sg-toggle": n, "aria-expanded": String(opened), on: () => {
+      box.hidden = !box.hidden; tog.setAttribute("aria-expanded", String(!box.hidden)); tog.textContent = box.hidden ? "대화 펼치기 ▸" : "접기 ▾"; } }, opened ? "접기 ▾" : "대화 펼치기 ▸") : null;
     log.append(h("div", { class: "stagegroup st-" + (state === "지금" || state === "진행" ? "now" : state === "아직" ? "later" : "past"), "data-stage": n },
-      h("div", { class: "sg-head" }, h("span", { class: "tg stage" }, n), h("b", null, state), h("small", null, facts)), sum,
-      decs.length ? h("ul", { class: "sg-dec" }, decs.map(r => h("li", null, h("span", { class: "tg manual" }, "결정"), " ", firstText(r[0])))) : null,
-      mine.length ? h("details", { class: "sg-msgs", open: state === "지금" || state === "진행" ? true : null }, h("summary", null, `대화 ${msgs.length}`), mine.map(r => r[0])) : null));
+      h("div", { class: "sg-head" }, h("span", { class: "tg stage" }, n), h("b", null, state), h("small", null, facts), tog), sum,
+      decs.length ? [h("p", { class: "sg-dh" }, `결정 ${decs.length}`), h("ul", { class: "sg-dec" }, decs.map(r => h("li", null, h("span", { class: "tg manual" }, "결정"), " ",
+        firstText(r[0]), r[3] ? h("small", null, ` · ${time(r[3])}`) : null)))] : null,
+      mine.length ? box : null));
   });
   rows.filter(r => !names.includes(r[1])).forEach(r => log.append(r[0]));
 }
 // one model call per click (not on every redraw): the stage's messages as the page groups them, oldest first
 function summarize(sum, n, msgs) {
   const task = V.task.id, btn = sum.querySelector("[data-summarize]");
-  if (btn) { btn.disabled = true; btn.textContent = "요약 쓰는 중…"; }
+  if (btn) { btn.disabled = true; btn.replaceChildren(h("span", { class: "spin" }), " 요약 쓰는 중…"); }
   pabloHost.summarize(task, n, msgs.map(r => ({ who: r[0].classList.contains("pablo") ? "Pablo" : "You", text: msgWords(r[0], 4000) })))
     .then(() => refresh()).then(() => V && V.task.id === task && conversation(),
       e => { if (btn) btn.remove(); sum.append(h("span", { class: "muted" }, " " + fail(e))); });
 }
+// S54: the person's own summary; it stays when the model writes again
 function summaryEdit(sum, n, cur) {
   const task = V.task.id, ta = h("textarea", { class: "sg-edit", rows: 3 }); ta.value = cur;
-  sum.replaceChildren(ta, h("div", { class: "te-foot" }, h("button", { class: "pill", on: () => conversation() }, "취소"),
+  sum.replaceChildren(ta, h("p", { class: "muted" }, "사람이 고친 요약은 다시 써도 바뀌지 않습니다."), h("div", { class: "te-foot" },
     h("button", { class: "pill on", "data-summary-save": n, on: () => { const all = { ...(((M.desk || {})[task] || {}).summary || {}) }, t = ta.value.trim();
       if (t) all[n] = t; else delete all[n];
-      pabloHost.setUi(task, "summary", all).then(() => refresh()).then(() => V && V.task.id === task && conversation()); } }, "저장")));
+      pabloHost.setUi(task, "summary", all).then(() => refresh()).then(() => V && V.task.id === task && conversation()); } }, "저장"),
+    h("button", { class: "pill", on: () => conversation() }, "취소")));
   ta.focus();
 }
-// P6 대상별: grouped by what each message is about (its first file or [n]); the rest under 대상 없음
+// P6 대상별: grouped by what each message is about (its first target); the rest under 대상 없음.
+// A2 complete (B16): kinds in order (조건 · 기준 · 근거 · 파일 · 대상 없음); a head with the target, "대화 N · 판정 N ·
+// 점검 … · 변경 N" and 접기 ▾ / 펼치기 ▸; a condition's group starts with what is known now: the paper's value [p.N], the
+// code the last audit found, requests to change it still waiting
 function byTarget(log, rows) {
   // a message sits under its first target; each of its other targets gets a line that leads to it (QA 10/26: an audit
   // card about config.yaml, logs/2wiki.log and run.py showed under config.yaml only, the other two had no group)
-  const groups = new Map(), also = new Map(), rest = [], add = (m, t, x) => { if (!m.has(t)) m.set(t, []); m.get(t).push(x); };
+  const groups = new Map(), also = new Map(), rest = [], add = (m, t, x) => { if (!m.has(t)) m.set(t, []); m.get(t).push(x); }, refOf = new Map();
   rows.forEach(r => { const x = r[0]; if (!(x.classList && x.classList.contains("msg"))) return rest.push(x);
-    const ts = JSON.parse(x.dataset.targets || "[]"); add(groups, ts[0] || "대상 없음", r); ts.slice(1).forEach(t => add(also, t, x)); });
+    const ts = JSON.parse(x.dataset.targets || "[]"); let tr = {}; try { tr = JSON.parse(x.dataset.trefs || "{}"); } catch (e) {}
+    Object.entries(tr).forEach(([k, ref]) => refOf.set(k, ref));
+    add(groups, ts[0] || "대상 없음", r); ts.slice(1).forEach(t => add(also, t, x)); });
   also.forEach((_, t) => groups.has(t) || groups.set(t, []));
   const n = t => groups.get(t).length + (also.get(t) || []).length;
   const lead = (x, home) => h("p", { class: "muted", "data-also": home }, "↳ ", h("button", { class: "link", title: `'${home}' 묶음에서 보기`,
     on: () => { x.closest("details").open = true; x.scrollIntoView({ block: "center" }); } }, `${x.classList.contains("pablo") ? "Pablo" : "나"} · ${firstText(x).slice(0, 60)}`),
     h("small", null, ` — '${home}' 묶음에 있음`));
-  // files first, then quotes by page, then 대상 없음 (one conditions card can quote a dozen pages: they would push the
-  // files down), each by how many messages it has
-  const rank = t => t === "대상 없음" ? 2 : t.startsWith("파일 · ") ? 0 : 1;
+  const RANK = ["조건 · ", "기준 · ", "근거 · ", "파일 · "], rank = t => t === "대상 없음" ? 9 : (i => i < 0 ? 5 : i)(RANK.findIndex(p => t.startsWith(p)));
+  const L = linksOf(V), chat = V.chat || [], audits = chat.filter(c => c.role === "audit"), la = audits[audits.length - 1];
+  const itemOf = ref => la && [...(la.items || []), ...(la.outside || [])].find(x => x.id === ref || (ref.startsWith("file:") && placePaths(x.where).includes(ref.slice(5))));
+  const facts = (t, ref) => { const k = (ref && L.get(ref)) || { chat: [], verdicts: [] }, vs = k.verdicts.filter(x => x.verdict !== "ALLOW");
+    const it = ref && itemOf(ref), chg = ref && ref.startsWith("file:") ? chat.filter(c => c.role === "changes" && (c.files || []).some(f => (f.path || f) === ref.slice(5))).length : 0;
+    return [`대화 ${n(t)}`, vs.length ? `판정 ${vs.length}${vs.some(x => x.verdict === "BLOCK") ? " (막음)" : ""}` : null,
+      ref && ref.startsWith("SC") ? (it ? `점검 ${(AUDIT[it.status] || ["", it.status])[1]}` : "점검 아직") : null, chg ? `변경 ${chg}` : null].filter(Boolean).join(" · "); };
+  const band = ref => { const k = ref && V.checks[ref]; if (!k || !k.spec || k.spec.missing) return null;
+    const it = itemOf(ref), wait = V.actions.filter(a => a.verdict === "WARN" && !a.decision && (a.criteria || []).some(c => c.id === ref)).length;
+    return h("p", { class: "tg-band", "data-cond-band": ref }, `논문 값 ${k.spec.value || clip(plain(k), 30)} `, pchip(k),
+      it && it.where ? [` · 지금 코드 `, h("code", null, it.line_found ? `${where0(it.where)}:${it.line_found}` : it.where), it.found ? ` = ${clip(it.found, 40)}` : ""] : " · 점검 전",
+      wait ? ` · 바꾸자는 요청 ${wait}건이 확인을 기다림` : ""); };
   [...groups.keys()].sort((a, b) => rank(a) - rank(b) || n(b) - n(a)).forEach((t, i) => {
-    const rs = groups.get(t), more = (also.get(t) || []).map(x => lead(x, JSON.parse(x.dataset.targets)[0]));
-    log.append(h("details", { class: "targetgroup", "data-target": t, open: i === 0 ? true : null },
-      h("summary", null, h("span", { class: "tg" + (t === "대상 없음" ? "" : " tgt") }, t), h("small", null, `대화 ${n(t)}`)), rs.map(r => r[0]), more)); });
+    const rs = groups.get(t), more = (also.get(t) || []).map(x => lead(x, JSON.parse(x.dataset.targets)[0])), ref = refOf.get(t) || knownTargets().get(t) || null;
+    log.append(h("details", { class: "targetgroup", "data-target": t, "data-ref": ref, open: i === 0 ? true : null },
+      h("summary", null, h("span", { class: "tg" + (t === "대상 없음" ? "" : " tgt") }, t), h("small", null, facts(t, ref)), h("span", { class: "tog" })),
+      band(ref), rs.map(r => r[0]), more)); });
   rest.forEach(x => log.append(x));
 }
 // D2 back-links. A ref is what a chat-log entry names: a criterion (C4; a held-back or unread line the user promoted
@@ -2799,31 +3251,86 @@ function stampRefs(root = $("log"), v = V) {
 }
 // "대화로 거르기": only the messages naming one of refs stay (the dividers above them too), as a stage filter does
 // (.filtered, #filter-banner, #log[data-filter] = "refs:" + label); the same label again -> all. -> {kept, hid}
+// A2 complete (F24): in 단계별 / 대상별 too (a group with nothing left goes, one with something opens); the banner says what
+// kind of thing is kept ("이 기준과 이어진 대화만 보는 중 · 2개 · 다른 메시지 6개 숨김") with 거르기 ▾ (the menu) and 전체 보기;
+// in 시간순 a run of hidden messages leaves one line "··· 숨긴 메시지 N개"
+const refKind = r => /^[CK]\d+$/.test(r) ? ["기준", "과"] : /^SC\d+$/.test(r) ? (((V && V.checks[r]) || {}).spec ? ["조건", "과"] : ["근거", "와"])
+  : /^E\d+$|:p\d+$/.test(r) ? ["근거", "와"] : /^file:/.test(r) ? ["파일", "과"] : /^P\d+/.test(r) ? ["계획 단계", "와"] : ["대상", "과"];
+function filterUi(log) { const old = $("filter-banner"); if (old) old.remove(); log.querySelectorAll(".hidnote").forEach(x => x.remove());
+  const m = $("filter-menu"); if (m) m.remove(); }
+// groups of the 단계별 / 대상별 views follow the messages in them; a group with a kept message is opened
+function filterGroups(log, on) {
+  log.querySelectorAll(":scope > .stagegroup, :scope > .targetgroup").forEach(g => { const ms = g.querySelectorAll(".msg[data-key]");
+    const left = [...ms].some(x => !x.classList.contains("filtered"));
+    g.classList.toggle("filtered", !!on && ms.length > 0 && !left);
+    if (on && left) { if (g.tagName === "DETAILS") g.open = true; const b = g.querySelector(".sg-msgs"); if (b) b.hidden = false; } });
+}
 function filterBy(refs, label) {
   const log = $("log"), want = new Set([].concat(refs || []).map(String)), tag = "refs:" + label;
   const on = log.dataset.filter === tag || !want.size ? "" : tag; log.dataset.filter = on;
-  const old = $("filter-banner"); if (old) old.remove();
+  filterUi(log);
   let hid = 0, kept = 0;
   log.querySelectorAll(".msg[data-key]").forEach(x => { let rs = []; try { rs = JSON.parse(x.dataset.refs || "[]"); } catch (e) {}
     const hide = !!on && !rs.some(r => want.has(r)); x.classList.toggle("filtered", hide); if (hide) hid++; else kept++; });
   [...log.children].filter(x => x.classList.contains("divider")).forEach(dv => { let n = dv.nextElementSibling, any = false;
     for (; n && !n.classList.contains("divider"); n = n.nextElementSibling) if (n.matches(".msg[data-key]:not(.filtered)")) any = true;
     dv.classList.toggle("filtered", !!on && !any); });
-  if (on) log.prepend(h("div", { id: "filter-banner", "data-refs": JSON.stringify([...want]) }, h("span", null, `${label} 대화만 보는 중 · ${kept}개 · 다른 대화 ${hid}개 숨김`),
-    h("button", { class: "link", on: () => filterBy(refs, label) }, "전체 보기")));
+  filterGroups(log, on);
+  if (on) {
+    let run = [];  // 시간순: one line where hidden messages were
+    const flush = () => { if (run.length) run[0].before(h("div", { class: "hidnote", "data-hidden": String(run.length) },
+      h("button", { class: "link", title: "전체 보기", on: () => filterBy(refs, label) }, `··· 숨긴 메시지 ${run.length}개`))); run = []; };
+    [...log.children].forEach(x => { if (x.matches(".msg.filtered")) run.push(x); else if (x.matches(".msg[data-key], #live")) flush(); });
+    flush();
+    const [kind, j] = refKind([...want][0]);
+    log.prepend(h("div", { id: "filter-banner", "data-refs": JSON.stringify([...want]), "data-label": label, title: label },
+      h("span", { class: "fb-t" }, `이 ${kind}${j} 이어진 대화만 보는 중 · ${kept}개 · 다른 메시지 ${hid}개 숨김`),
+      h("button", { class: "link", "data-filter-menu": "1", on: e => filterMenu(e.currentTarget) }, "거르기 ", ico("chevron-down", 12)),
+      h("button", { class: "link", on: () => filterBy(refs, label) }, "전체 보기")));
+  }
   document.querySelectorAll("#stages .stage.picked").forEach(x => x.classList.remove("picked"));
+  if (gateHook) gateHook();
   return { kept, hid };
 }
-// a stage in the stage bar: only that stage's messages (and its dividers) stay; again -> all
+// F24 the 거르기 menu: what is being kept (✓), the targets the conversation names most (기준 · 근거 · 파일 · 조건, how many
+// messages each), 거르기 풀기. The view bar's chip (A10) opens it the same way: filterMenu(anchor)
+function filterMenu(anchor) {
+  const old = $("filter-menu"); if (old) { old.remove(); return; }
+  const log = $("log"), count = new Map(), refOf = new Map();
+  log.querySelectorAll(".msg[data-trefs]").forEach(x => { let t = {}; try { t = JSON.parse(x.dataset.trefs); } catch (e) {}
+    Object.entries(t).forEach(([k, r]) => { refOf.set(k, r); count.set(k, (count.get(k) || 0) + 1); }); });
+  const cur = (log.dataset.filter || "").startsWith("refs:") ? log.dataset.filter.slice(5) : "", stage = cur ? "" : log.dataset.filter || "";
+  const banner = $("filter-banner"), curRefs = banner && banner.dataset.refs ? JSON.parse(banner.dataset.refs) : [];
+  const icon = t => t.startsWith("기준") ? "check-circle" : t.startsWith("파일") || t.startsWith("근거") ? "file" : "filter";
+  const items = [...count.keys()].filter(k => k !== cur).sort((a, b) => count.get(b) - count.get(a)).slice(0, 7);
+  const close = () => menu.remove();
+  const item = (label, n, on, picked) => h("button", { class: "mi" + (picked ? " on" : ""), role: "menuitemradio", "aria-checked": String(!!picked), on: () => { close(); on(); } },
+    ico(icon(label), 14), h("span", { class: "mi-t" }, label), n != null ? h("small", null, n) : null, picked ? ico("check", 14) : null);
+  const menu = h("div", { id: "filter-menu", class: "fmenu", role: "menu" },
+    cur ? item(cur, curRefs.length ? log.querySelectorAll(".msg[data-key]:not(.filtered)").length : null, () => filterBy(curRefs, cur), true) : null,
+    stage ? item(`단계 · ${stage}`, null, () => stageFilter(stage), true) : null,
+    items.map(k => item(k, count.get(k), () => { if (cur) filterBy(curRefs, cur); if (stage) stageFilter(stage); filterBy([refOf.get(k)], k); })),
+    !items.length && !cur && !stage ? h("p", { class: "muted mi-none" }, "거를 대상이 아직 없습니다.") : null,
+    cur || stage ? h("button", { class: "mi", "data-filter-off": "1", on: () => { close(); cur ? filterBy(curRefs, cur) : stageFilter(stage); } }, h("span", { class: "mi-t" }, "거르기 풀기")) : null,
+    h("p", { class: "mi-note" }, "기준 · 근거 · 파일의 '대화 N'이나 근거 탭의 '대화로 거르기'를 누르면 이렇게 거릅니다. 단계로 거르기는 단계 막대에서 합니다."));
+  document.body.append(menu);
+  const r = (anchor || log).getBoundingClientRect();
+  menu.style.top = Math.round(r.bottom + 6) + "px"; menu.style.left = Math.round(Math.max(8, Math.min(r.right - 320, innerWidth - 328))) + "px";
+  setTimeout(() => addEventListener("mousedown", function off(e) { if (!e.target.closest("#filter-menu")) { menu.remove(); removeEventListener("mousedown", off, true); } }, true));
+}
+let gateHook = null;  // desktop: the composer says when its stage is the one filtered (B14)
+// a stage in the stage bar: only that stage's messages (and its dividers) stay; again -> all. In 단계별 / 대상별 too
 function stageFilter(label) {
   const log = $("log"), on = log.dataset.filter === label ? "" : label; log.dataset.filter = on;
-  const old = $("filter-banner"); if (old) old.remove();
+  filterUi(log);
   let hid = 0, kept = 0;
-  [...log.children].forEach(x => { const s = x.dataset && x.dataset.stage; if (!s) return;
-    const hide = !!on && s !== on; x.classList.toggle("filtered", hide); if (x.classList.contains("msg")) hide ? hid++ : kept++; });
-  if (on) log.prepend(h("div", { id: "filter-banner" }, h("span", null, `${on} 단계 대화만 보는 중 · ${kept}개 · 다른 단계 ${hid}개 숨김`),
+  log.querySelectorAll(".msg[data-stage]").forEach(x => { const hide = !!on && x.dataset.stage !== on; x.classList.toggle("filtered", hide); hide ? hid++ : kept++; });
+  [...log.children].forEach(x => { if (x.classList.contains("divider")) x.classList.toggle("filtered", !!on && x.dataset.stage !== on); });
+  filterGroups(log, on);
+  if (on) log.prepend(h("div", { id: "filter-banner", "data-stage": on }, h("span", { class: "fb-t" }, `${on} 단계 대화만 보는 중 · ${kept}개 · 다른 단계 ${hid}개 숨김`),
     h("button", { class: "link", on: () => stageFilter(on) }, "전체 보기")));
   document.querySelectorAll("#stages .stage").forEach(x => x.classList.toggle("picked", !!on && x.querySelector("b").textContent === on));
+  if (gateHook) gateHook();
 }
 function conversation() {
   cites = {};  // ⑩ review: [n] by when the evidence was found, so "[16]" is the same live and after a reload
@@ -2848,6 +3355,7 @@ function conversation() {
   const rows = items.sort((x, y) => x[0] - y[0]).map(([t, x, s, key]) => {  // stable sort: same time keeps the order above
     const o = over[key] || {}, st = o.stage || s;
     if (st && x.classList && x.classList.contains("msg")) { x.dataset.stage = st; x.dataset.key = key; tagRow(x, st, key, o, s, allTags); }
+    const w = x.querySelector && x.querySelector(":scope > div > .who small"); if (w && t) w.textContent = time(t);  // B1
     return [x, st, o, t]; });
   if (view === "stage") byStage(log, rows, kind, D);
   else if (view === "target") byTarget(log, rows);
@@ -2860,8 +3368,8 @@ function conversation() {
       }
       log.append(x); }); }
   if (V.intent.questions.length) log.append(msg("Pablo", null, h("div", { class: "call" },
-    h("p", { class: "head" }, "⚠ 결정이 필요합니다."),
-    V.intent.questions.map(q => /^K\d+$/.test(q.id) ? held(q, V.task.id) : h("p", { title: q.id, "data-id": q.id }, rich(q.text))),
+    h("p", { class: "head" }, "결정이 필요합니다"), h("p", { class: "muted" }, "정하기 전에는 기준으로 쓰지 않습니다."),
+    V.intent.questions.map(q => /^K\d+$/.test(q.id) ? held(q, V.task.id, true) : h("p", { title: q.id, "data-id": q.id }, rich(q.text))),
     h("p", null, h("button", { class: "link", on: () => show({ mode: "intent" }) }, "작업 기준 보기")))));
   log.append(live());
   finish();
@@ -2871,7 +3379,11 @@ function conversation() {
 // every plan step done -> one closing message (in the live part, so a refresh can add it too)
 function finish() {
   if (!V.plan || !V.plan.steps.length || V.plan.steps.some(st => stepState(st)[0] !== "done") || $("log").querySelector(".finish")) return;
-  live().append(h("div", { class: "finish" }, msg("Pablo", null, art("confident", "pose"), h("p", null, "작업을 마쳤습니다."))));
+  const rep = document.querySelector("#reports .link");  // S53: what can come next
+  live().append(h("div", { class: "finish" }, msg("Pablo", null, h("div", { class: "done-card" }, art("confident", "pose"),
+    h("div", null, h("p", { class: "ttl" }, "작업을 마쳤습니다."), h("p", { class: "muted" }, `계획 ${V.plan.steps.length}단계를 모두 마쳤습니다. 보고서를 내보내거나 완료로 옮길 수 있습니다.`),
+      rep ? h("p", null, h("button", { class: "pill on", "data-finish-report": "1", on: () => { const r = document.querySelector("#reports .link"); if (r) r.click(); } },
+        ico("file", 14), "보고서 내보내기")) : null)))));
 }
 // QA 10/26 (D3): a finished turn's live messages (what was said, the agent's reply) get their tag row (✎ 태그, 📌 기준으로)
 // once the log has them, paired from the end with the log entries not drawn yet; the live part itself stays (the checks
@@ -3001,7 +3513,7 @@ function differ(c, task = V.task.id) {
 }
 // ⑦ a BLOCK on a paper condition: the way forward when the difference is on purpose, on the card itself
 function offer(a, v = V) {
-  const ks = a.verdict === "BLOCK" ? a.criteria.map(x => v.checks[x.id]).filter(k => k && k.spec && !k.spec.missing && k.state !== "waived" && !devOf(k)) : [];
+  const ks = a.verdict === "BLOCK" || (a.verdict === "WARN" && !a.decision) ? a.criteria.map(x => v.checks[x.id]).filter(k => k && k.spec && !k.spec.missing && k.state !== "waived" && !devOf(k)) : [];
   return ks.length && window.pabloHost && pabloHost.condition ? h("div", { class: "offer", "data-offer": a.id },
     h("p", { class: "muted" }, "일부러 논문과 다르게 하려는 것이라면 이유를 남기고 의도한 차이로 둘 수 있습니다. 그 뒤로는 이 조건으로 막지 않습니다:"),
     h("ul", { class: "ck" }, ks.map(k => h("li", { "data-id": k.id }, (SPEC[k.spec.category] || k.spec.category) + " · ",
@@ -3678,34 +4190,57 @@ if (window.pabloHost && pabloHost.chat) {
   // Both come after the send button in the DOM (the first button stays send / stop) and CSS orders them on screen.
   const mbtn = box.appendChild(h("button", { class: "modelbtn", type: "button", title: "모델", hidden: true }));
   const mmenu = box.appendChild(h("div", { class: "mmenu", hidden: true }));
-  const mlabel = () => { const o = pick.options[pick.selectedIndex]; mbtn.replaceChildren(o ? o.textContent : "모델", ico("chevron-down", 12)); };
+  // A2 complete · B (S16): the chip says "모델 · 생각 수준"; its menu lists the models, then the levels the model offers (24,
+  // from the next message; locked while an answer comes)
+  const LEVEL = { minimal: "최소", low: "낮음", medium: "보통", high: "높음", xhigh: "매우 높음" };
+  let eff = { efforts: {}, effort: null };
+  const effOf = () => { const e = eff.efforts[pick.value] || { levels: [], def: null }, lv = (e.levels || []).filter(x => LEVEL[x]);
+    return { lv, cur: lv.includes(eff.effort) ? eff.effort : lv.includes(e.def) ? e.def : null }; };
+  const mlabel = () => { const o = pick.options[pick.selectedIndex], { cur } = effOf();
+    mbtn.replaceChildren(h("span", null, (o ? o.textContent : "모델") + (cur ? " · " + LEVEL[cur] : "")), ico("chevron-down", 12)); };
   // A2: where a new message is recorded, as the stage pill (it used to be the end of the placeholder)
   const hint = box.appendChild(h("span", { class: "stagehint", hidden: true }));
-  mbtn.addEventListener("click", () => { mmenu.hidden = !mmenu.hidden; if (mmenu.hidden) return; mmenu.textContent = "";
+  const drawMenu = () => { mmenu.textContent = ""; const { lv, cur } = effOf();
+    mmenu.append(h("p", { class: "mm-h" }, "모델"));
     [...pick.options].forEach(o => mmenu.append(h("button", { class: "mopt" + (o.value === pick.value ? " on" : ""), type: "button",
       on: () => { pick.value = o.value; pick.dispatchEvent(new Event("change")); mmenu.hidden = true; } }, h("span", null, o.textContent), o.value === pick.value ? ico("check", 14) : null)));
-    mmenu.append(h("p", { class: "mfoot" }, "계정에서 쓸 수 있는 모델입니다. 다음 메시지부터 이 모델로 보냅니다. 답을 받는 중에는 바꿀 수 없습니다.")); });
+    if (lv.length && pabloHost.setEffort) mmenu.append(h("p", { class: "mm-h" }, "생각 수준"), h("div", { class: "mm-seg", role: "group", "aria-label": "생각 수준" },
+      lv.map(x => h("button", { type: "button", class: "mlv" + (x === cur ? " on" : ""), "data-effort": x, "aria-pressed": String(x === cur),
+        on: () => pabloHost.setEffort(x).then(() => { eff.effort = x; mlabel(); drawMenu(); }) }, LEVEL[x]))),
+      h("p", { class: "mm-note" }, "다음 메시지부터 적용됩니다. 답을 받는 중에는 바꿀 수 없습니다."));
+    else mmenu.append(h("p", { class: "mfoot" }, "계정에서 쓸 수 있는 모델입니다. 다음 메시지부터 이 모델로 보냅니다. 답을 받는 중에는 바꿀 수 없습니다.")); };
+  mbtn.addEventListener("click", () => { mmenu.hidden = !mmenu.hidden; if (!mmenu.hidden) drawMenu(); });
   pick.addEventListener("change", mlabel);
-  const models = () => pabloHost.models().then(r => {
+  const models = () => Promise.all([pabloHost.models(), pabloHost.efforts ? pabloHost.efforts().catch(() => null) : null]).then(([r, e]) => {
+    if (e) eff = e;
     pick.textContent = ""; r.models.forEach(m => pick.append(h("option", { value: m.slug }, m.name))); pick.value = r.model || ""; mlabel();
   });
   const acct = $("side").appendChild(h("div", { id: "acct" }));  // A2 complete (A6): the account card at the sidebar's foot (sidebar() keeps it)
   const LABEL = { Connecting: "연결 중…", Ready: "준비됨", Thinking: "생각 중…", Error: "오류" };
-  let out = null, agentSt = "Connecting", authSt = { state: "signed_out" }, turning = false, stopping = false;  // turning: an agent turn (a PDF ask cannot be stopped)
+  let out = null, agentSt = "Connecting", authSt = { state: "signed_out" }, turning = false, stopping = false, wasReady = false;  // turning: an agent turn (a PDF ask cannot be stopped)
   const gate = () => {
     const on = authSt.state === "connected", running = on && turning && agentSt === "Thinking";
-    st.textContent = ""; if (on) st.append(agentSt === "Thinking" ? art("think") : "", stopping ? "중지하는 중…" : LABEL[agentSt] || agentSt); box.dataset.agent = agentSt;
+    // B17: 연결 안 됨 / 준비됨 / 작업 중 · 확인 기다림 (a WARN card waits for the person)
+    const waits = !!document.querySelector("#live [data-answer]");
+    st.textContent = ""; st.append(...(!on ? ["연결 안 됨"] : agentSt === "Thinking" ? [art("think"), stopping ? "중지하는 중…" : "작업 중" + (waits ? " · 확인 기다림" : "")] : [LABEL[agentSt] || agentSt]));
+    box.dataset.agent = agentSt;
     pick.hidden = !on || !pick.options.length; pick.disabled = agentSt === "Thinking";
     mbtn.hidden = pick.hidden; mbtn.disabled = pick.disabled; if (mbtn.hidden || mbtn.disabled) mmenu.hidden = true;
     inp.disabled = !on || !V || (agentSt !== "Ready" && agentSt !== "Error");  // Error: the next send restarts app-server
     btn.disabled = running ? stopping : inp.disabled;  // while the agent works, the send button is 중지
-    btn.replaceChildren(ico(running ? "stop" : "arrow-up", 16)); btn.title = running ? "중지" : "보내기"; btn.setAttribute("aria-label", btn.title);
+    // B17: a text button, 보내기 (black) / ■ 중지 (orange soft); it stays the composer's first button
+    btn.replaceChildren(...(running ? [ico("stop", 12), "중지"] : ["보내기"])); btn.title = running ? "중지" : "보내기"; btn.setAttribute("aria-label", btn.title);
     box.dataset.running = running ? "1" : "";
-    inp.placeholder = !on ? "ChatGPT에 연결하면 대화할 수 있습니다" : !V ? "새 작업을 만들면 대화할 수 있습니다" : "Pablo에게 물어보세요…";
+    const d = V ? (M.desk || {})[V.task.id] || {} : {}, ps = d.papers || [], asks = ps.length && (!d.folder || d.route === "ask");
+    if (agentSt === "Ready") wasReady = true;  // S4: connecting again after it was ready (a new token, a restart)
+    inp.placeholder = !on ? "ChatGPT에 연결하면 대화할 수 있습니다" : wasReady && agentSt === "Connecting" ? "다시 연결되면 보낼 수 있습니다"
+      : !V ? "새 작업을 만들면 대화할 수 있습니다" : asks ? "논문에 묻기…" : "Pablo에게 요청하기…";
     hint.hidden = !on || !V || !box.dataset.stage;
-    hint.replaceChildren(...(hint.hidden ? [] : ["이 메시지는 ", h("span", { class: "tg stage" }, h("span", { class: "dot" }), box.dataset.stage), " 단계로 기록"]));
+    const filt = !hint.hidden && $("log").dataset.filter === box.dataset.stage;  // B14
+    hint.replaceChildren(...(hint.hidden ? [] : ["· 이 메시지는 ", h("span", { class: "tg stage" }, box.dataset.stage), " 로 기록", filt ? " (거르는 중인 단계)" : ""]));
   };
   const status = (s, err) => { agentSt = s; st.title = err || ""; gate(); };
+  gateHook = () => gate();
   const link = (text, on) => h("button", { class: "link", on }, text);
   // ⑤ a PC without PowerShell 7: Codex runs the agent's commands in Windows PowerShell 5.1, which reads 한글 and symbols
   // in a BOM-less UTF-8 file wrongly. Pablo tells the agent to read as UTF-8; this says so once, with how to install,
@@ -3784,24 +4319,29 @@ if (window.pabloHost && pabloHost.chat) {
   pabloHost.onAuth(account);
   pabloHost.onAgent(ev => {
     if (ev.type === "model") { pick.value = ev.model; mlabel(); }
+    if (ev.type === "progress") { const b = live(ev.task).querySelector(ev.what === "spec" ? "[data-specing]" : "[data-auditing]"); if (b && b._prog) b._prog(ev); }
     if (ev.type === "status") {
       if (ev.status === "Ready") models().then(gate);  // after a restart or another sign-in the list may change
       // a message is on its way (Pablo prepares it, or app-server restarts for a fresh token first): stay Thinking until done
       if (turning && (ev.status === "Ready" || ev.status === "Connecting")) return;
       status(ev.status, ev.error);
-      if (ev.status === "Error" && ev.error && authSt.state === "connected") live(talk).append(msg("Pablo", null, h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + ev.error)))), scroll();
+      if (ev.status === "Error" && ev.error && authSt.state === "connected") live(talk).append(msg("Pablo", null, failCard("실행하지 못했습니다", ev.error))), scroll();
     } else if (ev.type === "delta" && out) { out.textContent += ev.text; scroll(); }
     else if (ev.type === "done") {
       refresh(); turning = stopping = false; busy = null; gate();
-      if (out && ev.status === "interrupted") out.after(h("p", { class: "muted", "data-stopped": "1" }, "중지했습니다."));
+      if (out && ev.status === "interrupted") out.after(stopped());
       const lg = ev.logged;  // the keys main just wrote: the turn's messages get their tag row now, not after the next state read
       if (lg && V && lg.task === V.task.id && lives[lg.task]) {
         if (lg.user) tagLive([...lives[lg.task].querySelectorAll(":scope > .msg.user")].at(-1), "user", lg.user);
         if (out) tagLive(out.closest(".msg"), "agent", lg.agent);
       }
       if (out) { out.title = `첫 토큰 ${ev.first ?? "-"} ms · 전체 ${ev.total} ms`; out = null; }
-      if (ev.retry) setTimeout(() => { const b = link("다른 모델로 다시 시도", () => { b.remove(); stream(talk); pabloHost.retry().catch(e => { status("Error", e.message); out = null; }); });
-        live(talk).append(msg("Pablo", null, h("p", null, b))); scroll(); });  // after the Error card
+      // B22 / S9: 다른 모델로 다시 시도 on the error card itself (else on its own line)
+      if (ev.retry) setTimeout(() => { const b = h("button", { class: "pill on", "data-retry": "1", on: () => { b.remove(); stream(talk); pabloHost.retry().catch(e => { status("Error", e.message); out = null; }); } }, "다른 모델로 다시 시도");
+        const card = [...live(talk).querySelectorAll(".call.fail")].at(-1);
+        if (card) card.append(h("p", { class: "acts" }, b, h("span", { class: "muted" }, "아무것도 실행되지 않았습니다.")));
+        else live(talk).append(msg("Pablo", null, h("p", null, b)));
+        scroll(); });  // after the Error card
     } else if (ev.type === "guard") { live(ev.task).append(msg("Pablo", null, guard(ev))); scroll(); refresh(); }
     else if (ev.type === "audit") {
       const p = live(ev.task).querySelector("[data-auditing]"), card = audited(ev);
@@ -3814,27 +4354,32 @@ if (window.pabloHost && pabloHost.chat) {
     }
     else if (ev.type === "review") {  // PostReview of a WARN/BLOCK action, under its card (ALLOW has no card: stays silent)
       const card = Object.values(lives).map(l => l.querySelector(`[data-act="${CSS.escape(ev.act)}"]`)).find(Boolean);
-      if (card) card.append(h("p", { class: "muted", "data-review": ev.alignment || "" },
-        "검토: " + (ALIGN[ev.alignment] || (ev.executed ? "실행했습니다" : "실행하지 않았습니다"))));
+      if (card) card.insertBefore(h("p", { class: "rev", "data-review": ev.alignment || "" }, ev.alignment ? h("span", { class: "tg rv rv-" + ev.alignment }, BADGE[ev.alignment] || ev.alignment) : null,
+        h("span", null, "검토: " + (ALIGN[ev.alignment] || (ev.executed ? "실행했습니다" : "실행하지 않았습니다")))), card.querySelector(":scope > .foot"));
       refresh();  // Plan / 왜? follow the review without a reload
     }
   });
   // M4.2 Guard on the agent's actions: ALLOW stays silent; WARN asks, BLOCK and failures explain (no rule/action ids)
-  const HEAD = { WARN: "⚠ 이 작업은 현재 기준과 충돌할 가능성이 있습니다.", BLOCK: "⚠ 이 작업은 현재 기준과 충돌해 실행하지 않았습니다.",
-                 ERROR: "⚠ 작업을 실행하지 못했습니다." };
+  const HEAD = { WARN: "이 작업은 현재 기준과 충돌할 수 있습니다", BLOCK: "Pablo가 이 작업을 막았습니다", ERROR: "작업을 실행하지 못했습니다" };
+  // B8 / S38: the live card; a badge heads WARN (확인 필요) and BLOCK (막음, .lock); ERROR is a grey card with an info mark.
+  // A WARN on a command in a task without a paper is compact: the command, why, [진행][취소]
   function guard(ev) {
-    // "막음" heads Guard's own BLOCK only (.lock); a command that failed shares the grey box, not the word (rehearsal 10/27)
-    const card = h("div", { class: "call" + (ev.verdict === "WARN" ? "" : ev.verdict === "BLOCK" ? " block lock" : " block"), "data-verdict": ev.verdict, "data-act": ev.act || "" },
-      h("p", { class: "head" }, HEAD[ev.verdict]), h("p", null, "제안된 작업: ", h("b", null, meaning(ev.text))),
-      ev.verdict === "ERROR" ? null : preview(ev.text, ev.detail), ev.verdict === "ERROR" ? null : current(ev.text, ev.task),
-      reason(ev.reason, ev.verdict === "BLOCK"), h("p", { class: "muted crit" }), tech(ev.text, korean(ev.reason) ? null : ev.reason),
-      ev.act ? h("p", null, h("button", { class: "link", on: () => show({ mode: "trace", act: ev.act }) }, "왜 그런가요?")) : null);
+    const cmd = ev.verdict === "WARN" && /^명령 실행: /.test(ev.text || "") && kindFor((M.desk || {})[ev.task]) === "general";
+    const foot = h("div", { class: "foot" }, tech(ev.text, korean(ev.reason) ? null : ev.reason),
+      ev.act ? h("button", { class: "link", on: () => show({ mode: "trace", act: ev.act }) }, "왜 그런가요?") : null);
+    const card = h("div", { class: "call guard" + (ev.verdict === "WARN" ? " warn" + (cmd ? " compact" : "") : ev.verdict === "BLOCK" ? " block lock" : " block fail"),
+        "data-verdict": ev.verdict, "data-act": ev.act || "" },
+      h("p", { class: "head" }, ev.verdict === "ERROR" ? [ico("info", 14), " "] : null,
+        cmd ? ["명령: ", h("code", null, shell((ev.text || "").split("\n")[0].replace(/^명령 실행: /, "")))] : HEAD[ev.verdict]),
+      cmd ? null : h("p", null, "제안된 작업: ", h("b", null, meaning(ev.text))),
+      cmd ? null : ev.verdict === "ERROR" ? preview((ev.text || "").split("\n")[0]) : preview(ev.text, ev.detail), ev.verdict === "ERROR" ? null : current(ev.text, ev.task),
+      reason(ev.reason, ev.verdict === "BLOCK"), h("p", { class: "muted crit" }), foot);
     if (ev.verdict !== "WARN") return card;
-    const row = h("p", null), answer = yes => pabloHost.decide(ev.id, yes)
+    const row = h("p", { class: "acts" }), answer = yes => pabloHost.decide(ev.id, yes)
       .then(() => { row.textContent = yes ? "진행했습니다." : "취소했습니다."; }, () => { row.textContent = "이미 끝난 요청입니다."; });
     row.append(h("button", { class: "pill on", "data-answer": "proceed", on: () => answer(true) }, "진행"), " ",
       h("button", { class: "pill", "data-answer": "cancel", on: () => answer(false) }, "취소"));
-    card.insertBefore(row, card.querySelector("details"));
+    card.insertBefore(row, foot);
     return card;
   }
   let talk = null;  // the task whose turn is running; its answer stays in that task's chat
@@ -3846,15 +4391,23 @@ if (window.pabloHost && pabloHost.chat) {
   // M5.1 one input box: the task's material and folder decide where a message goes; both -> the user picks, neither -> say so
   const send = async () => {
     const text = inp.value.trim(); if (!text || inp.disabled) return;
-    inp.value = ""; talk = V.task.id;
-    live(talk).append(msg("You", new Date().toISOString(), h("p", null, text)));
+    talk = V.task.id;
     if (!M.desk) { inp.disabled = true; await refresh(); gate(); }  // the task's folder / PDF come with the first state read
     const d = (M.desk || {})[talk] || {}, pdf = (d.papers || []).length > 0 || (!M.desk && M.pdf), dir = !!d.folder;
+    if (!pdf && !dir) {  // S22 (S10 for a paper-reading task): nowhere to send it; the words stay in the box
+      live(talk).querySelectorAll("[data-route=none]").forEach(x => x.closest(".msg").remove());
+      const read = kindFor(d) === "read";
+      live(talk).append(msg("Pablo", null, h("div", { class: "call", "data-route": "none" }, h("p", { class: "head" }, read ? "먼저 자료를 추가하세요" : "먼저 자료나 작업 폴더를 정해 주세요"),
+        h("p", { class: "muted" }, read ? "이 작업에는 논문이 없습니다. 질문은 입력창에 남아 있습니다." : "논문 질문은 자료가, 에이전트는 작업 폴더가 있어야 보낼 수 있습니다. 보내려던 글은 입력창에 남아 있습니다."),
+        h("p", { class: "acts" }, h("button", { class: "pill" + (read ? " on" : ""), on: () => pickPdfs() }, ico("file", 14), read ? "PDF 고르기" : "PDF 추가"),
+          read ? h("button", { class: "pill", on: () => addSource && addSource() }, "arXiv · DOI로 가져오기")
+            : h("button", { class: "pill", on: () => attach("pickFolder") }, ico("folder", 14), "작업 폴더 고르기"))))); scroll(); return;
+    }
+    inp.value = "";
+    live(talk).append(msg("You", new Date().toISOString(), h("p", null, text)));
     if (pdf && !dir) return ask(text, talk);
     if (dir && !pdf) return chat(text, talk);
     if (pdf && dir) return (d.route === "ask" ? ask : chat)(text, talk);  // both: the task's 보낼 곳 (agent by default)
-    const t = talk, row = h("p", null, link("📎 PDF 추가", () => pickPdfs()), " · ", link("📁 작업 폴더 선택", () => attach("pickFolder")));
-    live(t).append(msg("Pablo", null, h("div", { class: "call", "data-route": "none" }, h("p", { class: "head" }, "먼저 자료나 작업 폴더를 정해 주세요."), row))); scroll();
   };
   // ---- M5.1 live state: after every Guard / review / answer the panels read the same records again (no view rebuild) ----
   let q = Promise.resolve();
@@ -4039,7 +4592,7 @@ if (window.pabloHost && pabloHost.chat) {
     const live = V.research.map(id => V.checks[id]).filter(k => k.spec && k.state !== "waived");
     const own = live.filter(k => k.spec.by === "user" || k.spec.kept).length, dev = live.filter(k => devOf(k)).length;
     const outn = V.research.map(id => V.checks[id]).filter(k => k.spec && k.state === "waived" && k.waived_by === "user").length;
-    const box = h("div", { class: "call", "data-redo-ask": "1" }, h("p", { class: "head" }, "📋 재현 조건을 다시 뽑을까요?"),
+    const box = h("div", { class: "call", "data-redo-ask": "1" }, h("p", { class: "head" }, "재현 조건을 다시 뽑을까요?"),
       h("p", { class: "muted" }, "Pablo가 뽑은 조건은 새로 뽑은 목록으로 바뀝니다. 뽑을 때마다 조금씩 다를 수 있어, 이번에 빠진 조건은 되살릴 수 있게 남겨 둡니다.",
         own || dev ? ` 직접 더하거나 되살린 조건 ${own}개와 의도한 차이로 둔 조건 ${dev}개는 그대로 둡니다.` : "",
         outn ? ` 이전에 뺀 조건 ${outn}개는 다시 넣지 않습니다.` : ""),
@@ -4047,6 +4600,17 @@ if (window.pabloHost && pabloHost.chat) {
         h("button", { class: "link", on: () => box.closest(".msg").remove() }, "취소")));
     live_(V.task.id).append(msg("Pablo", null, box)); scroll(); };
   const live_ = t => live(t);
+  specAgain = () => redo();  // B10: the conditions card's own 다시 뽑기 (asks first)
+  // B17: 보낼 곳 is always in the composer (after the send button: it stays the first button). A side with nothing to send to
+  // is off and says why; with both, the task's choice (agent by default)
+  const route = () => { box.querySelectorAll("#route").forEach(x => x.remove()); if (!V || !pabloHost.setRoute) return;
+    const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [], dir = !!d.folder, cur = ps.length && (!dir || d.route === "ask") ? "ask" : dir ? "agent" : "";
+    const why = { agent: dir ? null : "작업 폴더를 고르면 에이전트에게 보낼 수 있습니다", ask: ps.length ? null : "자료를 추가하면 논문에 물을 수 있습니다" };
+    box.append(h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
+      "보낼 곳 ", h("span", { class: "seg" }, ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label]) => cur === r ? h("b", { "data-route": r }, label)
+        : h("button", { class: "link", disabled: why[r] ? true : null, title: why[r], "data-route-to": r, on: () => pabloHost.setRoute(V.task.id, r).then(() => refresh()) }, label)))));
+    gate(); };
+  addSource = () => { adder.hidden = false; arx.focus(); };  // B12: + 논문 추가
   // A2 complete: the header's three chips (자료 · 폴더 · 인터넷), each opening its part of one card (#srccard: #src, #dir,
   // #net, same ids and contents as before); the stage bar (stagesOf; a filtered stage says "거르는 중 · N"); the view bar
   // with what the conversation is filtered by, or "거르기 없음"
@@ -4168,6 +4732,7 @@ if (window.pabloHost && pabloHost.chat) {
     box.querySelectorAll("#route").forEach(x => x.remove());  // 보낼 곳 lives in the composer, after the send button (it stays the first button)
     if (routeEl) box.append(routeEl);
   };
+  { const tools0 = tools; tools = () => { tools0(); route(); }; }  // the stage bar's tools, then 보낼 곳 (B17)
   // a stage filter or 대화로 거르기 (stageFilter / filterBy set #log's data-filter): the stage bar and the view bar follow
   new MutationObserver(rs => { if (rs.some(r => r.oldValue !== $("log").getAttribute("data-filter"))) tools(); })
     .observe($("log"), { attributes: true, attributeFilter: ["data-filter"], attributeOldValue: true });
@@ -4418,23 +4983,29 @@ if (window.pabloHost && pabloHost.chat) {
   function audit(t) {
     if (agentSt === "Thinking") return;
     talk = busy = t; turning = true;
-    live(t).append(msg("Pablo", null, h("div", { class: "audit", "data-auditing": "1" },
-      h("p", { class: "muted" }, "작업 폴더를 논문 조건·작업 기준과 대조하는 중… (파일을 읽기만 합니다)")))); scroll(); gate();
+    const box = progCard("audit", "재현 점검", "점검 중", "작업 폴더를 읽는 중…", "읽기 전용 — 아무것도 바꾸지 않습니다", () => stop());
+    box.dataset.auditing = "1";
+    box._prog = ev => box._set(`파일 ${ev.files}개 읽음 · 조건 ${ev.judged} / ${ev.total} 판정`, ev.total ? ev.judged / ev.total : 0.05);
+    live(t).append(msg("Pablo", null, box)); scroll(); gate();
     pabloHost.audit(t).catch(e => { turning = false; busy = null; status("Error", fail(e));
-      const p = live(t).querySelector("[data-auditing]"); if (p) p.replaceWith(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e)))); });
+      const p = live(t).querySelector("[data-auditing]"); if (p) p.replaceWith(failCard("재현 점검을 시작하지 못했습니다", fail(e) + " 아무것도 바뀌지 않았습니다.")); });
   }
   // A2: the paper's reproduction conditions -> a card in the conversation (+ the 기준 panel); the agent's brief has them
   function spec(t) {
     if (agentSt === "Thinking") return;
     talk = busy = t;
-    const box = h("div", { class: "spec" }, h("p", { class: "muted" }, "논문에서 재현 조건을 찾는 중…"));
+    const pp = (((M.desk || {})[t] || {}).papers || []).find(p => p.primary && p.kind !== "web"), name = pp ? pp.title : "논문";
+    const box = progCard("spec", "조건 확정", "뽑는 중", `${name}을(를) 읽고 있습니다`, "보통 1–3분 · 다른 일을 해도 됩니다", pabloHost.cancel ? () => pabloHost.cancel("spec") : null);
+    box.dataset.specing = "1";
+    box._prog = ev => box._set(`${name}을(를) 읽고 있습니다 · ${ev.page} / ${ev.pages}쪽`, ev.pages ? ev.page / ev.pages : 0.05);
     live(t).append(msg("Pablo", null, box)); scroll(); status("Thinking");
     pabloHost.spec(t).then(r => {
       Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources);
       for (const c of [...r.stated, ...r.missing]) M.views[t].checks[c.id] = c;
-      box.replaceWith(conditions([...r.stated, ...r.missing].map(c => c.id), r.dropped.length, r.diff));
+      box.replaceWith(conditions([...r.stated, ...r.missing].map(c => c.id), r.dropped.length, r.diff, r.secs));
       busy = null; status("Ready"); scroll(); refresh();
-    }, e => { box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e)))); busy = null; status("Ready"); });
+    }, e => { box.replaceWith(/중지했습니다/.test(fail(e)) ? failCard("조건 뽑기를 중지했습니다", "재현 조건과 기준은 그대로입니다.")
+        : failCard("조건을 뽑지 못했습니다", fail(e))); busy = null; status("Ready"); });
   }
   // M3.3: with a captured PDF the question goes to Pablo (judge picks quotes, Pablo anchors them); [n] opens the page.
   // C1: every paper of the task at once; when that is too much text, the user picks which papers (only) to ask
@@ -4447,13 +5018,12 @@ if (window.pabloHost && pabloHost.chat) {
       box.textContent = ""; box.dataset.check = r.check.id;
       box.append(h("p", null, cited(r.check.conclusion, r.check.evidence)));
       const w = webOnly(r.check); if (w) box.append(w);
-      if (r.dropped.length) box.append(h("p", { class: "muted" }, `자료에서 찾지 못한 인용 ${r.dropped.length}개는 뺐습니다.`));
+      const vb = verified(r.check, r.dropped.length); if (vb) box.append(vb);  // B7
       busy = null; status("Ready"); scroll(); refresh();
     }, e => {
-      box.textContent = ""; box.append(h("div", { class: "call block" }, h("p", { class: "head" }, "⚠ " + fail(e))));
-      const ps = ((M.desk || {})[t] || {}).papers || [];
-      if (/물어볼 (논문|자료)를 골라/.test(fail(e)) && ps.length > 1) box.firstChild.append(h("div", { class: "ask-pick" },
-        ps.map(p => h("button", { class: "pill", "data-ask-only": p.id, on: () => ask(text, t, [p.id]) }, `${p.title}에만 묻기`))));
+      const ps = ((M.desk || {})[t] || {}).papers || [];  // S43: what failed, then the papers to ask one at a time
+      box.textContent = ""; box.append(failCard("답을 찾지 못했습니다", fail(e), /물어볼 (논문|자료)를 골라/.test(fail(e)) && ps.length > 1 ? h("div", { class: "ask-pick" },
+        ps.map(p => h("button", { class: "pill", "data-ask-only": p.id, on: () => ask(text, t, [p.id]) }, `${p.title}에만 묻기`))) : null));
       busy = null; status("Ready");
     });
   }

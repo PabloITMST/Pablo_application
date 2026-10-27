@@ -65,4 +65,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   // A2 complete · A: the task's folder in the file manager; 설정 · 계정 "다시 확인" (the plan check again)
   openWork: task => ipcRenderer.invoke("pablo:open-work", task),
   recheckPlan: () => ipcRenderer.invoke("pablo:recheck-plan"),
+  // A2 complete · B: 생각 수준 (reasoning effort) per model, and the user's pick (null = the model's own)
+  efforts: () => ipcRenderer.invoke("pablo:efforts"),
+  setEffort: x => ipcRenderer.invoke("pablo:set-effort", x),
 });

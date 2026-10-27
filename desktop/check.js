@@ -210,7 +210,8 @@ function fakeOpenAI() {
     }
     if (u.pathname === "/revoke") { s.writeHead(200); return s.end(); }
     if (u.pathname === "/v1/models") return json(s, 200, { models: m.noModels ? [{ slug: "hidden", visibility: "hide" }]
-      : [{ slug: "gpt-5.6-sol", display_name: "GPT-5.6 Sol", visibility: "list" }, { slug: "gpt-5.5", visibility: "list" },
+      : [{ slug: "gpt-5.6-sol", display_name: "GPT-5.6 Sol", visibility: "list", supported_reasoning_levels: ["low", "medium", "high", "xhigh"].map(effort => ({ effort })),
+           default_reasoning_level: "medium" }, { slug: "gpt-5.5", visibility: "list", supported_reasoning_levels: [{ effort: "low" }, { effort: "medium" }, { effort: "high" }], default_reasoning_level: "medium" },
          { slug: "gpt-x-account-only", display_name: "X", visibility: "list" }, { slug: "internal", visibility: "hide" }] });
     if (u.pathname === "/v1/responses") {
       if (m.limit) return json(s, 429, { error: { code: "subscription_sharing_usage_limit_exceeded" } });
@@ -262,7 +263,8 @@ async function authCheck() {
   assert.strictEqual(await siwc.token(), good, "a failed sign-in keeps the working credentials");
   console.log("ok sign-in errors:", JSON.stringify(errs));
 
-  assert.deepStrictEqual((await siwc.verify()).models, [{ slug: "gpt-5.6-sol", name: "GPT-5.6 Sol" }, { slug: "gpt-5.5", name: "gpt-5.5" }, { slug: "gpt-x-account-only", name: "X" }]);
+  assert.deepStrictEqual((await siwc.verify()).models, [{ slug: "gpt-5.6-sol", name: "GPT-5.6 Sol", efforts: ["low", "medium", "high", "xhigh"], effort: "medium" },
+    { slug: "gpt-5.5", name: "gpt-5.5", efforts: ["low", "medium", "high"], effort: "medium" }, { slug: "gpt-x-account-only", name: "X" }]);
   const v = {};
   for (const [k, m] of Object.entries({ noModels: { noModels: true }, limit: { limit: true }, notEligible: { notEligible: true } })) v[k] = await code(m, siwc.verify);
   assert.deepStrictEqual(v, { noModels: "no_models", limit: "usage_limit", notEligible: "not_eligible" });
@@ -285,7 +287,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "openWork", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "recheckPlan", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "summarize", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "efforts", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "openWork", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "recheckPlan", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setEffort", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "summarize", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -303,6 +305,16 @@ async function authCheck() {
   await js(`(s => { s.value = "gpt-5.5"; s.dispatchEvent(new Event("change")); })($("model"))`); await sleep(300);
   assert.ok(agent.model === "gpt-5.5" && JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).model === "gpt-5.5", "pick saved");
   console.log("ok model picker:", JSON.stringify(opts), "-> gpt-5.5 saved");
+  // A2 complete · B (S16): the chip is "모델 · 생각 수준"; its menu offers the levels the model has (from the account's catalog);
+  // a pick is kept with the model (thread.json) and sent with the next turn (turn/start effort)
+  assert.strictEqual(await until(`(b => b && !b.hidden && / · 보통$/.test(b.textContent) && b.textContent)(document.querySelector(".composer .modelbtn"))`), "gpt-5.5 · 보통");
+  await js(`document.querySelector(".composer .modelbtn").click()`);
+  assert.deepStrictEqual(await js(`[...document.querySelectorAll(".composer .mmenu [data-effort]")].map(b => b.textContent + (b.classList.contains("on") ? "*" : ""))`), ["낮음", "보통*", "높음"]);
+  await js(`document.querySelector('.composer .mmenu [data-effort="high"]').click()`);
+  assert.strictEqual(await until(`(b => / · 높음$/.test(b.textContent) && b.textContent)(document.querySelector(".composer .modelbtn"))`), "gpt-5.5 · 높음");
+  assert.ok(agent.effort === "high" && JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).effort === "high", "the pick kept with the model");
+  await js(`document.querySelector(".composer .mmenu").hidden = true`);
+  console.log("ok 생각 수준: chip 'gpt-5.5 · 보통' -> menu 낮음 · 보통 · 높음 -> 높음 kept");
   // one size scale, connected: the composer's second row (보낼 곳, the model button, send) is 32 high, its choices 24
   if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "auth-composer.png"), (await win.capturePage()).toPNG());
   assert.deepStrictEqual(await js(`(q => [q("#chat > .composer > button, .composer #route .seg"), q(".composer #route .seg > *")])(s =>
@@ -336,6 +348,7 @@ async function authCheck() {
   assert.ok(shown.includes(siwc.SAY.unauthorized) && !/[{}]/.test(shown), "short message: " + shown);
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`);
   assert.ok(agent.spawns === spawns + 1 && thread === null && agent.thread() && agent.resumed, "restart + thread/resume of the task's thread");
+  assert.deepStrictEqual(agent.sent, { model: "gpt-5.5", effort: "high" }, "the turn was sent with the picked 생각 수준");
   assert.ok((await agent.launch()).env.ACCESS_TOKEN.startsWith("at-r"), "restarted on the refreshed token");
   const saved = JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).threads;
   assert.ok(agent.task().endsWith("#" + await js("V.task.id")) && saved[agent.task()].threadId === agent.thread(), "task -> thread saved for the next launch");
@@ -1051,6 +1064,78 @@ async function uiCheck() {
   await js(`pabloHost.setUi("T1", "tags", {}).then(() => ${redraw})`); await sleep(300);
   assert.ok(await js(`!document.querySelector("#log [data-decision]")`), "a person's tag goes away when cleared");
   console.log("ok views: 단계별 (one box per stage), 대상별 (by file / [n]), back to 시간순; a person's stage + 결정 kept in desktop.json and shown, then cleared");
+  // ---- A2 complete · B: the conversation column -------------------------------------------------------------------------
+  const bshot = async n => { if (process.env.PABLO_SHOTS) { await sleep(300); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "b-" + n + ".png"), (await win.capturePage()).toPNG()); } };
+  const into = async sel => { await js(`(x => x && x.scrollIntoView({ block: "start" }))(document.querySelector(${JSON.stringify(sel)}))`); };
+  // B1: the person is 나; every message (Pablo's too) has its time as HH:mm; the dividers too
+  assert.ok(await js(`[...document.querySelectorAll("#log .msg:not(.note) > div > .who")].every(w => /^(나|Pablo)\\d\\d:\\d\\d$/.test(w.textContent))
+    && [...document.querySelectorAll("#log .divider small")].every(s => /^\\d\\d:\\d\\d$/.test(s.textContent))`), "B1: 나 / Pablo + HH:mm");
+  // B4 / B5: added criteria are an orange-soft band without avatar ([data-intent] keeps its words); a held-back one a card that
+  // asks; the closing 결정 card lists it compact (S47)
+  assert.deepStrictEqual(await js(`[!!document.querySelector("#log .msg.note [data-intent].band.ok"), getComputedStyle(document.querySelector("#log .msg.note > .av")).display,
+    document.querySelector("#log .msg.note .hold .ttl").textContent, document.querySelector("#log .msg.note .hold [data-promote]").textContent,
+    !!document.querySelector("#log .call .band[data-held] [data-promote]")]`), [true, "none", "결정이 필요합니다", "기준으로 추가 (가능하면)", true]);
+  await into("#log .msg.note"); await bshot("bands");
+  // B2 / B15: one "+ 태그" opens the popover (320): stages (the computed one says so), targets with × and + 잇기, 결정으로 고정,
+  // 기준으로 만들기 (its text and 반드시 / 가능하면 open when checked)
+  assert.ok(await js(`!document.querySelector("#log [data-crit-make]") && [...document.querySelectorAll("#log .msg[data-key] .tags")].every(r => r.querySelectorAll("[data-tag-edit]").length === 1)`), "one + 태그 per message");
+  const pop = await js(`(m => { m.querySelector("[data-tag-edit]").click(); const ed = m.querySelector(".tagedit");
+    const r = [Math.round(ed.getBoundingClientRect().width), ed.querySelectorAll(".te-stage input[type=radio]").length, ed.querySelector(".te-stage small").textContent,
+      !!ed.querySelector("[data-tag-add]"), ed.querySelector(".te-crit").hidden];
+    ed.querySelector("[data-crit-on]").click(); r.push(ed.querySelector(".te-crit").hidden); ed.querySelector("[data-crit-on]").click(); return r; })(document.querySelector("#log .msg[data-key]"))`);
+  assert.deepStrictEqual(pop, [320, await js(`STAGE_LIST[kindOf()].length`), "자동 · 보낸 때 단계", true, true, false]);
+  await bshot("popover");
+  await js(`document.querySelector("#log .msg[data-key] [data-tag-edit]").click()`);
+  assert.ok(await js(`!document.querySelector(".tagedit")`), "+ 태그 again closes it");
+  // B3 (rules, no model call): a person's words about another stage get "✦ 제안 · <stage>" with 맞음 / 아님 and why
+  assert.deepStrictEqual(await js(`(el => { tagRow(el, STAGE_LIST[kindOf()][1], "user@2026-01-01T00:00:00.000Z", {}, STAGE_LIST[kindOf()][1]);
+    return [(el.querySelector("[data-suggest]") || {}).textContent, !!el.querySelector("[data-suggest-ok]") && !!el.querySelector("[data-suggest-no]"), /중에 보낸 말이지만/.test((el.querySelector("[data-suggest-why]") || {}).textContent)]; })(
+    msg("You", "2026-01-01T00:00:00.000Z", h("p", null, "보고서는 어떻게 정리할까요?")))`), ["제안 · 검토", true, true]);
+  assert.strictEqual(await js(`suggestFor(msg("You", null, h("p", null, "hello.txt 고쳐줘")), "user@x", "작업")`), null, "nothing to suggest");
+  // B7: a paper answer says how its quotes were checked
+  assert.match(await js(`verified({ evidence: [Object.keys(M.anchors)[0]] }, 1).textContent`), /^인용 1개 · 모두 .+ 원문에서 위치를 확인했습니다 · 위치를 못 찾은 인용 1개는 답에서 뺐습니다$/);
+  // B8: badges head the Guard cards (확인 필요 / 막음); 기술 세부정보 and 왜? at the foot
+  assert.deepStrictEqual(await js(`['[data-id="ACT1"]', '[data-id="ACT2"]'].map(s => (c => [getComputedStyle(c.querySelector(".head"), "::before").content, !!c.querySelector(":scope > .foot details.tech")])(document.querySelector(s)))`),
+    [['"확인 필요"', true], ['"막음"', true]]);
+  await into('[data-id="ACT1"]'); await bshot("guard");
+  // B11: the audit's chips filter its rows; badges carry the verdict
+  await js(`[...document.querySelectorAll("[data-audit]")[0].querySelectorAll(".chips button")].find(b => b.textContent.startsWith("다름")).click()`);
+  assert.deepStrictEqual(await js(`[...new Set([...document.querySelectorAll("[data-audit]")[0].querySelectorAll("li[data-g]:not([hidden])")].map(x => x.dataset.g))]`), ["다름"]);
+  await js(`document.querySelectorAll("[data-audit]")[0].querySelector('[data-verdict-chip="all"]').click()`);
+  await into("[data-audit]"); await bshot("audit");
+  await into("[data-spec]"); await bshot("spec");
+  // B13: 단계별: the head says 메시지 N · HH:mm–, 대화 펼치기 / 접기; only the current stage is open
+  await js(`pabloHost.setUi("T1", "view", "stage").then(() => ${redraw})`); await sleep(300);
+  assert.strictEqual(await js(`[...document.querySelectorAll("#log > .stagegroup")].filter(g => g.querySelector(".sg-msgs")).map(g => [g.querySelector(".sg-head b").textContent, g.querySelector(".sg-msgs").hidden,
+    (g.querySelector(".sg-tog") || {}).textContent, /^메시지 \\d+ · \\d\\d:\\d\\d–/.test(g.querySelector(".sg-head small").textContent)]).every(([s, hid, t, ok]) => ok && (s === "지금" ? !hid && t === "접기 ▾" : hid && t === "대화 펼치기 ▸"))`), true);
+  await bshot("stage");
+  // F24 + the design session's note: 대화로 거르기 also hides the messages inside 단계별 / 대상별 (a group with none left goes)
+  const fb = await js(`(r => [r.hid > 0, [...document.querySelectorAll("#log .stagegroup .msg.filtered")].every(x => getComputedStyle(x).display === "none"),
+    document.querySelector("#filter-banner .fb-t").textContent.startsWith("이 파일과 이어진 대화만 보는 중")])(filterBy(["file:run.py"], "run.py"))`);
+  assert.deepStrictEqual(fb, [true, true, true], "filterBy in 단계별");
+  await js(`filterBy(["file:run.py"], "run.py")`);
+  await js(`pabloHost.setUi("T1", "view", "target").then(() => ${redraw})`); await sleep(300);
+  // B16: 대상별 heads: the target, 대화 N (· 판정 · 점검 · 변경), 접기 / 펼치기
+  assert.ok(await js(`[...document.querySelectorAll("#log > .targetgroup > summary")].every(s => /^대화 \\d+/.test(s.querySelector("small").textContent) && !!s.querySelector(".tog"))`), "B16 heads");
+  await bshot("target");
+  await js(`pabloHost.setUi("T1", "view", "time").then(() => ${redraw})`); await sleep(300);
+  // F24 in 시간순: the banner (거르기 ▾ opens the menu), "··· 숨긴 메시지 N개" where messages were hidden
+  await js(`filterBy(["file:run.py"], "run.py")`);
+  assert.ok(await js(`document.querySelectorAll("#log > .hidnote").length > 0 && [...document.querySelectorAll("#log > .hidnote")].every(x => /^··· 숨긴 메시지 \\d+개$/.test(x.textContent))`), "hidden runs");
+  await js(`document.querySelector("#filter-banner [data-filter-menu]").click()`);
+  assert.deepStrictEqual(await js(`(m => [!!m, m.querySelector(".mi.on .mi-t").textContent, !!m.querySelector("[data-filter-off]"), m.querySelectorAll(".mi").length > 2])($("filter-menu"))`), [true, "run.py", true, true]);
+  await into("#filter-banner"); await bshot("filter");
+  await js(`$("filter-menu").querySelector("[data-filter-off]").click()`);
+  assert.ok(await js(`!$("log").dataset.filter && !$("filter-banner") && !document.querySelector("#log .hidnote, #log .filtered")`), "거르기 풀기");
+  // B17: 보낼 곳 always there (a side with nothing to send to is off); the send button says 보내기 and is the first button
+  assert.deepStrictEqual(await js(`[!!$("route"), $("route").querySelectorAll(".seg > *").length, document.querySelector("#chat > .composer > button").textContent]`), [true, 2, "보내기"]);
+  // B18 / B19: the progress cards; B24 the download card; nothing is sent from them here
+  assert.deepStrictEqual(await js(`(c => { c._set("LinearRAG을(를) 읽고 있습니다 · 9 / 20쪽", 9 / 20); return [c.querySelector(".pg-t").textContent, c.querySelector(".pg-bar > i").style.width, !!c.querySelector("[data-prog-stop]")]; })(
+    progCard("spec", "조건 확정", "뽑는 중", "LinearRAG을(를) 읽고 있습니다", "보통 1–3분 · 다른 일을 해도 됩니다", () => {}))`), ["LinearRAG을(를) 읽고 있습니다 · 9 / 20쪽", "45%", true]);
+  assert.deepStrictEqual(await js(`(c => [c.querySelector(".head").textContent, c.querySelector(".dl-file").textContent, !!c.querySelector("[data-dl-get]")])(downloadCard({ id: "2510.10114", filename: "arxiv-2510.10114v4.pdf", source: "arxiv.org", bytes: 2411724 }))`),
+    ["arXiv에서 받을까요?", "arxiv-2510.10114v4.pdf출처 arxiv.org · 2.3 MB · 50 MB 상한 안", true]);
+  await into("#log .msg"); await bshot("top");
+  console.log("ok A2 complete B: 나 + HH:mm, bands and held card, one + 태그 popover, rule suggestions, verification bar, Guard badges, audit chips, 단계별 / 대상별 heads, 거르기 in every view + menu, 보낼 곳, progress and download cards");
   // QA 10/26 (D4): the panel as this task left it, when the task is opened again in the same run (before the next state read)
   await js(`show({ mode: "plan" })`); await sleep(200);
   await js(`select(V.task.id)`); await sleep(200);
@@ -1101,7 +1186,7 @@ async function uiCheck() {
       : m.querySelector("[data-intent]") ? "INTENT " + m.querySelector("[data-intent]").textContent.replace(/ 기준 보기$/, "") : "YOU " + m.querySelector("p").textContent; })`);
   assert.deepStrictEqual(order, ["YOU 인사말 파일 정리", "YOU hello.txt에 인사말을 넣어줘. 다른 파일은 건드리지 마.",
     "INTENT 📌 작업 기준에 추가했습니다: 다른 파일은 건드리지 마 (반드시)", "AGENT hello.txt에 줄을 더하겠습니다.", "CARD ACT1",
-    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "AUDIT", "ASKS ⚠ 결정이 필요합니다."]);
+    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "AUDIT", "ASKS 결정이 필요합니다"]);
   // ⑤ the second card: the model named the line that reads top-k; Pablo shows the config line that sets it. A log line is
   // checked in a file, not in code
   assert.deepStrictEqual(await js(`(b => [...b.querySelectorAll(":scope > ul > li, details li")].map(x => [x.querySelector(".at code").textContent,
@@ -1111,29 +1196,30 @@ async function uiCheck() {
   assert.strictEqual(await js(`document.querySelectorAll("[data-audit]")[1].querySelector("[data-seen]").textContent`),
     "⚠ 모델은 아직 없다고 했지만 Pablo가 찾았습니다: config.yaml:2 embedding_model: all-mpnet-base-v2");
   // ⑦ top-k was an intended deviation when the second audit ran: its 다름 is 의도한 차이, with why; the first audit's is not
-  assert.deepStrictEqual(await js(`(b => [b.querySelector(".head").textContent, b.querySelector("li.st-intended b").textContent,
+  // A2 complete (B11): the counts are the card's verdict chips; a row's verdict is a badge
+  assert.deepStrictEqual(await js(`(b => [[...b.querySelectorAll(".chips button")].map(x => x.textContent), b.querySelector("li.st-intended b").textContent,
     b.querySelector("[data-dev-why]").textContent])(document.querySelectorAll("[data-audit]")[1])`),
-    ["🔎 재현 점검: 열 짝 확인 필요 1 · 의도한 차이 1 · 아직 없음 1", "◇ 의도한 차이", "이유: ablation: top-k 10으로 비교"]);
+    [["전체 3", "확인 필요 1", "의도한 차이 1", "아직 없음 1"], "의도한 차이", "이유: ablation: top-k 10으로 비교"]);
   // e2e3 (c86a409): the 2Wiki result was read from Table 1's row without its column names. Its 다름 is not counted as a
   // verdict: the paper's row and the agent's verdict sit beside the log line it named; chat.json keeps "differs"
   assert.deepStrictEqual(await js(`(li => [li.querySelector("b").textContent, li.querySelector("[data-pairing]").textContent,
     li.querySelector(".at code").textContent, !li.querySelector("[data-hm]")])(document.querySelectorAll("[data-audit]")[1].querySelector("li.st-pairing"))`),
-    ["? 열 짝 확인 필요", "논문 표 행 (LinearRAG p.2): “LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72”판단 못 함: 열 이름이 PDF 글자에서 떨어져 있어, 어느 숫자가 이 조건의 값인지 확인되지 않았습니다. 에이전트 판정(✗ 다름)은 그 짝을 믿은 것입니다. 표에서 열을 확인하고 아래 자리의 값과 대조하세요.", "logs/2wiki.log:1", true]);
+    ["열 짝 확인 필요", "논문 표 행 (LinearRAG p.2): “LinearRAG (Ours) 64.30 66.50 70.20 63.70 33.90 37.00 63.72”판단 못 함: 열 이름이 PDF 글자에서 떨어져 있어, 어느 숫자가 이 조건의 값인지 확인되지 않았습니다. 에이전트 판정(✗ 다름)은 그 짝을 믿은 것입니다. 표에서 열을 확인하고 아래 자리의 값과 대조하세요.", "logs/2wiki.log:1", true]);
   assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8")).T1.filter(x => x.role === "audit")[1].items[1].status, "differs");
   // ⑤ the second audit ran in Windows PowerShell 5.1 (no pwsh 7): its card says so, the first one's does not
   assert.strictEqual(await js(`(b => b && b.textContent)(document.querySelectorAll("[data-audit]")[1].querySelector("[data-shell]"))`), "⚠ 이 점검은 Windows PowerShell 5.1에서 했습니다. 에이전트가 한글 주석이나 λ 같은 기호를 깨진 채 읽었다면 그 줄의 판정이 틀릴 수 있습니다. PowerShell 7을 설치하면 정확히 읽습니다.");
   assert.ok(await js(`!document.querySelectorAll("[data-audit]")[0].querySelector("[data-shell]")`));
   assert.ok(await js(`!document.querySelectorAll("[data-audit]")[0].querySelector(".st-intended")`));
   // A2: what Pablo saw at each place: the ones it could not confirm come first, open, whatever the verdict
-  const audit = await js(`(b => ({ head: b.querySelector(".head").textContent, checked: b.querySelector("[data-checked]").textContent,
+  const audit = await js(`(b => ({ head: [...b.querySelectorAll(".chips button")].map(x => x.textContent).join(" · "), checked: b.querySelector("[data-checked]").textContent,
     rows: [...b.querySelectorAll(":scope > ul > li")].map(x => [x.className, x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent,
       (x.querySelector("[data-check]") || {}).textContent]), folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit]"))`);
   // ⑥ 코드가 정함 right after 다름 (a report needs it); an 아직 없음 of a condition from before kinds folds, named on its line
-  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 열 짝 확인 필요 1 · 코드가 정함 1 · 아직 없음 1 · 따름 1 · 조건 밖 4", folded: "아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…",
+  assert.deepStrictEqual(audit, { head: "전체 10 · 다름 2 · 확인 필요 1 · 코드가 정함 1 · 아직 없음 1 · 따름 1 · 조건 밖 4", folded: "아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…",
     checked: "📍 모델이 댄 위치 5곳 중 4곳을 Pablo가 파일에서 직접 확인했습니다. 1곳은 그 자리에서 찾지 못했습니다. 1곳은 판정과 논문 값이 어긋납니다. 이 항목은 위에 따로 둡니다.",
-    rows: [["st-differs", "✗ 다름", "config.yaml:2", "⚠ 논문 값(all-mpnet-base-v2)이 이 자리에 그대로 있음"],
-      ["st-pairing", "? 열 짝 확인 필요", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
-      ["st-differs", "✗ 다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-chosen", "• 코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
+    rows: [["st-differs", "다름", "config.yaml:2", "⚠ 논문 값(all-mpnet-base-v2)이 이 자리에 그대로 있음"],
+      ["st-pairing", "열 짝 확인 필요", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
+      ["st-differs", "다름", "config.yaml:5", "✓ Pablo가 코드에서 확인"], ["st-chosen", "코드가 정함", "config.yaml:2", "위치 보정: 12줄"]] });
   assert.deepStrictEqual(await js(`[...document.querySelector("[data-audit]").querySelectorAll(":scope > details > summary")].map(x => x.textContent)`),
     ["아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…", "따르는 항목 1개"]);
   // what no item covers: apart from the verdicts, its places checked the same way, the paper's experiments folded
@@ -1147,24 +1233,34 @@ async function uiCheck() {
     "이 점검 전에 지운 기준 1개는 대조하지 않았습니다: 로그 파일은 지우지 마 (이유: 로그는 서버에 따로 남김)");
   assert.strictEqual(await js(`document.querySelector("[data-audit] [data-skipped-spec]").textContent`),
     "이 점검 전에 뺀 재현 조건 1개는 대조하지 않았습니다: 비교 대상은 HippoRAG2이다 (이유: 이 재현의 범위 밖)");
-  const spec = await js(`(b => ({ heads: [...b.querySelectorAll("h4")].map(x => x.textContent), items: [...b.querySelectorAll("li")].map(x => x.textContent.trim()),
-    text: b.textContent }))(document.querySelector("[data-spec]"))`);
-  assert.deepStrictEqual(spec.heads, ["모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
-  assert.deepStrictEqual(spec.items, ["방법 · 검색 결과는 passage 단위로 돌려준다 · 되살리기", "임베딩 모델은 all-mpnet-base-v2이다 ⚠ 값(all-mpnet-base-v2)이 인용 안에 없음",
-    "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", "검색 단계의 top-k는 5이다",
-    "2Wiki 정확도는 63.70%이다 [1] ⚠ 인용에 표의 열 이름이 없습니다. 숫자와 데이터셋 짝을 원문 표에서 확인하세요",
-    "데이터셋 · HotpotQA는 약 97,000개 질문-답 쌍이다", "난수 시드가 적혀 있지 않다"]);
-  // review: a re-extraction says what changed; the one it did not find again comes back with 되살리기, kept from then on
-  assert.strictEqual(await js(`document.querySelector("[data-spec] [data-redo] p").textContent`),
-    "다시 뽑았습니다: 이전 2개 중 1개는 이번에도 나왔고, 새로 생긴 것 1개, 이번에 빠진 것 1개입니다.");
-  await js(`document.querySelector("[data-spec] [data-redo-restore]").click()`);
-  const lost = await js(`document.querySelector("[data-spec] [data-redo-restore]").closest("li").dataset.id`);
+  const spec = await js(`(b => ({ heads: [...b.querySelectorAll(".sp-cat h4 .nm")].map(x => x.textContent), chips: [...b.querySelectorAll(".chips button")].map(x => x.textContent),
+    items: [...b.querySelectorAll(".sp-cat li")].map(x => [x.querySelector(".tg.kd").textContent, x.querySelector(".sx").textContent.trim(), (x.querySelector(".cite") || {}).textContent || ""]),
+    text: b.textContent, redo: (r => r && [r.querySelector(".head").textContent, [...r.querySelectorAll("li")].map(x => x.textContent)])(document.querySelector("[data-redo]")) }))(document.querySelector("[data-spec]"))`);
+  // A2 complete (B10): a grey head per category, a kind tag per row, kind chips; a value's warnings are tags; the page chip
+  assert.deepStrictEqual(spec.heads, ["데이터셋", "모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
+  assert.deepStrictEqual(spec.chips, ["전체 5", "설정 4", "서술 1"]);
+  assert.deepStrictEqual(spec.items, [["서술", "HotpotQA는 약 97,000개 질문-답 쌍이다", ""], ["설정", "임베딩 모델은 all-mpnet-base-v2이다값(all-mpnet-base-v2)이 인용 안에 없음", ""],
+    ["설정", "검색된 passage의 본문이 생성 단계의 문맥으로 들어간다", ""], ["설정", "검색 단계의 top-k는 5이다", ""],
+    ["설정", "2Wiki 정확도는 63.70%이다표의 열 이름 없음", "p.2"], ["정할 일", "난수 시드가 적혀 있지 않다", ""]]);
+  assert.ok(/^재현 조건 5개 · LinearRAG/.test(spec.text) && /원문에서 위치를 확인한 것만 남겼습니다 · 뺀 것 1개/.test(spec.text), spec.text);
+  // the kind chips filter the rows; 전체 again shows them all
+  await js(`document.querySelector('[data-spec] [data-kind-chip="fact"]').click()`);
+  assert.deepStrictEqual(await js(`[...document.querySelector("[data-spec]").querySelectorAll(".sp-cat:not(.open-set) li")].map(x => x.dataset.kind)`), ["fact"]);
+  await js(`document.querySelector('[data-spec] [data-kind-chip="all"]').click()`);
+  // the row's actions show on hover only (the design session's note): hidden until the row is hovered or focused
+  assert.strictEqual(await js(`getComputedStyle(document.querySelector("[data-spec] .sp-cat li > .racts")).opacity`), "0");
+  // F25: a re-extraction is its own card: 그대로 · 바뀜 · 빠짐 · 새로; what it did not find again comes back with 되살리기
+  assert.deepStrictEqual(spec.redo, ["다시 뽑았습니다: 이전 2개 중 1개 그대로 · 바뀜 0 · 빠짐 1 · 새로 1", ["방법검색 결과는 passage 단위로 돌려준다 이번 추출에 없음되살리기"]]);
+  const lost = await js(`document.querySelector("[data-redo] [data-redo-restore]").closest("li").dataset.id`);
+  await js(`document.querySelector("[data-redo] [data-redo-restore]").click()`);
   const kept = `V.checks[${JSON.stringify(lost)}].state === "completed" && V.checks[${JSON.stringify(lost)}].spec.kept === true`;
   for (let i = 0; i < 100 && !(await js(kept)); i++) await sleep(100);
   assert.ok(await js(kept), "restored, and kept from then on");
-  // ⑥ a description the code does not set: kept, cited, folded apart, not counted among the conditions to check
-  assert.strictEqual(await js(`document.querySelector('[data-spec] [data-aside="fact"] summary').textContent`), "논문의 서술 (코드가 정하지 않음) 1개 · 재현 점검에서 대조하지 않음");
-  assert.ok(/재현 조건 4개/.test(spec.text) && /위치를 찾지 못한 조건 1개/.test(spec.text), spec.text);
+  // F25 바뀜: the same setting with another value pairs up (old struck through -> new)
+  assert.deepStrictEqual(await js(`(c => { const g = { ...c, id: "SCg", state: "waived", waived_by: "pablo", conclusion: "검색 단계의 top-k는 10이다", spec: { ...c.spec, value: "10" } };
+    V.checks.SCg = g; const r = redone({ before: 3, same: 1, gone: ["SCg"], new: [c.id] }); delete V.checks.SCg;
+    return [r.querySelector(".head").textContent, r.querySelector("[data-changed] s").textContent, r.querySelector("[data-changed] .nv").textContent]; })(
+    Object.values(V.checks).find(k => k.spec && /top-k는 5/.test(k.conclusion || "")))`), ["다시 뽑았습니다: 이전 3개 중 1개 그대로 · 바뀜 1 · 빠짐 0 · 새로 0", "10", "5"]);
   await js(`show({ mode: "intent" })`);
   // A2 complete · C4: the conditions are a count per kind; 조건 보기 opens the whole list
   if (await js(`!!document.querySelector("#panel [data-cond-list][hidden]")`)) await js(`document.querySelector("#panel [data-cond-toggle]").click()`);
@@ -1336,7 +1432,7 @@ async function uiCheck() {
   // review: 다시 뽑기 asks first, saying what stays (here: the condition the user took out stays out; the one restored above stays)
   await js(`document.querySelector("#specs .link").click()`);
   assert.match(await until(`(b => b && b.textContent)(document.querySelector("[data-redo-ask]"))`),
-    /^📋 재현 조건을 다시 뽑을까요\?Pablo가 뽑은 조건은 새로 뽑은 목록으로 바뀝니다\..* 직접 더하거나 되살린 조건 1개와 의도한 차이로 둔 조건 0개는 그대로 둡니다\. 이전에 뺀 조건 1개는 다시 넣지 않습니다\.다시 뽑기 취소$/);
+    /^재현 조건을 다시 뽑을까요\?Pablo가 뽑은 조건은 새로 뽑은 목록으로 바뀝니다\..* 직접 더하거나 되살린 조건 1개와 의도한 차이로 둔 조건 0개는 그대로 둡니다\. 이전에 뺀 조건 1개는 다시 넣지 않습니다\.다시 뽑기 취소$/);
   await js(`[...document.querySelectorAll("[data-redo-ask] button")].find(b => b.textContent === "취소").click()`);
   assert.ok(await js(`!document.querySelector("[data-redo-ask]")`));
   // ⑫ the report: saved where the user picks (the dialog stubbed here), with the fixed sections a reviewer reads first
@@ -1471,9 +1567,10 @@ async function uiCheck() {
   // UI renewal: a message's words made a criterion by hand (📌 기준으로), trimmed, 가능하면: a rule of this task, said in the
   // conversation; words that read like a plain statement still become a rule
   const made = "배치 크기는 논문 값 그대로 둔다";
-  await js(`(m => { m.querySelector("[data-crit-make]").click(); const ed = m.querySelector(".tagedit");
-    ed.querySelector("[data-crit-text]").value = ${JSON.stringify(made)}; ed.querySelectorAll("input[type=radio]")[1].checked = true;
-    ed.querySelector("[data-crit-save]").click(); })(document.querySelector("#log .msg [data-crit-make]").closest(".msg"))`);
+  // A2 complete (B2 / B15): "+ 태그" -> 기준으로 만들기 in the same popover (the stage stays as it was)
+  await js(`(m => { m.querySelector("[data-tag-edit]").click(); const ed = m.querySelector(".tagedit"); ed.querySelector("[data-crit-on]").click();
+    ed.querySelector("[data-crit-text]").value = ${JSON.stringify(made)}; ed.querySelector('input[name^="ce-"][value="soft"]').checked = true;
+    ed.querySelector("[data-tag-save]").click(); })(document.querySelector("#log .msg [data-tag-edit]").closest(".msg"))`);
   await settle(`V.intent.prefer.some(x => x.text === ${JSON.stringify(made)}) && !V.intent.must.some(x => x.text === ${JSON.stringify(made)})`);
   assert.ok(await js(`[...document.querySelectorAll("#log [data-intent]")].some(p => p.textContent.includes(${JSON.stringify(made + " (가능하면)")}))`),
     "the conversation says it");
