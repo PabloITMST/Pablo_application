@@ -240,5 +240,5 @@ function stop() {
 const restart = () => stop().then(start);
 
 agent.models = [];
-Object.assign(agent, { start, send, retry, interrupt, stop, restart, forget, setModel, spawnUtf8, shell, busy: () => !!turn, thread: () => threadId, task: () => key, pid: () => proc && proc.pid });
+Object.assign(agent, { start, send, retry, interrupt, stop, restart, forget, setModel, spawnUtf8, shell, codexBin, busy: () => !!turn, thread: () => threadId, task: () => key, pid: () => proc && proc.pid });
 module.exports = agent;

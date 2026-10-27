@@ -1,8 +1,9 @@
 // Pablo desktop host: shows the viewer HTML; only the right Source panel embeds a live page (<webview>).
 // Usage: npm start (the app's own state in userData/state) | npm start -- <path/to/view-T1.html>[#E1] (export/debug snapshot)
 const { app, BrowserWindow, dialog, ipcMain, protocol, safeStorage, session, shell, webContents } = require("electron");
+const crypto = require("crypto");
 const fs = require("fs");
-const { execFileSync } = require("child_process");
+const { execFile, execFileSync } = require("child_process");
 const path = require("path");
 const { run } = require("./locate");
 const agent = require("./agent");
@@ -120,8 +121,11 @@ async function chatTurn(text, task, prep) {
   const brief = process.env.PABLO_BRIEF === "0" ? null  // checks of the Guard as a safety net turn it off
     : await ctl.py("brief", task).catch(err => { console.error("[pablo] brief", err.message); return null; });
   // M5.1: a task made in the app has no CLI plan; the request itself is its one step (wiring only, Guard unchanged)
-  if (own) await ctl.py("plan", task, "--steps", JSON.stringify([{ action: text.slice(0, 500), basis: brief ? brief.basis : [] }]))
-    .catch(err => console.error("[pablo] plan", err.message));  // no plan -> Guard warns on every action (fail safe)
+  const plan = own ? await ctl.py("plan", task, "--steps", JSON.stringify([{ action: text.slice(0, 500), basis: brief ? brief.basis : [] }]))
+    .catch(err => { console.error("[pablo] plan", err.message); return null; }) : null;  // no plan -> Guard warns on every action (fail safe)
+  // D4: the request's plan step (P3.1) on its chat entry and on the reply: a plan row finds its conversation
+  const step = plan && plan.plan && plan.plan.steps.length ? plan.plan.steps[0].id : null;
+  if (step) { patchChat(task, x => x.role === "user" && x.at === new Date(at).toISOString(), { step }); if (reply && reply.task === task) reply.step = step; }
   saveDesk(x => { x.last = task; });
   const undone = (d.undone || {})[task];  // the user undid a change since the last message: the agent hears it once
   if (undone) saveDesk(x => { delete x.undone[task]; });
@@ -148,6 +152,14 @@ function logChat(task, entry) {
   (log[task] = Array.isArray(log[task]) ? log[task] : []).push(entry);
   fs.writeFileSync(f, JSON.stringify(log, null, 1));
 }
+// fields added to an entry already logged (the last one that matches): D4 a request's plan step, known after it is logged
+function patchChat(task, match, fields) {
+  const f = path.join(ctl.dir, "chat.json");
+  try {
+    const log = JSON.parse(fs.readFileSync(f, "utf8")), x = (log[task] || []).filter(match).at(-1);
+    if (x) { Object.assign(x, fields); fs.writeFileSync(f, JSON.stringify(log, null, 1)); }
+  } catch (err) { console.error("[pablo] chat log", err.message); }
+}
 const pick = (e, opts) => dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender), opts).then(r => r.canceled ? null : r.filePaths[0]);
 ipcMain.handle("pablo:state", async e => {
   fromWindow(e);
@@ -162,8 +174,42 @@ ipcMain.handle("pablo:state", async e => {
       view: (d.view || {})[t.id] || null, tags: (d.tags || {})[t.id] || {}, summary: (d.summary || {})[t.id] || {},
       auto: (d.auto || {})[t.id] || {} }]; }));  // names only, no paths
   m.last = d.last; m.settings = d.settings || {};
-  m.host = { shell: agent.shell(), noticed: !!(d.noticed || {}).shell, fonts: fontFiles() };  // ⑤ 5.1: the notice, once
+  m.host = { shell: agent.shell(), noticed: !!(d.noticed || {}).shell, fonts: fontFiles(),  // ⑤ 5.1: the notice, once
+    // D6 the settings' 저장 위치 · 정보: versions, where the app keeps its data, the checkpoints' size (bytes)
+    version: VERSION, codex: await codexVersion(), userData: app.getPath("userData"), logs: null, checkpoints: await checkpointBytes() };
   return m;
+});
+// D6: logs only go to the console (no log files), so there is no log folder to show or open
+const VERSION = require("./package.json").version;
+let codexVer = null;  // the pinned Codex, read once: its package (dev), else `codex --version` (installed app)
+function codexVersion() {
+  if (codexVer) return codexVer;
+  try { return (codexVer = Promise.resolve(require("@openai/codex-win32-x64/package.json").version.replace(/-win32-x64$/, ""))); } catch {}
+  return (codexVer = new Promise(res => execFile(agent.codexBin(), ["--version"], { timeout: 10000, windowsHide: true, encoding: "utf8" },
+    (err, out) => res(err ? null : (String(out).match(/\d+\.\d+\.\d+\S*/) || [null])[0]))));
+}
+let cpSize = { at: 0, bytes: null };  // the checkpoint folder's bytes, measured at most every 30 s (pablo:state runs often)
+async function checkpointBytes() {
+  if (Date.now() - cpSize.at < 30000) return cpSize.bytes;
+  const walk = async d => { let n = 0;
+    for (const x of await fs.promises.readdir(d, { withFileTypes: true }).catch(() => [])) {
+      const p = path.join(d, x.name);
+      n += x.isDirectory() ? await walk(p) : x.isFile() ? (await fs.promises.stat(p).catch(() => ({ size: 0 }))).size : 0;
+    }
+    return n; };
+  cpSize = { at: Date.now(), bytes: ctl.dir ? await walk(path.join(ctl.dir, "checkpoints")) : null };
+  return cpSize.bytes;
+}
+// D6 a folder of the app opened in the file manager: only these, never a path from the page
+ipcMain.handle("pablo:open-path", async (e, which) => {
+  fromWindow(e);
+  const dir = { userData: app.getPath("userData"), checkpoints: ctl.dir && path.join(ctl.dir, "checkpoints"), logs: null }[which];
+  if (!["userData", "checkpoints", "logs"].includes(which)) throw new Error("bad folder");
+  if (!dir) throw new Error("로그 폴더가 없습니다. 로그는 파일로 남기지 않습니다.");
+  fs.mkdirSync(dir, { recursive: true });
+  const err = await shell.openPath(dir);
+  if (err) throw new Error(`폴더를 열지 못했습니다: ${err}`);
+  return true;
 });
 // A3: a reproduction task starts with the research-integrity criteria (task scope, editable like any other; Python
 // keeps the list, and removing one of them needs a reason)
@@ -189,6 +235,42 @@ ipcMain.handle("pablo:new-task", async (e, text, opts) => {
     x.panel = { ...(x.panel || {}), [t.task.id]: { open: s.panel !== "rail", tab: "intent" } };
     if (s.net === true) x.net = { ...(x.net || {}), [t.task.id]: true }; });
   return { id: t.task.id, lines: lines.length - 1, added: items.length, unread: unread.length + pending.length };
+});
+// A12 the new-task dialog picks PDFs and a folder before the task exists: main keeps what was picked, the page gets an
+// opaque token and the name only; pablo:attach-picked adds them to the task made (as add-files / pick-folder would)
+const picked = new Map();  // token -> {kind: "pdf" | "folder", path}
+const hold = (kind, p) => { const t = crypto.randomUUID(); picked.set(t, { kind, path: p }); return t; };
+ipcMain.handle("pablo:pick-pdfs-free", async e => {
+  fromWindow(e);
+  const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender),
+    { title: "자료 추가", properties: ["openFile", "multiSelections"], filters: [{ name: "PDF", extensions: ["pdf"] }] });
+  return r.canceled || !r.filePaths.length ? null : r.filePaths.slice(0, 20).map(f => ({ token: hold("pdf", f), name: path.basename(f) }));
+});
+ipcMain.handle("pablo:pick-folder-free", async e => {
+  fromWindow(e);
+  const dir = await pick(e, { title: "작업 폴더 선택", properties: ["openDirectory"] });
+  if (!dir) return null;
+  const w = workspace(dir);  // refused at once when it overlaps Pablo's own folders
+  return { token: hold("folder", w), name: path.basename(w) };
+});
+ipcMain.handle("pablo:attach-picked", async (e, task, tokens) => {
+  fromWindow(e); known(task);
+  if (!Array.isArray(tokens) || !tokens.length || tokens.length > 21 || !tokens.every(t => str(t, 64) && picked.has(t))) throw new Error("bad picks");
+  const xs = tokens.map(t => picked.get(t)), pdfs = xs.filter(x => x.kind === "pdf").map(x => x.path), dirs = xs.filter(x => x.kind === "folder");
+  if (pdfs.length > 20 || dirs.length > 1) throw new Error("bad picks");
+  tokens.forEach(t => picked.delete(t));
+  const out = { added: [], failed: [], folder: null };
+  if (pdfs.length) {
+    const ok = pdfs.filter(isPdf), r = await captureAll(task, ok);
+    out.added = r.added;
+    out.failed = [...r.failed, ...pdfs.filter(f => !ok.includes(f)).map(f => ({ file: path.basename(f), error: "PDF 파일이 아닙니다." }))];
+  }
+  if (dirs.length) {
+    const w = workspace(dirs[0].path);
+    saveDesk(x => { x.workspace[task] = w; x.last = task; });
+    out.folder = path.basename(w);
+  }
+  return out;
 });
 ipcMain.handle("pablo:pick-folder", async (e, task) => {
   fromWindow(e); known(task);
@@ -216,7 +298,8 @@ const UI = { kind: v => ["repro", "read", "general"].includes(v), done: v => typ
   panel: v => plain(v, 200) && typeof v.open === "boolean" && ["intent", "plan", "trace", "evidence"].includes(v.tab),
   view: v => ["time", "stage", "target"].includes(v), tags: v => plain(v, 200000), summary: v => plain(v, 50000) };
 const SETTINGS = { view: v => ["time", "stage", "target"].includes(v), tags: v => ["main", "all"].includes(v),
-  panel: v => ["open", "rail"].includes(v), net: v => typeof v === "boolean" };
+  panel: v => ["open", "rail", "always"].includes(v), net: v => typeof v === "boolean",
+  side: v => typeof v === "boolean" };  // A14 panel "always": the right column stays open; A1 side: the sidebar folded
 ipcMain.handle("pablo:set-ui", (e, task, key, value) => {
   fromWindow(e);
   if (task === null && key === "settings") {
@@ -314,6 +397,39 @@ ipcMain.handle("pablo:add-arxiv", async (e, task, text, via) => {
   const version = x.version.arxiv_version || a.version || null;
   join(task, { id: x.id, title: x.title, arxiv: a.id, version, sha256: x.version.content_hash, ...(byDoi ? { doi: byDoi } : {}) }, before && before.id);
   return { title: x.title, version, same: !!before && before.id === x.id, moved };
+});
+// D10 what an arXiv import would download, before it does: the title (arXiv API), the file name it is saved as, where
+// from, and its size (a HEAD on the PDF, redirects followed only inside arxiv.org; null when the server does not say)
+ipcMain.handle("pablo:peek-arxiv", async (e, text) => {
+  fromWindow(e); if (!str(text, 300)) throw new Error("bad arXiv id");
+  const a = papers.arxiv(text);
+  if (!a) throw new Error("arXiv 번호나 링크를 읽지 못했습니다. 예: arXiv:2510.10114, https://arxiv.org/abs/2510.10114v4");
+  const id = a.id + (a.version || ""), origin = new URL(arxiv.base).origin;
+  const meta = (async () => {
+    const wait = searched + 3000 - Date.now();
+    searched = Date.now() + Math.max(0, wait);
+    if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    const r = await fetch(`${arxiv.api}?id_list=${encodeURIComponent(id)}&max_results=1`, { signal: AbortSignal.timeout(30000), redirect: "error" });
+    return r.ok ? papers.atom((await r.text()).slice(0, 4 << 20)).find(x => x.id === a.id) || null : null;
+  })().catch(() => null);
+  const size = (async () => {
+    let at = new URL(arxiv.base + id), r;
+    const signal = AbortSignal.timeout(30000);
+    for (let hop = 0; hop < 6; hop++) {
+      if (at.origin !== origin) return { bytes: null };
+      r = await fetch(at, { method: "HEAD", signal, redirect: "manual", headers: { accept: "application/pdf" } });
+      if (r.status < 300 || r.status >= 400 || !r.headers.get("location")) break;
+      at = new URL(r.headers.get("location"), at);
+    }
+    if (r.status === 404) return { missing: true };
+    const n = +(r.headers.get("content-length") || 0);
+    return { bytes: r.ok && n > 0 ? n : null };
+  })().catch(() => null);
+  const [m, s] = await Promise.all([meta, size]);
+  if (s && s.missing) throw new Error("arXiv에 그 번호의 논문이 없습니다.");
+  if (!m && !s) throw new Error("arXiv에 연결하지 못했습니다. 인터넷 연결을 확인하세요.");
+  return { id: a.id, version: (m && m.version) || a.version || null, title: m ? m.title.replace(/\s+/g, " ").trim() : null,
+    filename: `arxiv-${a.id.replace("/", "_")}.pdf`, source: new URL(arxiv.base).host, bytes: s ? s.bytes : null };
 });
 // C1: a paper leaves the task's list; what was located in it (answers, conditions, table cells) stays in the records
 // D1 a web page as a source: Pablo fetches it itself (Python, evidence.fetch: http(s), a text page, <= 5 MB) and keeps the
@@ -454,15 +570,19 @@ ipcMain.handle("pablo:intent", async (e, task, id, action) => {
 });
 // ④ the user changes a criterion: 반드시 <-> 가능하면, removes it (with why) or restores a removed one. The Guard and the
 // brief read the change at once; the history keeps the old one and says the user did it.
+// C3 edit: the 4th argument is the new sentence (<= 500); the same criterion (strength, scope) with the user's words
 ipcMain.handle("pablo:criterion", async (e, task, id, action, reason) => {
   fromWindow(e); known(task);
-  if (!str(id, 20) || !/^[A-Z]\d+$/.test(id) || !["hard", "soft", "drop", "restore"].includes(action) || (reason != null && !str(reason, 300)))
+  if (!str(id, 20) || !/^[A-Z]\d+$/.test(id) || !["hard", "soft", "drop", "restore", "edit"].includes(action)
+    || (reason != null && !str(reason, action === "edit" ? 500 : 300)) || (action === "edit" && !(reason || "").trim()))
     throw new Error("bad criterion");
-  const r = await ctl.py(...(action === "drop" ? ["drop", id, "--reason", (reason || "").trim()] : action === "restore" ? ["restore", id] : ["strength", id, action]))
+  const r = await ctl.py(...(action === "drop" ? ["drop", id, "--reason", (reason || "").trim()] : action === "restore" ? ["restore", id]
+    : action === "edit" ? ["restate", id, reason.trim()] : ["strength", id, action]))
     .catch(err => { throw new Error(/no (active|removed) /.test(err.message) ? "이미 바뀌었거나 지운 기준입니다." : short(err.message)); });
   // ⑩ review: whoever reads only the conversation (a supervisor, oneself later) sees what changed and why
   logChat(task, { role: "criterion-edit", at: new Date().toISOString(), action, id, text: r.item.statement,
-    ...(action === "drop" && reason && reason.trim() ? { reason: reason.trim() } : {}) });
+    ...(action === "drop" && reason && reason.trim() ? { reason: reason.trim() } : {}),
+    ...(action === "edit" && r.before && r.before !== r.item.statement ? { prev: r.before } : {}) });
   return r.item.statement;
 });
 // UI renewal: words from a message made a criterion of the task by the user (📌 기준으로): always a rule of the strength
@@ -512,10 +632,13 @@ ipcMain.handle("pablo:spec", async (e, task) => {
   if (auth.state !== "connected") throw new Error("ChatGPT에 먼저 연결하세요.");
   const src = (papers.primary(desk(), task) || {}).id;  // C1: the 주 논문
   if (!src) throw new Error("먼저 논문 PDF를 추가하세요.");
-  const at = new Date().toISOString();
-  const r = await ctl.py("spec", task, "--source", src).catch(err => { console.error("[pablo] spec", err.message); throw new Error(short(err.message)); });
+  const at = new Date().toISOString(), t0 = Date.now();
+  // D9: how far the model has read (pablo:agent {type: "progress", what: "spec", page, pages}); pablo:cancel("spec") stops it
+  const r = await ctl.pyx({ what: "spec", progress: p => broadcast("pablo:agent", { type: "progress", task, what: "spec", page: p.page, pages: p.pages }) },
+    "spec", task, "--source", src).catch(err => { console.error("[pablo] spec", err.message); throw new Error(err.cancelled ? err.message : short(err.message)); });
+  r.secs = Math.round((Date.now() - t0) / 1000);  // D8: how long it took ("· 42초")
   logChat(task, { role: "spec", at, checks: r.stated.map(c => c.id), missing: r.missing.map(c => c.id), dropped: r.dropped.length,
-    ...(r.diff && !r.diff.first ? { diff: r.diff } : {}) });  // 0.8 review: a re-extraction says what changed and what it kept
+    ...(r.diff && !r.diff.first ? { diff: r.diff } : {}), secs: r.secs });  // 0.8 review: a re-extraction says what changed and what it kept
   return r;
 });
 // C3 비교표: the task's papers (rows) by columns; one judge call per paper, every cell anchored or left empty
@@ -526,8 +649,8 @@ ipcMain.handle("pablo:compare", async (e, task, columns) => {
   const ps = papers.list(desk(), task).filter(p => p.kind !== "web");  // a table of papers; web pages are not rows
   if (ps.length < 2) throw new Error("비교하려면 논문이 두 편 이상 있어야 합니다.");
   const at = new Date().toISOString();
-  const r = await ctl.py("compare", task, ...ps.flatMap(p => ["--source", p.id]), "--columns", JSON.stringify(columns))
-    .catch(err => { console.error("[pablo] compare", err.message); throw new Error(short(err.message)); });
+  const r = await ctl.pyx({ what: "compare" }, "compare", task, ...ps.flatMap(p => ["--source", p.id]), "--columns", JSON.stringify(columns))
+    .catch(err => { console.error("[pablo] compare", err.message); throw new Error(err.cancelled ? err.message : short(err.message)); });
   const entry = { role: "compare", at, matrix: r.matrix, columns, papers: ps.map(p => ({ id: p.id, title: p.title, version: p.version || null })),
     cells: r.cells.map(c => c.id), empty: r.empty.map(x => ({ source: x.source_id, column: x.column, ...(x.value ? { value: x.value } : {}) })) };
   logChat(task, entry);
@@ -543,8 +666,8 @@ ipcMain.handle("pablo:compare-column", async (e, task, mid, column) => {
   const entry = (log[task] || []).find(x => x.role === "compare" && x.matrix === mid);
   if (!entry) throw new Error("그 비교표를 찾지 못했습니다.");
   if (entry.columns.length >= 8) throw new Error("비교표의 열은 8개까지입니다.");
-  const col = column.trim(), r = await ctl.py("compare", task, ...entry.papers.flatMap(p => ["--source", p.id]), "--columns", JSON.stringify([col]), "--into", mid)
-    .catch(err => { console.error("[pablo] compare-column", err.message); throw new Error(short(err.message)); });
+  const col = column.trim(), r = await ctl.pyx({ what: "compare" }, "compare", task, ...entry.papers.flatMap(p => ["--source", p.id]), "--columns", JSON.stringify([col]), "--into", mid)
+    .catch(err => { console.error("[pablo] compare-column", err.message); throw new Error(err.cancelled ? err.message : short(err.message)); });
   const now = JSON.parse(fs.readFileSync(f, "utf8")), x = now[task].find(y => y.role === "compare" && y.matrix === mid);  // read again: a turn may have logged meanwhile
   x.columns = [...x.columns, col]; x.cells = [...x.cells, ...r.cells.map(c => c.id)];
   x.empty = [...(x.empty || []), ...r.empty.map(y => ({ source: y.source_id, column: y.column, ...(y.value ? { value: y.value } : {}) }))];
@@ -559,9 +682,45 @@ function gitState(work) {
   try { return { head: git("rev-parse", "HEAD"), dirty: git("status", "--porcelain", "--untracked-files=no").split("\n").filter(Boolean).length }; }
   catch { return null; }
 }
-// ⑫ the reproduction report: Markdown, saved where the user picks (nothing leaves the computer)
-ipcMain.handle("pablo:report", async (e, task) => {
+// ⑫ the reproduction report: Markdown (A13: or one HTML page), saved where the user picks (nothing leaves the computer)
+const REPORT_SECTIONS = ["goal_criteria", "conditions", "audit", "deviations", "decisions", "changes", "refused", "conversation"];
+const reportTo = new Map();  // A13 token -> {file, format}: the place the user chose in the save dialog before exporting
+const taskTitle = task => { try { const t = JSON.parse(fs.readFileSync(path.join(ctl.dir, "skill.json"), "utf8")).tasks.find(x => x.id === task);
+  return (t && t.text) || task; } catch { return task; } };
+const reportName = (title, format) => String(title).replace(/[\\/:*?"<>|\r\n]+/g, " ").trim().slice(0, 60) + " 재현 보고서." + (format === "html" ? "html" : "md");
+const reportFilter = format => format === "html" ? { name: "HTML", extensions: ["html"] } : { name: "Markdown", extensions: ["md"] };
+const shownPath = f => path.basename(path.dirname(f)) + "/" + path.basename(f);  // the folder and the name, not the whole path
+// A13 the save dialog first (the export dialog's 저장 위치 · 바꾸기): -> {token, display}; default <work folder>/reports
+ipcMain.handle("pablo:pick-report-path", async (e, task, format) => {
+  fromWindow(e); known(task); if (!["md", "html"].includes(format)) throw new Error("bad format");
+  const work = workOf(task), name = reportName(taskTitle(task), format), dir = work && path.join(work, "reports");
+  const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: "재현 보고서 저장",
+    defaultPath: dir ? path.join(fs.existsSync(dir) ? dir : work, name) : name, filters: [reportFilter(format)] });
+  if (res.canceled || !res.filePath) return null;
+  const token = crypto.randomUUID();
+  reportTo.set(token, { file: res.filePath, format });
+  return { token, display: shownPath(res.filePath) };
+});
+// A13 what the export dialog shows before exporting: each part's count, whether the last audit is older than the last
+// change, and the record that goes with the report (audit time · git HEAD · Pablo version)
+ipcMain.handle("pablo:report-preview", async (e, task) => {
   fromWindow(e); known(task);
+  const r = await ctl.py("report", task, "--preview", "--now", JSON.stringify({ decisions: pinned(task) }));
+  const work = workOf(task), g = gitState(work), at = r.counts.audit.at;
+  const local = iso => { const d = new Date(iso), p = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+  return { counts: r.counts, stale: r.stale, auto: [at ? `점검 시각 ${local(at)}` : "점검 전", g ? `git HEAD ${g.head.slice(0, 7)}` : null, `Pablo ${VERSION}`].filter(Boolean).join(" · "),
+    where: work ? path.basename(work) + "/reports" : null };
+});
+// the messages a person pinned as a decision (✎ 태그): the report lists them, as the tag editor says
+const pinned = task => Object.entries((desk().tags || {})[task] || {}).filter(([, o]) => o && o.decision).map(([key, o]) => ({ key, stage: o.stage || null }));
+// opts (A13, all optional): {sections: [REPORT_SECTIONS], format: "md" | "html", token: from pablo:pick-report-path, or
+// "default" = <work folder>/reports/<name>}; no token -> the save dialog, as before
+ipcMain.handle("pablo:report", async (e, task, opts) => {
+  fromWindow(e); known(task); opts = opts || {};
+  const format = opts.format == null ? "md" : opts.format, sections = opts.sections == null ? null : opts.sections;
+  if (!["md", "html"].includes(format) || (sections && (!Array.isArray(sections) || !sections.length || !sections.every(x => REPORT_SECTIONS.includes(x))))
+    || (opts.token != null && !(str(opts.token, 64) && (opts.token === "default" || reportTo.has(opts.token))))) throw new Error("bad report");
   // the folder now, and the last audit's confirmed places checked again (the card's rule), so the report says what the app says
   const work = workOf(task), log = (() => { try { return JSON.parse(fs.readFileSync(path.join(ctl.dir, "chat.json"), "utf8"))[task] || []; } catch { return []; } })();
   const last = log.filter(x => x.role === "audit" && (x.items || []).length).at(-1);
@@ -572,22 +731,31 @@ ipcMain.handle("pablo:report", async (e, task) => {
   const gone = work ? placed.filter(x => { if (!where.where(x.where)) return false;
     const c = where.verify(work, { where: at(x), found: x.found }).check;
     return c === "not_found" || c === "no_file"; }).map(at) : [];
-  // the messages a person pinned as a decision (✎ 태그): the report lists them, as the tag editor says
-  const decisions = Object.entries((desk().tags || {})[task] || {}).filter(([, o]) => o && o.decision).map(([key, o]) => ({ key, stage: o.stage || null }));
   const now = { tree: work ? await checkpoint.snapshot(ctl.dir, task, work).catch(() => null) : null, git: gitState(work),
-    recheck: last && work ? { at: last.at, placed: placed.length, gone } : null, decisions };
-  const r = await ctl.py("report", task, "--now", JSON.stringify(now));
-  const name = (r.title || task).replace(/[\\/:*?"<>|\r\n]+/g, " ").trim().slice(0, 60) + " 재현 보고서.md";
-  const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: "재현 보고서 저장", defaultPath: name,
-    filters: [{ name: "Markdown", extensions: ["md"] }] });
-  if (res.canceled || !res.filePath) return null;
-  try { fs.writeFileSync(res.filePath, r.text, "utf8"); }
+    recheck: last && work ? { at: last.at, placed: placed.length, gone } : null, decisions: pinned(task) };
+  const r = await ctl.py("report", task, "--now", JSON.stringify(now), ...(sections ? ["--sections", sections.join(",")] : []), "--format", format);
+  const name = reportName(r.title || task, format);
+  let file = null;
+  if (opts.token === "default") {
+    if (!work) throw new Error("작업 폴더가 없어 기본 위치에 저장할 수 없습니다. 저장 위치를 골라 주세요.");
+    file = path.join(work, "reports", name);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+  } else if (opts.token) file = reportTo.get(opts.token).file;
+  else {
+    const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: "재현 보고서 저장", defaultPath: name,
+      filters: [reportFilter(format)] });
+    if (res.canceled || !res.filePath) return null;
+    file = res.filePath;
+  }
+  const res = { filePath: file };
+  try { fs.writeFileSync(res.filePath, r.text, "utf8"); if (opts.token && opts.token !== "default") reportTo.delete(opts.token); }
   catch (err) {  // review: OneDrive folders answer EBUSY; say it in the user's words
     const why = { ENOENT: "폴더가 없습니다", EACCES: "쓰기 권한이 없습니다", EPERM: "쓰기 권한이 없습니다", EBUSY: "다른 프로그램(동기화 등)이 쓰고 있습니다", EROFS: "읽기 전용입니다" }[err.code];
     throw new Error(`그 폴더에 저장하지 못했습니다(${why || err.code || "알 수 없는 이유"}). 다른 폴더를 골라 주세요.`);
   }
-  logChat(task, { role: "report", at: new Date().toISOString(), name: path.basename(res.filePath) });  // the stage bar's 보고서 step
-  return { name: path.basename(res.filePath), lines: r.text.split("\n").length };
+  logChat(task, { role: "report", at: new Date().toISOString(), name: path.basename(res.filePath),  // the stage bar's 보고서 step
+    ...(format !== "md" ? { format } : {}), ...(sections ? { sections } : {}) });
+  return { name: path.basename(res.filePath), lines: r.text.split("\n").length, format, display: shownPath(res.filePath) };
 });
 // A5/A6 재현 점검: the agent reads the work folder (read-only sandbox, nothing can change, so no Guard per read) and
 // judges every paper condition, open setting and task criterion against the code, configs and run logs -> a table
@@ -603,9 +771,26 @@ ipcMain.handle("pablo:audit", async (e, task) => {
   // ⑫ review: which code the verdicts are about — the folder's snapshot (shadow git tree) and, when it is a git repo, its HEAD
   const tree = await checkpoint.snapshot(ctl.dir, task, work).catch(() => null), git = gitState(work);
   reply = { task, at: new Date().toISOString(), text: "", audit: a.items.map(x => x.id), work, tree, git, shell: agent.shell(),
-    values: Object.fromEntries(a.items.filter(x => x.value).map(x => [x.id, x.value])) };  // A2: the paper's value per condition
+    values: Object.fromEntries(a.items.filter(x => x.value).map(x => [x.id, x.value])),  // A2: the paper's value per condition
+    read: new Set(), judged: 0 };  // D9: the files the agent read, the verdicts its answer has so far
   saveDesk(x => { x.last = task; });
   return agent.send(forShell(a.prompt), ctl.dir + "#" + task, null, null, { readOnly: true, outputSchema: a.schema });
+});
+// D9 a long Python call stopped by the user (재현 조건 뽑기, 비교표): its child is killed, the call rejects "중지했습니다."
+ipcMain.handle("pablo:cancel", (e, what) => { fromWindow(e); if (!["spec", "compare"].includes(what)) throw new Error("bad cancel"); return ctl.cancel(what); });
+// D9 재현 점검's progress (an agent turn; pablo:stop stops it): files read (the commands' read actions) and verdicts the
+// answer has written so far, of total -> pablo:agent {type: "progress", what: "audit", task, files, judged, total}
+const auditProgress = r => broadcast("pablo:agent", { type: "progress", task: r.task, what: "audit", files: r.read.size, judged: r.judged, total: r.audit.length });
+agent.on("item", it => {
+  const r = reply; if (!r || !r.audit || it.type !== "commandExecution") return;
+  const n = r.read.size;
+  for (const x of it.commandActions || []) if (x && x.type === "read" && x.path) r.read.add(String(x.path));
+  if (r.read.size !== n) auditProgress(r);
+});
+agent.on("event", ev => {
+  const r = reply; if (!r || !r.audit || ev.type !== "delta") return;
+  const n = Math.min(r.audit.length, ((r.text + (ev.text || "")).match(/"status"\s*:/g) || []).length);
+  if (n !== r.judged) { r.judged = n; auditProgress(r); }
 });
 // M4.2 the user's answers: WARN [진행]/[취소], and "다른 모델로 다시 시도" after a capacity failure
 ipcMain.handle("pablo:decide", (e, id, proceed) => { fromWindow(e); if (!str(id, 20)) throw new Error("bad id"); ctl.decide(id, proceed === true); });
@@ -632,7 +817,7 @@ agent.on("event", ev => {
   const c = turnCp; turnCp = null;
   if (!c.tree) return;
   checkpoint.snapshot(ctl.dir, c.task, c.work).then(async to => {
-    const files = await checkpoint.changes(ctl.dir, c.task, c.work, c.tree, to);
+    const files = await checkpoint.changes(ctl.dir, c.task, c.work, c.tree, to, { lines: true });  // D7: + add / del per file
     if (!files.length) return;
     const entry = { role: "changes", at: new Date().toISOString(), from: c.tree, to, files };
     logChat(c.task, entry);
@@ -710,7 +895,8 @@ agent.on("event", ev => {
       logChat(r.task, entry);
       broadcast("pablo:agent", { type: "audit", task: r.task, ...entry });
     } else {
-      logChat(r.task, { role: "agent", text: r.text, at: r.at, status: ev.status, ...(ev.error ? { error: short(ev.error) } : {}) });
+      logChat(r.task, { role: "agent", text: r.text, at: r.at, status: ev.status, ...(ev.error ? { error: short(ev.error) } : {}),
+        ...(r.step ? { step: r.step } : {}) });  // D4: the plan step it answered
       // the page tags the turn's live messages right away with these keys (role@time) instead of after the next state
       // read, which waits behind the turn's reviews (QA 10/26: ~7 s without ✎ 태그 / 📌 기준으로); the broadcast below sends ev
       ev.logged = { task: r.task, user: r.user || null, agent: r.at };
@@ -750,23 +936,31 @@ agent.on("event", ev => ev.type === "done" && console.log(`[agent] turn ${ev.sta
 // ---- M4.1 ChatGPT connection (Sign in with ChatGPT). Tokens live here and in siwc.js only; the renderer gets {state, error}.
 // state: signed_out | signing_in | verifying | connected | error
 let auth = { state: "signed_out" }, account = null, timer = null;
-const setAuth = (state, error) => { auth = { state, error: error || undefined }; broadcast("pablo:auth", auth); };
+// D5 code: siwc.SAY's key of what went wrong (no_plan_permission, not_eligible, timeout, ...), never a token or raw text
+const setAuth = (state, error, code) => { auth = { state, error: error || undefined, code: code || undefined }; broadcast("pablo:auth", auth); };
 const P = "openai_chatgpt_plan";  // https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server
 const PROVIDER = [["model_provider", `"${P}"`], [`model_providers.${P}.name`, '"ChatGPT plan"'], [`model_providers.${P}.base_url`, '"https://api.openai.com/v1"'],
   [`model_providers.${P}.env_key`, '"ACCESS_TOKEN"'], [`model_providers.${P}.wire_api`, '"responses"'],
   [`model_providers.${P}.requires_openai_auth`, "false"], [`model_providers.${P}.supports_websockets`, "false"]].flatMap(([k, v]) => ["-c", `${k}=${v}`]);
 // app-server failures -> the same short messages as sign-in
 function short(err) {
-  if (/server_?overloaded|at capacity/i.test(err)) return siwc.SAY.overloaded;
+  const k = sayKey(err), m = String(err);
+  if (k) return siwc.SAY[k];
+  return m.length > 200 ? m.slice(0, 200) + "…" : m;
+}
+// which of siwc.SAY an app-server / API failure is (null: none, its own words are shown)
+function sayKey(err) {
+  if (/server_?overloaded|at capacity/i.test(err)) return "overloaded";
   const m = String(err), code = (m.match(/subscription_sharing_\w+|chatpass_v2_\w+/) || [""])[0];
   const status = +((m.match(/\b(401|403|429|503)\b/) || [])[1] || 0);
-  if (code || status) return siwc.SAY[siwc.classify(code, status)];
-  if (/^responses\b/.test(m)) return siwc.SAY.inference_failed;  // the judge's own API call (llm.py), other failures
-  return m.length > 200 ? m.slice(0, 200) + "…" : m;
+  if (code || status) return siwc.classify(code, status);
+  if (/^responses\b/.test(m)) return "inference_failed";  // the judge's own API call (llm.py), other failures
+  return null;
 }
 function fail(e) {
   console.error("[auth]", e.code || "", e.detail || e.message);
-  setAuth(siwc.has() ? "error" : "signed_out", e instanceof siwc.AuthError ? e.message : short(e.message));
+  setAuth(siwc.has() ? "error" : "signed_out", e instanceof siwc.AuthError ? e.message : short(e.message),
+    e instanceof siwc.AuthError ? e.code : sayKey(e.message));
 }
 // saved or fresh credentials -> plan usage proven (models + one inference) -> app-server with that token
 async function connect() {

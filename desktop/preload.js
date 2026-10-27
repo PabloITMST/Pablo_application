@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   intent: (task, id, action) => ipcRenderer.invoke("pablo:intent", task, id, action),
   summarize: (task, stage, messages) => ipcRenderer.invoke("pablo:summarize", task, stage, messages),  // P6: the model's summary of one stage
   makeCriterion: (task, text, strength) => ipcRenderer.invoke("pablo:make-criterion", task, text, strength),  // a message -> a rule (hard | soft)
-  criterion: (task, id, action, reason) => ipcRenderer.invoke("pablo:criterion", task, id, action, reason),  // ④ hard | soft | drop  // B4: promote | reject a held-back criterion  // A5/A6: 재현 점검 of the work folder (read-only turn)
+  criterion: (task, id, action, reason) => ipcRenderer.invoke("pablo:criterion", task, id, action, reason),  // ④ hard | soft | drop (reason) | restore; C3 edit (reason = the new sentence)  // B4: promote | reject a held-back criterion  // A5/A6: 재현 점검 of the work folder (read-only turn)
   pickFolder: task => ipcRenderer.invoke("pablo:pick-folder", task),
   pickPdfs: task => ipcRenderer.invoke("pablo:pick-pdfs", task),  // the dialog, several PDFs at once -> their paths
   addFiles: (task, files) => ipcRenderer.invoke("pablo:add-files", task, files),  // picked or dropped PDFs (main checks each)
@@ -29,7 +29,15 @@ contextBridge.exposeInMainWorld("pabloHost", {
   searchArxiv: text => ipcRenderer.invoke("pablo:search-arxiv", text),  // D2: the words go to the arXiv API (no key)
   removeSource: (task, id) => ipcRenderer.invoke("pablo:remove-source", task, id),  // C1: the records stay
   renameSource: (task, id, title) => ipcRenderer.invoke("pablo:rename-source", task, id, title),  // ⑧ ✎ the name the user knows it by
-  report: task => ipcRenderer.invoke("pablo:report", task),  // ⑫ the reproduction report, saved where the user picks
+  report: (task, opts) => ipcRenderer.invoke("pablo:report", task, opts),  // ⑫ the reproduction report; A13 opts {sections, format, token}
+  pickReportPath: (task, format) => ipcRenderer.invoke("pablo:pick-report-path", task, format),  // A13 save dialog first -> {token, display}
+  reportPreview: task => ipcRenderer.invoke("pablo:report-preview", task),  // A13 the export dialog's counts, staleness, record line
+  pickPdfsFree: () => ipcRenderer.invoke("pablo:pick-pdfs-free"),  // A12 before the task exists -> [{token, name}]
+  pickFolderFree: () => ipcRenderer.invoke("pablo:pick-folder-free"),  // A12 -> {token, name}
+  attachPicked: (task, tokens) => ipcRenderer.invoke("pablo:attach-picked", task, tokens),  // A12 the picks, to the task made
+  peekArxiv: text => ipcRenderer.invoke("pablo:peek-arxiv", text),  // D10 title, file name, source, size before downloading
+  cancel: what => ipcRenderer.invoke("pablo:cancel", what),  // D9 stop 재현 조건 뽑기 ("spec") or 비교표 ("compare")
+  openPath: which => ipcRenderer.invoke("pablo:open-path", which),  // D6 "userData" | "checkpoints" | "logs" in the file manager
   addOpenreview: (task, text) => ipcRenderer.invoke("pablo:add-openreview", task, text),  // ⑬ a paper from OpenReview
   renameTask: (task, name) => ipcRenderer.invoke("pablo:rename-task", task, name),  // ⑭ the task's own name ("" = its goal)
   archiveTask: (task, on) => ipcRenderer.invoke("pablo:archive-task", task, on),  // ⑭ 보관 / 보관 풀기

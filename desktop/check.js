@@ -285,14 +285,14 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "audit", "authStatus", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "pathOf", "pickFolder", "pickPdfs", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "summarize", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "spec", "state", "stop", "summarize", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`);
   const st = await js(`pabloHost.authStatus()`), pageText = await js(`document.documentElement.outerHTML`) + JSON.stringify(st);
   const secrets = [await siwc.token(), F.issued, hostJson().ext_agent_host_id];
-  assert.ok(Object.keys(st).every(k => k === "state" || k === "error") && secrets.every(x => !pageText.includes(x)), "renderer sees state only");
+  assert.ok(Object.keys(st).every(k => ["state", "error", "code"].includes(k)) && secrets.every(x => !pageText.includes(x)), "renderer sees state only (D5: + the SAY key)");
   const L = await agent.launch();
   assert.ok(L.env.ACCESS_TOKEN === secrets[0] && L.env.CODEX_HOME === path.join(dir, "codex") && L.args.includes('model_provider="openai_chatgpt_plan"'));
   assert.strictEqual(agent.model, "gpt-5.6-sol");
@@ -339,6 +339,13 @@ async function authCheck() {
   assert.ok(F.seen.some(x => x[0] === "/revoke" && x[1].token.startsWith("rt-") && x[1].client_id === F.issued), "refresh token revoked");
   assert.ok(await js(`document.querySelector("#chat .composer input").disabled`) && hostJson().client_id === F.issued, "composer off; host id + client kept");
   console.log("ok logout: revoked, credentials + thread removed, agent stopped");
+  // D5: a failed sign-in reaches the page with its SAY key (S2 failed vs S3 plan not allowed), still no token
+  const login0 = siwc.login;
+  siwc.login = async () => { throw new siwc.AuthError("not_eligible", "{}"); };
+  await js(`pabloHost.login()`);
+  assert.deepStrictEqual(await js(`pabloHost.authStatus()`), { state: "signed_out", error: siwc.SAY.not_eligible, code: "not_eligible" });
+  siwc.login = login0;
+  console.log("ok auth code: not_eligible reaches the page next to state / error");
   win.destroy(); F.srv.close();
 }
 
@@ -949,6 +956,37 @@ async function uiCheck() {
   await js(`dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
   assert.ok(await js(`!document.body.classList.contains("panel")`), "Esc again: the panel");
   console.log("ok panel remembered within a run; Esc closes the source card, then the panel");
+  // A2 complete, 단계 0: stagesOf is the stage bar (D1); back-links from the chat log and the Guard's verdicts (D2); the host
+  // and the default criteria in the state (D6, A12)
+  await js(`refresh()`); await sleep(200);
+  assert.deepStrictEqual(await js(`stagesOf(V, M.desk[V.task.id]).steps.map(s => s.key + ":" + s.state)`),
+    await js(`[...document.querySelectorAll("#stages .stage")].map(x => x.dataset.stage + ":" + [...x.classList].find(c => /^st-(?!n$|t$)/.test(c)).slice(3))`), "stagesOf = the stage bar");
+  assert.deepStrictEqual(await js(`(s => [s.current, s.steps[s.current].state, Object.keys(s.can).sort()])(stagesOf(V, M.desk[V.task.id]))`),
+    [await js(`[...document.querySelectorAll("#stages .stage")].findIndex(x => x.classList.contains("st-current"))`), "current", ["audit", "compare", "report", "spec"]]);
+  assert.ok(await js(`Object.keys(M.views).every(id => Array.isArray(stagesOf(M.views[id], M.desk[id]).steps))`), "stagesOf works for any task");
+  assert.deepStrictEqual(await js(`(L => ({ C1: [L.get("C1").chat.length, L.get("C1").verdicts.map(x => x.verdict)], C3: L.get("C3").chat.length,
+    run: L.get("file:run.py").chat.length, config: L.get("file:config.yaml").chat.length, SC2: L.get("SC2").chat.length, SC1: L.get("SC1").chat.length }))(linksOf(V))`),
+    { C1: [1, ["BLOCK"]], C3: 1, run: 2, config: 1, SC2: 3, SC1: 1 }, "linksOf: the conversation and the verdicts per ref");
+  assert.deepStrictEqual(await js(`linksOf({ chat: [{ role: "user", at: "2026-01-01T00:00:00.000Z", text: "x" }, { role: "intent", at: "2026-01-01T00:00:00.001Z",
+    items: [{ id: "C9" }], pending: [{ id: "K7" }] }], actions: [{ id: "ACT9", verdict: "WARN", decision: null, step: "P2.1", criteria: [{ id: "C9" }] }],
+    intent: { promoted: { K7: "C10" } }, checks: {} }).get("C9")`), { chat: ["user@2026-01-01T00:00:00.000Z"], verdicts: [{ act: "ACT9", verdict: "WARN", decision: null }] },
+    "an intent entry 1 ms after a message is that message's turn");
+  assert.deepStrictEqual(await js(`refsOf({ role: "intent", items: [], pending: [{ id: "K7" }], step: "P2.1" }, { intent: { promoted: { K7: "C10" } }, checks: {} })`), ["C10", "P2.1"]);
+  assert.deepStrictEqual(await js(`placePaths("config.yaml:3; src\\\\run.py:16,25 (top_k), logs/a b.log line 4")`), ["config.yaml", "src/run.py", "logs/a b.log"]);
+  assert.ok(await js(`(m => !!m && JSON.parse(m.dataset.refs).includes("file:logs/2wiki.log"))(document.querySelector("#log .msg[data-key^='audit@'][data-refs]"))`), "data-refs on the drawn messages");
+  assert.deepStrictEqual(await js(`(r => [r.kept, $("log").dataset.filter, !!$("filter-banner"), document.querySelectorAll("#log > .msg.filtered").length > 0])(filterBy(["file:run.py"], "run.py"))`),
+    [2, "refs:run.py", true, true], "대화로 거르기 by a ref");
+  await js(`filterBy(["file:run.py"], "run.py")`);
+  assert.deepStrictEqual(await js(`[$("log").dataset.filter, !!$("filter-banner"), document.querySelectorAll("#log .filtered").length]`), ["", false, 0], "again: everything back");
+  assert.deepStrictEqual(await js(`(h => [typeof h.version, typeof h.codex, typeof h.userData, h.logs, typeof h.checkpoints, M.reproCriteria.length, Array.isArray(V.plans), typeof V.intent.promoted])(M.host)`),
+    ["string", "string", "string", null, "number", 3, true, "object"], "host info and the default criteria in the state");
+  // D9: a long call stopped before it runs rejects as stopped; the queue goes on
+  const stop1 = ctl.pyx({ what: "compare" }, "state");
+  assert.strictEqual(ctl.cancel("compare"), true);
+  assert.deepStrictEqual(await stop1.then(() => null, e => [e.cancelled, e.message]), [true, "중지했습니다."]);
+  assert.strictEqual(ctl.cancel("spec"), false, "nothing to stop");
+  assert.ok((await ctl.py("state")).tasks.length > 0, "the next call runs");
+  console.log("ok 단계 0: stagesOf = the stage bar, linksOf / refsOf / data-refs / 대화로 거르기, host info, reproCriteria, a stopped call");
   const order = await js(`[...document.querySelectorAll("#log .msg")].map(m => { const c = m.querySelector(".call[data-id]"),
     s = m.querySelector(".stream"), a = m.querySelector(".asked");
     return c ? "CARD " + c.dataset.id : s ? "AGENT " + s.textContent : a ? "ASK " + a.textContent.trim() : m.querySelector("[data-spec]") ? "SPEC" : m.querySelector("[data-audit]") ? "AUDIT"
@@ -1142,6 +1180,8 @@ async function uiCheck() {
   fs.writeFileSync(at("model.pt"), "other weights");  // weights are never in a checkpoint
   const to = await checkpoint.snapshot(S, "T1", W), files = await checkpoint.changes(S, "T1", W, from, to);
   assert.deepStrictEqual(files.map(f => f.status + " " + f.path).sort(), ["A new.py", "D keep.txt", "M train.py"]);
+  assert.deepStrictEqual((await checkpoint.changes(S, "T1", W, from, to, { lines: true })).map(f => `${f.path} +${f.add} -${f.del}`).sort(),
+    ["keep.txt +0 -1", "new.py +1 -0", "train.py +1 -1"], "D7: lines added / removed per file");
   assert.ok(!fs.existsSync(path.join(W, ".git")), "the work folder gets no .git");
   fs.writeFileSync(path.join(S, "desktop.json"), JSON.stringify({ workspace: { T1: W } }));
   const log = JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"));
@@ -1207,6 +1247,28 @@ async function uiCheck() {
     && md.includes("열 짝 확인 필요: 논문 표의 한 행에서 열 이름 없이 읽은 값이라"), "the report: the same rule as the card");
   assert.ok(md.includes("이 점검은 Windows PowerShell 5.1에서 했습니다(PowerShell 7 없음)."), "the report says the audit ran in 5.1");
   console.log("ok report: saved as Markdown with the fixed sections (의도한 차이, 뺀 조건과 지운 기준, 점검, 앱과 같은 재대조, 분 단위 시각)");
+  // A13: the export dialog's numbers first, then a place picked before exporting, some parts only, as one HTML page;
+  // "default" = <work folder>/reports
+  const pv = await js(`pabloHost.reportPreview("T1")`);
+  assert.deepStrictEqual([pv.counts.criteria, pv.counts.conditions, !!pv.counts.audit.at, pv.counts.refused, pv.stale, pv.where],
+    [{ hard: (md.match(/^- 반드시: /gm) || []).length, soft: (md.match(/^- 가능하면: /gm) || []).length }, +md.match(/## 재현 조건 \((\d+)개\)/)[1], true,
+     (md.match(/^- (막음|확인): /gm) || []).length, true, path.basename(W) + "/reports"]);
+  assert.match(pv.auto, /^점검 시각 \d{4}-\d\d-\d\d \d\d:\d\d · Pablo \d+\.\d+\.\d+/);
+  const savedHtml = path.join(S, "report.html");
+  dialog.showSaveDialog = async (w, o) => { assert.match(o.defaultPath, /인사말 파일 정리 재현 보고서\.html$/); assert.deepStrictEqual(o.filters[0].extensions, ["html"]);
+    return { canceled: false, filePath: savedHtml }; };
+  const picked = await js(`pabloHost.pickReportPath("T1", "html")`);
+  dialog.showSaveDialog = save0;
+  assert.strictEqual(picked.display, path.basename(S) + "/report.html");
+  const out = await js(`pabloHost.report("T1", { sections: ["goal_criteria", "refused", "conversation"], format: "html", token: ${JSON.stringify(picked.token)} })`);
+  const html = fs.readFileSync(savedHtml, "utf8");
+  assert.ok(out.format === "html" && html.startsWith("<!doctype html>") && html.includes("<h2>작업 기준</h2>") && html.includes("<h2>대화 전체</h2>")
+    && html.includes("<h2>Pablo가 막거나 확인을 받은 작업</h2>") && !html.includes("<h2>재현 점검</h2>") && !/<script/i.test(html), "A13 html, the parts asked for");
+  assert.match(await js(`pabloHost.report("T1", { token: ${JSON.stringify(picked.token)} }).then(() => "", e => e.message)`), /bad report/, "a place is used once");
+  const def = await js(`pabloHost.report("T1", { format: "md", token: "default" })`);
+  assert.ok(fs.existsSync(path.join(W, "reports", def.name)) && def.display === "reports/" + def.name, "default: the work folder's reports/");
+  fs.rmSync(path.join(W, "reports"), { recursive: true, force: true });
+  console.log("ok report A13: preview counts, a place picked first, parts + HTML, the work folder's reports/ by default");
   // ⑤ a PC without PowerShell 7: said once above the account line, with how to install; 알겠습니다 -> not again
   assert.ok(await js(`!document.querySelector("#shell-note [data-shell]")`), "pwsh 7 here: no notice");
   process.env.PABLO_SHELL = "powershell";  // review: before sign-in the sign-in card comes alone (--auth shows the notice)
@@ -1267,6 +1329,14 @@ async function uiCheck() {
     { encoding: "utf8", env: { ...process.env, PYTHONPATH: path.join(__dirname, "../src"), PYTHONIOENCODING: "utf-8" } })).history;
   assert.deepStrictEqual(hist.slice(-3).map(x => [x.reason, x.source.type, x.source.note]), [["사용자가 세기를 가능하면으로 바꿈", "user", "직접"],
     ["사용자가 지움: 장비가 바뀜", "user", "직접"], ["사용자가 되살림", "user", "직접"]]);
+  // C3 고치기: the same criterion (its strength, its task), the user's words; the history says the user did it
+  const soft = await js(`V.intent.prefer.find(x => x.text === "결과는 3번 돌려서 평균 내").id`);
+  assert.strictEqual(await js(`pabloHost.criterion(V.task.id, ${JSON.stringify(soft)}, "edit", "결과는 5번 돌려서 평균 내")`), "결과는 5번 돌려서 평균 내");
+  await js(`refresh()`);
+  assert.ok(await until(`V.intent.prefer.some(x => x.id === ${JSON.stringify(soft)} && x.text === "결과는 5번 돌려서 평균 내")`), "edited in place, still 가능하면");
+  const edited = JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"))[t3].at(-1);
+  assert.deepStrictEqual([edited.role, edited.action, edited.id, edited.text, edited.prev], ["criterion-edit", "edit", soft, "결과는 5번 돌려서 평균 내", "결과는 3번 돌려서 평균 내"]);
+  assert.match(await js(`pabloHost.criterion(V.task.id, ${JSON.stringify(soft)}, "edit", "  ").then(() => "", e => e.message)`), /bad criterion/);
   // a reproduction task's default criterion: 지우기 waits for a reason
   await js(`close(); $("new").click()`);
   await js(`$("goal").value = "재현 기준 확인"; $("repro").checked = true; $("create").click()`);
@@ -1352,7 +1422,8 @@ async function papersUi() {
     if (name === "2501.00009") { s.writeHead(200, { "content-type": "text/html" }); return s.end("<html>not a paper</html>"); }
     const f = path.join(fx.arxiv, name);
     if (!/^[\w.]+$/.test(name) || !fs.existsSync(f)) { s.writeHead(404); return s.end(); }
-    s.writeHead(200, { "content-type": "application/pdf" }); s.end(fs.readFileSync(f));
+    const pdf = fs.readFileSync(f);  // D10: its size on a HEAD too, as arxiv.org says it
+    s.writeHead(200, { "content-type": "application/pdf", "content-length": pdf.length }); s.end(q.method === "HEAD" ? undefined : pdf);
   });
   await new Promise(r => srv.listen(0, "127.0.0.1", r));
   const port = srv.address().port, at = p => `http://127.0.0.1:${port}${p}`;
@@ -1518,6 +1589,14 @@ async function papersUi() {
     ["TinyRAG notes", "web", null, false], ["ThirdRAG", "pdf", "v1", true], ["Notes two", "web", null, false], ["FourthRAG", "pdf", null, false]]);
   assert.ok(ps[0].id !== fx.a && fs.existsSync(path.join(S, "papers", "arxiv-2501.00001.pdf")), "v3 is a new source in the paper's own file");
   console.log("ok arXiv: new paper, 4 refusals (no request left the origin), v2 -> v3 with its 3 anchors resolved, same file again");
+  // D10 before downloading: the title (the API), the file name it is saved as, where from, the size (a HEAD); nothing saved
+  const kept = fs.readdirSync(path.join(S, "papers")).length;
+  const peek = await js(`pabloHost.peekArxiv("arXiv:2502.00002")`);
+  assert.deepStrictEqual([peek.id, peek.version, /^ThirdRAG/.test(peek.title), peek.filename, peek.source, peek.bytes],
+    ["2502.00002", "v1", true, "arxiv-2502.00002.pdf", `127.0.0.1:${port}`, fs.statSync(path.join(fx.arxiv, "2502.00002")).size]);
+  assert.match(await js(`pabloHost.peekArxiv("2502.00003").then(() => "", e => e.message)`), /arXiv에 그 번호의 논문이 없습니다/);
+  assert.strictEqual(fs.readdirSync(path.join(S, "papers")).length, kept, "a peek downloads nothing");
+  console.log("ok arXiv peek: title, file name, source and size before downloading; a missing paper said");
   // removing a paper: the table and the answers keep what was found in it
   await js(`document.querySelector('[data-remove="${fx.b}"]').click()`);
   await until(`document.querySelectorAll("#src .paper").length === 5`);
