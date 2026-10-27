@@ -973,10 +973,8 @@ async function uiCheck() {
   assert.deepStrictEqual(await js(`[document.querySelector("#viewbar .fchip").textContent, /^거르는 중 · \\d+$/.test(document.querySelectorAll("#stages .stage small")[1].textContent)]`),
     ["단계 · " + lbl, true], "a stage filter: the stage bar and the view bar say so");
   await aShot("a-filter");
-  await js(`document.querySelector("#viewbar .fchip").click()`); await sleep(100);  // F24: the chip opens the 거르기 menu; 거르기 풀기 there
-  assert.ok(await js(`!!$("filter-menu") && $("filter-menu").querySelector(".mi.on .mi-t").textContent === "단계 · " + ${JSON.stringify(lbl)}`), "the chip opens the 거르기 menu");
-  await js(`$("filter-menu").querySelector("[data-filter-off]").click()`); await sleep(100);
-  assert.deepStrictEqual(await js(`[$("log").dataset.filter, document.querySelector("#viewbar [data-filter-state]").textContent, !$("filter-menu")]`), ["", "거르기 없음", true], "거르기 풀기 clears it");
+  await js(`document.querySelector("#viewbar .fchip").click()`); await sleep(100);
+  assert.deepStrictEqual(await js(`[$("log").dataset.filter, document.querySelector("#viewbar [data-filter-state]").textContent]`), ["", "거르기 없음"], "the stage chip (×) clears it");
   // F16: the sidebar folds into the rail, kept in the settings, and back
   await js(`$("side-fold").click()`); await sleep(200);
   assert.deepStrictEqual(await js(`[document.body.classList.contains("side-off"), Math.round($("side").getBoundingClientRect().width), document.querySelectorAll("#side [data-rail-task]").length]`),
@@ -1127,6 +1125,8 @@ async function uiCheck() {
   await js(`document.querySelector("#filter-banner [data-filter-menu]").click()`);
   assert.deepStrictEqual(await js(`(m => [!!m, m.querySelector(".mi.on .mi-t").textContent, !!m.querySelector("[data-filter-off]"), m.querySelectorAll(".mi").length > 2])($("filter-menu"))`), [true, "run.py", true, true]);
   await into("#filter-banner"); await bshot("filter");
+  await js(`$("filter-menu").remove(); document.querySelector("#viewbar .fchip").click()`);  // F24: the view bar's chip (대화로 거르기) opens the same menu
+  assert.deepStrictEqual(await js(`[document.querySelector("#viewbar .fchip .fc-t").textContent, !!$("filter-menu") && $("filter-menu").querySelector(".mi.on .mi-t").textContent]`), ["run.py", "run.py"]);
   await js(`$("filter-menu").querySelector("[data-filter-off]").click()`);
   assert.ok(await js(`!$("log").dataset.filter && !$("filter-banner") && !document.querySelector("#log .hidnote, #log .filtered")`), "거르기 풀기");
   // B17: 보낼 곳 always there (a side with nothing to send to is off); the send button says 보내기 and is the first button
@@ -1690,6 +1690,31 @@ async function uiCheck() {
   // review: nothing on screen reads "null" or "undefined" (append(null) prints "null")
   assert.strictEqual(await js(LEAKED), "", "no null / undefined on screen");
   console.log("ok tasks: search '인사말' -> T1 only; renamed (the goal stays); 보관 -> folded at the bottom -> 보관 풀기");
+  // visual pass (PABLO_SHOTS only, fig-*.png): the states of Figma frames the checks above do not leave on screen, drawn
+  // with the page's own functions; everything is put back after each
+  if (process.env.PABLO_SHOTS) {
+    const fig = async n => { await sleep(450); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "fig-" + n + ".png"), (await win.capturePage()).toPNG()); };
+    const search = q => js(`(i => { i.value = ${JSON.stringify(q)}; i.dispatchEvent(new Event("input")); })($("task-search"))`);
+    await js(`close(); select("T1")`);
+    await search("파일"); await fig("17-search"); await search("찾을수없는말"); await fig("S18-none"); await search("");
+    await js(`(dt => { dt.items.add(new File(["x"], "a.pdf", { type: "application/pdf" })); dispatchEvent(new DragEvent("dragover", { dataTransfer: dt, cancelable: true })); })(new DataTransfer())`);
+    await fig("20-drop"); await js(`document.body.classList.remove("dropping")`);
+    await js(`show({ mode: "intent" })`); await fig("03-intent");
+    await js(`(li => li && li.click())([...document.querySelectorAll("#panel li")].find(li => li.querySelector(".backs")))`);  // a 기준 row: 대화로 거르기
+    await js(`document.querySelector("#viewbar .fchip") && document.querySelector("#viewbar .fchip").click()`); await fig("24-filter-menu");
+    await js(`$("filter-menu") && $("filter-menu").remove(); $("log").dataset.filter && document.querySelector("#filter-banner .link:last-child").click()`);
+    await js(`close()`);
+    // S5 · S7 · S12 · S9 · S10 cards in the conversation, then gone
+    await js(`(t => { const l = live(t); l.append(msg("Pablo", null, progCard("spec", "재현 조건 뽑기", "뽑는 중", "LinearRAG을(를) 읽고 있습니다 · 9 / 20쪽", "보통 1–3분 · 다른 일을 해도 됩니다", () => {})),
+      msg("Pablo", null, progCard("audit", "재현 점검", "점검 중", "파일 23개 읽음 · 조건 12 / 25 판정", "읽기 전용 — 아무것도 바꾸지 않습니다", () => {})),
+      msg("Pablo", null, downloadCard({ id: "2510.10114", version: "v4", title: "LinearRAG", filename: "arxiv-2510.10114.pdf", source: "arxiv.org", bytes: 2411724 }, () => {}, () => {})));
+      l.querySelectorAll(".msg").forEach(m => m.dataset.figShot = "1"); $("log").scrollTop = $("log").scrollHeight; })(V.task.id)`);
+    await fig("S5-S7-S12");
+    await js(`document.querySelectorAll('[data-fig-shot="1"]').forEach(m => m.remove())`);
+    // 01: no task yet (the model as a first run has it), then the fixture again
+    await js(`window.__M = M; M = { ...M, tasks: [], views: {}, current: null }; select(null)`); await fig("01-first-run");
+    await js(`M = window.__M; delete window.__M; select("T1")`);
+  }
   assert.deepStrictEqual(errors, [], "no script errors");
   win.destroy();
 }

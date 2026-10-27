@@ -1634,7 +1634,7 @@ body.dropping #log { outline:0; } body.dropping #log::before { content:none; dis
   background:var(--white); box-shadow:var(--sh-sm); }
 .msg .call p { margin:4px 0; } .msg .call .head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 6px; color:var(--ink);
   font:600 14px/22px var(--sans); }
-.msg .call.warn:not(.settled), .msg .call:not(.block):not(.issue):not(.guard):not(.fail):not(.rp-done) { border-left:3px solid var(--signal); box-shadow:var(--sh-md); }
+.msg .call.warn:not(.settled), .msg .call:not(.block):not(.issue):not(.guard):not(.fail):not(.rp-done):not(.dl-card) { border-left:3px solid var(--signal); box-shadow:var(--sh-md); }
 .msg .call.block { background:var(--a4); border-color:var(--a8); box-shadow:none; }
 .msg .call.fail { background:var(--white); box-shadow:var(--sh-sm); } .msg .call.fail .head .ico { color:var(--ink-2); }
 .call.lock .head::before { content:"막음"; flex:none; height:var(--h-tag); box-sizing:border-box; display:inline-flex; align-items:center; padding:0 7px;
@@ -1971,7 +1971,20 @@ body.panel.wide { grid-template-columns:var(--side-w) minmax(0, 1fr) min(835px, 
 #log .matrix.flash { box-shadow:0 0 0 3px var(--signal-soft); transition:box-shadow .3s; }
 /* end A2 complete · C */
 /* A2 complete · finishing pass (S8 비슷한 문장, S12 내려받기 확인 자리, S52, merged card actions) */
-#viewbar .fchip { height:var(--h-ctl); gap:6px; padding:0 10px; border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white); font:600 12px/1 var(--sans); max-width:320px; }
+/* 09 보고서 내보내기: the parts right under their heading; unpicked ones grey */
+.dlg.rp .dlg-body > h4:first-child { margin-bottom:-10px; } .rp-row:has(input:not(:checked)) span { color:var(--ink-3); }
+/* 13–15 values on the right are plain mono text; a path is a grey box */
+#settings .set-opts code { padding:0; background:none; color:var(--ink-2); font:400 12px/1.5 var(--mono); }
+.set-path { margin:-4px 0 8px; padding:7px 10px; border-radius:var(--r-ctl); background:var(--a5); font:400 12px/1.4 var(--mono); color:var(--ink-2); }
+/* 18 the source card rows: two tight lines, the second in the text font */
+.srccard #src .ptitle { line-height:20px; } .srccard #src .pmeta { font:400 11px/16px var(--sans); }
+/* 02 새 작업: one-line fields (32), kind cards on a light fill, the picked one filled and edged; 선택 안 함 when picked */
+.nt #goal { min-height:var(--h-ctl); height:var(--h-ctl); padding:6px 12px; font:400 13px/18px var(--sans); box-sizing:border-box; }
+#nt-crit { min-height:var(--h-ctl); height:var(--h-ctl); padding:6px 12px; line-height:18px; box-sizing:border-box; }
+.nt .kinds .kind { background:var(--a4); border:1px solid var(--a8); padding:10px 14px; }
+.nt .kinds .kind:has(input:checked) { background:var(--canvas); border:2px solid var(--a12); padding:9px 13px; }
+.nt [data-folder-none].sel { background:var(--canvas); border-color:transparent; box-shadow:none; color:var(--ink-3); }
+#viewbar .fchip { height:var(--h-ctl); gap:6px; padding:0 10px; border:1.5px solid var(--ink); border-radius:var(--r-ctl); background:var(--white); font:600 12px/1 var(--sans); max-width:320px; }
 #viewbar .fchip:hover { background:var(--a4); } #viewbar .fchip .fc-t { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
 .call.rp-done .head { display:flex; align-items:center; gap:8px; }
 .call.rp-done .rp-file { margin-top:6px; font-size:12px; color:var(--ink-3); }
@@ -2494,7 +2507,7 @@ const ASIDE = { fact: "논문의 서술 (코드가 정하지 않음)", scope: "�
 let specAgain = null, addSource = null;  // desktop: 다시 뽑기 (asks first), + 추가 (the add box)
 const KIND_TAG = { setting: "설정", result: "결과", scope: "범위", fact: "서술" };
 const pchip = k => { const e = ((k && k.evidence) || []).find(x => M.anchors[x]); if (!e) return null; const a = M.anchors[e];
-  return h("button", { class: "cite pg", "data-e": e, title: "근거 보기", on: () => show({ mode: "source", e }) }, a.page ? `p.${a.page}` : `[${cites[e] || 1}]`); };
+  return h("button", { class: "cite pgc", "data-e": e, title: "근거 보기", on: () => show({ mode: "source", e }) }, a.page ? `p.${a.page}` : `[${cites[e] || 1}]`); };
 const plain = k => String(k.conclusion || k.title || "").replace(/\s*\[\d+\]/g, "");
 function redone(d) {
   const can = window.pabloHost && pabloHost.condition, task = V.task.id;
@@ -4280,7 +4293,8 @@ if (window.pabloHost && pabloHost.chat) {
     box.dataset.running = running ? "1" : "";
     const d = V ? (M.desk || {})[V.task.id] || {} : {}, ps = d.papers || [], asks = ps.length && (!d.folder || d.route === "ask");
     if (agentSt === "Ready") wasReady = true;  // S4: connecting again after it was ready (a new token, a restart)
-    inp.placeholder = !on ? "ChatGPT에 연결하면 대화할 수 있습니다" : wasReady && agentSt === "Connecting" ? "다시 연결되면 보낼 수 있습니다"
+    inp.placeholder = !on ? (V ? "ChatGPT에 연결하면 대화할 수 있습니다" : "ChatGPT에 연결하고 작업을 만들면 대화할 수 있습니다") :  // 01: no task yet
+      wasReady && agentSt === "Connecting" ? "다시 연결되면 보낼 수 있습니다"
       : !V ? "새 작업을 만들면 대화할 수 있습니다" : asks ? "논문에 묻기…" : "Pablo에게 요청하기…";
     hint.hidden = !on || !V || !box.dataset.stage;
     const filt = !hint.hidden && $("log").dataset.filter === box.dataset.stage;  // B14
@@ -4776,8 +4790,9 @@ if (window.pabloHost && pabloHost.chat) {
     // it is filtered by (a stage, or 대화로 거르기's label) as a chip that clears it, else "거르기 없음"
     const view = d.view || (M.settings || {}).view || "time";
     const fstate = !filt ? h("span", { class: "fnone", "data-filter-state": "" }, "거르기 없음")
-      : h("button", { class: "fchip", "data-filter-state": filt, title: "거르기", "aria-haspopup": "menu", on: e => filterMenu(e.currentTarget) },
-          ico("filter", 14), h("span", { class: "fc-t" }, filt.startsWith("refs:") ? filt.slice(5) : "단계 · " + filt), ico("chevron-down", 12));  // F24: the 거르기 menu (풀기 is in it)
+      : filt.startsWith("refs:") ? h("button", { class: "fchip", "data-filter-state": filt, title: "거르기", "aria-haspopup": "menu", on: e => filterMenu(e.currentTarget) },
+          ico("filter", 14), h("span", { class: "fc-t" }, filt.slice(5)), ico("chevron-down", 12))  // F24: 대화로 거르기 -> the 거르기 menu (풀기 is in it)
+      : h("button", { class: "fchip", "data-filter-state": filt, title: "거르기 풀기", on: () => stageFilter(filt) }, h("span", { class: "fc-t" }, "단계 · " + filt), ico("x", 12));  // V3: a stage, ×
     bar.append(h("div", { id: "viewbar" }, h("span", { class: "muted" }, "보기"), h("span", { class: "vseg", role: "group", "aria-label": "보기" },
       ...[["time", "시간순"], ["stage", "단계별"], ["target", "대상별"]].map(([v, t]) =>
       h("button", { class: "vtab" + (view === v ? " on" : ""), "data-view": v, disabled: !pabloHost.setUi, "aria-pressed": String(view === v),
@@ -4846,7 +4861,7 @@ if (window.pabloHost && pabloHost.chat) {
     const netIn = h("input", { type: "checkbox", role: "switch", id: "nt-net", checked: net ? true : null });
     const netLbl = h("span", null), drawNet = () => { netLbl.textContent = (net ? "허용" : "차단") + (net === !!s.net ? " (기본)" : ""); };
     netIn.addEventListener("change", () => { net = netIn.checked; drawNet(); }); drawNet();
-    const crit = h("textarea", { id: "nt-crit", rows: 2, placeholder: "예: test 셋은 튜닝에 절대 쓰지 마.", "aria-label": "이 작업만의 기준" });
+    const crit = h("textarea", { id: "nt-crit", rows: 1, placeholder: "예: test 셋은 튜닝에 절대 쓰지 마.", "aria-label": "이 작업만의 기준" });
     const state = h("div", { class: "nt-state", "aria-live": "polite" });
     const make = h("button", { class: "pill on", id: "create", on: () => go() }, "만들기");
     const field = (label, ...kids) => h("div", { class: "nt-field" }, h("h4", null, label), ...kids);
