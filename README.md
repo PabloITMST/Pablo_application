@@ -219,7 +219,7 @@ for t in tests/*/test_*.py; do python "$t" || break; done
 # 앱 화면 점검 (오프라인)
 npm --prefix desktop run check -- --ui
 
-# 위 둘을 차례로: Actions를 못 쓸 때의 로컬 CI
+# 위 둘과 연결 화면 점검(--auth, 가짜 로그인 서버)을 차례로: Actions를 못 쓸 때의 로컬 CI
 npm --prefix desktop run ci
 ```
 

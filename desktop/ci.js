@@ -1,7 +1,7 @@
-// Local CI: what .github/workflows/test.yml runs, plus the offline UI check, in one command (from the repo root).
-//   npm --prefix desktop run ci              python tests, then check.js --ui
+// Local CI: what .github/workflows/test.yml runs, plus the offline UI checks, in one command (from the repo root).
+//   npm --prefix desktop run ci              python tests, then check.js --ui and --auth (signed in against a fake server)
 //   npm --prefix desktop run ci -- --python  only the python tests (the same loop as the workflow)
-//   npm --prefix desktop run ci -- --ui      only check.js --ui
+//   npm --prefix desktop run ci -- --ui      only the two UI checks
 // build/venv goes first on PATH when it exists (check.js and the tests call `python`). The workflow uses Python 3.11;
 // another version is reported, not refused. LinearRAG.pdf (not in the repo) is fetched from arXiv when missing and
 // checked by sha256, as the workflow does. Stops at the first failure; exit code 1.
@@ -53,11 +53,17 @@ function python() {
 function ui() {
   console.log("== check.js --ui");
   if (!run(require("electron"), ["check.js", "--ui"], __dirname)) fail("check.js --ui");
+  // --auth opens a fixture's page (its first argument) and signs in: the screen only a connected app shows
+  const dir = fs.mkdtempSync(path.join(require("os").tmpdir(), "pablo-ci-auth-"));
+  const fx = spawnSync("python", [path.join(ROOT, "tests", "skill", "ui_fixture.py"), dir], { env, encoding: "utf8" });
+  if (fx.status !== 0) fail("ui_fixture.py: " + (fx.stderr || "").slice(-300));
+  console.log("== check.js --auth");
+  if (!run(require("electron"), ["check.js", JSON.parse(fx.stdout).view, "--auth"], __dirname)) fail("check.js --auth");
 }
 
 (async () => {
   const t0 = Date.now(), done = [];
   if (only !== "ui") { await paper(); done.push(`python tests ${python()}`); }
-  if (only !== "python") { ui(); done.push("check --ui"); }
+  if (only !== "python") { ui(); done.push("check --ui, --auth"); }
   console.log(`\nLOCAL CI OK: ${done.join(", ")} (${Math.round((Date.now() - t0) / 1000)}s)`);
 })();
