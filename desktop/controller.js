@@ -128,7 +128,7 @@ ctl.request = async (m, t) => {
   if (verdict === "BLOCK") why = "Guard BLOCK: 실행하지 않았습니다.";
   await py("decide", act, ok ? "proceed" : "reject", "--reason", why).catch(e => console.error("[pablo] decide", e.message));
   trace({ task, act, step: g.step, intent: g.intent, excluded: g.excluded, action: d.text, verdict, decision: ok ? "accept" : "decline" });
-  if (ok) ran.set(m.params.itemId, { act, task });
+  if (ok) ran.set(m.params.itemId, { act, task, asked: verdict === "WARN" });
   else review(act, ["--not-executed"], `실행하지 않음: ${d.text}`);
   return ok ? "accept" : "decline";
 };
@@ -156,7 +156,11 @@ ctl.item = (it, t) => {
   const failed = it.status !== "completed" || (cmd && it.exitCode !== 0);
   if (failed) {
     args.push("--error", `${it.status}${cmd ? ` (exit code ${it.exitCode})` : ""}`);
-    ui(t, { verdict: "ERROR", text: summary, reason: "실행에 실패했습니다." });
+    // a command that ran and exited non-zero is the agent's own step: it reads the output and goes on (`rg` with no
+    // match, `git status` outside a repository). Recorded with its error, not a card: 10/27 a run showed six
+    // "작업을 실행하지 못했습니다" cards for commands that had run. A card when nothing ran (an edit that did not apply,
+    // a command that never started) or when the user said 진행 on the action's card.
+    if (!executed || a.asked) ui(t, { verdict: "ERROR", text: summary, reason: "실행에 실패했습니다." });
   }
   review(a.act, args, summary);
 };

@@ -187,6 +187,8 @@ class IntentEngine:
     def _commit(self, c: Candidate) -> None:
         f, src = c.features, Source("user", c.message_id)
         rtype, t = self._relation(f, c.id)
+        if t is None and f["relation"]["type"] == "conflict":
+            return self._nothing_to_change(c)
 
         if isinstance(t, Candidate):  # firmer version of a pending candidate
             item = self._add_item(f, src, c.policy_reason)
@@ -221,6 +223,8 @@ class IntentEngine:
 
     def _pending(self, c: Candidate) -> None:
         rtype, t = self._relation(c.features, c.id)
+        if t is None and c.features["relation"]["type"] == "conflict":
+            return self._nothing_to_change(c)
         if isinstance(t, Candidate):  # same hedged wish twice -> promote both
             item = self._add_item(c.features, Source("user", c.message_id), "pending repeated")
             t.status, t.item_id = "promoted", item.id
@@ -233,6 +237,12 @@ class IntentEngine:
 
     def _ignore(self, c: Candidate) -> None:
         pass  # kept in candidate log only
+
+    def _nothing_to_change(self, c: Candidate) -> None:
+        """A change ("~로 바꿔") whose target was not found is a request to the agent, not a new criterion: made one, it
+        sat beside the rule it asks to break (10/27: "기본값을 45분 집중, 10분 휴식으로 바꿔" next to "집중 25분 ... 반드시
+        유지" as a 가능하면 rule). Kept in the candidate log as ignored, so a new task's line still comes back as unread."""
+        c.action, c.status, c.policy_reason = "ignore", "ignored", "change with no criterion found to change"
 
     # --- relation resolution ---------------------------------------------------
     def _relation(self, f: dict, exclude: str) -> tuple[str, IntentItem | Candidate | None]:
@@ -255,6 +265,11 @@ class IntentEngine:
         return "none", None
 
     def _valid(self, rtype: str, f: dict, t) -> bool:
+        # a line said in one task never reinforces, refines or overrides another task's own criterion: that criterion
+        # does not apply here, so the line would vanish into it (10/27: a second reproduction task lost "평가(test) ...")
+        theirs = (t.features if isinstance(t, Candidate) else self._said_with(t.id)).get("task")
+        if f.get("task") and theirs and theirs != f["task"]:
+            return False
         if isinstance(t, Candidate):
             return t.status == "pending" and rtype in ("reinforcement", "refinement")
         if t.status != "active" or t.kind not in USER_KINDS:
@@ -311,6 +326,10 @@ class IntentEngine:
         if not c or c.status not in ("pending", "ignored"):
             raise ValueError(f"{cid}: not a pending/ignored candidate")
         return c
+
+    def _said_with(self, item_id: str) -> dict:
+        """The features of the line that made this item (the first candidate pointing at it), {} for agent items."""
+        return next((c.features for c in self.state.candidates if c.item_id == item_id), {})
 
     def _context(self) -> str:
         lines = [f"{i.id} [{i.kind}{'/' + i.strength if i.strength else ''}] {i.statement} topics={i.topics}"

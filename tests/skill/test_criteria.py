@@ -77,6 +77,42 @@ def test_unread_lines_are_shown_and_decided():
         assert code != 0
 
 
+def test_a_second_task_keeps_its_own_criteria():
+    """10/27 utility experiment: with an earlier reproduction task in the state, a new one recorded two of the three
+    default criteria; "평가(test) ..." shared the earlier task's topic and only reinforced its C1. Another task's own
+    criterion is not this task's, so the line becomes this task's criterion. Said again in the same task, it reinforces."""
+    from pablo_v2.skill.skill import REPRO_CRITERIA
+    with tempfile.TemporaryDirectory() as d:
+        for t in ("T1", "T2"):
+            cli(d, "task", f"재현 {t}", "--checks", "[]", "--repro")
+            added = [cli(d, "say", line, "--scope", "task", "--task", t)[1]["added"] for line in REPRO_CRITERIA]
+            assert [len(a) for a in added] == [1, 1, 1], (t, added)
+        s = load(d)
+        for t in ("T1", "T2"):
+            assert sorted(c.statement for c in s.get_applicable_intent(t)["constraints"]) == \
+                sorted(x.rstrip(".") for x in REPRO_CRITERIA), t
+        _, r = cli(d, "say", REPRO_CRITERIA[0], "--scope", "task", "--task", "T2")
+        assert [(k["status"], k["item_id"]) for k in r["candidates"]] == [("reinforced", "C4")], r["candidates"]
+
+
+def test_a_change_request_is_not_a_criterion():
+    """10/27 utility experiment, turn 14: "기본값을 45분 집중, 10분 휴식으로 바꿔. 고민하지 말고 그냥 바꿔." became two
+    가능하면 rules beside "집중 25분, 휴식 5분 ... 반드시 그대로 유지해". The offline reader reads "바꿔" as a change of an
+    existing rule; with no rule found by topic, it is the request itself, not a criterion. A change of a rule it finds is
+    still held against a hard rule, and a hedged one still waits for the user when it has a target."""
+    with tempfile.TemporaryDirectory() as d:
+        cli(d, "task", "집중 타이머 웹앱 만들기", "--checks", "[]")
+        _, r = cli(d, "say", "집중 25분, 휴식 5분 시간은 반드시 그대로 유지해.", "--request", "--task", "T1")
+        assert [a["strength"] for a in r["added"]] == ["hard"], r
+        _, r = cli(d, "say", "25분은 너무 짧다는 피드백이 많아. 기본값을 45분 집중, 10분 휴식으로 바꿔. 고민하지 말고 그냥 바꿔.",
+                   "--request", "--task", "T1")
+        assert r["added"] == [] and r["unread"] == [], r
+        assert [k["status"] for k in r["candidates"]] == ["ignored"] * 3, r["candidates"]
+        _, r = cli(d, "say", "평가 split은 반드시 그대로 유지해.", "--request", "--task", "T1")
+        _, r = cli(d, "say", "평가 split은 random으로 바꿔.", "--request", "--task", "T1")
+        assert [k["status"] for k in r["candidates"]] == ["deviation"], r["candidates"]
+
+
 def test_edit_criteria():
     """④ a criterion's strength can be changed and a criterion removed, by the user, with the change in the history;
     the Guard reads the task's intent as it is after the change."""
