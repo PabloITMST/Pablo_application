@@ -925,7 +925,7 @@ async function uiCheck() {
   assert.deepStrictEqual(errors, [], "no script errors on load");
   // one size scale (10/27): a control on a row 32, a choice inside a group 24, a label in a line of text 20
   assert.deepStrictEqual(await js(`(q => ({ ctl: q("#side .new, .statechip, #bar .rn, #viewbar .vseg, #chat > .composer > button, .pill"),
-    in: q("#viewbar .vtab"), tag: q("#log .tg, #log .tagbtn, #log .cite") }))(s => [...new Set([...document.querySelectorAll(s)]
+    in: q("#viewbar .vtab"), tag: q("#log .tg, #log .tagbtn, #log .cite.pgc, #log .cite.web") }))(s => [...new Set([...document.querySelectorAll(s)]
     .filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height)))])`), { ctl: [32], in: [24], tag: [20] }, "one size scale");
   console.log("ok sizes: controls 32, choices in a group 24, labels in text 20");
   // A2 complete · A (the shell): the sidebar (search with its shortcut, a row's stage progress, the account card at its foot,
@@ -1104,6 +1104,12 @@ async function uiCheck() {
   await js(`document.querySelectorAll("[data-audit]")[0].querySelector('[data-verdict-chip="all"]').click()`);
   await into("[data-audit]"); await bshot("audit");
   await into("[data-spec]"); await bshot("spec");
+  // visual pass (06 07 08): a record card's tags sit under the name, above the card; [n] in the conversation is bold text, p.N a chip
+  assert.deepStrictEqual(await js(`[!!document.querySelector("[data-spec]").closest(".msg").querySelector(":scope > div > .who + .tags.top"),
+    !!document.querySelector("[data-audit]").closest(".msg").querySelector(":scope > div > .who + .tags.top"),
+    [...document.querySelectorAll("#log .cite:not(.pgc):not(.web)")].every(c => getComputedStyle(c).backgroundColor === "rgba(0, 0, 0, 0)" && getComputedStyle(c).fontWeight === "700"),
+    [...document.querySelectorAll("#log .cite.pgc")].every(c => getComputedStyle(c).backgroundColor !== "rgba(0, 0, 0, 0)")]`), [true, true, true, true], "tags above record cards; [n] text, p.N chips");
+  await into("#log .msg:has([data-spec])"); await bshot("spec-top");
   // B13: 단계별: the head says 메시지 N · HH:mm–, 대화 펼치기 / 접기; only the current stage is open
   await js(`pabloHost.setUi("T1", "view", "stage").then(() => ${redraw})`); await sleep(300);
   assert.strictEqual(await js(`[...document.querySelectorAll("#log > .stagegroup")].filter(g => g.querySelector(".sg-msgs")).map(g => [g.querySelector(".sg-head b").textContent, g.querySelector(".sg-msgs").hidden,
@@ -1137,6 +1143,13 @@ async function uiCheck() {
   assert.deepStrictEqual(await js(`(c => [c.querySelector(".head").textContent, c.querySelector(".dl-file").textContent, !!c.querySelector("[data-dl-get]")])(downloadCard({ id: "2510.10114", filename: "arxiv-2510.10114v4.pdf", source: "arxiv.org", bytes: 2411724 }))`),
     ["arXiv에서 받을까요?", "arxiv-2510.10114v4.pdf출처 arxiv.org · 2.3 MB · 50 MB 상한 안", true]);
   await into("#log .msg"); await bshot("top");
+  // PABLO_SHOTS only: the progress (S5) and download (S12) cards in the conversation, next to the design's state sheet
+  if (process.env.PABLO_SHOTS) {
+    await js(`(m => { m.id = "vshot"; $("log").append(m); m.scrollIntoView({ block: "start" }); })(msg("Pablo", null,
+      (c => (c._set("LinearRAG v4를 읽고 있습니다 · 9 / 20쪽", 9 / 20), c))(progCard("spec", "조건 확정", "뽑는 중", "", "보통 1–3분 · 다른 일을 해도 됩니다", () => {})),
+      downloadCard({ id: "2510.10114", filename: "arxiv-2510.10114v4.pdf", source: "arxiv.org", bytes: 2411724 })))`);
+    await bshot("states"); await js(`$("vshot").remove()`);
+  }
   console.log("ok A2 complete B: 나 + HH:mm, bands and held card, one + 태그 popover, rule suggestions, verification bar, Guard badges, audit chips, 단계별 / 대상별 heads, 거르기 in every view + menu, 보낼 곳, progress and download cards");
   // QA 10/26 (D4): the panel as this task left it, when the task is opened again in the same run (before the next state read)
   await js(`show({ mode: "plan" })`); await sleep(200);
@@ -1236,7 +1249,7 @@ async function uiCheck() {
   assert.strictEqual(await js(`document.querySelector("[data-audit] [data-skipped-spec]").textContent`),
     "이 점검 전에 뺀 재현 조건 1개는 대조하지 않았습니다: 비교 대상은 HippoRAG2이다 (이유: 이 재현의 범위 밖)");
   const spec = await js(`(b => ({ heads: [...b.querySelectorAll(".sp-cat h4 .nm")].map(x => x.textContent), chips: [...b.querySelectorAll(".chips button")].map(x => x.textContent),
-    items: [...b.querySelectorAll(".sp-cat li")].map(x => [x.querySelector(".tg.kd").textContent, x.querySelector(".sx").textContent.trim(), (x.querySelector(".cite") || {}).textContent || ""]),
+    items: [...b.querySelectorAll(".sp-cat li")].map(x => [x.querySelector(".tg.kd").textContent, x.querySelector(".sx").textContent.trim() + [...x.querySelectorAll(":scope > .tg.wv")].map(t => t.textContent).join(""), (x.querySelector(".cite") || {}).textContent || ""]),
     text: b.textContent, redo: (r => r && [r.querySelector(".head").textContent, [...r.querySelectorAll("li")].map(x => x.textContent)])(document.querySelector("[data-redo]")) }))(document.querySelector("[data-spec]"))`);
   // A2 complete (B10): a grey head per category, a kind tag per row, kind chips; a value's warnings are tags; the page chip
   assert.deepStrictEqual(spec.heads, ["데이터셋", "모델", "방법", "하이퍼파라미터", "보고된 결과", "논문에 없는 설정"]);
