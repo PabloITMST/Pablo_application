@@ -103,6 +103,11 @@ def model(s, task_id: str) -> dict:
             steps.append({"id": st["id"], "action": st["action"], "checks": scs,
                           "intent": [{"id": b, "text": label(b)} for b in st["basis"] if b not in scs]})
         plan = {"id": p.id, "steps": steps, "unverified": p.unverified}
+    # D4: every plan of the task, oldest first (each chat request supersedes the last): a step id (P3.1) in the chat log
+    # and on an action finds its request and when it was made
+    plans_all = [{"id": p.id, "created_at": p.created_at, "status": p.status,
+                  "steps": [{"id": st["id"], "action": st["action"]} for st in p.steps]}
+                 for p in s.state.plans if p.task_id == task_id]  # s.plans() is the active ones only
 
     actions = []
     for a in s.actions(task_id):
@@ -160,6 +165,11 @@ def model(s, task_id: str) -> dict:
         elif k.status == "rejected":
             decided[i] = "skip"
     intent["decided"] = decided
+    # D3: a held-back (pending) or unread line the user made a criterion: K id -> the criterion's id, so the conversation
+    # line and the criterion find each other
+    kids = {u["id"] for c in chat for u in (c.get("unread") or []) + (c.get("pending") or []) if isinstance(u, dict) and u.get("id")}
+    intent["promoted"] = {i: by_id[i].item_id for i in sorted(kids, key=lambda x: int(x[1:]) if x[1:].isdigit() else 0)
+                          if i in by_id and by_id[i].status == "promoted" and by_id[i].item_id}
     # ④ a removed criterion stays in view: when and why, until it is restored (to). An audit says which it did not check.
     gone = []
     for c in eng.get_intent_history():
@@ -175,7 +185,7 @@ def model(s, task_id: str) -> dict:
                     g["to"] = c.at
     intent["removed"] = gone
     return {"task": {"id": t.id, "text": t.text}, "stage": stage, "progress": [done, len(research)],
-            "intent": intent, "research": research, "checks": checks, "plan": plan, "actions": actions,
+            "intent": intent, "research": research, "checks": checks, "plan": plan, "plans": plans_all, "actions": actions,
             "chat": chat, "anchors": anchors, "sources": sources}
 
 
@@ -205,10 +215,38 @@ def _span(spans: list, at: str):
     return next((d for d in spans or [] if d.get("from", "") < at and (not d.get("to") or d["to"] > at)), None)
 
 
-def render_report(s, task_id: str, now: dict | None = None) -> str:
+# A13 the report's parts the export dialog lists, in the order they are written ("conversation" only when asked for)
+REPORT_SECTIONS = ("goal_criteria", "conditions", "audit", "deviations", "decisions", "changes", "refused", "conversation")
+
+
+def render_report(s, task_id: str, now: dict | None = None, sections=None) -> str:
     """⑫ Markdown: the task's papers, conditions (with pages), what differs on purpose, what was taken out and why, the
     criteria, the last audit, what Pablo stopped or asked about, and what changed. Pages instead of [n]: a report is
-    read apart from the app."""
+    read apart from the app. A13 sections: the parts to keep (REPORT_SECTIONS); None = every part but the conversation."""
+    out, cut, _ = _report(s, task_id, now, conversation=sections is not None and "conversation" in sections)
+    if sections is None:
+        return "\n".join(out).rstrip() + "\n"
+    keep = set(sections)
+    bounds = [b for _, b in cut] + [len(out)]
+    lines = out[:cut[0][1]] + [ln for (key, a), b in zip(cut, bounds[1:]) if key in keep for ln in out[a:b]]
+    tidy = []  # parts left out leave no double blank lines, and every heading has one blank line before it
+    for ln in lines:
+        if ln.startswith("#") and tidy and tidy[-1] != "":
+            tidy.append("")
+        if ln == "" and tidy and tidy[-1] == "":
+            continue
+        tidy.append(ln)
+    return "\n".join(tidy).rstrip() + "\n"
+
+
+def report_counts(s, task_id: str, now: dict | None = None) -> dict:
+    """A13 what each part of the report holds (the export dialog's numbers), and whether the last audit is older than
+    the last file change."""
+    return _report(s, task_id, now)[2]
+
+
+def _report(s, task_id: str, now: dict | None = None, conversation: bool = False) -> tuple[list, list, dict]:
+    """-> (lines, [(section, index of its first line)], counts)"""
     from .skill import SPEC_LABEL, deviation, unpaired
     v, t = model(s, task_id), s.get_task(task_id)
     checks = {c.id: c for c in s.checks(task_id)}
@@ -227,7 +265,10 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
     audits = [c for c in v["chat"] if c.get("role") == "audit" and c.get("items")]
     last = audits[-1] if audits else None
     out = [f"# 재현 보고서: {t.text}", "", f"Pablo가 {_when(now_iso())}에 만든 보고서입니다. 조건마다 논문의 쪽을 적었습니다. 시각은 이 컴퓨터의 시간대입니다.", ""]
+    cut = []
+    sec = lambda key: cut.append((key, len(out)))  # noqa: E731
     # papers
+    sec("conditions")
     srcs = list(dict.fromkeys(c.spec["source_id"] for c in spec))
     out += ["## 논문", ""]
     named = 0
@@ -268,11 +309,13 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
             out.append(f"- {c.requirement.strip()}" + (f" — 코드가 정함: `{chosen.get('found', '')}` ({chosen.get('where', '')})" if chosen else " — 아직 정하지 않음"))
         out.append("")
     # what differs on purpose (fixed section)
+    sec("deviations")
     out += ["## 논문과 다르게 한 것 (의도한 차이)", ""]
     devs = [(c, d) for c in spec for d in c.spec.get("deviations", [])]
     out += [f"- {text(c)} — 이유: {d['why']} · 범위: {'별도 실행에서만' if (d.get('scope') or 'task') == 'runs' else '작업 전체'}"
             f" · {_when(d['from'])}부터" + (f" {_when(d['to'])}까지 (되돌림)" if d.get("to") else " (지금도)") for c, d in devs] or ["- 없음"]
     # what was taken out (fixed section)
+    sec("decisions")
     out += ["", "## 뺀 조건과 지운 기준", ""]
     outs = [(c, d) for c in spec for d in c.spec.get("dropped", [])]
     gone = [g for g in v["intent"].get("removed", [])]
@@ -282,6 +325,7 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
     if not outs and not gone:
         out.append("- 없음")
     # criteria
+    sec("goal_criteria")
     out += ["", "## 작업 기준", ""]
     out += [f"- 반드시: {x['text']}" for x in v["intent"]["must"]] + [f"- 가능하면: {x['text']}" for x in v["intent"]["prefer"]]
     if not v["intent"]["must"] and not v["intent"]["prefer"]:
@@ -302,9 +346,12 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
         if said:
             stage = f"[{d['stage']}] " if d.get("stage") else ""
             decided.append(f"- {stage}{who}: {' '.join(str(said).split())[:400]}" + (f" · {_when(when)}" if when else ""))
+    n_dec = len(decided)
     if decided:
+        sec("decisions")
         out += ["", "## 대화에서 정한 결정", ""] + decided
     # the last audit
+    sec("audit")
     out += ["", "## 재현 점검", ""]
     if not last:
         out.append("아직 재현 점검을 하지 않았습니다.")
@@ -366,6 +413,7 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
             out += ["", f"이 점검 전에 지우거나 뺀 것 {len(skipped)}개는 대조하지 않았습니다."]
     # what Pablo stopped or asked about
     acts = [a for a in v["actions"] if a["verdict"] in ("BLOCK", "WARN")]
+    sec("refused")
     out += ["", "## Pablo가 막거나 확인을 받은 작업", ""]
     if not acts:
         out.append("- 없음")
@@ -377,13 +425,71 @@ def render_report(s, task_id: str, now: dict | None = None) -> str:
     # what changed
     ch = [x for x in v["chat"] if x.get("role") == "changes"]
     undone = {x.get("of") for x in v["chat"] if x.get("role") == "undo"}
+    sec("changes")
     out += ["", "## 바뀐 파일", ""]
     out += [f"- {_when(x['at'])} 파일 {len(x.get('files', []))}개: " + ", ".join(f"{f['path']}" for f in x.get("files", [])[:12])
             + (" (되돌림)" if x.get("to") in undone else "") for x in ch] or ["- 에이전트가 바꾼 파일이 없습니다."]
     if aside:
+        sec("conditions")
         out += ["", "## 참고 (따를 조건이 아닌 논문의 서술과 실험 범위)", ""]
         out += [f"- [{REPORT_KIND[c.spec['kind']]}] {text(c)} — {where.get(c.id, '쪽 없음')}" for c in aside]
-    return "\n".join(out).rstrip() + "\n"
+    if conversation:
+        sec("conversation")
+        out += ["", "## 대화 전체", ""] + (_said_plainly(v, t) or ["- 대화가 없습니다."])
+    counts = {"criteria": {"hard": len(v["intent"]["must"]), "soft": len(v["intent"]["prefer"])}, "conditions": len(stated),
+              "audit": {"at": last["at"] if last else None}, "deviations": len(devs), "decisions": n_dec + len(outs) + len(gone),
+              "changes": len(ch), "refused": len(acts), "conversation": len(v["chat"]),
+              "stale": bool(last) and any(x.get("role") in ("changes", "undo") and x.get("at", "") > last["at"] for x in v["chat"])}
+    return out, cut, counts
+
+
+def _said_plainly(v: dict, t) -> list[str]:
+    """A13 "대화 전체": every entry of the chat log as one line (who · when — what), no [n], no cards."""
+    flat = lambda x, n=4000: " ".join(str(x or "").split())[:n]  # noqa: E731
+    bare = lambda x: re.sub(r"\s*\[\d+\]", "", str(x or "")).strip()  # noqa: E731
+    fact = lambda cid: bare((v["checks"].get(cid) or {}).get("conclusion") or (v["checks"].get(cid) or {}).get("title"))  # noqa: E731
+    line = lambda who, at, what: f"- **{who}** · {_when(at)} — {flat(what)}" if at else f"- **{who}** — {flat(what)}"  # noqa: E731
+    edit = {"hard": "반드시로 바꿈", "soft": "가능하면으로 바꿈", "drop": "지움", "restore": "되살림", "edit": "고침"}
+    spec = {"spec-add": "재현 조건에 더함", "spec-drop": "재현 조건에서 뺌", "spec-restore": "뺀 재현 조건을 되살림",
+            "spec-deviate": "의도한 차이로 둠", "spec-undeviate": "논문 조건으로 되돌림"}
+    out = [line("나", t.created_at, t.text)]
+    for c in v["chat"]:
+        r, at = c.get("role"), c.get("at")
+        if r == "user":
+            out.append(line("나", at, c.get("text")))
+        elif r == "agent":
+            out.append(line("Pablo", at, (c.get("text") or "") + (" (중지함)" if c.get("status") == "interrupted" else "")
+                            + (f" (오류: {c['error']})" if c.get("error") else "")))
+        elif r == "ask":
+            out.append(line("나 (논문 질문)", at, c.get("text")))
+            out.append(line("Pablo", None, fact(c["check"]) if c.get("check") else f"답하지 못함: {c.get('error') or ''}"))
+        elif r == "intent":
+            bits = [f"작업 기준에 추가: {i.get('text')} ({'반드시' if i.get('strength') == 'hard' else '가능하면'})" for i in c.get("items") or []]
+            bits += [f"기준으로 둘지 물음: {k.get('text')}" for k in c.get("pending") or []]
+            bits += [f"기준으로 읽지 못함: {u.get('text')}" for u in c.get("unread") or []]
+            out.append(line("Pablo", at, " · ".join(bits)))
+        elif r == "criterion-edit":
+            out.append(line("나", at, f"작업 기준을 {edit.get(c.get('action'), '바꿈')}: {c.get('text')}"
+                            + (f" (이유: {c['reason']})" if c.get("reason") else "")))
+        elif r == "spec":
+            out.append(line("Pablo", at, f"재현 조건 {len(c.get('checks') or [])}개를 뽑았습니다"
+                            + (f", 논문에 없는 설정 {len(c['missing'])}개" if c.get("missing") else "")
+                            + (f", 위치를 못 찾아 뺀 것 {c['dropped']}개" if c.get("dropped") else "") + "."))
+        elif r in spec:
+            out.append(line("나", at, f"{spec[r]}: {fact(c.get('check'))}" + (f" (이유: {c['reason']})" if c.get("reason") else "")))
+        elif r == "audit":
+            out.append(line("Pablo", at, f"재현 점검: 항목 {len(c.get('items') or [])}개." + (f" {c['summary']}" if c.get("summary") else "")
+                            + (f" (오류: {c['error']})" if c.get("error") else "")))
+        elif r == "changes":
+            fs = [f.get("path", "") for f in c.get("files") or []]
+            out.append(line("Pablo", at, f"파일 {len(fs)}개가 바뀌었습니다: {', '.join(fs[:12])}"))
+        elif r == "undo":
+            out.append(line("나", at, f"되돌림: {', '.join((c.get('files') or [])[:12])}"))
+        elif r == "compare":
+            out.append(line("Pablo", at, f"비교표: 논문 {len(c.get('papers') or [])}편 × 항목 {len(c.get('columns') or [])}개 ({', '.join(c.get('columns') or [])})"))
+        elif r == "report":
+            out.append(line("Pablo", at, f"보고서를 저장했습니다: {c.get('name', '')}"))
+    return out
 
 
 def now_iso() -> str:

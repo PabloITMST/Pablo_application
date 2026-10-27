@@ -449,20 +449,43 @@ class LLMJudge:
                 f"[{x['label']} p.{n}] {p}" for n, p in enumerate(x["pages"], 1)) for x in papers)
         return self.provider.complete_json(ASK_SOURCES_PROMPT.format(papers=text, question=question), ASK_SOURCES_SCHEMA)
 
-    def extract_spec(self, pages: list[str]) -> dict:
+    def extract_spec(self, pages: list[str], progress=None) -> dict:
         """One pass over the whole paper, then (D3) one over its appendix: those items come with from="appendix" and
-        fills (the number of the first pass's missing setting they state, 0 if none)."""
+        fills (the number of the first pass's missing setting they state, 0 if none).
+        D9 progress(page, pages): the furthest page the streamed answer has cited so far (the model reads in order), a
+        provider that streams (on_text) only; 0 at the start, every page at the end."""
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
         start = appendix_start(pages)
-        r = self.provider.complete_json(
-            SPEC_PROMPT.format(pages=text, appendix=SPEC_APPENDIX_NOTE.format(start=start) if start else ""), SPEC_SCHEMA)
-        if start:
-            found = "\n".join(f"- [{it['category']}] {it['statement']} (p.{it['page']})" for it in r["items"]) or "(none)"
-            missing = "\n".join(f"{i}. [{m['category']}] {m['statement']}" for i, m in enumerate(r["missing"], 1)) or "(none)"
-            tail = "\n\n".join(f"[p.{n}] {pages[n - 1]}" for n in range(start, len(pages) + 1))
-            more = self.provider.complete_json(SPEC_APPENDIX_PROMPT.format(found=found, missing=missing, pages=tail),
-                                               SPEC_APPENDIX_SCHEMA)
-            r = {"items": r["items"] + [{**it, "from": "appendix"} for it in more["items"]], "missing": r["missing"]}
+        seen = {"page": 0, "at": 0}
+
+        def grew(so_far: str):  # only the new tail is read: the answer grows by a few characters a time
+            tail = so_far[max(0, seen["at"] - 16):]
+            seen["at"] = len(so_far)
+            top = max([int(m) for m in re.findall(r'"page"\s*:\s*(\d+)', tail)] or [0])
+            if seen["page"] < top <= len(pages):
+                seen["page"] = top
+                progress(top, len(pages))
+        hook = progress and hasattr(self.provider, "on_text")
+        if progress:
+            progress(0, len(pages))
+        if hook:
+            self.provider.on_text = grew
+        try:
+            r = self.provider.complete_json(
+                SPEC_PROMPT.format(pages=text, appendix=SPEC_APPENDIX_NOTE.format(start=start) if start else ""), SPEC_SCHEMA)
+            if start:
+                found = "\n".join(f"- [{it['category']}] {it['statement']} (p.{it['page']})" for it in r["items"]) or "(none)"
+                missing = "\n".join(f"{i}. [{m['category']}] {m['statement']}" for i, m in enumerate(r["missing"], 1)) or "(none)"
+                tail = "\n\n".join(f"[p.{n}] {pages[n - 1]}" for n in range(start, len(pages) + 1))
+                seen["at"] = 0  # a new answer
+                more = self.provider.complete_json(SPEC_APPENDIX_PROMPT.format(found=found, missing=missing, pages=tail),
+                                                   SPEC_APPENDIX_SCHEMA)
+                r = {"items": r["items"] + [{**it, "from": "appendix"} for it in more["items"]], "missing": r["missing"]}
+        finally:
+            if hook:
+                self.provider.on_text = None
+        if progress:
+            progress(len(pages), len(pages))
         if dump := os.environ.get("PABLO_SPEC_DUMP"):  # tests/eval: the answer as it came, frozen for later runs
             with open(dump, "w", encoding="utf-8") as f:
                 json.dump({"items": r["items"], "missing": r["missing"], "appendix": start}, f, ensure_ascii=False, indent=1)
