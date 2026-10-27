@@ -1969,6 +1969,18 @@ body.panel.wide { grid-template-columns:var(--side-w) minmax(0, 1fr) min(835px, 
 .mxfoot { display:flex; gap:16px; align-items:baseline; flex-wrap:wrap; margin-top:14px; font-size:12px; color:var(--ink-3); }
 .mxfoot .link { font:600 12px/1.4 var(--sans); color:var(--ink); }
 #log .matrix.flash { box-shadow:0 0 0 3px var(--signal-soft); transition:box-shadow .3s; }
+/* visual pass (10/27) against 03–08, 10, V2–V4: every panel is 390 (only the wide table is 835); the tab summaries
+   10px so "반드시 4 · 가능 1" fits; ✎ 고치기 puts the box in place of the row's words (S56), a form hides the chips (S57);
+   the 왜? dots ink (only now filled); the live web page in the same white card as the snapshot (F23) */
+body.panel:not(.wide) { grid-template-columns:var(--side-w) minmax(0, 1fr) 390px; }
+body.panel .ptab { padding:7px 8px; } body.panel .ptab small { font-size:10px; letter-spacing:-.1px; }
+#panel ul.ck > li:has([data-edit-in]) > :is(.ct, .prev, .meta) { display:none; }
+#panel ul.ck > li:has(> .edits :is(input, select), > .acts :is(input, select)) > .meta { display:none; }
+#panel ul.ck > li:has([data-edit-in]) [data-edit-in] { margin-top:0; }
+.tl li.warn::after { border-color:var(--ink); }
+#pbody.live { margin:12px 16px 16px 18px; border:1px solid var(--a8); border-radius:var(--r-card); background:var(--white); }
+/* at 390 the code row keeps 작업 폴더 · 읽기 전용 · N줄 on the picker's line (07) */
+body.panel #panel .ptool { gap:2px; } body.panel #panel .ptool .url.pick { margin-left:4px; } body.panel #panel .ptool .meta { font-size:11px; white-space:nowrap; }
 /* end A2 complete · C */
 /* A2 complete · finishing pass (S8 비슷한 문장, S12 내려받기 확인 자리, S52, merged card actions) */
 /* 09 보고서 내보내기: the parts right under their heading; unpicked ones grey */
