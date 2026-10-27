@@ -1082,3 +1082,11 @@ app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => { clearTimeout(timer); agent.stop(); });
 
 module.exports = { open, boot, launch, auth: () => auth, arxiv, openreview, crossref, agentRules, forShell };
+
+// A2 complete · B: 생각 수준 (reasoning effort). Per model the levels it offers and its default, from the account's catalog
+// (siwc.models), else app-server's model/list; the pick is kept with the model (thread.json) and sent from the next turn
+const effortsOf = s => { const a = account && account.models.find(m => m.slug === s), b = (agent.efforts || {})[s] || {};
+  return { levels: (a && a.efforts) || b.levels || [], def: (a && a.effort) || b.def || null }; };
+agent.levels = effortsOf;
+ipcMain.handle("pablo:efforts", e => { fromWindow(e); return { efforts: Object.fromEntries(agent.models.map(s => [s, effortsOf(s)])), effort: agent.effort || null }; });
+ipcMain.handle("pablo:set-effort", (e, x) => { fromWindow(e); if (x !== null && !str(x, 20)) throw new Error("bad effort"); agent.setEffort(x); return agent.effort; });

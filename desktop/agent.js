@@ -20,6 +20,10 @@ const agent = new EventEmitter();
 const cwd = app.isPackaged ? os.tmpdir() : process.env.INIT_CWD || process.cwd();
 let proc = null, pend = {}, id = 0, buf = "", threadId = null, key = null, turn = null, ready = null, loaded = new Set(), failed = null;
 agent.status = "Connecting"; agent.spawns = 0; agent.launch = null; agent.stateFile = null; agent.model = null;
+// A2 complete · B: the reasoning effort (생각 수준) the user picked, sent with each turn when the model supports it;
+// agent.efforts: app-server's model/list (supportedReasoningEfforts, defaultReasoningEffort) per model; agent.levels (main):
+// the account catalog's, else those; agent.sent: what the last turn/start asked for (model, effort)
+agent.effort = null; agent.efforts = {}; agent.levels = null; agent.sent = null;
 agent.workspace = null; agent.onRequest = null;
 agent.network = false;  // the task's 인터넷 switch: Codex's workspace sandbox has no network unless this turn says so
 
@@ -88,7 +92,7 @@ function save() {
   const threads = state().threads || {}, old = threads[key];
   if (key && threadId) threads[key] = { threadId, cwd: where().cwd, sandbox: where().sandbox,
     ...(old && old.threadId === threadId && old.brief ? { brief: old.brief } : {}) };  // the brief this thread was last given
-  fs.writeFileSync(agent.stateFile, JSON.stringify({ model: agent.model, threads }));
+  fs.writeFileSync(agent.stateFile, JSON.stringify({ model: agent.model, ...(agent.effort ? { effort: agent.effort } : {}), threads }));
 }
 // Pablo's brief (criteria + located facts) goes before the message when this thread has not been given that version yet
 function told(hash) {
@@ -99,6 +103,12 @@ function told(hash) {
 const given = () => ((state().threads || {})[key] || {}).brief;
 // user's pick from the account's models; used from the next turn on (turn/start model sticks to the thread)
 function setModel(m) { if (!agent.models.includes(m)) throw new Error("unknown model"); agent.model = m; save(); }
+// A2 complete · B: the user's 생각 수준, kept with the model (the last pick is where a new task starts); null = the model's own
+const EFFORTS = ["minimal", "low", "medium", "high", "xhigh"];
+function setEffort(e) { if (e !== null && !EFFORTS.includes(e)) throw new Error("unknown effort"); agent.effort = e; save(); }
+// the effort a turn of this model is sent with: the pick when the model offers it (or nothing is known), else none
+function effortFor(m) { const lv = ((agent.levels ? agent.levels(m) : agent.efforts[m]) || {}).levels || [];
+  return agent.effort && (!lv.length || lv.includes(agent.effort)) ? agent.effort : null; }
 function forget() { threadId = key = null; loaded.clear(); if (agent.stateFile) fs.rmSync(agent.stateFile, { force: true }); }
 
 // switch to a task's own thread: loaded in this process -> as is; saved -> thread/resume; else thread/start
@@ -181,6 +191,9 @@ function start() {
     // candidates: the account's catalog (any slug works on turn/start), app-server's default first; no launch -> app-server's list
     const def = (ms.find(m => m.isDefault) || ms[0]).model, all = L && L.models && L.models.length ? L.models : ms.map(m => m.model);
     agent.models = [...all.filter(m => m === def), ...all.filter(m => m !== def)];
+    agent.efforts = Object.fromEntries(ms.map(m => [m.model, { levels: (m.supportedReasoningEfforts || [])
+      .map(o => typeof o === "string" ? o : o && (o.reasoningEffort || o.effort)).filter(Boolean), def: m.defaultReasoningEffort || null }]));
+    if (agent.effort == null) agent.effort = state().effort || null;
     agent.model = agent.model || state().model;
     if (!agent.models.includes(agent.model)) agent.model = agent.models[0];
     loaded = new Set();  // after a crash, a token refresh or an app restart: the current task's thread is resumed
@@ -210,7 +223,8 @@ async function send(text, task, brief, note, opts = {}) {
     // 인터넷 takes effect on the next message.
     const policy = !agent.workspace ? {} : opts.readOnly ? { sandboxPolicy: { type: "readOnly" }, approvalPolicy: "never" }
       : { sandboxPolicy: { type: "workspaceWrite", networkAccess: !!agent.network }, approvalPolicy: "untrusted" };
-    t.id = (await call("turn/start", { threadId, input: t.input, model: agent.model, ...policy,
+    const effort = effortFor(agent.model); agent.sent = { model: agent.model, effort };
+    t.id = (await call("turn/start", { threadId, input: t.input, model: agent.model, ...(effort ? { effort } : {}), ...policy,
       ...(opts.outputSchema ? { outputSchema: opts.outputSchema } : {}) })).turn.id;
     if (tell) told(brief.hash);
     if (t.stop && turn === t) interrupt();  // 중지 pressed before app-server named the turn
@@ -240,5 +254,5 @@ function stop() {
 const restart = () => stop().then(start);
 
 agent.models = [];
-Object.assign(agent, { start, send, retry, interrupt, stop, restart, forget, setModel, spawnUtf8, shell, codexBin, busy: () => !!turn, thread: () => threadId, task: () => key, pid: () => proc && proc.pid });
+Object.assign(agent, { start, send, retry, interrupt, stop, restart, forget, setModel, setEffort, effortFor, spawnUtf8, shell, codexBin, busy: () => !!turn, thread: () => threadId, task: () => key, pid: () => proc && proc.pid });
 module.exports = agent;

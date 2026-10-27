@@ -62,4 +62,7 @@ contextBridge.exposeInMainWorld("pabloHost", {
   logout: () => ipcRenderer.invoke("pablo:logout"),
   authStatus: () => ipcRenderer.invoke("pablo:auth-status"),
   onAuth: cb => ipcRenderer.on("pablo:auth", (_, ev) => cb(ev)),
+  // A2 complete · B: 생각 수준 (reasoning effort) per model, and the user's pick (null = the model's own)
+  efforts: () => ipcRenderer.invoke("pablo:efforts"),
+  setEffort: x => ipcRenderer.invoke("pablo:set-effort", x),
 });

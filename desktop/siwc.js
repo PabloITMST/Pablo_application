@@ -177,7 +177,10 @@ async function models(access) {  // account-specific catalog (app-server's model
   try { r = await fetch(EP.api + "/models", { headers: { authorization: "Bearer " + access } }); } catch (e) { throw new AuthError("network", e.message); }
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new AuthError(classify(body.error && body.error.code || "", r.status), JSON.stringify(body).slice(0, 300));
-  const list = (body.models || body.data || []).filter(m => (m.visibility || "list") === "list").map(m => ({ slug: m.slug || m.id, name: m.display_name || m.slug || m.id })).filter(m => m.slug);
+  // A2 complete · B: the 생각 수준 a model offers (supported_reasoning_levels [{effort}], default_reasoning_level), when the catalog says
+  const levels = m => (m.supported_reasoning_levels || m.supported_reasoning_efforts || []).map(x => typeof x === "string" ? x : x && (x.effort || x.reasoning_effort)).filter(Boolean);
+  const list = (body.models || body.data || []).filter(m => (m.visibility || "list") === "list").map(m => ({ slug: m.slug || m.id, name: m.display_name || m.slug || m.id,
+    ...(levels(m).length ? { efforts: levels(m) } : {}), ...(m.default_reasoning_level || m.default_reasoning_effort ? { effort: m.default_reasoning_level || m.default_reasoning_effort } : {}) })).filter(m => m.slug);
   if (!list.length) throw new AuthError("no_models");
   return list;
 }
