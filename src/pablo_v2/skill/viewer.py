@@ -1277,6 +1277,12 @@ body:not(.panel) .ptab small { font:11px/1.4 var(--mono); color:var(--ink-3); }
   align-items:center; padding-top:0; padding-bottom:0; }
 .tg, .tagbtn, .cite { height:var(--h-tag); box-sizing:border-box; padding-top:0; padding-bottom:0; }
 .cite { display:inline-flex; align-items:center; }
+/* A2 complete · A shell: sidebar, header chips and menus, stage bar, view bar, first run, dialogs, narrow window (agent A) */
+/* end A2 complete · A */
+/* A2 complete · B conversation: messages, cards, views, composer, state cards (agent B) */
+/* end A2 complete · B */
+/* A2 complete · C right column: tabs, panel, rail, evidence, wide table (agent C) */
+/* end A2 complete · C */
 @media (max-width:900px) {
   body { padding:0; } #chat { height:100vh; border-radius:0; border:0; }
   body, body.panel { display:block; }
