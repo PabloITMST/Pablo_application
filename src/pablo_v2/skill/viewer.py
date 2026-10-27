@@ -1282,6 +1282,186 @@ body:not(.panel) .ptab small { font:11px/1.4 var(--mono); color:var(--ink-3); }
 /* A2 complete · B conversation: messages, cards, views, composer, state cards (agent B) */
 /* end A2 complete · B */
 /* A2 complete · C right column: tabs, panel, rail, evidence, wide table (agent C) */
+#panel { position:relative; }
+/* tabs: two lines each; the orange dot on the open tab and on a tab with something waiting; a tab with nothing yet is
+   grey and says on hover when it opens (S67) */
+.ptab { position:relative; }
+.ptab.attn b::before { content:""; flex:none; width:6px; height:6px; border-radius:50%; background:var(--signal); }
+.ptab:disabled { opacity:1; } .ptab:disabled b, .ptab:disabled small { color:var(--ink-3); }
+.ptab[data-tip]:hover::after { content:attr(data-tip); position:absolute; left:2px; top:calc(100% + 8px); z-index:8; white-space:nowrap;
+  padding:6px 10px; border-radius:var(--r-ctl); background:var(--primary); color:var(--on-primary); font:500 12px/1.4 var(--sans);
+  box-shadow:var(--sh-md); pointer-events:none; }
+body:not(.panel) .ptab[data-tip]:hover::after { left:auto; right:calc(100% + 8px); top:4px; }
+#ptabs .unfold { display:none; }
+body:not(.panel) #ptabs .unfold { display:flex; align-items:center; justify-content:center; gap:2px; height:var(--h-in); margin:0 0 4px;
+  border-radius:var(--r-ctl); font:500 11px/1 var(--sans); color:var(--ink-2); }
+body:not(.panel) #ptabs .unfold:hover { background:var(--a5); color:var(--ink); }
+/* the head: the panel's name, "접기 ›" (a narrow window's overlay: "닫기 ×") */
+.phead { padding:12px 14px 10px 20px; min-height:0; border-bottom:1px solid var(--a6); }
+.phead h2 { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.phead .x.fold { width:auto; height:var(--h-in); padding:0 4px 0 6px; display:inline-flex; align-items:center; font:500 12px/1 var(--sans); color:var(--ink-2); }
+.phead .x.fold > span { display:inline-flex; align-items:center; gap:2px; } .phead .x.fold > .n { display:none; }
+@media (max-width:900px) { .phead .x.fold > .w { display:none; } .phead .x.fold > .n { display:inline-flex; } }
+/* a row under the head: back / forward, the source or file picker, page turns or the folder line */
+.ptool { display:flex; align-items:center; gap:4px; padding:12px 16px 0 18px; flex-wrap:wrap; }
+.ptool .sp { flex:1; } .ptool .meta { font-size:12px; color:var(--ink-2); }
+.ptool .pnum { font:600 13px/1 var(--mono); color:var(--ink); padding:0 4px; }
+.ptool .nav.pg-t { width:24px; height:24px; }
+.ptool.acts { gap:8px; padding-top:10px; }
+.ptool .url.pick { margin:0 0 0 6px; height:var(--h-ctl); max-width:260px; display:inline-flex; align-items:center; gap:4px; padding:0 8px 0 10px;
+  background:var(--white); border:1px solid var(--a12); border-radius:var(--r-ctl); font:500 12px/1 var(--sans); color:var(--ink); }
+.ptool .url.pick:hover { background:var(--a4); }
+.ptool .url.pick b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+.ptool .url.pick > .ico:first-child { margin-right:2px; }
+/* menus (a2/menu-item 32 · r10 frame · shadow-lg · padding 4) */
+.mwrap { position:relative; display:inline-flex; min-width:0; }
+.pmenu { position:absolute; top:calc(100% + 6px); left:0; z-index:9; width:290px; padding:4px; background:var(--white);
+  border:1px solid var(--a8); border-radius:var(--r-in); box-shadow:var(--sh-lg); }
+.pmenu.right { left:auto; right:0; } .pmenu[hidden] { display:none; }
+.pmenu .mi { display:flex; align-items:center; gap:8px; width:100%; height:var(--h-ctl); padding:0 10px; border-radius:var(--r-ctl);
+  font:500 13px/1 var(--sans); color:var(--ink); text-align:left; }
+.pmenu .mi:hover:not(:disabled), .pmenu .mi.on { background:var(--a5); } .pmenu .mi.on span { font-weight:600; }
+.pmenu .mi span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pmenu .mi small { font:11px/1 var(--mono); color:var(--ink-3); } .pmenu .mi .ico { color:var(--ink-2); flex:none; }
+.pmenu .mi:disabled { opacity:1; color:var(--ink-3); } .pmenu p.mi { color:var(--ink-3); margin:0; }
+.pmenu .note { margin:4px 0 0; padding:8px 10px 6px; border-top:1px solid var(--a6); font-size:11px; line-height:1.5; color:var(--ink-3); }
+/* bands: who points at this (+ 대화로 거르기), the status line */
+.band { display:flex; align-items:center; gap:8px; margin:10px 16px 0 18px; padding:6px 10px; border-radius:var(--r-ctl); background:var(--a5);
+  font-size:12px; line-height:1.5; color:var(--ink-2); }
+.band > span { flex:1; min-width:0; } .band .link { font:600 12px/1.4 var(--sans); color:var(--ink); white-space:nowrap; }
+.band.warn { background:var(--signal-soft); color:var(--ink); }
+#pbody .band { margin:12px 0 0; }
+#panel > .info { margin:10px 16px 0 18px; } .info:empty { display:none; } .info .link { font-size:12px; }
+#pbody { padding:12px 16px 18px 18px; }
+.pfoot2 { display:flex; gap:16px; align-items:center; padding:10px 18px 14px; border-top:1px solid var(--a6); }
+.pfoot2 a, .pfoot2 .link { font:600 12px/1.4 var(--sans); color:var(--ink); text-decoration:none; }
+/* cards for an empty or failed place (S11, S64, S65, S67–S69, C7) */
+.pcard { margin:4px 0 0; padding:14px 16px; border-radius:var(--r-card); background:var(--a5); }
+.pcard.white { background:var(--white); border:1px solid var(--a8); }
+.pcard > b { display:block; font:600 14px/1.45 var(--sans); color:var(--ink); }
+.pcard > p { margin:4px 0 0; font-size:12px; line-height:1.6; color:var(--ink-2); }
+.pcard .btns { display:flex; gap:12px; align-items:center; margin-top:10px; }
+.pcard > .link { display:inline-block; margin:10px 12px 0 0; font:600 12px/1.4 var(--sans); }
+.pcard .addrow { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+.pcard .addrow input { flex:1 1 180px; height:var(--h-ctl); box-sizing:border-box; border:1px solid var(--a12); border-radius:var(--r-ctl);
+  background:var(--white); padding:0 10px; font:13px/1 var(--sans); color:var(--ink); outline:none; }
+.pcard .addrow input:focus { border-color:var(--ink-3); } .pcard .addrow .link { font-size:12px; }
+/* 기준: the goal as words; headings with counts; rows with back-links; a picked row grey */
+#pbody h3 { display:flex; align-items:baseline; gap:6px; }
+#pbody h3 .n { font:500 12px/1 var(--mono); color:var(--ink-3); } #pbody h3 .paper { font:500 12px/1 var(--mono); color:var(--ink-3); }
+#pbody .goal { position:relative; margin:0 2px 4px; font:500 15px/1.55 var(--sans); color:var(--ink); }
+#pbody .goal > .edits { position:absolute; right:0; top:0; opacity:0; } #pbody .goal:hover > .edits, #pbody .goal > .edits:has(input) { opacity:1; position:static; display:block; }
+#panel ul.ck > li { --row:var(--white); }
+#panel ul.ck > li:has(> .meta), #panel ul.ck.dev > li { cursor:pointer; }
+#panel ul.ck > li.sel { --row:#ECECED; background:var(--row); box-shadow:inset 0 0 0 1px var(--a12); }
+#panel ul.ck > li > .edits, #panel ul.ck > li > .acts { background:linear-gradient(90deg, transparent, var(--row) 14px); }
+#panel ul.ck .prev { font-size:12px; color:var(--ink-3); margin-top:2px; }
+#panel ul.ck .meta { display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:6px; }
+.backs { display:inline-flex; flex-wrap:wrap; gap:4px; }
+.bk, .human { display:inline-flex; align-items:center; gap:4px; height:var(--h-tag); box-sizing:border-box; padding:0 6px; border-radius:var(--r-tag);
+  background:var(--a5); font:500 11px/1 var(--sans); color:var(--ink-2); white-space:nowrap; }
+.bk .ico { color:var(--ink-3); } .bk.wait { background:var(--signal-soft); color:var(--ink); }
+.human { background:var(--white); border:1px solid var(--a12); color:var(--ink); }
+#panel ul.ck .edits { display:inline-flex; align-items:center; gap:6px; }
+#panel ul.ck .edits .link { display:inline-flex; align-items:center; gap:3px; }
+#panel ul.ck .edits .link.ib { width:24px; height:24px; justify-content:center; border-radius:6px; }
+#panel ul.ck .edits .link.ib:hover { background:var(--a5); }
+/* a row's form (S56 고치기, S57 지우기, S58 의도한 차이, S59 빼기): the box, then the buttons; " · " between them goes */
+#panel .edits:has(input, select) { display:block !important; font-size:0; }
+#panel .edits:has(input, select) > * { font-size:12px; }
+#panel .edits:has(input, select) .why { display:block; width:100%; height:var(--h-ctl); box-sizing:border-box; margin:6px 0 8px; font-size:13px; }
+#panel .edits:has(input, select) > .link, #panel .edits .ebtns .link { display:inline-flex; align-items:center; height:28px; padding:0 12px; margin-right:8px;
+  border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white); color:var(--ink); font:600 12px/1 var(--sans); }
+#panel .edits .ebtns { display:flex; align-items:center; flex-wrap:wrap; gap:0; }
+#panel .edits .ebtns small { font-size:11px; color:var(--ink-3); }
+#panel .edits .link.dark, #panel [data-deviate-ok] { background:var(--primary) !important; color:var(--on-primary) !important; border-color:var(--primary) !important; }
+#panel .edits .link.soft, #panel [data-spec-drop-ok] { background:var(--signal-soft) !important; border-color:transparent !important; }
+/* 논문 조건: a count per kind, what is still open, 조건 보기 · 다시 뽑기; the list behind it */
+.cond { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); padding:12px; }
+.cond .nums { display:flex; flex-wrap:wrap; gap:6px; }
+.cnum { display:inline-flex; align-items:center; gap:6px; height:var(--h-ctl); padding:0 10px; border-radius:var(--r-ctl); background:var(--a5); }
+.cnum:hover { background:var(--a8); } .cnum b { font:600 14px/1 var(--sans); color:var(--ink); } .cnum small { font-size:11px; color:var(--ink-3); }
+.cond .open { display:flex; align-items:center; gap:6px; margin:10px 2px 0; font-size:12px; color:var(--ink-2); }
+.cond .open::before { content:""; width:6px; height:6px; border-radius:50%; background:var(--signal); flex:none; }
+.cond .links { display:flex; gap:16px; margin:8px 2px 0; } .cond .links .link { font:600 12px/1.4 var(--sans); color:var(--ink); }
+.cond .condlist { margin-top:10px; border-top:1px solid var(--a6); } .cond .condlist[hidden] { display:none; }
+.cond .condlist ul.ck { border:0; border-radius:0; } .cond h4.kopen { font:600 12px/1.4 var(--sans); color:var(--ink-2); margin:14px 2px 6px; }
+#panel ul.ck.dev .ct { font-size:14px; }
+/* 계획: rows; the current one grey */
+#panel ol.steps.prow { background:none; border:0; border-radius:0; overflow:visible; display:flex; flex-direction:column; gap:4px; }
+#panel ol.prow li { display:block; border:1px solid transparent; border-radius:var(--r-in); padding:9px 12px; cursor:pointer; }
+#panel ol.prow li:hover { background:var(--a4); }
+#panel ol.prow li.cur { background:var(--a8); border-color:var(--a12); }
+#panel ol.prow li.sel { box-shadow:inset 0 0 0 1.5px var(--ink); }
+#panel ol.prow .pr { display:flex; align-items:baseline; gap:8px; }
+#panel ol.prow .pid, .tl .pid { font:500 12px/1.5 var(--mono); color:var(--ink-3); }
+#panel ol.prow .pa { font:500 14px/1.5 var(--sans); color:var(--ink); } #panel ol.prow li.cur .pa { font-weight:600; }
+#panel ol.prow li.old .pa { color:var(--ink-2); }
+#panel ol.prow .mk { display:inline-grid; place-items:center; } #panel ol.prow .mk.now { width:7px; height:7px; border-radius:50%; background:var(--ink); align-self:center; }
+#panel ol.prow .sub { display:block; margin-top:2px; font-size:12px; color:var(--ink-2); } #panel ol.prow .sub b { font-weight:600; color:var(--ink); }
+#pbody [data-plan-how] { font-size:12px; line-height:1.6; color:var(--ink-2); margin:14px 2px 0; }
+/* 왜?: where it stands now a filled dot; what has not happened yet grey */
+.tl li::after { width:12px; height:12px; top:4px; left:-1px; border-color:var(--ink); }
+.tl li.now::after { background:var(--ink); border-color:var(--ink); }
+.tl li.wait .k, .tl li.wait .v { color:var(--ink-3); font-weight:500; }
+.tl li.wait::after { border-color:var(--ink-3); }
+.tl .v code { font-size:12px; }
+/* evidence: the page as a white sheet; code on grey with the marked line; the web paragraph orange */
+#pbody.pdf { background:none; padding:12px 16px 16px 18px; }
+.pg { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); overflow:hidden; box-shadow:none; }
+#pbody.pdf.astext #doc, #doc { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); padding:18px 20px; }
+#pbody.pdf.astext #doc .b { white-space:pre-wrap; font-size:13px; line-height:1.6; }
+#doc .b.shown { background:var(--signal-soft); border-left:3px solid var(--signal); padding:8px 12px; border-radius:4px; }
+.urlrow { display:flex; align-items:center; gap:4px; margin:10px 16px 0 18px; height:36px; padding:0 4px 0 12px; border:1px solid var(--a8);
+  border-radius:var(--r-ctl); background:var(--white); font-size:12px; color:var(--ink-2); min-width:0; }
+.urlrow > .ico { color:var(--ink-3); margin-right:4px; flex:none; } .urlrow b { color:var(--ink); font-weight:600; white-space:nowrap; }
+.urlrow > span { white-space:nowrap; } .urlrow small { flex:1; min-width:0; margin-left:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:11px/1 var(--mono); color:var(--ink-3); }
+#pbody.code { flex:0 1 auto; min-height:0; margin:12px 16px 0 18px; padding:8px 0; border:0; border-radius:var(--r-card); background:var(--a5); }
+.src .ln.on { background:var(--a8); box-shadow:inset 0 0 0 1px var(--a12); border-radius:6px; }
+.lnote { margin:10px 18px 0; font-size:12px; line-height:1.6; color:var(--ink-2); } .lnote[hidden] { display:none; }
+/* F22: the floating button over a picked sentence, then the card */
+#pick.float { position:absolute; z-index:7; padding:0; gap:0; background:none; border:0; display:block; }
+#pick.float[hidden], #pick.form[hidden] { display:none; }
+#pick .fbtn { height:var(--h-ctl); display:inline-flex; align-items:center; gap:6px; padding:0 12px; border-radius:var(--r-ctl);
+  background:var(--primary); color:var(--on-primary); font:600 12px/1 var(--sans); box-shadow:var(--sh-md); white-space:nowrap; }
+#pick .tip { display:inline-block; padding:6px 10px; border-radius:var(--r-ctl); background:var(--primary); color:var(--on-primary); font-size:12px; }
+#pick.form { position:absolute; left:18px; right:16px; bottom:14px; z-index:7; display:flex; flex-direction:column; gap:10px; padding:14px 16px;
+  background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); box-shadow:var(--sh-lg); font-size:13px; }
+#pick.form .q { border-left:3px solid var(--signal); padding:2px 0 2px 12px; color:var(--ink); max-height:5.6em; overflow:auto; line-height:1.55; }
+#pick.form .q small { color:var(--ink-3); }
+#pick.form label { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--ink-2); min-width:0; }
+#pick.form [data-statement] { flex:none; }
+#pick.form .grid { display:grid; grid-template-columns:minmax(0, 1fr) 104px; gap:8px; }
+#pick.form input, #pick.form select { width:100%; height:var(--h-ctl); box-sizing:border-box; border:1px solid var(--a12); border-radius:var(--r-ctl);
+  padding:0 10px; background:var(--white); font:13px/1 var(--sans); color:var(--ink); }
+#pick .simnote { display:flex; gap:8px; align-items:flex-start; padding:8px 10px; border-radius:var(--r-ctl); background:var(--a5); font-size:12px; line-height:1.5; color:var(--ink-2); }
+#pick .simnote > .ico { flex:none; margin-top:2px; } #pick .simnote:has([data-pick-note]:empty) { display:none; }
+#pick .simnote .link.strong { font-weight:600; color:var(--ink); white-space:nowrap; }
+#pick.form .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+#pick.form .row > .link { height:var(--h-ctl); padding:0 14px; display:inline-flex; align-items:center; border:1px solid var(--a12); border-radius:var(--r-ctl);
+  background:var(--white); color:var(--ink); font:600 12px/1 var(--sans); }
+#pick.form .row small { font-size:12px; color:var(--ink-3); }
+#pick.form.done { flex-direction:row; align-items:center; justify-content:space-between; }
+/* F21: the wide table (835): what it is and its buttons, the column form, a shared column, the way back */
+body.panel.wide { grid-template-columns:var(--side-w) minmax(0, 1fr) min(835px, 58vw); }
+#pbody.mx { padding:14px 16px 18px 18px; }
+.mxtool { display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap; }
+.mxtool .t { flex:1 1 220px; min-width:0; } .mxtool .t b { display:block; font:600 14px/1.4 var(--sans); color:var(--ink); }
+.mxtool .t small { font-size:12px; color:var(--ink-2); } .mxtool .pill { display:inline-flex; align-items:center; gap:6px; }
+.colsform { margin-top:12px; background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); padding:12px 14px; }
+.colsform .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; } .colsform .row > b { font:600 13px/1 var(--sans); }
+.colsform input.cols { flex:1 1 220px; min-width:0; height:var(--h-ctl); box-sizing:border-box; margin:0; border:1px solid var(--a12); border-radius:var(--r-ctl);
+  padding:0 10px; background:var(--white); font:13px/1 var(--sans); color:var(--ink); }
+.colsform .cnt { font:12px/1 var(--mono); color:var(--ink-2); } .colsform .cnt.over { color:var(--signal); font-weight:600; }
+.colsform small { display:block; margin-top:8px; font-size:12px; color:var(--ink-3); }
+#panel .matrix.wide { margin-top:14px; } #panel .matrix.wide .scroll { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); overflow:auto; }
+#panel .matrix.wide th, #panel .matrix.wide td { font-size:13px; } #panel .matrix.wide .metric { font-family:var(--mono); }
+#panel .matrix.wide td.picked { background:var(--a5); box-shadow:inset 0 0 0 1.5px var(--ink-3); }
+.mxsug { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px; padding:8px 12px; border-radius:var(--r-ctl); background:var(--a5);
+  font-size:12px; color:var(--ink-2); } .mxsug .link { display:inline-flex; align-items:center; gap:4px; font:600 12px/1.4 var(--sans); color:var(--ink); }
+.mxfoot { display:flex; gap:16px; align-items:baseline; flex-wrap:wrap; margin-top:14px; font-size:12px; color:var(--ink-3); }
+.mxfoot .link { font:600 12px/1.4 var(--sans); color:var(--ink); }
+#log .matrix.flash { box-shadow:0 0 0 3px var(--signal-soft); transition:box-shadow .3s; }
 /* end A2 complete · C */
 @media (max-width:900px) {
   body { padding:0; } #chat { height:100vh; border-radius:0; border:0; }
@@ -1484,33 +1664,104 @@ function rememberPanel() {
   if (!V || panelQuiet || !window.pabloHost || !pabloHost.setUi) return;
   const open = document.body.classList.contains("panel"), m = open && hi >= 0 ? hist[hi].mode : null;
   const was = ((M.desk || {})[V.task.id] || {}).panel || {};
-  const v = { open, tab: !m ? (was.tab || "intent") : ["source", "code", "paper", "matrix"].includes(m) ? "evidence" : m }, k = JSON.stringify(v);
+  const v = { open, tab: !m ? (was.tab || "intent") : EVM.includes(m) ? "evidence" : m }, k = JSON.stringify(v);
   if (panelSaved[V.task.id] === k) return; panelSaved[V.task.id] = k;
   pabloHost.setUi(V.task.id, "panel", v).catch(() => {});
   // the page's copy too: select() reads M.desk when the task is opened again before the next state read (QA 10/26, D4)
   if (M.desk) M.desk[V.task.id] = { ...(M.desk[V.task.id] || {}), panel: v };
 }
-function evidenceFor() { const d = (M.desk || {})[V.task.id] || {}, pp = (d.papers || []).find(p => p.primary && p.kind !== "web");
-  return lastEv || (pp && (M.papers || {})[pp.id] ? { mode: "paper", src: pp.id } : null); }
-// P3: the right column's tabs, always there: 기준 · 계획 · 왜? · 근거 with a one-line summary each; with the panel
-// closed they stay as a rail
+// A2 complete · C: the 근거 tab opens the evidence shown last, else this task's newest [n], else its papers (S69)
+const EVM = ["source", "code", "paper", "matrix", "evhome"];
+const evList = (v = V) => [...new Set(Object.values(v.checks).flatMap(c => c.evidence || []))].filter(e => M.anchors[e])
+  .sort((a, b) => +a.replace(/\D/g, "") - +b.replace(/\D/g, ""));
+// the number the user clicked ([1] of an answer has its own); else this chat's number
+const citeSeen = {};
+document.addEventListener("click", ev => { const b = ev.target.closest && ev.target.closest(".cite"); if (b && b.dataset.e) citeSeen[b.dataset.e] = b.textContent.replace(/\D/g, ""); }, true);
+const numOf = e => +citeSeen[e] || cites[e] || evList().indexOf(e) + 1;
+const cellOf = e => Object.values(V.checks).find(k => k.matrix && (k.evidence || []).includes(e)) || null;
+function evidenceFor() {
+  if (lastEv) return lastEv;
+  const e = evList().at(-1);
+  if (e) return { mode: "source", e };
+  return (((M.desk || {})[V.task.id] || {}).papers || []).length ? { mode: "evhome" } : null;
+}
+// the action waiting for the user's [진행]/[취소]; the plan's rows (one plan per message: Pn.1), the current one
+const waitingAct = (v = V) => v.actions.filter(a => a.verdict === "WARN" && !a.decision).at(-1) || null;
+function planRows(v = V) {
+  const plans = v.plans && v.plans.length ? v.plans : v.plan ? [{ id: v.plan.id, status: "active", steps: v.plan.steps }] : [];
+  const rows = plans.flatMap(p => (p.steps || []).map(s => ({ id: s.id, action: s.action, old: p.status === "superseded" })));
+  const w = waitingAct(v), wi = w ? rows.findIndex(r => r.id === w.step) : -1, k = wi >= 0 ? wi : rows.length - 1;
+  return { rows, k: k + 1, cur: rows[k] || null };
+}
+const shortText = (t, n = 24) => { t = String(t || "").replace(/\s*\[\d+\]/g, "").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n) + "…" : t; };
+const hm = s => s ? new Date(s).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+// D2 back-links: the turns of the conversation and the Guard's verdicts that point at these refs
+function backOf(refs, L) {
+  const chat = new Set(), acts = new Map();
+  [].concat(refs).filter(Boolean).forEach(r => { const x = L.get(r); if (!x) return; x.chat.forEach(k => chat.add(k)); x.verdicts.forEach(v => acts.set(v.act, v)); });
+  return { chat: chat.size, keys: [...chat], verdicts: [...acts.values()] };
+}
+function backChips(b) {
+  const vs = b.verdicts, block = vs.some(v => v.verdict === "BLOCK"), wait = vs.some(v => v.verdict === "WARN" && !v.decision);
+  return h("span", { class: "backs" }, h("span", { class: "bk", "data-back-chat": String(b.chat), title: "이것을 가리킨 대화" }, ico("message", 12), `대화 ${b.chat}`),
+    vs.length ? h("span", { class: "bk" + (wait ? " wait" : ""), "data-back-verdicts": String(vs.length), title: "이것으로 Pablo가 판정한 작업" }, ico("check-circle", 12),
+      `판정 ${vs.length}` + (block ? " (막음)" : wait ? " (확인 필요)" : "")) : null);
+}
+// C6: a row picked in the panel -> the conversation keeps only what points at it (picked again: everything back)
+const picked = label => !!$("log") && $("log").dataset.filter === "refs:" + label;
+function pickRows(el, refs, label) {
+  if (typeof filterBy !== "function") return;
+  filterBy(refs, label);
+  document.querySelectorAll("#panel .sel").forEach(x => x.classList.remove("sel"));
+  if (el && picked(label)) el.classList.add("sel");
+  document.querySelectorAll("#panel [data-filter-refs]").forEach(b => { b.textContent = picked(b.dataset.filterRefs) ? "전체 보기" : "대화로 거르기"; });
+}
+// a band under the panel's head: what points at this, and 대화로 거르기
+const backBand = (text, refs, label, n) => h("div", { class: "band", "data-band": "1" }, h("span", null, text),
+  n ? h("button", { class: "link", "data-filter-refs": label, on: () => pickRows(null, refs, label) }, picked(label) ? "전체 보기" : "대화로 거르기") : null);
+// a small menu under a chip (자료 고르기 ▾, 파일 고르기 ▾, + 논문 추가): closes on a pick, a click outside, Esc
+function menuChip(btn, rows, note, right) {
+  const menu = h("div", { class: "pmenu" + (right ? " right" : ""), hidden: true, role: "menu" }, rows, note ? h("p", { class: "note" }, note) : null);
+  btn.addEventListener("click", e => { e.stopPropagation(); const was = menu.hidden;
+    document.querySelectorAll("#panel .pmenu").forEach(m => { m.hidden = true; }); menu.hidden = !was; btn.setAttribute("aria-expanded", String(was)); });
+  menu.addEventListener("click", e => { if (e.target.closest(".mi")) menu.hidden = true; });
+  return h("span", { class: "mwrap" }, btn, menu);
+}
+document.addEventListener("click", e => document.querySelectorAll("#panel .pmenu:not([hidden])").forEach(m => { if (!m.parentElement.contains(e.target)) m.hidden = true; }));
+// what the 근거 tab says under its name: the place shown last ("config.yaml:5", "칸 [7]", "p.9"), else how many [n]
+function evAt(st) {
+  if (!st) return null;
+  if (st.mode === "code") { const w = String(st.where).split(/[;,]\s/)[0].replace(/\s*\(.*$/, "");
+    return w.replace(/(:\d+(?:[-,]\d+)*)+$/, "").split(/[\\/]/).pop() + (st.line ? ":" + st.line : (w.match(/:\d+/) || [""])[0]); }
+  if (st.mode === "source") { const a = M.anchors[st.e]; if (!a) return null;
+    return cellOf(st.e) ? `칸 [${numOf(st.e)}]` : a.page ? `p.${a.page}` : null; }
+  if (st.mode === "paper") return `p.${st.page || 1}`;
+  return st.mode === "matrix" ? "비교표" : null;
+}
+// P3 / C1: the right column's tabs, always there: 기준 · 계획 · 왜? · 근거 with a one-line summary each; an orange dot on
+// the open tab and on any tab with something waiting; a tab with nothing yet is off and says when it opens (S67).
+// With the panel closed they stay as a rail, "‹ 펼치기" on top.
 function ptabs() {
   const nav = $("ptabs"); if (!nav) return; nav.textContent = "";
   document.body.classList.toggle("rail", !!V);
   if (!V) return;
-  const mode = hi >= 0 && document.body.classList.contains("panel") ? hist[hi].mode : null;
-  const EV = ["source", "code", "paper", "matrix"], on = EV.includes(mode) ? "evidence" : mode;
-  const I = V.intent, P = V.plan, done = P ? P.steps.filter(s => stepState(s)[0] === "done").length : 0;
-  const cited = new Set(Object.values(V.checks).flatMap(c => c.evidence || [])).size;
-  const waiting = V.actions.some(a => a.verdict === "WARN" && !a.decision);
-  const d = (M.desk || {})[V.task.id] || {}, pp = (d.papers || []).find(p => p.primary && p.kind !== "web");
-  const ev = lastEv || (pp && (M.papers || {})[pp.id] ? { mode: "paper", src: pp.id } : null);
-  const tabs = [["intent", "기준", `반드시 ${I.must.length} · 가능 ${I.prefer.length}`, String(I.must.length + I.prefer.length), () => toggle({ mode: "intent" })],
-    ["plan", "계획", P ? `${done} / ${P.steps.length} 단계` : "없음", P ? `${done}/${P.steps.length}` : "—", P ? () => toggle({ mode: "plan" }) : null],
-    ["trace", "왜?", waiting ? "확인 기다림" : `판정 ${V.actions.length}`, waiting ? "!" : String(V.actions.length), () => toggle({ mode: "trace" })],
-    ["evidence", "근거", `인용 ${cited}`, String(cited), ev ? () => (on === "evidence" ? close() : show(ev)) : null]];
-  nav.append(...tabs.map(([k, label, long, short, go]) => h("button", { class: "ptab" + (on === k ? " on" : ""), "data-tab": k, disabled: !go,
-    title: long, on: go }, h("b", null, label), h("small", { class: "long" }, long), h("small", { class: "short" }, short))));
+  const open = document.body.classList.contains("panel"), mode = hi >= 0 && open ? hist[hi].mode : null;
+  const on = EVM.includes(mode) ? "evidence" : mode;
+  const I = V.intent, w = waitingAct(), P = planRows(), n = I.must.length + I.prefer.length, cited = evList().length, ev = evidenceFor();
+  const tabs = [["intent", "기준", n ? `반드시 ${I.must.length} · 가능 ${I.prefer.length}` : "기준 없음", String(n), () => toggle({ mode: "intent" }), null,
+      I.questions.some(q => /^K\d+$/.test(q.id))],
+    ["plan", "계획", P.cur ? `${P.cur.id} · ${P.k}/${P.rows.length}` : "아직 없음", P.cur ? `${P.k}/${P.rows.length}` : "–", P.cur ? () => toggle({ mode: "plan" }) : null,
+      "에이전트가 계획을 세우면 열립니다", !!(w && w.step)],
+    ["trace", "왜?", w ? "확인 기다림" : V.actions.length ? `판정 ${V.actions.length}` : "판정 없음", w ? "!" : V.actions.length ? String(V.actions.length) : "–",
+      () => toggle({ mode: "trace" }), null, !!w],
+    ["evidence", "근거", evAt(lastEv) || (cited ? `인용 ${cited}` : "—"), cited ? String(cited) : "–", ev ? () => (on === "evidence" ? close() : show(evidenceFor())) : null,
+      "자료를 추가하면 열립니다", false]];
+  const unfold = () => { const was = ((M.desk || {})[V.task.id] || {}).panel || {};
+    show((was.tab === "evidence" ? evidenceFor() : was.tab === "plan" && !P.cur ? null : was.tab && was.tab !== "evidence" ? { mode: was.tab } : null) || { mode: "intent" }); };
+  nav.append(h("button", { class: "unfold", "data-unfold": "1", title: "오른쪽 패널 펼치기", on: unfold }, turned("chevron-right", 180, 12), "펼치기"),
+    ...tabs.map(([k, label, long, short, go, tip, attn]) => h("button", { class: "ptab" + (on === k ? " on" : "") + (attn && on !== k ? " attn" : ""),
+      "data-tab": k, disabled: !go, title: go ? long : null, "data-tip": go ? null : tip, on: go },
+      h("b", null, label), h("small", { class: "long" }, long), h("small", { class: "short" }, short))));
 }
 
 // ---- conversation: built from the stored research / plan / guard / review records --------------------------
@@ -2281,15 +2532,15 @@ function empty() {
 let tools = () => {}, newTask = () => {}, refresh = () => Promise.resolve();  // desktop only (M5.1): task tools, new task form, live state
 
 // ---- one context panel: source | intent | plan | trace ---------------------------------------------------------
-function toggle(st) { (hi >= 0 && document.body.classList.contains("panel") && hist[hi].mode === st.mode && !st.e) ? close() : show(st); }
+function toggle(st) { (hi >= 0 && document.body.classList.contains("panel") && hist[hi].mode === st.mode && !st.e && !st.act) ? close() : show(st); }
 function show(st, push = true) {
   if (push) { hist = hist.slice(0, hi + 1); hist.push(st); hi = hist.length - 1; }
   if (["source", "code", "paper", "matrix"].includes(st.mode)) lastEv = st;
   document.body.classList.add("panel"); document.body.classList.remove("pdf", "code", "wide");
   CSS.highlights.clear();
   document.querySelectorAll(".cite").forEach(b => b.classList.toggle("on", st.mode === "source" && b.dataset.e === st.e));
-  const p = $("panel"); p.textContent = ""; delete p.dataset.live; delete p.dataset.still;
-  ({ source, intent, plan, trace, code: codeView, matrix: matrixView, paper })[st.mode](p, st);
+  const p = $("panel"); p.textContent = ""; delete p.dataset.live; delete p.dataset.still; p.dataset.mode = st.mode;
+  ({ source, intent, plan, trace, code: codeView, matrix: matrixView, paper, evhome })[st.mode](p, st);
   header(); rememberPanel();
 }
 function close() {
@@ -2298,16 +2549,18 @@ function close() {
   if (V) { header(); rememberPanel(); }
 }
 const go = d => { if (hist[hi + d]) { hi += d; show(hist[hi], false); } };
-// A2: the panel's chrome is line icons; closing folds the panel into the rail (panel-right). An icon has no text.
+// A2: back / forward and page turns are line icons; C2: the head is the panel's name and "접기 ›" (the panel folds into the
+// rail). In a narrow window the panel is an overlay and the same button reads "닫기 ×" (both words are there, CSS picks).
 const turned = (name, deg, size) => { const s = ico(name, size); s.style.transform = `rotate(${deg}deg)`; return s; };
-const xbtn = () => h("button", { class: "x", title: "닫기", on: close }, ico("panel-right"));
+const xbtn = (label = "접기", on = close) => h("button", { class: "x fold", title: label === "접기" ? "접기 (오른쪽 레일로)" : label, on },
+  h("span", { class: "w" }, label, ico("chevron-right", 12)), h("span", { class: "n" }, "닫기", ico("x", 12)));
 const navs = () => [h("button", { class: "nav", title: "뒤로", disabled: hi <= 0, on: () => go(-1) }, turned("arrow-up", -90)),
   h("button", { class: "nav", title: "앞으로", disabled: hi >= hist.length - 1, on: () => go(1) }, turned("arrow-up", 90))];
 // .url keeps its emoji in textContent (tests read "📄 TinyRAG · PDF"); on screen the line icon stands for it
 const urlIco = (name, emoji) => [ico(name, 14), h("span", { class: "em" }, emoji)];
-const simple = (p, title, body, foot) => p.append(h("div", { class: "phead" }, h("h2", null, title), xbtn()),
-  h("div", { id: "pbody" }, body), foot ? h("div", { class: "pfoot" }, h("div", { class: "composer" },
-    h("input", { disabled: true, placeholder: foot }), h("button", { disabled: true }, ico("arrow-up", 14)))) : "");  // append(null) prints "null"
+const phead = (title, x = xbtn()) => h("div", { class: "phead" }, h("h2", { title }, title), x);
+const simple = (p, title, body) => p.append(phead(title), h("div", { id: "pbody" }, body));  // append(null) prints "null": never pass one
+const pcard = (attrs, title, text, ...more) => h("div", { class: "pcard", ...attrs }, h("b", null, title), text ? h("p", null, text) : null, ...more);
 
 // ⑩ (desktop) a paper condition's 빼기: why first (whoever reads the audit or the report sees it), then the Guard, the
 // brief and 재현 점검 stop holding it; 되살리기 puts it back
@@ -2361,155 +2614,344 @@ function putBack(c) {
     echo(V.task.id, { role: "spec-restore", check: c.id }); return refresh(); },
     e => at.replaceChildren(h("span", { class: "muted" }, fail(e) + " "))) }, "되살리기")];
 }
-// ④ (desktop) a criterion's own buttons: the other strength, and 지우기 with an optional why, asked in place
+// ④ (desktop) a criterion's own buttons, shown on hover: ⇄ the other strength, ✎ its sentence (S56: the same strength and
+// reach, the old sentence kept struck through), 🗑 지우기 with a why asked in place (S57: required for a reproduction default)
 function edits(x, kind) {
   if (!kind || !window.pabloHost || !pabloHost.criterion || !/^[A-Z]\d+$/.test(x.id) || /^[TK]\d+$/.test(x.id)) return null;  // not the task itself
   const box = h("span", { class: "edits" }), task = V.task.id;
   const run = (action, reason) => pabloHost.criterion(task, x.id, action, reason).then(text => {
-    echo(task, { role: "criterion-edit", action, text, reason: action === "drop" ? (reason || "").trim() : "" }); return refresh(); },
-    e => box.replaceChildren(h("span", { class: "muted" }, " " + fail(e))));
+    echo(task, { role: "criterion-edit", action, text, reason: action === "drop" ? (reason || "").trim() : "", ...(action === "edit" ? { prev: x.text } : {}) });
+    return refresh(); }, e => box.replaceChildren(h("span", { class: "muted" }, " " + fail(e))));
+  const back = () => box.replaceWith(edits(x, kind));
+  const keys = (inp, ok) => inp.addEventListener("keydown", e => { if (e.isComposing) return;
+    if (e.key === "Enter") ok(); if (e.key === "Escape") { e.stopPropagation(); back(); } });
   const ask = () => { const why = h("input", { class: "why", "data-why": x.id, placeholder: x.repro ? "재현 기본 기준입니다. 지우는 이유 (필수)"
       : x.all ? "모든 작업에서 지워집니다. 왜? (선택)" : "왜 지우나요? (선택)" });
     const ok = () => x.repro && !why.value.trim() ? (why.classList.add("need"), why.focus()) : run("drop", why.value);
-    why.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); });
-    box.replaceChildren(" ", why, " ", h("button", { class: "link", "data-drop-ok": x.id, on: ok }, "지우기"), " · ",
-      h("button", { class: "link", on: () => box.replaceWith(edits(x, kind)) }, "취소"));
+    keys(why, ok);
+    box.replaceChildren(why, h("span", { class: "ebtns" }, h("button", { class: "link soft", "data-drop-ok": x.id, on: ok }, "지우기"),
+      h("button", { class: "link", on: back }, "취소"), x.repro ? h("small", null, "이유를 적어야 지울 수 있습니다") : null));
     why.focus(); };
-  box.append(" ", kind === "must" ? h("button", { class: "link", "data-to": "soft", on: () => run("soft") }, "가능하면으로")
-    : kind === "prefer" ? h("button", { class: "link", "data-to": "hard", on: () => run("hard") }, "반드시로") : null,
-    kind === "must" || kind === "prefer" ? " · " : null, h("button", { class: "link", "data-drop": x.id, on: ask }, "지우기"));
+  const edit = () => { const inp = h("input", { class: "why", "data-edit-in": x.id, maxlength: 500, value: x.text });
+    const ok = () => { const t = inp.value.trim(); return !t || t === x.text ? back() : run("edit", t); };
+    keys(inp, ok);
+    box.replaceChildren(inp, h("span", { class: "ebtns" }, h("button", { class: "link dark", "data-edit-ok": x.id, on: ok }, "저장"),
+      h("button", { class: "link", on: back }, "취소"), h("small", null, "Esc 취소")));
+    inp.focus(); inp.select(); };
+  const two = kind === "must" || kind === "prefer";
+  box.append(kind === "must" ? h("button", { class: "link", "data-to": "soft", title: "가능하면으로 바꾸기", on: () => run("soft") }, ico("swap", 12), "가능하면으로")
+      : kind === "prefer" ? h("button", { class: "link", "data-to": "hard", title: "반드시로 바꾸기", on: () => run("hard") }, ico("swap", 12), "반드시로") : null,
+    two ? h("button", { class: "link ib", "data-edit": x.id, title: "문장 고치기", "aria-label": "문장 고치기", on: edit }, ico("pencil", 13)) : null,
+    h("button", { class: "link ib", "data-drop": x.id, title: "지우기", "aria-label": "지우기", on: ask }, ico("trash", 13)));
   return box;
 }
+// C3–C7: 현재 작업 기준. The goal as words; 반드시 / 가능하면 with their counts, each row with its back-links (대화 N ·
+// 판정 N) and its buttons on hover; a row picked keeps only its conversation. The paper's conditions as a count per kind
+// (the whole list behind 조건 보기), the intended differences on their own, then what was taken out or removed (되살리기).
+const condOpen = {};  // task -> 조건 보기 open (kept across redraws of the panel)
 function intent(p) {
-  const I = V.intent, g = (t, cls, xs, kind) => xs.length ? [h("h3", null, t), h("ul", { class: "ck " + cls },
-    xs.map(x => h("li", { title: x.id, "data-id": x.id }, x.prev ? h("span", { class: "prev" }, x.prev) : null, x.text,
-      x.all && kind ? h("small", { class: "all", "data-all": "1", title: "이 기준은 모든 작업에 걸립니다. 바꾸면 다른 작업에도 바뀝니다." }, " 모든 작업") : null,
-      edits(x, kind))))] : null;
-  const spec = V.research.map(id => V.checks[id]).filter(c => c.spec && !c.spec.missing && c.state !== "waived");
-  // ⑩ a condition taken out by the user (extracted wrongly, not part of this reproduction): with why, restorable
-  const out = V.research.map(id => V.checks[id]).filter(c => c.spec && c.state === "waived" && c.waived_by === "user");
-  const d = (M.desk || {})[V.task.id] || {}, main = (d.papers || []).find(x => x.primary), canEdit = window.pabloHost && pabloHost.condition;
+  const I = V.intent, task = V.task.id, L = linksOf(V), hostOk = !!window.pabloHost;
+  const d = (M.desk || {})[task] || {}, papers = d.papers || [], main = papers.find(x => x.primary), canEdit = hostOk && pabloHost.condition;
+  const editOf = x => (V.chat || []).filter(c => c.role === "criterion-edit" && c.action === "edit" && c.text === x.text).at(-1);
+  const crow = (x, kind) => { const ed = editOf(x), old = x.prev || (ed && ed.prev), label = "기준 · " + shortText(x.text);
+    const li = h("li", { title: x.id, "data-id": x.id, class: picked(label) ? "sel" : null },
+      h("div", { class: "ct" }, x.text, x.all && kind ? h("small", { class: "all", "data-all": "1", title: "이 기준은 모든 작업에 걸립니다. 바꾸면 다른 작업에도 바뀝니다." }, " 모든 작업") : null),
+      old && old !== x.text ? h("div", { class: "prev" }, h("s", null, old)) : null,
+      h("div", { class: "meta" }, ed ? h("span", { class: "human", "data-edited": "1" }, "사람이 고침") : null, backChips(backOf(x.id, L))),
+      edits(x, kind));
+    li.addEventListener("click", e => { if (!e.target.closest("button, a, input, select, textarea, .edits")) pickRows(li, [x.id], label); });
+    return li; };
+  const head = (t, n, ...more) => h("h3", null, t, n != null ? h("small", { class: "n" }, String(n)) : null, ...more);
+  const sec = (t, cls, xs, kind, always) => xs.length || always ? [head(t, xs.length), xs.length ? h("ul", { class: "ck " + cls }, xs.map(x => crow(x, kind))) : null] : null;
+  const goals = I.goals.length ? [h("h3", null, "목표"), I.goals.map(x => h("div", { class: "goal", title: x.id, "data-id": x.id }, x.text, edits(x, "goal")))] : null;
+  const none = !I.must.length && !I.prefer.length;
+  // S11: no criterion yet -> how one comes, and a line to write one here
+  const addCrit = () => { if (!hostOk || !pabloHost.makeCriterion) return null;
+    const inp = h("input", { class: "addcrit", "data-add-crit": "1", maxlength: 1000, placeholder: "+ 기준 더하기" }), note = h("small", { class: "muted" });
+    const add = st => { const t = inp.value.trim(); if (!t) return inp.focus();
+      pabloHost.makeCriterion(task, t, st).then(items => { if (!items.length) return note.replaceChildren("이미 같은 기준이 있습니다.");
+        echo(task, { role: "intent", items }); return refresh(); }, e => note.replaceChildren(fail(e))); };
+    inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) add("hard"); });
+    return h("div", { class: "addrow" }, inp, h("button", { class: "link", "data-add-crit-as": "hard", on: () => add("hard") }, "반드시"),
+      h("button", { class: "link", "data-add-crit-as": "soft", on: () => add("soft") }, "가능하면"), note); };
+  const s11 = none ? pcard({ "data-no-criteria": "1" }, "아직 이 작업의 기준이 없습니다",
+    "대화에 \"절대 · 항상 · 가능하면\"으로 적으면 기준이 됩니다. 여기에 바로 적어도 됩니다.", addCrit()) : null;
+  // the paper's conditions
+  const all = V.research.map(id => V.checks[id]).filter(c => c && c.spec);
+  const spec = all.filter(c => !c.spec.missing && c.state !== "waived");
+  const open = all.filter(c => c.spec.missing && c.state !== "waived");
+  const out = all.filter(c => c.state === "waived" && c.waived_by === "user");  // ⑩ taken out by the user, with why, restorable
   const pick = canEdit && main && (M.papers || {})[main.id] ? h("p", { class: "muted" }, h("button", { class: "link", "data-open-paper": main.id,
     on: () => show({ mode: "paper", src: main.id }) }, ico("file", 14), ` ${main.title} 열기`), " · 빠진 조건은 문장을 골라 더합니다.") : null;
-  const code = main ? codeLine(main.id, V.task.id) : null;
+  const code = main ? codeLine(main.id, task) : null;
   const row = c => h("li", { title: c.id, "data-id": c.id }, fact(c),
     c.spec.by === "user" ? h("small", { class: "muted", "data-by-user": "1" }, " 직접 더함") : null,
     ASIDE[c.spec.kind] ? h("small", { class: "muted", "data-aside": c.spec.kind }, c.spec.kind === "fact" ? " 서술 · 점검 안 함" : " 실험 범위 · 점검 안 함") : null,
     devOf(c) ? h("div", { class: "chk dev", "data-dev": c.id }, `◇ 의도한 차이(${WHERE_DEV[scopeOf(devOf(c))]}): ${devOf(c).why}`) : null,
     canEdit ? h("span", { class: "acts" }, differ(c), devOf(c) ? null : [" ·", takeOut(c)]) : null);  // A2: one group, shown on hover
   const kinds = [...Object.keys(SPEC), ...new Set(spec.map(c => c.spec.category).filter(k => !SPEC[k]))];  // grouped by kind, as in the card
-  const paper = spec.length || out.length || pick ? [h("h3", null, "논문 조건"), kinds.flatMap(k => { const xs = spec.filter(c => c.spec.category === k);
-      return xs.length ? [h("h4", { class: "kind" }, SPEC[k] || k), h("ul", { class: "ck must" }, xs.map(row))] : []; }),
-    out.length ? h("details", { class: "gone", "data-spec-out": String(out.length) }, h("summary", null, ico("chevron-right", 12), `뺀 조건 ${out.length}개`),
-      h("ul", { class: "ck" }, out.map(c => h("li", { title: c.id, "data-id": c.id }, h("s", null, (SPEC[c.spec.category] || c.spec.category) + " · " + (c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")),
-        h("div", { class: "muted" }, `${day(((c.spec.dropped || []).at(-1) || {}).from)} 뺌 · 이유: ${c.waive_reason}`, canEdit ? [" · ", putBack(c)] : null))))) : null, pick, code] : null;
-  const body = [g("목표", "", I.goals, "goal"), g("반드시 지킬 것", "must", I.must, "must"), paper, g("선호", "", I.prefer, "prefer"),
-    g("성공 조건", "q", I.success, "other"), g("결정", "", I.decisions, "other"), g("확인 필요", "q", I.questions)];
-  const how = window.pabloHost && pabloHost.criterion
-    ? h("p", { class: "muted", "data-how": "1" }, "기준은 항목 옆 버튼으로 고칩니다. 문장을 고치려면 지우고 대화에 다시 적으세요. 새 기준은 대화에 적으면 이 작업의 기준이 됩니다.") : null;
+  const shown = !!condOpen[task];
+  const list = h("div", { class: "condlist", "data-cond-list": "1", hidden: !shown }, kinds.flatMap(k => { const xs = spec.filter(c => c.spec.category === k);
+    return xs.length ? [h("h4", { class: "kind", "data-kind": k }, SPEC[k] || k), h("ul", { class: "ck must" }, xs.map(row))] : []; }),
+    open.length ? [h("h4", { class: "kopen" }, "논문에 없는 설정"), h("ul", { class: "ck q" }, open.map(c => h("li", { title: c.id, "data-id": c.id }, rich(c.title))))] : null);
+  const toggleList = k => { condOpen[task] = k ? true : !condOpen[task]; list.hidden = !condOpen[task];
+    tgl.textContent = condOpen[task] ? "조건 접기" : "조건 보기";
+    if (k) { const x = list.querySelector(`h4[data-kind="${CSS.escape(k)}"]`); if (x) x.scrollIntoView({ block: "start" }); } };
+  const tgl = h("button", { class: "link", "data-cond-toggle": "1", on: () => toggleList() }, shown ? "조건 접기" : "조건 보기");
+  const redo = $("specs") && $("specs").querySelector("button");
+  const paperName = (main && main.title) || (spec.find(c => c.paper) || {}).paper;
+  const conds = spec.length || open.length ? [head("논문 조건", spec.length, paperName ? h("small", { class: "paper" }, "· " + paperName) : null),
+    h("div", { class: "cond", "data-conds": String(spec.length) },
+      h("div", { class: "nums" }, kinds.map(k => { const n = spec.filter(c => c.spec.category === k).length;
+        return n ? h("button", { class: "cnum", "data-cnum": k, title: `${SPEC[k] || k} 조건 보기`, on: () => toggleList(k) }, h("b", null, String(n)), h("small", null, SPEC[k] || k)) : null; })),
+      open.length ? h("p", { class: "open", "data-open-settings": String(open.length) }, `논문에 없는 설정 ${open.length}개는 아직 정하지 않았습니다`) : null,
+      h("div", { class: "links" }, tgl, redo ? h("button", { class: "link", "data-cond-redo": "1", title: "주 논문에서 재현 조건을 다시 뽑습니다(먼저 무엇이 바뀌는지 묻습니다)", on: () => redo.click() }, "다시 뽑기") : null),
+      list), pick, code] : pick || code ? [pick, code] : null;
+  // C7: a task without papers works by its criteria only; + 자료 추가 opens the source box (the shell's)
+  const noPaper = !papers.length && !spec.length && !open.length ? pcard({ "data-no-paper": "1" }, "논문이 없는 작업입니다",
+    "논문 조건 대신 기준만 씁니다. 근거가 필요하면 자료를 더할 수 있습니다.",
+    $("adder") ? h("button", { class: "link", "data-add-source": "1", on: () => { const a = $("adder"); a.hidden = false; const i = $("arxiv"); if (i) i.focus(); } }, "+ 자료 추가") : null) : null;
+  // C5: the intended differences on their own
+  const devs = spec.filter(c => devOf(c));
+  const devSec = devs.length ? [head("의도한 차이", devs.length), h("ul", { class: "ck dev" }, devs.map(c => { const dv = devOf(c), label = "조건 · " + shortText(c.conclusion || c.title);
+    const li = h("li", { title: c.id, "data-deviation": c.id, class: picked(label) ? "sel" : null },
+      h("div", { class: "ct" }, rich((c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")), ` · 범위: ${WHERE_DEV[scopeOf(dv)]}`),
+      h("div", { class: "meta" }, h("small", { class: "muted" }, `이유: ${dv.why}`), backChips(backOf(c.id, L))),
+      canEdit ? h("span", { class: "acts" }, differ(c)) : null);
+    li.addEventListener("click", e => { if (!e.target.closest("button, a, input, select, textarea, .acts")) pickRows(li, [c.id], label); });
+    return li; }))] : null;
+  const outEl = out.length ? h("details", { class: "gone", "data-spec-out": String(out.length) }, h("summary", null, ico("chevron-right", 12), `뺀 조건 ${out.length}개`),
+    h("ul", { class: "ck" }, out.map(c => h("li", { title: c.id, "data-id": c.id }, h("s", null, (SPEC[c.spec.category] || c.spec.category) + " · " + (c.conclusion || c.title).replace(/\s*\[\d+\]/g, "")),
+      h("div", { class: "muted" }, `${day(((c.spec.dropped || []).at(-1) || {}).from)} 뺌 · 이유: ${c.waive_reason}`, canEdit ? [" · ", putBack(c)] : null))))) : null;
   // ④ removed criteria stay in view: when, why, and 되살리기 (the same criterion back, as strong as it was)
   const gone = (I.removed || []).filter(x => !x.to), back = x => { const at = h("span");
-    return [at, h("button", { class: "link", "data-restore": x.id, on: () => pabloHost.criterion(V.task.id, x.id, "restore").then(text => {
-      echo(V.task.id, { role: "criterion-edit", action: "restore", text }); return refresh(); },
+    return [at, h("button", { class: "link", "data-restore": x.id, on: () => pabloHost.criterion(task, x.id, "restore").then(text => {
+      echo(task, { role: "criterion-edit", action: "restore", text }); return refresh(); },
       e => at.replaceChildren(h("span", { class: "muted" }, fail(e) + " "))) }, "되살리기")]; };
   const removed = gone.length ? h("details", { class: "gone", "data-removed": String(gone.length) }, h("summary", null, ico("chevron-right", 12), `지운 기준 ${gone.length}개`),
     h("ul", { class: "ck" }, gone.map(x => h("li", { title: x.id, "data-id": x.id }, h("s", null, x.text), x.all ? h("small", { class: "all", title: "되살리면 모든 작업에 다시 걸립니다." }, " 모든 작업") : null,
       h("div", { class: "muted" }, `${day(x.from)} 지움 · `, x.why ? `이유: ${x.why}` : "이유를 적지 않음",
-        window.pabloHost && pabloHost.criterion ? [" · ", back(x)] : null))))) : null;
-  simple(p, "현재 작업 기준", body.some(Boolean) ? [body, removed, how] : [h("p", { class: "muted" }, "기록된 기준이 없습니다."), removed, how]);
+        hostOk && pabloHost.criterion ? [" · ", back(x)] : null))))) : null;
+  const how = hostOk && pabloHost.criterion ? h("p", { class: "muted", "data-how": "1" },
+    "행에 마우스를 올리면 세기 바꾸기 · 고치기 · 지우기가 나옵니다. 행을 누르면 그 기준을 가리킨 대화만 남습니다. 새 기준은 대화에 적어도 됩니다.") : null;
+  simple(p, "현재 작업 기준", [goals, none ? s11 : [sec("반드시 지킬 것", "must", I.must, "must", true), sec("가능하면", "", I.prefer, "prefer", true)],
+    noPaper, conds, devSec, sec("성공 조건", "q", I.success, "other"), sec("결정", "", I.decisions, "other"), sec("확인 필요", "q", I.questions),
+    outEl, removed, how]);
 }
 function stepState(st) {
   const rs = V.actions.filter(a => a.step === st.id).flatMap(a => a.runs).map(r => r.step_status);
   return rs.includes("completed") ? ["done", "✓"] : rs.includes("partial") ? ["doing", "●"] : ["todo", "○"];
 }
+// C8: 계획 · N단계 중 k. One row per plan step of the task (one plan per message), its conversation, ✓ done, ● now (the one
+// waiting, else the newest), the current plan's certainty, [n] and 왜?; a row picked keeps only its conversation
 function plan(p) {
-  const steps = h("ol", { class: "steps" }, V.plan.steps.map((st, i) => { const [cls] = stepState(st);
-    const mark = cls === "done" ? ico("check", 14) : String(i + 1);  // A2: done is a check, the rest their number
-    const ev = st.checks.flatMap(id => V.checks[id].evidence);
-    const sure = st.checks.length ? (st.checks.every(id => V.checks[id].outcome === "VERIFIED") ? "공식 근거 확인" : "일부 추정") : "작업 기준에 따름";
-    return h("li", { class: cls, title: st.id, "data-id": st.id }, h("span", { class: "i" }, mark), h("span", null, rich(st.action)),
-      h("span", { class: "sub" }, sure, " ", ev.map(cite), " · ",
-        h("button", { class: "link", on: () => show({ mode: "trace", step: st.id }) }, "왜?"))); }));
-  const more = V.plan.unverified.length ? [h("h3", null, "확인되지 않은 부분"),
+  const P = planRows(), L = linksOf(V), w = waitingAct();
+  const detail = id => V.plan && V.plan.steps.find(s => s.id === id);
+  const rows = h("ol", { class: "steps prow" }, P.rows.map(r => {
+    const [cls] = stepState(r), now = !!P.cur && r.id === P.cur.id, st = detail(r.id), b = backOf(r.id, L), wait = !!w && w.step === r.id;
+    const label = `${r.id} ${shortText(r.action, 20)}`;
+    const ev = st ? st.checks.flatMap(id => (V.checks[id] || {}).evidence || []) : [];
+    const sure = st ? (st.checks.length ? (st.checks.every(id => (V.checks[id] || {}).outcome === "VERIFIED") ? "공식 근거 확인" : "일부 추정") : "작업 기준에 따름") : null;
+    const li = h("li", { class: [cls, now ? "cur" : "", r.old ? "old" : "", picked(label) ? "sel" : ""].filter(Boolean).join(" "), "data-id": r.id },
+      h("div", { class: "pr" }, h("span", { class: "pid" }, r.id), h("span", { class: "pa" }, rich(r.action)),
+        cls === "done" ? h("span", { class: "mk", title: "끝남" }, ico("check", 13)) : now ? h("span", { class: "mk now", title: "지금" }) : null),
+      h("div", { class: "sub" }, h("b", null, `대화 ${b.chat}`), wait ? " · 확인 기다림" : "",
+        st ? [" · ", sure, ev.length ? " " : "", ev.map(e => cite(e)), " · ", h("button", { class: "link", on: () => show({ mode: "trace", step: r.id }) }, "왜?")] : null));
+    li.addEventListener("click", e => { if (!e.target.closest("button, a")) pickRows(li, [r.id], label); });
+    return li; }));
+  const more = V.plan && V.plan.unverified.length ? [h("h3", null, "확인되지 않은 부분"),
     h("ul", { class: "ck" }, V.plan.unverified.map(id => h("li", { title: id },
       rich((V.plan.steps.find(s => s.id === id) || { action: id }).action))))] : null;
-  simple(p, "작업 계획", [steps, more], "계획에 대해 물어보거나 수정해보세요… (곧 지원)");
+  simple(p, P.rows.length ? `계획 · ${P.rows.length}단계 중 ${P.k}` : "계획", P.rows.length ? [rows,
+    h("p", { class: "muted", "data-plan-how": "1" }, "계획 단계는 대화의 갈래 이름이기도 합니다. 누르면 그 단계의 대화만 남습니다."), more]
+    : pcard({ "data-no-plan": "1" }, "아직 계획이 없습니다", "에이전트가 계획을 세우면 단계가 여기에 쌓입니다."));
 }
+// C9: 왜? — the way one action was judged, top to bottom: the request that led to it, the criteria, the evidence (with what
+// the research corrected), the plan step, the action, Pablo's verdict, the user's decision (grey while waiting), the result.
+// The tab opens on the action waiting for the user, else the newest; a filled dot marks where it stands now.
 function trace(p, st) {
-  const act = st.act && V.actions.find(a => a.id === st.act);
+  const L = linksOf(V), I = V.intent;
+  const act = st.act ? V.actions.find(a => a.id === st.act) : !st.step ? waitingAct() || V.actions.at(-1) || null : null;
   const stepId = act ? act.step : st.step, step = V.plan && V.plan.steps.find(s => s.id === stepId);
-  const scoped = act || step;
-  const checks = [...new Set(scoped ? [...(step ? step.checks : []), ...(act ? act.criteria.map(c => c.id) : [])]
-                                     .filter(id => V.checks[id]) : V.research.filter(id => !V.checks[id].matrix))]
-    .sort((x, y) => V.checks[y].evidence.length - V.checks[x].evidence.length);
-  const crit = scoped ? [...(step ? step.intent : []), ...(act ? act.criteria.filter(c => !V.checks[c.id]) : [])] : V.intent.must;
+  const row = stepId && planRows().rows.find(r => r.id === stepId);
+  const scoped = act || step || row;
+  const checks = [...new Set(scoped ? [...(step ? step.checks : []), ...(act ? act.criteria.map(c => c.id) : [])].filter(id => V.checks[id])
+    : V.research.filter(id => !V.checks[id].matrix))].sort((x, y) => V.checks[y].evidence.length - V.checks[x].evidence.length);
+  const crit = scoped ? [...(step ? step.intent : []), ...(act ? act.criteria.filter(c => !V.checks[c.id]) : [])] : I.must;
   const li = (cls, k, ...v) => h("li", { class: cls }, h("div", { class: "k" }, k), h("div", { class: "v" }, v));
-  const nodes = [li("", "사용자 요청", `"${V.task.text}"`)];
+  const strength = x => I.must.some(y => y.id === x.id) ? " (반드시)" : I.prefer.some(y => y.id === x.id) ? " (가능하면)" : "";
+  const said = (V.chat || []).filter(c => c.role === "user" && (stepId && c.step ? c.step === stepId : !act || !act.at || c.at <= act.at)).at(-1);
+  const nodes = [li("", "사용자 요청", `"${said ? said.text : V.task.text}"`)];
   const seen = new Set(), crits = crit.filter(x => !seen.has(x.id) && seen.add(x.id));
-  if (crits.length) nodes.push(li("", "작업 기준", crits.map(x => h("div", { title: x.id }, rich(x.text)))));
+  if (crits.length) nodes.push(li("", "적용된 기준", crits.map(x => h("div", { title: x.id }, rich(x.text), strength(x)))));
   for (const id of checks) { const c = V.checks[id];
-    c.evidence.forEach(e => { const a = M.anchors[e], src = M.sources[a.source];
-      const n = li("ev", ["공식 원문 ", cite(e)], h("div", null, host(src.url).split("/")[0], " · ", src.title), h("code", null, a.exact));
+    c.evidence.forEach(e => { const a = M.anchors[e], src = a && M.sources[a.source]; if (!src) return;
+      const n = li("ev", ["근거 ", cite(e)], h("div", null, src.kind === "pdf" ? `${src.title} p.${a.page}` : host(src.url).split("/")[0] + " · " + src.title), h("code", null, a.exact));
       n.querySelector(".v").addEventListener("click", () => show({ mode: "source", e })); nodes.push(n); });
     c.issues.forEach(i => nodes.push(li("warn", "조사 중 바로잡은 점", rich(i.note))));
     if (c.conclusion) nodes.push(li("", "조사 결론", rich(c.conclusion.split(/(?<=[.?!])\s+/)[0]))); }
-  if (step) nodes.push(li("", "계획 단계", rich(step.action)));
-  else if (V.plan) nodes.push(li("", "현재 계획", V.plan.steps.map((s, i) => h("div", null, `${i + 1}. `, rich(s.action)))));
+  if (step || row) nodes.push(li("", "계획 단계", h("span", { class: "pid" }, stepId), " ", rich((step || row).action)));
+  else if (!act && V.plan) nodes.push(li("", "현재 계획", V.plan.steps.map((s, i) => h("div", null, `${i + 1}. `, rich(s.action)))));
+  let now = nodes.length - 1;
   if (act) {
-    const g = { BLOCK: ["stop", "Pablo가 실행을 막았습니다"], WARN: ["warn", "Pablo가 확인을 요청했습니다"], ALLOW: ["", "Pablo의 검토를 통과했습니다"] }[act.verdict] || ["", ""];
-    nodes.push(li(g[0], "제안된 작업", meaning(act.text), preview(act.text), h("div", null, g[1]),
-      act.problems.map(x => korean(x) ? h("div", null, "· ", rich(x)) : null), tech(act.text, ...act.problems.filter(x => !korean(x)))));
-    if (act.decision) nodes.push(li("", "사용자 결정", decided(act)));
-    act.runs.forEach(r => nodes.push(li("", "결과", done(r), r.alignment ? h("div", null, ALIGN[r.alignment] || r.alignment) : null)));
+    const G = { BLOCK: ["stop", "막음 — 작업 기준과 충돌해 막았습니다"], WARN: ["warn", "확인 필요 — 현재 기준과 충돌할 수 있습니다"], ALLOW: ["", "통과 — 기준과 충돌하지 않습니다"] }[act.verdict] || ["", act.verdict];
+    nodes.push(li("", "제안된 작업", meaning(act.text), preview(act.text), tech(act.text, ...act.problems.filter(x => !korean(x)))));
+    const waiting = act.verdict === "WARN" && !act.decision; if (waiting) now = nodes.length - 1;
+    nodes.push(li(G[0], "Guard 판정", G[1], act.problems.map(x => korean(x) ? h("div", null, "· ", rich(x)) : null)));
+    if (act.verdict === "BLOCK") now = nodes.length - 1;
+    nodes.push(li(act.decision ? "" : "wait", "사용자 결정", act.decision ? decided(act) || DECIDE[act.decision] : waiting ? "기다리는 중" : "—"));
+    if (act.decision && act.verdict !== "BLOCK") now = nodes.length - 1;
+    nodes.push(act.runs.length ? li("", "결과 · 검토", act.runs.map(r => h("div", null, done(r), r.alignment ? ` · ${ALIGN[r.alignment] || r.alignment}` : "")))
+      : li("wait", "결과 · 검토", "—"));
+    if (act.runs.length) now = nodes.length - 1;
   }
-  simple(p, act ? (act.verdict === "BLOCK" ? "이 작업이 막힌 과정" : "이 작업을 판단한 과정") : step ? "이 단계가 계획에 들어간 과정" : "이 판단이 나온 과정", h("ol", { class: "tl" }, nodes));
+  if (nodes[now]) nodes[now].classList.add("now");
+  let band = null;
+  if (act) { const ids = act.criteria.map(c => c.id), refs = [act.step, ...ids].filter(Boolean);
+    const from = Math.max(act.step ? backOf(act.step, L).chat : 0, said ? 1 : 0), same = backOf(ids, L).verdicts.length;
+    band = backBand(`이 판단이 나온 대화 ${from} · 같은 기준의 판정 ${same}`, refs, "왜? · " + shortText(meaning(act.text), 20), refs.length && (from || same)); }
+  // S68: nothing judged yet; what the research settled stays below it
+  if (!act && !step && !row) return simple(p, "이 판단의 과정", [pcard({ "data-no-verdict": "1" }, "아직 판단한 것이 없습니다",
+      "에이전트가 파일을 바꾸거나 명령을 실행하려 하면 Pablo가 기준과 대조한 과정이 여기에 쌓입니다. 대화의 '왜?'를 누르면 그 판단으로 바로 옵니다."),
+    nodes.length > 1 ? [h("h3", null, "조사로 정한 것"), h("ol", { class: "tl" }, nodes)] : null]);
+  simple(p, act ? "이 판단의 과정" : "이 단계가 계획에 들어간 과정", [h("ol", { class: "tl" }, nodes), band]);
 }
 
-// C3: the comparison table, wide; a cell's [n] opens that paper's page here and ← comes back to the table
+// C3 / F21: the comparison table, wide (835): what it is, 항목 바꾸기 (the columns, n / 8, 다시 채우기: the conversation's own
+// 비교표 form runs it, the table now stays there), + 논문 추가 (the task's sources not in it), a column the papers share, the way
+// back to the card. A cell's [n] opens that paper's page here; ← comes back with that cell marked.
 function matrixView(p, st) {
   document.body.classList.add("wide");
-  p.append(h("div", { class: "phead" },
-      navs(),
-      h("h2", null, "비교표"), xbtn()),
-    h("div", { id: "pbody" }, matrix(st.c, true)));
+  if (st.since) { const nx = (V.chat || []).filter(c => c.role === "compare" && c.at && c.at > st.since).at(-1); if (nx) { st.c = nx; delete st.since; delete st.err; } }
+  const c = st.c, task = c.task || V.task.id, can = !!(window.pabloHost && pabloHost.compare && compareAgain);
+  const cells = (c.cells || []).map(id => V.checks[id]).filter(Boolean), all = c.papers.length * c.columns.length;
+  const cell = (q, col) => cells.find(k => k.matrix && k.matrix.source_id === q.id && k.matrix.column === col);
+  const name = nameOf(M.tasks.find(t => t.id === task) || V.task);
+  // 다시 채우기: the conversation's 비교표 form with these columns, started; its card shows the progress and the result
+  const again = cs => {
+    if (!cs.length || !can) return;
+    const before = document.querySelectorAll("#log [data-compare-form]").length;
+    compareAgain(task, cs.slice(0, 8));
+    const forms = document.querySelectorAll("#log [data-compare-form]"), f = forms.length > before ? forms[forms.length - 1] : null, go = f && f.querySelector("#compare-go");
+    if (!go) { st.err = "지금은 다시 채울 수 없습니다. 진행 중인 답이 끝난 뒤에 다시 해 주세요."; return show(st, false); }
+    st.since = new Date().toISOString(); st.form = false; delete st.err; go.click();
+    const watch = setInterval(() => {
+      if (!st.since || !f.isConnected) return clearInterval(watch);
+      const bad = f.querySelector(".call.block"); if (!bad) return;
+      clearInterval(watch); delete st.since; st.err = bad.textContent.replace(/^⚠\s*/, "");
+      if (hist[hi] === st) show(st, false); }, 500);
+    show(st, false);
+  };
+  const inp = h("input", { class: "cols", "data-cols-in": "1", value: c.columns.join(", "), "aria-label": "비교할 항목" }), cnt = h("span", { class: "cnt", "data-cols-n": "1" });
+  const cols = () => [...new Set(inp.value.split(/[,，\n]/).map(x => x.trim()).filter(Boolean))];
+  const refill = h("button", { class: "pill on", "data-refill": "1", on: () => again(cols()) }, "다시 채우기");
+  const count = () => { const n = cols().length; cnt.textContent = `${n} / 8`; cnt.classList.toggle("over", n > 8); refill.disabled = !n || n > 8; };
+  inp.addEventListener("input", count); count();
+  inp.addEventListener("keydown", e => { if (e.isComposing) return; if (e.key === "Enter") refill.click();
+    if (e.key === "Escape") { e.stopPropagation(); st.form = false; show(st, false); } });
+  const form = can && st.form ? h("div", { class: "colsform", "data-cols-form": "1" },
+    h("div", { class: "row" }, h("b", null, "항목"), inp, cnt, refill, h("button", { class: "pill", on: () => { st.form = false; show(st, false); } }, "취소")),
+    h("small", null, "쉼표로 나눕니다. 다시 채우면 논문을 한 편씩 다시 읽어 새 표를 만듭니다. 지금 표는 대화에 그대로 남습니다.")) : null;
+  const inTable = new Set(c.papers.map(x => x.id)), others = (((M.desk || {})[task] || {}).papers || []).filter(x => !inTable.has(x.id));
+  const add = can ? menuChip(h("button", { class: "pill", "data-add-paper-menu": "1", "aria-haspopup": "menu" }, ico("plus", 14), "논문 추가"),
+    others.length ? others.map(x => h("button", { class: "mi", "data-add-paper": x.id, disabled: x.kind === "web" ? true : null,
+        title: x.kind === "web" ? "웹 문서는 표의 행이 되지 않습니다" : "이 자료까지 넣어 표를 다시 채웁니다", on: () => again(c.columns) },
+        ico(x.kind === "web" ? "globe" : "file", 14), h("span", null, x.title + (x.version ? " " + x.version : "")), h("small", null, x.kind === "web" ? "WEB" : "PDF")))
+      : h("p", { class: "mi none" }, "표에 없는 자료가 없습니다."),
+    "표에 없는 이 작업의 자료만 보입니다. 새 PDF는 자료 칩에서 추가합니다.", true) : null;
+  const tool = h("div", { class: "mxtool" }, h("div", { class: "t" }, h("b", null, `논문 ${c.papers.length}편 × 항목 ${c.columns.length}`),
+      h("small", null, `칸 ${all}개 중 ${cells.length}개는 논문에서 위치를 찾은 값입니다.` + (cells.length < all ? " 나머지는 찾지 못해 비웠습니다." : ""))),
+    can ? h("button", { class: "pill" + (st.form ? " on" : ""), "data-cols-edit": "1", "aria-expanded": String(!!st.form), on: () => { st.form = !st.form; show(st, false); } },
+      ico("swap", 14), "항목 바꾸기") : null, add);
+  const both = can ? common(c, cell).filter(x => !c.columns.some(col => col.includes(x))).slice(0, 3) : [];
+  const who = c.papers.length === 2 ? "두" : c.papers.length === 3 ? "세" : "모든";
+  const sug = both.length ? h("div", { class: "mxsug", "data-common-wide": both.join("|") }, ico("sparkle", 14),
+    h("span", null, `${who} 논문이 ${both.join(", ")}을(를) 함께 씁니다.`),
+    both.map(x => h("button", { class: "link", "data-add-column-wide": x, on: () => compareAgain(task, [...c.columns, `${x} 결과`].slice(-8), c, `${x} 결과`) },
+      ico("plus", 12), `"${x} 결과" 열 더하기`))) : null;
+  const card = () => $("log").querySelector(`[data-matrix="${CSS.escape(c.matrix || "")}"]`);
+  const foot = h("div", { class: "mxfoot" }, h("button", { class: "link", "data-to-card": "1", on: () => { const k = card(); if (!k) return;
+      k.scrollIntoView({ block: "center", behavior: "smooth" }); k.classList.add("flash"); setTimeout(() => k.classList.remove("flash"), 1400); } }, "대화의 비교표로 가기"),
+    c.at ? h("small", null, `이 표는 ${hm(c.at)} 대화의 비교표를 넓게 연 것입니다.`) : null);
+  const table = matrix(c, true);
+  if (st.cell) { const td = table.querySelector(`[data-cell="${CSS.escape(st.cell)}"]`); if (td) td.classList.add("picked"); }
+  table.addEventListener("click", e => { const b = e.target.closest(".cite"), td = b && b.closest("td"); if (td) st.cell = td.dataset.cell; }, true);
+  p.append(phead(`비교표 · ${name}`, xbtn("좁게", () => hi > 0 ? go(-1) : close())), h("div", { id: "pbody", class: "mx" }, tool, form,
+    st.since ? h("div", { class: "band", "data-refilling": "1" }, h("span", null, "논문을 한 편씩 다시 읽어 새 표를 만드는 중입니다. 진행은 대화의 비교표 카드에 보이고, 끝나면 여기 새 표가 열립니다.")) : null,
+    st.err ? h("div", { class: "band warn", "data-refill-error": "1" }, h("span", null, "⚠ " + st.err)) : null,
+    table, sug, foot));
 }
 
 // ---- A3 code (desktop): a work-folder file, read-only, line numbers, the lines the audit or a card names marked ----------
 // st: {task, where: "config.yaml:5" | a path, line?: the line Pablo found it on (overrides where's), note?}. No editing here:
 // changes go through the agent (Guard) or the user's own editor ("VS Code에서 열기").
+// C11: 근거 · <file>; 파일 고르기 ▾ (S62: the files the conversation and the audits named, with how many audits); what
+// points at it and 대화로 거르기; the marked line said in words under the code; S63 changed since the audit; S64 not shown
+const fileOf = w => String(w).split(/[;,]\s/)[0].replace(/\s*\(.*$/, "").replace(/(:\d+(?:[-,]\d+)*)+$/, "").replace(/\\/g, "/");
+function auditOf(where) {
+  for (const c of [...(V.chat || [])].reverse()) if (c.role === "audit")
+    for (const x of [...(c.items || []), ...(c.outside || [])]) if (x.where === where || (x.seen && x.seen.where === where)) return x;
+  return null;
+}
+function refText(id) {
+  const k = V.checks[id]; if (k) return shortText(k.conclusion || k.title, 40);
+  const I = V.intent, x = [...I.must, ...I.prefer, ...I.goals, ...I.success, ...I.decisions].find(y => y.id === id);
+  return x ? shortText(x.text, 40) : "";
+}
+function filePick(st, name, L) {
+  const here = fileOf(st.where), files = [...new Set([here, ...[...L.keys()].filter(r => r.startsWith("file:")).map(r => r.slice(5))])];
+  const audits = f => backOf("file:" + f, L).keys.filter(k => /^audit@/.test(k)).length;
+  return menuChip(h("button", { class: "url pick", title: st.where, "aria-haspopup": "menu" }, urlIco("file", "📄 "), name, ico("chevron-down", 12)),
+    files.map(f => h("button", { class: "mi" + (f === here ? " on" : ""), "data-pick-file": f, on: () => f !== here && show({ mode: "code", task: st.task, where: f }) },
+      ico("file", 14), h("span", null, f), audits(f) ? h("small", null, `점검 ${audits(f)}`) : null, f === here ? ico("check", 13) : null)),
+    "이 작업에서 인용 · 판정에 나온 파일만 보입니다. 읽기 전용입니다.");
+}
 function codeView(p, st) {
   document.body.classList.add("code");
   p.dataset.live = "LOADING";
-  const info = h("div", { class: "info" }, "작업 폴더의 파일을 읽는 중…"), name = h("b", null, st.where);
+  const L = linksOf(V), file = fileOf(st.where), ref = "file:" + file, b = backOf(ref, L), audits = b.keys.filter(k => /^audit@/.test(k)).length;
+  const info = h("div", { class: "info" }), name = h("b", null, st.where), meta = h("span", { class: "meta" }, "작업 폴더의 파일을 읽는 중…");
+  const title = h("h2", { title: st.where }, `근거 · ${st.where}`);
   const open = how => pabloHost.openFile(st.task, st.where, st.line || null, how).then(r => {
       if (hist[hi] === st) info.textContent = { vscode: "VS Code로 열었습니다.", app: "기본 프로그램으로 열었습니다.", folder: "파일이 있는 폴더를 열었습니다." }[r] || ""; },
     e => { if (hist[hi] === st) { info.className = "info broken"; info.textContent = "⚠ " + fail(e); } });
-  p.append(h("div", { class: "phead" },
-      navs(),
-      h("div", { class: "url", title: st.where }, urlIco("file", "📄 "), name),
-      h("button", { class: "link open", "data-open": "vscode", on: () => open("vscode") }, "VS Code에서 열기"),
-      h("button", { class: "link open", "data-open": "folder", on: () => open("folder") }, "폴더에서 보기"), xbtn()),
-    info, h("div", { id: "pbody", class: "code" }));
+  const opens = (tag = true) => [h("button", { class: "pill open", "data-open": tag ? "vscode" : null, on: () => open("vscode") }, "VS Code에서 열기"),
+    h("button", { class: "link open", "data-open": tag ? "folder" : null, on: () => open("folder") }, "폴더에서 보기")];
+  const lnote = h("p", { class: "lnote", hidden: true });
+  p.append(...[h("div", { class: "phead" }, title, xbtn()),
+    h("div", { class: "ptool" }, navs(), filePick(st, name, L), h("span", { class: "sp" }), meta),
+    h("div", { class: "ptool acts" }, opens()),
+    b.chat ? backBand(`이 파일을 가리킨 점검 ${audits} · 대화 ${b.chat - audits}`, [ref], "파일 · " + file, b.chat) : null,
+    info, h("div", { id: "pbody", class: "code" }), lnote].filter(Boolean));
   pabloHost.readFile(st.task, st.where, st.line || null, st.expect || null).then(f => {
     if (hist[hi] !== st) return;
     const rs = st.line ? [[st.line, st.line]] : f.ranges || [], box = $("pbody");  // "a.py:6,15" marks both
     name.textContent = f.path + (rs.length ? ":" + rs.map(([a, b]) => b > a ? `${a}-${b}` : a).join(",") : "");
+    title.textContent = "근거 · " + name.textContent; title.title = name.textContent;
     const src = box.appendChild(h("div", { class: "src" }, f.lines.map((l, i) => { const n = f.first + i;
       return h("div", { class: "ln" + (rs.some(([a, b]) => n >= a && n <= b) ? " on" : ""), "data-n": n }, h("span", { class: "n" }, n), h("span", { class: "t" }, l)); })));
     const on = src.querySelector(".ln.on");
-    info.textContent = [`작업 폴더 · 읽기 전용 · ${f.total}줄`, rs.length && !on ? `이 파일에는 ${rs[0][0]}줄이 없습니다` : null, st.note,
+    meta.textContent = `작업 폴더 · 읽기 전용 · ${f.total}줄`;
+    info.textContent = [rs.length && !on ? `이 파일에는 ${rs[0][0]}줄이 없습니다` : null, st.note,
       f.truncated ? `긴 파일이라 ${f.first}–${f.first + f.lines.length - 1}줄만 보여 줍니다` : null].filter(Boolean).join(" · ");
     if (rs.length && !on) info.className = "info broken";
-    // ⑤ what the audit saw on this line, checked again now: gone or moved since -> said, the row's verdict may be old
+    // ⑤ / S63 what the audit saw on this line, checked again now: gone or moved since -> said, the row's verdict may be old
     const was = String(st.expect || "").split("\n")[0].slice(0, 60);
     if (f.still === "not_found" || f.still === "moved") {
       info.className = "info broken"; p.dataset.still = f.still;
-      info.prepend(`⚠ 점검 때 이 자리에 있던 "${was}"이(가) 지금은 ${f.still === "moved" ? "다른 줄에 있습니다" : "없습니다"}. 점검 뒤 파일이 바뀌었습니다. `,
-        reAudit && V && V.task.id === st.task ? h("button", { class: "link", "data-reaudit": "1", on: () => reAudit(st.task) }, "다시 점검") : "", " · ");
+      const j = was.trim() ? f.lines.findIndex(l => l.includes(was.trim())) : -1, at = j >= 0 ? f.first + j : 0;
+      info.prepend(`⚠ 점검 때 이 자리에 있던 "${was}"이(가) 지금은 ${f.still === "moved" ? "다른 줄에 있습니다" : "없습니다"}. 점검 뒤 파일이 바뀌었습니다. 판정은 점검 때 파일 기준입니다. `,
+        at && at !== st.line ? h("button", { class: "link", "data-goto-line": String(at), on: () => show({ ...st, line: at, expect: null }) }, `${at}줄로 가기`) : "", " ",
+        reAudit && V && V.task.id === st.task ? h("button", { class: "link", "data-reaudit": "1", on: () => reAudit(st.task) }, ico("rotate", 12), "다시 점검") : "", info.textContent ? " · " : "");
     }
-    if (on) box.scrollTop += on.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 3;
+    if (on) { const n = +on.dataset.n, x = auditOf(st.where), what = x ? refText(x.id) : "";
+      lnote.hidden = false;
+      lnote.textContent = `${n}번째 줄: ${what ? `점검 항목 "${what}"이(가) 댄 자리입니다.` : "대화나 점검이 가리킨 자리입니다."} 고치는 일은 에이전트나 외부 편집기에서 합니다.`;
+      box.scrollTop += on.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 3; }
     p.dataset.live = on ? "FOUND" : "OPEN";
-  }, e => { if (hist[hi] !== st) return; p.dataset.live = "ERROR"; info.className = "info broken"; info.textContent = "⚠ " + fail(e); });
+  }, e => { if (hist[hi] !== st) return; p.dataset.live = "ERROR"; meta.textContent = "";
+    $("pbody").replaceChildren(pcard({ class: "pcard white", "data-cant-open": "1" }, "이 파일은 보여 드릴 수 없습니다",
+      fail(e) + " 파일은 그대로이고, 다른 프로그램에서 열 수 있습니다.", h("div", { class: "btns" }, opens(false)))); });
 }
 
 // ---- source: captured snapshot (in panel) + the original page with a text fragment (new tab) ---------------------
@@ -2535,24 +2977,55 @@ function fragment(src, a) {
 // Off anchors (STALE / UNRESOLVED) start on the snapshot; a failed live locate falls back to it, keeping why in st.failed.
 const FALLBACK = "현재 원문에서 근거 위치를 복원하지 못했습니다. 캡처 당시 원문을 보여드립니다.";
 const PDF_FALLBACK = "PDF에서 근거 위치를 표시하지 못했습니다. PDF에서 추출한 본문을 보여드립니다.";
+// S61: 자료 고르기 ▾ — the task's sources, how many places this task cites in each; a pick opens its first cited place
+function srcPick(sid, kind) {
+  const d = (M.desk || {})[V.task.id] || {}, cur = M.sources[sid] || (M.papers || {})[sid] || {};
+  const list = [...(d.papers || []).map(x => ({ id: x.id, title: x.title, kind: x.kind === "web" ? "WEB" : "PDF" }))];
+  if (!list.some(x => x.id === sid)) list.unshift({ id: sid, title: cur.title || "", kind });
+  const evs = evList(), of = id => evs.filter(e => M.anchors[e].source === id);
+  const openIt = x => { const e = of(x.id)[0]; if (e) return show({ mode: "source", e });
+    if (x.kind === "PDF" && (M.papers || {})[x.id]) show({ mode: "paper", src: x.id }); };
+  const label = kind === "WEB" ? urlIco("globe", "🌐 ") : urlIco("file", "📄 ");
+  return menuChip(h("button", { class: "url pick", title: cur.url || cur.title || "", "aria-haspopup": "menu" }, label, h("b", null, cur.title || ""), ` · ${kind}`, ico("chevron-down", 12)),
+    list.map(x => { const n = of(x.id).length, can = n || (x.kind === "PDF" && (M.papers || {})[x.id]);
+      return h("button", { class: "mi" + (x.id === sid ? " on" : ""), "data-pick-src": x.id, disabled: can ? null : true, on: () => x.id !== sid && openIt(x) },
+        ico(x.kind === "WEB" ? "globe" : "file", 14), h("span", null, x.title), h("small", null, `${x.kind} · ${n}`), x.id === sid ? ico("check", 13) : null); }),
+    "숫자는 이 작업에서 인용한 곳의 수입니다. 고르면 처음 인용한 쪽으로 엽니다.");
+}
+// C10 / C12: what points at this place (a table cell: the conversations citing it; a page: the conversations and decisions)
+function evBand(e, a, page, L) {
+  const cell = e ? cellOf(e) : null;
+  if (cell) { const b = backOf(cell.id, L); return backBand(`이 칸을 인용한 대화 ${b.chat}`, [cell.id], `칸 [${numOf(e)}]`, b.chat); }
+  const refs = e && page === (a || {}).page ? [e, `${a.source}:p${page}`] : [`${(a || {}).source}:p${page}`];
+  const b = backOf(refs, L), dec = b.verdicts.filter(v => v.decision).length, src = M.sources[(a || {}).source] || (M.papers || {})[(a || {}).source] || {};
+  return backBand(page ? `이 쪽을 인용한 대화 ${b.chat}` + (dec ? ` · 결정 ${dec}` : "") : `이 근거를 인용한 대화 ${b.chat}` + (dec ? ` · 이 근거로 한 결정 ${dec}` : ""),
+    refs, page ? `${src.title || "자료"} p.${page}` : `근거 [${numOf(e)}]`, b.chat);
+}
 function source(p, st) {
   const a = M.anchors[st.e], src = M.sources[a.source];
   if (src.kind === "pdf" && window.pabloHost && !st.failed && src.intact) return pdfPanel(p, st, a, src);
-  const ok = src.intact && src.text.slice(a.start, a.end) === a.exact, live = fragment(src, a);
+  const ok = src.intact && src.text.slice(a.start, a.end) === a.exact, live = fragment(src, a), pdf = src.kind === "pdf", asText = st.failed === "TEXT";
   const inApp = window.pabloHost && !st.failed && (st.live || !["STALE", "UNRESOLVED"].includes(a.status));
   p.dataset.live = inApp ? "LOADING" : st.failed || "SNAPSHOT";
+  // F23 / S66: one status line under the address: found live, the snapshot and how it compares, or why it fell back
   const info = inApp ? h("div", { class: "info" }, "현재 원문 · 근거 위치를 찾는 중…")
+    : asText ? h("div", { class: "info" }, `PDF에서 추출한 본문입니다 · 근거 [${numOf(st.e)}]을 강조했습니다. `,
+        h("button", { class: "link", on: () => show({ mode: "source", e: st.e }) }, "PDF로 보기"))
     : h("div", { class: "info " + (st.failed ? "STALE" : ok ? a.status : "broken"), title: src.hash },
-      st.failed ? "⚠ " + (src.kind === "pdf" ? PDF_FALLBACK : FALLBACK) : [`캡처한 원문 · ${day(src.captured_at)} · `,
-        ok ? (a.status === "VALID" ? "✓ " : "⚠ ") + a.message : "⚠ 캡처본이 이 근거와 맞지 않아 표시하지 않습니다."], " ",
-      window.pabloHost && !st.failed ? h("button", { class: "link", on: () => show({ mode: "source", e: st.e, live: true }) }, "현재 원문 열기")
+      st.failed ? "⚠ " + (pdf ? PDF_FALLBACK : FALLBACK) : [`${ok && a.status === "VALID" ? "✓ " : "⚠ "}캡처한 원문 · ${time(src.captured_at)} · `,
+        ok ? a.message : "캡처본이 이 근거와 맞지 않아 표시하지 않습니다."], " ",
+      window.pabloHost && !st.failed && !pdf ? h("button", { class: "link", on: () => show({ mode: "source", e: st.e, live: true }) }, "현재 원문 열기")
         : h("a", { href: live, target: "_blank", rel: "noopener noreferrer" }, "원본에서 보기 ↗"));
-  p.append(h("div", { class: "phead" },
-      navs(),
-      h("div", { class: "url", title: src.url }, urlIco("lock", "🔒 "), h("b", null, src.title), " · ", host(src.url)),
-      h("a", { class: "ext", href: live, target: "_blank", rel: "noopener noreferrer", title: "원본 페이지에서 이 문장 보기" }, ico("external", 14)), xbtn()),
+  const page = pdf ? a.page : 0, u = (() => { try { return new URL(src.url); } catch { return null; } })();
+  p.append(...[phead(`근거 · ${src.title}`),
+    h("div", { class: "ptool" }, navs(), srcPick(a.source, pdf ? "PDF" : "WEB"), h("span", { class: "sp" }), pdf ? h("span", { class: "pnum" }, `p.${a.page}`) : null),
+    evBand(st.e, a, page, linksOf(V)),
+    pdf ? null : h("div", { class: "urlrow", title: src.url }, ico("lock", 14), h("b", null, src.title), h("span", null, " · " + (u ? u.host : host(src.url))),
+      h("small", null, u ? u.pathname : ""), h("a", { class: "ext", href: live, target: "_blank", rel: "noopener noreferrer", title: "원본 페이지에서 이 문장 보기" }, ico("external", 14))),
     info, inApp ? h("div", { id: "pbody", class: "live" })
-      : h("div", { id: "pbody" }, h("article", { id: "doc" }, h("div", { class: "title" }, src.title))));
+      : h("div", { id: "pbody" }, h("article", { id: "doc" }, h("div", { class: "title" }, src.title))),
+    !inApp && !pdf && window.pabloHost && !st.failed ? h("div", { class: "pfoot2" },
+      h("a", { href: live, target: "_blank", rel: "noopener noreferrer", "data-orig": "1" }, "원본에서 보기 ↗")) : null].filter(Boolean));
   if (inApp) {
     const wv = $("pbody").appendChild(h("webview", { src: src.url.split("#")[0], partition: "pablo-source" }));
     let done = false;
@@ -2632,26 +3105,44 @@ function boxes(items, s, e, vp, L) {
   return out;
 }
 // ⑩ (desktop) a paper of the task opened without a citation (its name in 📎 자료, 기준 panel): read it, pick a sentence
+// S65: a PDF whose capture cannot be shown says so; the source itself is untouched
+const cantPdf = (src, e) => pcard({ class: "pcard white", "data-cant-pdf": "1" }, "이 PDF의 캡처본을 열 수 없습니다",
+  "자료는 그대로입니다. 원본 파일로 열어 보거나 추출 텍스트로 근거를 확인하세요.",
+  h("div", { class: "btns" }, src && /^https?:/i.test(src.url || "") ? h("a", { class: "pill", href: src.url, target: "_blank", rel: "noopener noreferrer" }, "원본 열기 ↗") : null,
+    e ? h("button", { class: "link", on: () => show({ mode: "source", e, failed: "TEXT" }) }, "추출 텍스트로 보기") : null));
 function paper(p, st) {
   const src = (M.papers || {})[st.src];
-  if (!src || !src.intact || !src.pages) return simple(p, "PDF", h("p", { class: "muted" }, "이 PDF의 캡처본을 열 수 없습니다."));
+  if (!src || !src.intact || !src.pages) { p.dataset.live = "ERROR"; return simple(p, "근거 · " + ((src || {}).title || "PDF"), cantPdf(src)); }
   return pdfPanel(p, st, null, src);
 }
+// S69: the 근거 tab before anything is cited: how a citation comes, and the task's papers to read meanwhile
+function evhome(p) {
+  const ps = (((M.desk || {})[V.task.id] || {}).papers || []).filter(x => x.kind !== "web" && (M.papers || {})[x.id]);
+  simple(p, "근거", pcard({ "data-no-cites": "1" }, "아직 인용한 근거가 없습니다",
+    "논문 질문을 하거나 재현 조건을 뽑으면 [1]처럼 인용이 붙고, 누르면 여기서 그 쪽을 엽니다.",
+    ps.map(x => h("button", { class: "link", "data-read-paper": x.id, on: () => show({ mode: "paper", src: x.id }) }, `${x.title} 열어 보기`))));
+}
+// C10: 근거 · <paper>; 자료 고르기 ▾ and the page turns; what cites this page (or this table cell) and 대화로 거르기; where the
+// quote was found ("9쪽에서 근거 [1]을 찾아 표시했습니다"); under the page 원본 열기 ↗ · 추출 텍스트로 보기
 async function pdfPanel(p, st, a, src) {
   const t0 = performance.now(), n = st.page || (a ? a.page : 1), sid = a ? a.source : st.src;
-  const turn = d => show({ ...st, page: n + d });
+  const turn = d => show({ ...st, page: n + d, text: false });
   document.body.classList.add("pdf");
   p.dataset.live = "LOADING";
-  const info = h("div", { class: "info", title: src.hash }, `캡처한 PDF · ${day(src.captured_at)} · ${a ? "근거 위치를 찾는 중…" : "여는 중…"}`);
-  p.append(h("div", { class: "phead" },
-      navs(),
-      h("div", { class: "url", title: src.url }, urlIco("file", "📄 "), h("b", null, src.title), ` · PDF`),
-      h("button", { class: "nav", title: "이전 쪽", disabled: n <= 1, on: () => turn(-1) }, turned("chevron-right", 180, 14)),
+  const cell = a ? cellOf(st.e) : null, num = a ? numOf(st.e) : 0;
+  const info = h("div", { class: "info", title: src.hash }, `캡처한 PDF · ${a ? "근거 위치를 찾는 중…" : "여는 중…"}`);
+  const asText = h("button", { class: "link", "data-as-text": "1", on: () => a && n === a.page ? show({ mode: "source", e: st.e, failed: "TEXT" }) : show({ ...st, text: !st.text }) },
+    st.text ? "PDF로 보기" : "추출 텍스트로 보기");
+  p.append(phead(`근거 · ${src.title}`),
+    h("div", { class: "ptool" }, navs(), srcPick(sid, "PDF"), h("span", { class: "sp" }),
+      h("button", { class: "nav pg-t", title: "이전 쪽", disabled: n <= 1, on: () => turn(-1) }, turned("chevron-right", 180, 14)),
       h("span", { class: "pnum" }, `${n} / ${src.pages}`),
-      h("button", { class: "nav", title: "다음 쪽", disabled: n >= src.pages, on: () => turn(1) }, ico("chevron-right", 14)), xbtn()),
-    info, h("div", { id: "pbody", class: "pdf" }));
+      h("button", { class: "nav pg-t", title: "다음 쪽", disabled: n >= src.pages, on: () => turn(1) }, ico("chevron-right", 14))),
+    evBand(st.e, a || { source: sid }, n, linksOf(V)),
+    info, h("div", { id: "pbody", class: "pdf" }),
+    h("div", { class: "pfoot2" }, /^https?:/i.test(src.url || "") ? h("a", { href: src.url, target: "_blank", rel: "noopener noreferrer", "data-orig": "1" }, "원본 열기 ↗") : null, asText));
   const fail = why => { if (hist[hi] !== st) return;
-    if (!a) { p.dataset.live = "ERROR"; info.textContent = "⚠ PDF를 열지 못했습니다."; return; }
+    if (!a) { p.dataset.live = "ERROR"; info.textContent = ""; const b = $("pbody"); if (b) b.replaceChildren(cantPdf(src)); return; }
     hist[hi] = { mode: "source", e: st.e, failed: why }; show(hist[hi], false); };
   try {
     const L = await pdfLib();
@@ -2659,6 +3150,13 @@ async function pdfPanel(p, st, a, src) {
       standardFontDataUrl: PDFJS + "standard_fonts/", cMapUrl: PDFJS + "cmaps/", wasmUrl: PDFJS + "wasm/" }).promise);
     const pg = await doc.getPage(n), box = $("pbody");
     if (hist[hi] !== st || !box) return;
+    if (st.text) {  // the page's own text (pdf.js), for a page without a quote to box
+      const tc = await pg.getTextContent();
+      if (hist[hi] !== st) return;
+      box.classList.add("astext");
+      box.append(h("article", { id: "doc" }, h("div", { class: "b p" }, tc.items.map(i => i.str + (i.hasEOL ? "\n" : "")).join(""))));
+      p.dataset.live = "TEXT"; info.textContent = `${n}쪽에서 추출한 본문입니다.`; return;
+    }
     const vp = pg.getViewport({ scale: (box.clientWidth - 24) / pg.getViewport({ scale: 1 }).width }), dpr = devicePixelRatio || 1;
     const cv = h("canvas", { width: Math.floor(vp.width * dpr), height: Math.floor(vp.height * dpr), style: `width:${vp.width}px;height:${vp.height}px` });
     const sheet = box.appendChild(h("div", { class: "pg", style: `width:${vp.width}px;--total-scale-factor:${vp.scale};--scale-round-x:1px;--scale-round-y:1px` }, cv));
@@ -2670,7 +3168,8 @@ async function pdfPanel(p, st, a, src) {
     if (hist[hi] !== st) return;
     const picks = picker(p, box, layer, sid, n);
     if (!a) { p.dataset.live = "PAPER"; info.textContent = `캡처한 PDF · ${n}쪽` + (picks ? " · 문장을 끌어서 고르면 재현 조건으로 더할 수 있습니다." : ""); return; }
-    if (n !== a.page) { p.dataset.live = "PAGE"; info.textContent = `캡처한 PDF · ${n}쪽 · 근거는 ${a.page}쪽에 있습니다.`; return; }
+    if (n !== a.page) { p.dataset.live = "PAGE"; info.replaceChildren(`캡처한 PDF · ${n}쪽 · 근거는 ${a.page}쪽에 있습니다. `,
+      h("button", { class: "link", on: () => show({ ...st, page: a.page }) }, `${a.page}쪽으로`)); return; }
     const items = tc.items.filter(i => "str" in i), r = findIn(items, a);
     if (r.status !== "FOUND") return fail(r.status);
     const bs = boxes(items, r.start, r.end, vp, L);
@@ -2678,27 +3177,32 @@ async function pdfPanel(p, st, a, src) {
     bs.forEach(b => sheet.append(h("div", { class: "hl", style: `left:${b.l}px;top:${b.t}px;width:${b.r - b.l}px;height:${b.b - b.t}px` })));
     box.scrollTop = Math.max(0, Math.min(...bs.map(b => b.t)) - box.clientHeight / 3);
     p.dataset.ms = Math.round(performance.now() - t0); p.dataset.live = "FOUND";
-    info.textContent = `✓ 캡처한 PDF ${n}쪽에서 근거를 찾아 표시했습니다.`;
+    info.textContent = cell ? `✓ ${n}쪽에서 칸 [${num}]의 근거를 찾아 표시했습니다.` : `✓ ${n}쪽에서 근거 [${num}]을 찾아 표시했습니다.`;
   } catch (err) { console.error("[pdf]", err); fail("ERROR"); }
 }
-// ⑩ (desktop) a sentence picked on a page of the task's paper -> 재현 조건으로 더하기: its kind, what it says, its value.
-// Pablo anchors the sentence on that page like an extracted condition (main.js: only the 주 논문; not found -> refused).
+// ⑩ / F22 (desktop) a sentence picked on a page of the task's paper -> a floating "재현 조건으로 더하기" over it -> a card:
+// its kind, its value, the condition in one line, a condition already like it named first. Pablo anchors the sentence on that
+// page like an extracted condition (main.js: only the 주 논문; not found -> refused).
 function picker(p, box, layer, sid, n) {
   const d = V && (M.desk || {})[V.task.id] || {};
   if (!window.pabloHost || !pabloHost.condition || !(d.papers || []).some(x => x.id === sid && x.kind !== "web")) return false;
-  const bar = p.appendChild(h("div", { id: "pick", hidden: true })), task = V.task.id;
+  const bar = p.appendChild(h("div", { id: "pick", class: "float", hidden: true })), task = V.task.id, main = (d.papers || []).find(x => x.primary);
   let form = false;
+  const place = () => { const sel = getSelection(); if (!sel.rangeCount) return;
+    const r = sel.getRangeAt(0).getBoundingClientRect(), pr = p.getBoundingClientRect();
+    bar.style.top = Math.max(8, r.top - pr.top - 40) + "px";
+    bar.style.left = Math.max(8, Math.min(r.left - pr.left + r.width / 2 - 90, pr.width - 200)) + "px"; };
   const offer = () => {
     if (form) return;
     const sel = getSelection(), q = sel.toString().replace(/\s+/g, " ").trim();
     if (!q || !sel.rangeCount || !layer.contains(sel.getRangeAt(0).commonAncestorContainer)) { bar.hidden = true; return; }
-    bar.hidden = false;
-    bar.replaceChildren(h("div", { class: "row" }, h("span", { class: "q" }, `“${q.length > 90 ? q.slice(0, 90) + "…" : q}”`),
-      q.length > 600 ? h("span", { class: "muted" }, "한 문장만 골라 주세요.")
-        : h("button", { class: "pill on", "data-add-spec": "1", on: () => open(q) }, "📋 재현 조건으로 더하기")));
+    bar.hidden = false; bar.className = "float";
+    bar.replaceChildren(q.length > 600 ? h("span", { class: "tip" }, "한 문장만 골라 주세요.")
+      : h("button", { class: "fbtn", "data-add-spec": "1", title: `“${q.length > 90 ? q.slice(0, 90) + "…" : q}”`, on: () => open(q) }, ico("plus", 14), "재현 조건으로 더하기"));
+    place();
   };
   const open = q => {
-    form = true;
+    form = true; bar.className = "form"; bar.style.top = bar.style.left = "";
     const cat = h("select", { "data-cat": "1", title: "조건의 종류" }, h("option", { value: "" }, "종류 고르기"),
       Object.entries(SPEC).map(([k, v]) => h("option", { value: k }, v)));
     cat.addEventListener("change", () => { add.disabled = !cat.value; });
@@ -2710,26 +3214,32 @@ function picker(p, box, layer, sid, n) {
           return ka.length >= 12 && (ka.includes(kq) || kq.includes(ka)); }))); };
     let sure = false;
     const say = h("input", { "data-statement": "1", value: q.slice(0, 200), placeholder: "조건을 한 줄로 (예: 검색 단계의 top-k는 5)" });
-    const val = h("input", { "data-value": "1", placeholder: "값 (선택, 예: 5)" }), note = h("span", { class: "muted", "data-pick-note": "1" });
+    const val = h("input", { "data-value": "1", placeholder: "예: 5" }), note = h("span", { "data-pick-note": "1" });
     const add = h("button", { class: "pill on", "data-add-ok": "1", disabled: true, on: () => {
       if (!say.value.trim()) return say.focus();
       const same = !sure && similar();
       if (same) return note.replaceChildren("비슷한 조건이 이미 있습니다: ", h("span", { "data-similar": same.id }, (SPEC[same.spec.category] || same.spec.category) + " · ", fact(same)),
-        " · ", h("button", { class: "link", "data-anyway": "1", on: () => { sure = true; add.click(); } }, "그래도 더하기"));
+        " ", h("button", { class: "link strong", "data-anyway": "1", on: () => { sure = true; add.click(); } }, "그래도 더하기"));
       add.disabled = true; note.textContent = "원문에서 위치를 찾는 중…";
       pabloHost.condition(task, "add", { src: sid, page: n, quote: q, category: cat.value, statement: say.value.trim(), value: val.value.trim() }).then(r => {
         Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources); M.views[task].checks[r.check.id] = r.check;
         form = false; getSelection().removeAllRanges();
-        bar.replaceChildren(h("span", { "data-added": r.check.id }, "✓ 재현 조건에 더했습니다. 에이전트와 재현 점검이 이 조건도 봅니다."));
+        bar.className = "form done";
+        bar.replaceChildren(h("span", { "data-added": r.check.id }, ico("check", 14), " 재현 조건에 더했습니다. 에이전트와 재현 점검이 이 조건도 봅니다."),
+          h("button", { class: "link", on: () => { bar.hidden = true; } }, "닫기"));
         echo(task, { role: "spec-add", check: r.check.id });
         return refresh();
       }, e => { add.disabled = false; note.textContent = fail(e); }); } }, "더하기");
     const cancel = h("button", { class: "link", on: () => { form = false; bar.hidden = true; } }, "취소");
-    bar.replaceChildren(h("div", { class: "q" }, `“${q}”`), h("div", { class: "row" }, cat, say, val),
-      h("div", { class: "row" }, add, cancel, note));
+    bar.replaceChildren(h("div", { class: "q" }, `“${q}”`, h("small", null, ` — p.${n}`)),
+      h("div", { class: "grid" }, h("label", null, h("span", null, "종류"), cat), h("label", null, h("span", null, "값 (선택)"), val)),
+      h("label", null, h("span", null, "조건 한 줄"), say),
+      h("div", { class: "simnote" }, ico("info", 14), note),
+      h("div", { class: "row" }, add, cancel, main ? h("small", null, `주 논문(${main.title})에서만 더합니다.`) : null));
     say.focus();
   };
   box.addEventListener("mouseup", () => setTimeout(offer, 0));
+  box.addEventListener("scroll", () => { if (!form) bar.hidden = true; });
   return true;
 }
 

@@ -1059,6 +1059,8 @@ async function uiCheck() {
   assert.strictEqual(await js(`document.querySelector('[data-spec] [data-aside="fact"] summary').textContent`), "논문의 서술 (코드가 정하지 않음) 1개 · 재현 점검에서 대조하지 않음");
   assert.ok(/재현 조건 4개/.test(spec.text) && /위치를 찾지 못한 조건 1개/.test(spec.text), spec.text);
   await js(`show({ mode: "intent" })`);
+  // A2 complete · C4: the conditions are a count per kind; 조건 보기 opens the whole list
+  if (await js(`!!document.querySelector("#panel [data-cond-list][hidden]")`)) await js(`document.querySelector("#panel [data-cond-toggle]").click()`);
   assert.match(await js(`$("panel").innerText`), /논문 조건[\s\S]*top-k는 5이다/);
   await js(`close()`);
   assert.ok(await js(`!!document.querySelector(".stream + [data-stopped]")`), "a stopped reply says so");
@@ -1362,6 +1364,66 @@ async function uiCheck() {
     "the conversation says it");
   assert.ok(JSON.parse(fs.readFileSync(path.join(S, "chat.json"), "utf8"))[await js(`V.task.id`)].some(c => c.role === "intent" && c.items.some(i => i.text === made)));
   console.log("ok 기준으로: a message's words, trimmed -> 가능하면 criterion of this task, said in the conversation and kept in chat.json");
+  // A2 complete · C (right column). A task with neither plan nor papers: the tabs say what they hold and when an empty one
+  // opens (S67); the rail's ‹ 펼치기; 기준 rows with back-links, ✎ 고치기 keeps the old sentence struck through + 사람이 고침
+  // (S56), a row picked keeps its conversation (C6); a task without papers (C7); nothing judged yet (S68)
+  const snapC = async n => { if (!process.env.PABLO_SHOTS) return; await sleep(400); fs.writeFileSync(path.join(process.env.PABLO_SHOTS, n + ".png"), (await win.capturePage()).toPNG()); };
+  await js(`close()`);
+  assert.deepStrictEqual(await js(`(t => [t("plan").disabled, t("plan").dataset.tip, t("evidence").disabled, t("evidence").dataset.tip, t("trace").querySelector(".long").textContent,
+    !!document.querySelector("#ptabs [data-unfold]")])(k => document.querySelector('#ptabs [data-tab="' + k + '"]'))`),
+    [true, "에이전트가 계획을 세우면 열립니다", true, "자료를 추가하면 열립니다", "판정 없음", true], "S67: empty tabs are off and say when they open");
+  await snapC("c-rail");
+  await js(`document.querySelector("#ptabs [data-unfold]").click()`);
+  assert.deepStrictEqual(await js(`[document.body.classList.contains("panel"), /접기/.test($("panel").querySelector(".phead .x").textContent)]`), [true, true], "펼치기 opens, 접기 folds");
+  await js(`show({ mode: "intent" })`);
+  const row0 = `document.querySelector("#panel ul.ck.must > li")`;
+  assert.ok(await js(`/^대화 \\d+$/.test(${row0}.querySelector("[data-back-chat]").textContent) && !!document.querySelector("#panel h3 .n")`), "back-links and counts");
+  const before0 = await js(`${row0}.querySelector(".ct").firstChild.textContent`);
+  await js(`${row0}.querySelector("[data-edit]").click()`);
+  await js(`(i => { i.value = "고친 문장: " + i.value; })(document.querySelector("#panel [data-edit-in]")); document.querySelector("#panel [data-edit-ok]").click()`);
+  await settle(`[...document.querySelectorAll("#panel ul.ck > li")].some(l => !!l.querySelector("[data-edited]") && (l.querySelector(".prev s") || {}).textContent === ${JSON.stringify(before0)})`);
+  assert.ok(await js(`V.intent.must.concat(V.intent.prefer).some(x => x.text === ${JSON.stringify("고친 문장: " + before0)}) && !!document.querySelector('#live [data-criterion-edit="edit"]')`), "S56: edited, said");
+  await snapC("c-intent-edited");
+  await js(`${row0}.querySelector(".ct").click()`);
+  assert.ok(await js(`$("log").dataset.filter.startsWith("refs:기준 · ") && !!document.querySelector("#panel ul.ck.must > li.sel")`), "C6: a criterion picked keeps its conversation");
+  await js(`document.querySelector("#panel ul.ck.must > li.sel .ct").click()`);
+  assert.ok(await js(`!$("log").dataset.filter && !document.querySelector("#panel li.sel")`), "picked again: everything back");
+  await js(`document.querySelector("#panel [data-no-paper] [data-add-source]").click()`);
+  assert.ok(await js(`!$("adder").hidden`), "C7: + 자료 추가 opens the source box"); await js(`$("adder").hidden = true`);
+  await js(`document.querySelector('#ptabs [data-tab="trace"]').click()`);
+  assert.ok(await js(`hist[hi].mode === "trace" && !!document.querySelector("#panel [data-no-verdict]")`), "S68: nothing judged yet");
+  // T1: 계획 · N단계 중 k (C8), 왜? on the newest action (C9), the code panel's 파일 고르기 ▾ and the line said (C11, S62)
+  await js(`close(); select("T1")`); await sleep(200);
+  assert.deepStrictEqual(await js(`["intent", "plan", "trace"].map(k => document.querySelector('#ptabs [data-tab="' + k + '"] .long').textContent)`),
+    await js(`[\`반드시 \${V.intent.must.length} · 가능 \${V.intent.prefer.length}\`, "P1.1 · 1/1", waitingAct() ? "확인 기다림" : "판정 " + V.actions.length]`), "C1: the tabs' summaries");
+  await js(`document.querySelector('#ptabs [data-tab="plan"]').click()`);
+  assert.deepStrictEqual(await js(`[$("panel").querySelector(".phead h2").textContent, [...document.querySelectorAll("#panel ol.prow > li")].map(l => [l.dataset.id, l.classList.contains("cur"), /^대화 \\d+/.test(l.querySelector(".sub").textContent)])]`),
+    ["계획 · 1단계 중 1", [["P1.1", true, true]]]);
+  await snapC("c-plan");
+  await js(`document.querySelector("#panel ol.prow > li .pa").click()`);
+  assert.strictEqual(await js(`$("log").dataset.filter`), "refs:P1.1 hello.txt에 인사말을 더한다", "C8: a step picked keeps its conversation");
+  await js(`document.querySelector("#panel ol.prow > li .pa").click()`);
+  await js(`document.querySelector('#ptabs [data-tab="trace"]').click()`);
+  const tlOf = () => js(`[...document.querySelectorAll("#panel .tl > li")].map(l => l.querySelector(".k").textContent)`), tl0 = await tlOf();
+  assert.ok(["사용자 요청", "제안된 작업", "Guard 판정", "사용자 결정", "결과 · 검토"].every(k => tl0.includes(k)), tl0.join(","));
+  await js(`show({ mode: "trace", act: "ACT1" })`);
+  const tl = await tlOf();
+  assert.ok(["사용자 요청", "적용된 기준", "계획 단계", "제안된 작업", "Guard 판정", "사용자 결정", "결과 · 검토"].every(k => tl.includes(k)), tl.join(","));
+  assert.ok(await js(`!!document.querySelector("#panel .tl > li.now") && /^이 판단이 나온 대화 \\d+ · 같은 기준의 판정 \\d+/.test(document.querySelector("#panel [data-band]").textContent)`), "C9");
+  await snapC("c-trace");
+  {
+    await js(`show({ mode: "code", task: "T1", where: "config.yaml:5" })`);
+    const live = await settle(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`);
+    if (live === "FOUND") {
+      assert.match(await js(`$("panel").querySelector(".lnote").textContent`), /^5번째 줄: .*고치는 일은 에이전트나 외부 편집기에서 합니다\.$/);
+      assert.match(await js(`$("panel").querySelector(".ptool .meta").textContent`), /^작업 폴더 · 읽기 전용 · \d+줄$/);
+      await js(`$("panel").querySelector(".url.pick").click()`);
+      assert.ok(await js(`(m => !m.hidden && [...m.querySelectorAll("[data-pick-file]")].some(b => b.dataset.pickFile === "config.yaml" && b.classList.contains("on")))($("panel").querySelector(".pmenu"))`), "S62");
+      await snapC("c-code");
+    } else assert.strictEqual(live, "ERROR", "the code panel opened or said why not");
+  }
+  await js(`close()`);
+  console.log("ok right column: tabs (S67, 펼치기), 기준 back-links + ✎ 고치기 + 대화로 거르기, C7, S68; T1 계획 · 왜? · code 파일 고르기");
   // ⑭ the task list: search over names, goals and sources; a task's own name (its goal stays); 보관 folds it away, kept whole
   const rows_ = () => js(`[...document.querySelectorAll("#task-list > [data-task]")].map(b => b.dataset.task)`);
   await js(`(q => { q.value = "인사말"; q.dispatchEvent(new Event("input")); })($("task-search"))`);
@@ -1491,6 +1553,22 @@ async function papersUi() {
   assert.deepStrictEqual(await page(), ["📄 TinyRAG · PDF", "1 / 2"]);
   await js(`document.querySelector("#panel .nav").click()`);  // ← back to the table
   assert.ok(await until(`!!document.querySelector("#panel [data-matrix]")`));
+  // A2 complete · C (F21): back on the table the cell is marked; its head, 항목 바꾸기 (n / 8; 다시 채우기 runs the
+  // conversation's 비교표 form: here it needs the account, said in the panel), + 논문 추가 (only sources not in the table)
+  assert.ok(await js(`!!document.querySelector("#panel [data-matrix] td.picked") && $("panel").querySelector(".mxtool b").textContent === "논문 2편 × 항목 4"`));
+  await js(`$("panel").querySelector("[data-cols-edit]").click()`);
+  assert.strictEqual(await js(`$("panel").querySelector("[data-cols-n]").textContent`), "4 / 8");
+  await js(`(i => { i.value += ", 재현 비용, 코드 공개"; i.dispatchEvent(new Event("input")); })($("panel").querySelector("[data-cols-in]"))`);
+  assert.strictEqual(await js(`$("panel").querySelector("[data-cols-n]").textContent`), "6 / 8");
+  await sleep(200); await shot("papers-wide-columns.png");
+  await js(`$("panel").querySelector("[data-refill]").click()`);
+  assert.match(await until(`(b => b && b.textContent)($("panel").querySelector("[data-refill-error]"))`), /ChatGPT에 먼저 연결하세요/);
+  assert.match(await js(`[...document.querySelectorAll("#log [data-compare-form] #columns")].at(-1).value`), /재현 비용, 코드 공개$/, "the conversation's form, these columns");
+  await js(`document.querySelectorAll("#log [data-compare-form]").forEach(f => f.closest(".msg").remove())`);
+  await js(`$("panel").querySelector("[data-add-paper-menu]").click()`);
+  assert.deepStrictEqual(await js(`(m => [m.hidden, [...m.querySelectorAll("[data-add-paper]")].map(b => b.disabled)])($("panel").querySelector(".pmenu"))`), [false, [true]],
+    "+ 논문 추가: the task's web page only, and it cannot be a row");
+  await sleep(200); await shot("papers-wide-add.png");
   // one answer over both papers: the sentence both have is anchored in the paper the answer cites it from
   await js(`close(); document.querySelectorAll(".asked .cite")[1].click()`);
   assert.strictEqual(await settled(), "FOUND");
