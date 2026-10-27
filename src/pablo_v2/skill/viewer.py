@@ -1972,6 +1972,20 @@ body.panel.wide { grid-template-columns:var(--side-w) minmax(0, 1fr) min(835px, 
 .mxfoot .link { font:600 12px/1.4 var(--sans); color:var(--ink); }
 #log .matrix.flash { box-shadow:0 0 0 3px var(--signal-soft); transition:box-shadow .3s; }
 /* end A2 complete · C */
+/* A2 complete · finishing pass (S8 비슷한 문장, S12 내려받기 확인 자리, S52, merged card actions) */
+#pbody.pdf.s8 { padding:12px 16px 16px 18px; }
+.pcard.s8 { margin:0; }
+.pcard.s8 .s8head { margin:-2px -4px 0; padding:8px 12px; border-radius:var(--r-ctl); background:var(--a8); font:600 12px/1.5 var(--sans); color:var(--ink); }
+.pcard.s8 .s8hits { display:flex; flex-direction:column; gap:4px; margin-top:8px; }
+.pcard.s8 .s8hit { display:flex; gap:8px; align-items:baseline; width:100%; min-height:var(--h-ctl); box-sizing:border-box; padding:6px 10px; text-align:left;
+  border:1px solid var(--a8); border-radius:var(--r-ctl); background:var(--white); font:12px/1.5 var(--sans); color:var(--ink-2); cursor:pointer; }
+.pcard.s8 .s8hit span { flex:1; min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.pcard.s8 .s8hit small { flex:none; font:500 11px/1.5 var(--mono); color:var(--ink-3); }
+.pcard.s8 .s8hit:hover { border-color:var(--a12); } .pcard.s8 .s8hit.on { border-color:var(--ink-3); color:var(--ink); }
+.pcard.s8 > p { margin-top:10px; color:var(--ink-3); }
+.pcard.s8 #doc { margin-top:6px; padding:0; background:none; border:0; }
+.pcard.s8 #doc .b { white-space:pre-wrap; font-size:12px; line-height:1.7; color:var(--ink-2); }
+.pcard.s8 .btns .link { font:600 12px/1.4 var(--sans); }
 @media (max-width:900px) {
   body { padding:0; } #chat { height:100vh; border-radius:0; border:0; }
   body, body.panel { display:block; }
@@ -4082,7 +4096,7 @@ async function pdfPanel(p, st, a, src) {
     if (n !== a.page) { p.dataset.live = "PAGE"; info.replaceChildren(`캡처한 PDF · ${n}쪽 · 근거는 ${a.page}쪽에 있습니다. `,
       h("button", { class: "link", on: () => show({ ...st, page: a.page }) }, `${a.page}쪽으로`)); return; }
     const items = tc.items.filter(i => "str" in i), r = findIn(items, a);
-    if (r.status !== "FOUND") return fail(r.status);
+    if (r.status !== "FOUND") return near(p, st, a, src, n, items, info, () => fail(r.status));
     const bs = boxes(items, r.start, r.end, vp, L);
     if (!bs.length) return fail("HIDDEN");
     bs.forEach(b => sheet.append(h("div", { class: "hl", style: `left:${b.l}px;top:${b.t}px;width:${b.r - b.l}px;height:${b.b - b.t}px` })));
@@ -4090,6 +4104,31 @@ async function pdfPanel(p, st, a, src) {
     p.dataset.ms = Math.round(performance.now() - t0); p.dataset.live = "FOUND";
     info.textContent = cell ? `✓ ${n}쪽에서 칸 [${num}]의 근거를 찾아 표시했습니다.` : `✓ ${n}쪽에서 근거 [${num}]을 찾아 표시했습니다.`;
   } catch (err) { console.error("[pdf]", err); fail("ERROR"); }
+}
+// B20 / S8: the quote is not on its page as pdf.js reads it (or twice there): the places on the page most like it (Python
+// evidence.similar over pdf.js's own text of the page), best first; a click marks one in the page's extracted text, which
+// the card shows instead of the page. Nothing like it (or no host) -> the snapshot fallback as before.
+async function near(p, st, a, src, n, items, info, otherwise) {
+  const T = items.map(i => i.str + (i.hasEOL ? "\n" : "")).join("");
+  let hits = [];
+  if (window.pabloHost && pabloHost.similar && T.trim()) hits = await pabloHost.similar(T, a.exact).catch(e => { console.error("[pdf] similar", e.message); return []; });
+  if (hist[hi] !== st) return;
+  if (!hits.length) return otherwise();
+  const box = $("pbody"), text = document.createTextNode(T), http = /^https?:/i.test(src.url || "");
+  const mark = i => { const x = hits[i], r = new Range();
+    r.setStart(text, x.start); r.setEnd(text, x.end); CSS.highlights.set("evidence", new Highlight(r));
+    card.querySelectorAll("[data-hit]").forEach(b => b.classList.toggle("on", +b.dataset.hit === i));
+    box.scrollTop += r.getBoundingClientRect().top - box.getBoundingClientRect().top - box.clientHeight / 3; };
+  const card = h("div", { class: "pcard s8", "data-similar": String(hits.length) },
+    h("div", { class: "s8head" }, `${n}쪽에서 위치를 찾지 못했습니다 — 비슷한 문장 ${hits.length}곳`),
+    h("div", { class: "s8hits" }, hits.map((x, i) => h("button", { class: "s8hit", "data-hit": String(i), title: "추출 텍스트에서 이 문장을 표시합니다", on: () => mark(i) },
+      h("span", null, x.text.replace(/\s+/g, " ")), h("small", null, `${Math.round(x.score * 100)}%`)))),
+    h("p", null, "추출 텍스트로 보여 드립니다. 원본에서 직접 확인하세요."),
+    h("article", { id: "doc" }, h("div", { class: "b p" }, text)),
+    http ? h("div", { class: "btns" }, h("a", { class: "link", href: src.url, target: "_blank", rel: "noopener noreferrer", "data-orig": "1" }, "원본 열기 ↗")) : null);
+  box.classList.add("s8"); box.replaceChildren(card);
+  info.hidden = true; const foot = p.querySelector(".pfoot2"); if (foot) foot.remove();
+  p.dataset.live = "SIMILAR";
 }
 // ⑩ / F22 (desktop) a sentence picked on a page of the task's paper -> a floating "재현 조건으로 더하기" over it -> a card:
 // its kind, its value, the condition in one line, a condition already like it named first. Pablo anchors the sentence on that

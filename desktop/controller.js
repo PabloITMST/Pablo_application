@@ -23,7 +23,8 @@ let q = Promise.resolve(), n = 0;
 
 // one python call at a time: skill.json has a single writer.
 // D9 pyx(opts, ...args): opts.what names a long call ("spec", "compare") that ctl.cancel(what) can stop, queued or running
-// (its child is killed; the call rejects with .cancelled); opts.progress(p) hears each {"progress": p} line on stderr
+// (its child is killed; the call rejects with .cancelled); opts.progress(p) hears each {"progress": p} line on stderr;
+// opts.input is written to the child's stdin (S8 similar: a page's text can be longer than a command line)
 const calls = new Set();
 const stopped = () => Object.assign(new Error("중지했습니다."), { cancelled: true });
 function pyx(opts, ...args) {
@@ -42,6 +43,7 @@ function pyx(opts, ...args) {
             let r; try { r = JSON.parse(out); } catch { return rej(err || new Error("bad output: " + out.slice(0, 200))); }
             r.ok ? res(r) : rej(new Error(r.message));
           });
+        if (opts.input != null) p.stdin.end(opts.input, "utf8");
         if (opts.progress) {
           let buf = "";
           p.stderr.on("data", d => {

@@ -35,7 +35,8 @@ contextBridge.exposeInMainWorld("pabloHost", {
   pickPdfsFree: () => ipcRenderer.invoke("pablo:pick-pdfs-free"),  // A12 before the task exists -> [{token, name}]
   pickFolderFree: () => ipcRenderer.invoke("pablo:pick-folder-free"),  // A12 -> {token, name}
   attachPicked: (task, tokens) => ipcRenderer.invoke("pablo:attach-picked", task, tokens),  // A12 the picks, to the task made
-  peekArxiv: text => ipcRenderer.invoke("pablo:peek-arxiv", text),  // D10 title, file name, source, size before downloading
+  peekArxiv: text => ipcRenderer.invoke("pablo:peek-arxiv", text),
+  similar: (text, quote) => ipcRenderer.invoke("pablo:similar", text, quote),  // S8 [{start, end, text, score}] in text, best first  // D10 title, file name, source, size before downloading
   cancel: what => ipcRenderer.invoke("pablo:cancel", what),  // D9 stop 재현 조건 뽑기 ("spec") or 비교표 ("compare")
   openPath: which => ipcRenderer.invoke("pablo:open-path", which),  // D6 "userData" | "checkpoints" | "logs" in the file manager
   addOpenreview: (task, text) => ipcRenderer.invoke("pablo:add-openreview", task, text),  // ⑬ a paper from OpenReview

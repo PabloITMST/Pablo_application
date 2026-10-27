@@ -1810,6 +1810,20 @@ async function papersUi() {
   assert.match(await js(`$("panel").querySelector(".url").textContent`), /TinyRAG notes/);
   await sleep(300); await shot("papers-web-quote.png");
   await js(`close()`);
+  // B20 / S8: a quote pdf.js cannot find on its page (one word misread) -> the places most like it (evidence.similar), the
+  // page's extracted text, a click marks one; the anchor itself is untouched
+  const e8 = await js(`document.querySelectorAll(".asked .cite")[0].dataset.e`), x8 = await js(`M.anchors["${e8}"].exact`);
+  await js(`M.anchors["${e8}"].exact = M.anchors["${e8}"].exact.replace(/[A-Za-z]{4,}/, w => w.split("").reverse().join(""))`);
+  await js(`document.querySelectorAll(".asked .cite")[0].click()`);
+  assert.strictEqual(await settled(), "SIMILAR");
+  const s8 = await js(`(c => ({ head: c.querySelector(".s8head").textContent, n: +c.dataset.similar, hits: [...c.querySelectorAll("[data-hit]")].map(b => b.querySelector("span").textContent),
+    doc: c.querySelector("#doc").textContent.length > 0, orig: !!c.querySelector("[data-orig]") }))($("panel").querySelector(".pcard.s8"))`);
+  assert.ok(s8.n >= 1 && s8.hits.length === s8.n && new RegExp(`^\\d+쪽에서 위치를 찾지 못했습니다 — 비슷한 문장 ${s8.n}곳$`).test(s8.head) && s8.doc, JSON.stringify(s8));
+  assert.ok(s8.hits[0].replace(/\s+/g, "").includes(x8.replace(/[A-Za-z]{4,}/, "").replace(/\s+/g, "").slice(0, 12)), "the misread sentence comes first: " + JSON.stringify([s8.hits[0], x8]));
+  await js(`$("panel").querySelector('[data-hit="0"]').click()`);
+  assert.ok(await js(`$("panel").querySelector('[data-hit="0"]').classList.contains("on") && CSS.highlights.get("evidence").size === 1`), "a candidate is marked in the text");
+  await sleep(200); await shot("papers-similar.png");
+  await js(`M.anchors["${e8}"].exact = ${JSON.stringify(x8)}; close()`);
   assert.ok(await js(`!/\\b(E|SRC|SC|M)\\d+\\b/.test(document.body.innerText)`), "no internal ids in the UI");
   console.log("ok papers: table 6/8 cells located, metrics (지표 다름), both papers' datasets -> a column, ✎ renames, a cell -> its paper's page, wide panel and back, an answer over both papers");
   // the 주 논문: 재현 조건 뽑기 reads it

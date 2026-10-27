@@ -84,6 +84,12 @@ ipcMain.handle("pablo:locate", (e, id, q) => {
 
 // M4.0 chat: only top-level Pablo windows talk to the agent; events go to every window
 const fromWindow = e => { if (e.sender.getType() !== "window") throw new Error("not a Pablo window"); };
+// S8 a quote the PDF panel could not find on its page: the places in that page's text (pdf.js) most like it (evidence.similar)
+ipcMain.handle("pablo:similar", async (e, text, quote) => {
+  fromWindow(e);
+  if (!str(text, 200000) || !str(quote, 2000) || !quote.trim()) throw new Error("bad text");
+  return (await ctl.pyx({ input: text }, "similar", "--quote", quote, "--k", "3")).hits;
+});
 const broadcast = (ch, ev) => BrowserWindow.getAllWindows().forEach(w => w.webContents.send(ch, ev));
 const known = task => { if (!ctl.tasks().includes(task)) throw new Error("unknown task"); };
 ipcMain.handle("pablo:chat", async (e, text, task) => {

@@ -3,12 +3,15 @@
   normalize(html) -> text   visible text, whitespace collapsed; the hash and every offset refer to this text
   locate(text, exact, near) -> (start, end)   refuses missing or ambiguous quotes
   resolve(anchor, old_hash, text) -> {status VALID | STALE | UNRESOLVED, reason, hash_changed, start, end}
+  similar(text, quote, k) -> [{start, end, text, score}]   S8: where a quote that is not found might have been
 Relevance (does the quote support the claim) is not decided here.
 """
 from __future__ import annotations
 
+import difflib
 import hashlib
 import re
+import unicodedata
 import urllib.request
 from html.parser import HTMLParser
 
@@ -190,6 +193,86 @@ def resolve(quote: dict, selector: dict, old_hash: str, text: str) -> dict:
     return {**out, "status": "UNRESOLVED", "reason": "not_found"}
 
 
+def _key(s: str) -> tuple[str, list[int]]:
+    """Compare key: NFKC, lower case, no whitespace or hyphens; idx[i] = where key[i] came from in s."""
+    k, idx = [], []
+    for i, ch in enumerate(s):
+        if ch.isspace() or ch in "-\u00ad\u2010\u2011":
+            continue
+        n = unicodedata.normalize("NFKC", ch).lower()
+        k.append(n)
+        idx.extend([i] * len(n))
+    return "".join(k), idx
+
+
+SENTENCE = re.compile(r".+?(?:[.!?\u3002]+(?=\s|$)|\n|$)", re.S)  # "0.001" is not a stop
+
+
+def _spans(text: str, size: int) -> list[tuple[int, int]]:
+    """Sentences, and runs of up to 3 sentences that are not much longer than the quote; a long sentence without
+    stops (a table row, a caption run) is cut into quote-sized windows at spaces, half a window apart."""
+    sents = []
+    for m in SENTENCE.finditer(text):
+        s, e = m.start(), m.end()
+        while s < e and text[s].isspace():
+            s += 1
+        while e > s and text[e - 1].isspace():
+            e -= 1
+        if e <= s:
+            continue
+        if e - s <= 3 * size:
+            sents.append((s, e))
+            continue
+        step = max(size // 2, 1)
+        for a in range(s, e, step):
+            a = a if a == s else text.find(" ", a, e) + 1 or a
+            b = min(e, a + size)
+            b = b if b == e else (text.rfind(" ", a, b) if text.rfind(" ", a, b) > a else b)
+            sents.append((a, b))
+            if b >= e:
+                break
+    out = []
+    for i, (s, _) in enumerate(sents):
+        for j in range(i, min(i + 3, len(sents))):
+            if j > i and sents[j][1] - s > 2 * size:
+                break
+            out.append((s, sents[j][1]))
+    return out
+
+
+def similar(text: str, quote: str, k: int = 3, floor: float = 0.5) -> list[dict]:
+    """S8: the k places in text most like a quote that was not found there (the extractor read the page differently,
+    or the quote was paraphrased). Compared on the same key as the PDF anchors (no whitespace or hyphens, NFKC, lower
+    case); score = difflib ratio, at least floor. Overlapping places keep the better one. Deterministic; a hint for the
+    user to check, never an anchor."""
+    q = _key(quote)[0]
+    if not q or not text:
+        return []
+    seen, scored = set(), []
+    for s, e in _spans(text, max(len(quote), 20)):
+        if (s, e) in seen:
+            continue
+        seen.add((s, e))
+        c = _key(text[s:e])[0]
+        if not c:
+            continue
+        m = difflib.SequenceMatcher(None, q, c, autojunk=False)
+        if m.real_quick_ratio() < floor or m.quick_ratio() < floor:
+            continue
+        r = m.ratio()
+        if r >= floor:
+            scored.append((r, s, e))
+    scored.sort(key=lambda x: (-x[0], x[2] - x[1], x[1]))
+    out = []
+    for r, s, e in scored:
+        if any(s < b and a < e for a, b, _ in out):
+            continue
+        out.append((s, e, r))
+        if len(out) == k:
+            break
+    return [{"start": s, "end": e, "text": text[s:e], "score": round(r, 2)} for s, e, r in out]
+
+
 if __name__ == "__main__":  # self-check
     html = ("<html><head><title>Doc</title><script>x=1</script></head><body><h1>API</h1>"
             "<p>Call <code>account/rateLimits/read</code> to read limits.</p><p>See account/rateLimits/read.</p></body>")
@@ -214,4 +297,7 @@ if __name__ == "__main__":  # self-check
         ("h1", "API"), ("p", "Call account/rateLimits/read to read limits."), ("p", "See account/rateLimits/read."),
         ("hide", "Home"), ("li", "one"), ("p", "two"), ("li", "three"), ("li", "four"), ("pre", "a b"), ("h2", "End")], d
     assert [bt[s:e] for s, e in d["code"]] == ["account/rateLimits/read"], d
+    page = "We train for 3 epochs. The learning rate is 0.001 with Adam. Results are in Table 2."
+    hits = similar(page, "the learning-rate was 0.001 with Adam")
+    assert hits and hits[0]["text"] == "The learning rate is 0.001 with Adam.", hits
     print("ok")

@@ -58,7 +58,7 @@ from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
 from pablo_v2.skill import mdhtml
 from pablo_v2.skill.viewer import REPORT_SECTIONS, model, render_html, render_report, report_counts, workspace
-from pablo_v2.skill.evidence import AnchorRejected
+from pablo_v2.skill.evidence import AnchorRejected, similar
 from pablo_v2.skill.skill import (AUDIT_SCHEMA, REPRO_CRITERIA, SPEC_LABEL, DecisionRejected, PabloSkill,
                                   ResearchIncomplete, ResearchRejected, render_audit, render_brief, render_evidence, render_task)
 
@@ -104,6 +104,9 @@ def _parser() -> argparse.ArgumentParser:
     add("login").add_argument("--device", action="store_true", help="device-code sign-in for headless machines")
     for name in ("logout", "status", "show", "candidates", "history", "demo"):
         add(name)
+    s = add("similar")  # S8 the places in a page's text (stdin) most like a quote that was not found there
+    s.add_argument("--quote", required=True)
+    s.add_argument("--k", type=int, default=3)
     s = add("say")
     s.add_argument("text")
     s.add_argument("--agent", action="store_true", help="agent message: context only, never intent")
@@ -274,6 +277,11 @@ def _run(a, out) -> int:
         ok, msg = auth.status()
         out({"signed_in": ok, "message": msg}, msg)
         return 0 if ok else 1
+    if a.cmd == "similar":  # no state: the text comes on stdin (a page can be longer than a command line)
+        sys.stdin.reconfigure(encoding="utf-8")
+        hits = similar(sys.stdin.read(), a.quote, max(1, min(a.k, 10)))
+        out({"hits": hits}, "\n".join(f"{h['score']:.2f} {h['text']}" for h in hits) or "(none)")
+        return 0
 
     intent_path = os.path.join(a.dir, "intent.json")
     if a.cmd == "demo" and os.path.exists(intent_path):
