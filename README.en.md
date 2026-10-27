@@ -10,7 +10,7 @@ When you reproduce a paper, Pablo pins each condition to a page of the source an
 When the agent tries something that conflicts with your criteria, Pablo stops it before it runs.
 
 [![test](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml/badge.svg)](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-0.9.0-111111)
+![version](https://img.shields.io/badge/version-0.9.1-111111)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-111111)
 ![python](https://img.shields.io/badge/python-3.11-111111)
 ![electron](https://img.shields.io/badge/electron-41-111111)
@@ -155,7 +155,7 @@ You do not need Python, Node.js, or the Codex CLI. The installer bundles them.
 ### Steps
 
 1. Download `PabloSetup.exe` from [Releases](https://github.com/PabloITMST/Pablo_application/releases).
-2. Verify the hash. The SHA-256 for 0.9.0 is `017c698d88b9b2d2088d491adc16187895fc6955b7e380e8b369c329a55d3a67`.
+2. Verify the hash. The SHA-256 for 0.9.1 is `58f5f6a6b7781c9c968ec27fee0fe4470b657a0a83cff9bee0dfa831fae0b064`.
 
    ```powershell
    Get-FileHash .\PabloSetup.exe -Algorithm SHA256
@@ -300,7 +300,7 @@ Detection is on par with simply asking the model. Where Pablo does better is the
 - Table numbers may be paired with the wrong column, so they show "? check column pairing" until confirmed.
 - Long training runs are best run outside the app.
 
-Full list: [`release/0.9.0/KNOWN_LIMITATIONS.md`](release/0.9.0/KNOWN_LIMITATIONS.md) (in Korean)
+Full list: [`release/0.9.1/KNOWN_LIMITATIONS.md`](release/0.9.1/KNOWN_LIMITATIONS.md) (in Korean)
 
 ## Documentation
 
@@ -309,7 +309,8 @@ All documents below are in Korean.
 | Document | Contents |
 |---|---|
 | [Developer reference](docs/reference.md) | CLI commands, state files, app check scenarios, design decisions by milestone |
-| [Release 0.9.0](release/0.9.0/README.md) | What changed, verification results, install, where 0.8.0 buttons moved |
+| [Release 0.9.1](release/0.9.1/README.md) | Fixes since 0.9.0, verification results |
+| [Release 0.9.0](release/0.9.0/README.md) | The new screens, install, where 0.8.0 buttons moved |
 | [Demo script](release/0.8.0/DEMO_SCENARIO.md) | 18-minute demo steps and talking points (0.8.0 screens) |
 | [Clean-machine checklist](release/0.8.0/CLEAN_MACHINE_TEST.md) | Verifying the installer on a PC without dev tools (0.8.0 screens) |
 | [Evaluation](docs/eval/README.md) | Quantitative evaluation of audit and condition extraction |

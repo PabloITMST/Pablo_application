@@ -1165,8 +1165,11 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
         basis.append(c.id)
     if not (must or prefer or facts or open_ or differ or aside_):
         return "", []
+    # the sources-and-pages sentence only when there are sources: with none (a reproduction task with no paper yet) it
+    # made the agent cite "(LinearRAG 논문, 7쪽)" from memory (10/27 utility experiment, u2-c-r1 turn 2)
     out = ["[Pablo] 이 작업에서 사용자가 정한 기준과 확인된 근거입니다. 기준과 어긋나는 일은 하기 전에 말하고, "
-           "근거를 쓸 때는 괄호 안의 출처와 쪽을 함께 밝히세요."]
+           "근거를 쓸 때는 괄호 안의 출처와 쪽을 함께 밝히세요." if facts else
+           "[Pablo] 이 작업에서 사용자가 정한 기준입니다. 기준과 어긋나는 일은 하기 전에 말하세요."]
     out += [f"반드시: {x}" for x in must] + [f"가능하면: {x}" for x in prefer]
     if facts:
         out += ["확인된 근거:"] + facts

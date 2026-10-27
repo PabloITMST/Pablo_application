@@ -10,7 +10,7 @@
 에이전트가 기준과 부딪히는 작업을 하려 하면 실행 전에 막습니다.
 
 [![test](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml/badge.svg)](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-0.9.0-111111)
+![version](https://img.shields.io/badge/version-0.9.1-111111)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-111111)
 ![python](https://img.shields.io/badge/python-3.11-111111)
 ![electron](https://img.shields.io/badge/electron-41-111111)
@@ -153,7 +153,7 @@ Python, Node.js, Codex CLI는 필요 없습니다. 설치본에 들어 있습니
 ### 설치 순서
 
 1. [Releases](https://github.com/PabloITMST/Pablo_application/releases)에서 `PabloSetup.exe`를 받습니다.
-2. 해시를 확인합니다. 0.9.0의 SHA-256은 `017c698d88b9b2d2088d491adc16187895fc6955b7e380e8b369c329a55d3a67`입니다.
+2. 해시를 확인합니다. 0.9.1의 SHA-256은 `58f5f6a6b7781c9c968ec27fee0fe4470b657a0a83cff9bee0dfa831fae0b064`입니다.
 
    ```powershell
    Get-FileHash .\PabloSetup.exe -Algorithm SHA256
@@ -298,14 +298,15 @@ Pablo_application/
 - 표의 숫자는 열 짝이 틀릴 수 있어서, 확인 전에는 "? 열 짝 확인 필요"로 보입니다.
 - 긴 학습 실행은 앱 밖에서 돌리는 것을 권합니다.
 
-전체 목록: [`release/0.9.0/KNOWN_LIMITATIONS.md`](release/0.9.0/KNOWN_LIMITATIONS.md)
+전체 목록: [`release/0.9.1/KNOWN_LIMITATIONS.md`](release/0.9.1/KNOWN_LIMITATIONS.md)
 
 ## 문서
 
 | 문서 | 내용 |
 |---|---|
 | [개발 참고서](docs/reference.md) | CLI 명령, 상태 파일, 앱 점검 시나리오, 마일스톤별 설계 결정 |
-| [릴리스 0.9.0](release/0.9.0/README.md) | 바뀐 것, 검증 결과, 설치, 0.8.0 문서와 버튼 위치 대응표 |
+| [릴리스 0.9.1](release/0.9.1/README.md) | 0.9.0 이후 고친 것, 검증 결과 |
+| [릴리스 0.9.0](release/0.9.0/README.md) | 화면 개편, 설치, 0.8.0 문서와 버튼 위치 대응표 |
 | [시연 시나리오](release/0.8.0/DEMO_SCENARIO.md) | 18분 시연 순서와 말할 것 (0.8.0 화면 기준) |
 | [깨끗한 PC 점검표](release/0.8.0/CLEAN_MACHINE_TEST.md) | 개발 도구 없는 PC에서 설치본 확인 (0.8.0 화면 기준) |
 | [평가](docs/eval/README.md) | 재현 점검·조건 뽑기 정량 평가 |
