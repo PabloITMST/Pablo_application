@@ -974,7 +974,7 @@ async function uiCheck() {
     rows: [...b.querySelectorAll(":scope > ul > li")].map(x => [x.className, x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent,
       (x.querySelector("[data-check]") || {}).textContent]), folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit]"))`);
   // ⑥ 코드가 정함 right after 다름 (a report needs it); an 아직 없음 of a condition from before kinds folds, named on its line
-  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 열 짝 확인 필요 1 · 코드가 정함 1 · 아직 없음 1 · 따름 1 · 조건 밖 3", folded: "아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…",
+  assert.deepStrictEqual(audit, { head: "🔎 재현 점검: 다름 2 · 열 짝 확인 필요 1 · 코드가 정함 1 · 아직 없음 1 · 따름 1 · 조건 밖 4", folded: "아직 없는 항목 1개: 검색된 passage의 본문이 생성 단…",
     checked: "📍 모델이 댄 위치 5곳 중 4곳을 Pablo가 파일에서 직접 확인했습니다. 1곳은 그 자리에서 찾지 못했습니다. 1곳은 판정과 논문 값이 어긋납니다. 이 항목은 위에 따로 둡니다.",
     rows: [["st-differs", "✗ 다름", "config.yaml:2", "⚠ 논문 값(all-mpnet-base-v2)이 이 자리에 그대로 있음"],
       ["st-pairing", "? 열 짝 확인 필요", "logs/2wiki.log:3", "⚠ 모델이 댄 위치에서 찾지 못함"],
@@ -985,8 +985,8 @@ async function uiCheck() {
   const outside = await js(`(b => ({ head: b.querySelector("h4").textContent, rows: [...b.querySelectorAll(":scope > ul > li")].map(x =>
     [x.querySelector("b").textContent, (x.querySelector(".at code") || {}).textContent, (x.querySelector("[data-check]") || {}).textContent]),
     folded: b.querySelector("details summary").textContent }))(document.querySelector("[data-audit] [data-outside]"))`);
-  assert.deepStrictEqual(outside, { head: "조건 밖에서 본 차이 3개", folded: "논문의 실험 가운데 이 폴더에 없는 것 1개",
-    rows: [["△", "retrieve.py:22", "⚠ 모델이 댄 위치에서 찾지 못함"], ["△", "run.py:1-3", "✓ Pablo가 코드에서 확인"]] });
+  assert.deepStrictEqual(outside, { head: "조건 밖에서 본 차이 4개", folded: "논문의 실험 가운데 이 폴더에 없는 것 1개",
+    rows: [["△", "retrieve.py:22", "⚠ 모델이 댄 위치에서 찾지 못함"], ["△", "run.py:1-3", "✓ Pablo가 코드에서 확인"], ["△", "config.yaml:5", "✓ Pablo가 코드에서 확인"]] });
   // ④ a criterion removed before the audit ran: the card says it was not checked, and why it was removed
   assert.strictEqual(await js(`document.querySelector("[data-audit] [data-skipped]").textContent`),
     "이 점검 전에 지운 기준 1개는 대조하지 않았습니다: 로그 파일은 지우지 마 (이유: 로그는 서버에 따로 남김)");
@@ -1030,7 +1030,11 @@ async function uiCheck() {
   // said once: here no run record says it, so one bold line does
   assert.deepStrictEqual(await js(`(c => [c.querySelector("[data-blocked]").textContent, /사용자가 취소|Guard/.test(c.textContent)])(document.querySelector('[data-id="ACT2"]'))`),
     ["Pablo가 막아 실행하지 않았습니다. ", false]);
-  console.log("ok cards: WARN shows the diff,", JSON.stringify(diff), "| BLOCK shows the command without its shell");
+  // rehearsal 10/27: "막음" heads Guard's BLOCK only; a command that failed shares the grey box (.call.block), not the word
+  assert.deepStrictEqual(await js(`(t => { $("log").append(t); const r = [document.querySelector('[data-id="ACT2"] .head'), t.querySelector(".head")]
+    .map(x => getComputedStyle(x, "::before").content); t.remove(); return r; })(h("div", { class: "call block", "data-verdict": "ERROR" }, h("p", { class: "head" }, "⚠ 작업을 실행하지 못했습니다.")))`),
+    ['"막음"', "none"]);
+  console.log("ok cards: WARN shows the diff,", JSON.stringify(diff), "| BLOCK shows the command without its shell, and alone says 막음");
 
   // A3: the audit's file:line -> the code panel on that line (read-only), VS Code / the folder outside the app; nothing
   // outside the task's folder crosses the bridge. The fixture's repro/ is the folder its audit was checked against.

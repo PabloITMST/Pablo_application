@@ -687,7 +687,7 @@ code, pre.diff, pre.cmd, details.tech pre, #doc .pre, #pbody.code, .who small, .
 .call .head { color:var(--signal); }
 .call.block { border:1px solid var(--ink); border-left:3px solid var(--ink); background:var(--raised); }
 .call.block .head { color:var(--ink); }
-.call.block .head::before { content:"막음"; background:var(--signal); color:#fff; font:600 11px/1.6 var(--sans); padding:1px 6px;
+.call.lock .head::before { content:"막음"; background:var(--signal); color:#fff; font:600 11px/1.6 var(--sans); padding:1px 6px;
   margin-right:8px; border-radius:2px; vertical-align:1px; }
 .spec, .audit, .matrix, .changes { border:1px solid var(--line-soft); border-left:3px solid var(--ink); background:var(--surface); }
 .audit .st-differs b, .audit .st-pairing b { color:var(--signal); } .audit .st-missing b, .audit .st-unclear b { color:var(--ink-2); }
@@ -961,7 +961,7 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
 .call .head { color:var(--ink); font-size:13px; font-weight:600; line-height:20px; margin:0 0 6px; }
 .call.block { background:var(--a4); border:0; box-shadow:none; }
 .call.block .head { color:var(--ink); }
-.call.block .head::before { border-radius:var(--r-tag); padding:2px 7px; font:600 11px/16px var(--sans); vertical-align:1px; }
+.call.lock .head::before { border-radius:var(--r-tag); padding:2px 7px; font:600 11px/16px var(--sans); vertical-align:1px; }
 #acct .call, #shell-note .call { margin:0 0 8px; }
 /* records: conditions, 재현 점검, 비교표, changed files — white cards, hairline rows */
 .spec, .audit, .matrix, .changes { background:var(--white); border:1px solid var(--a8); border-radius:var(--r-card); box-shadow:var(--sh-sm);
@@ -1424,7 +1424,7 @@ function issues() {
 function action(a) {
   const block = a.verdict === "BLOCK", ev = a.criteria.flatMap(c => V.checks[c.id] ? V.checks[c.id].evidence : []);
   const d = decided(a);
-  return h("div", { class: "call" + (block ? " block" : ""), title: a.id, "data-id": a.id },
+  return h("div", { class: "call" + (block ? " block lock" : ""), title: a.id, "data-id": a.id },
     h("p", { class: "head" }, block ? "⚠ 이 작업은 현재 기준과 충돌합니다." : "⚠ 이 작업은 확인이 필요합니다."),
     h("p", null, "제안된 작업: ", h("b", null, meaning(a.text))), preview(a.text), current(a.text, V.task.id),
     a.why ? h("p", { class: "muted" }, `제시한 이유: "${a.why}"`) : null,
@@ -1644,11 +1644,14 @@ function aged(box) {  // (not fresh(): the desktop's add box has its own)
   const put = line => { const old = box.querySelector(":scope > .stale"); if (old) old.replaceWith(line || ""); else if (line) box.querySelector(".head").after(line); };
   const changed = () => files.length ? h("p", { class: "stale", "data-stale": String(files.length) },
     `⚠ 이 점검 뒤 파일 ${files.length}개가 바뀌었습니다(${files.slice(0, 3).join(", ")}${files.length > 3 ? " 외" : ""}). 판정이 지금 파일과 다를 수 있습니다.`, again()) : null;
+  // places, not rows: a condition and a criterion often point at the same line (rehearsal 10/27: "config.yaml:5, config.yaml:5")
+  const at = x => x.line_found ? `${where0(x.where)}:${x.line_found}` : x.where, seen = new Set();
   const placed = window.pabloHost && pabloHost.recheck
-    ? [...c.items, ...(c.outside || [])].filter(x => ["verified", "moved", "value_mismatch"].includes(x.check) && x.where && x.found) : [];
+    ? [...c.items, ...(c.outside || [])].filter(x => ["verified", "moved", "value_mismatch"].includes(x.check) && x.where && x.found)
+      .filter(x => !seen.has(at(x)) && seen.add(at(x))) : [];
   if (!placed.length) return put(changed());
   pabloHost.recheck(task, placed.map(x => ({ where: x.where, found: x.found, line: x.line_found || null }))).then(r => {
-    const gone = placed.filter((x, i) => r[i] === "not_found" || r[i] === "no_file"), at = x => x.line_found ? `${where0(x.where)}:${x.line_found}` : x.where;
+    const gone = placed.filter((x, i) => r[i] === "not_found" || r[i] === "no_file");
     put(gone.length ? h("p", { class: "stale", "data-stale": String(files.length), "data-gone": String(gone.length) },
         `⚠ 점검 때 Pablo가 확인한 ${placed.length}곳 중 ${gone.length}곳이 지금은 그대로가 아닙니다(${gone.slice(0, 3).map(at).join(", ")}${gone.length > 3 ? " 외" : ""}). 판정이 지금 파일과 다를 수 있습니다.`, again())
       : files.length ? h("p", { class: "stale same muted", "data-same": String(placed.length) },
@@ -2603,7 +2606,8 @@ if (window.pabloHost && pabloHost.chat) {
   const HEAD = { WARN: "⚠ 이 작업은 현재 기준과 충돌할 가능성이 있습니다.", BLOCK: "⚠ 이 작업은 현재 기준과 충돌해 실행하지 않았습니다.",
                  ERROR: "⚠ 작업을 실행하지 못했습니다." };
   function guard(ev) {
-    const card = h("div", { class: "call" + (ev.verdict === "WARN" ? "" : " block"), "data-verdict": ev.verdict, "data-act": ev.act || "" },
+    // "막음" heads Guard's own BLOCK only (.lock); a command that failed shares the grey box, not the word (rehearsal 10/27)
+    const card = h("div", { class: "call" + (ev.verdict === "WARN" ? "" : ev.verdict === "BLOCK" ? " block lock" : " block"), "data-verdict": ev.verdict, "data-act": ev.act || "" },
       h("p", { class: "head" }, HEAD[ev.verdict]), h("p", null, "제안된 작업: ", h("b", null, meaning(ev.text))),
       ev.verdict === "ERROR" ? null : preview(ev.text, ev.detail), ev.verdict === "ERROR" ? null : current(ev.text, ev.task),
       reason(ev.reason, ev.verdict === "BLOCK"), h("p", { class: "muted crit" }), tech(ev.text, korean(ev.reason) ? null : ev.reason),

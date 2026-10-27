@@ -565,10 +565,13 @@ ipcMain.handle("pablo:report", async (e, task) => {
   // the folder now, and the last audit's confirmed places checked again (the card's rule), so the report says what the app says
   const work = workOf(task), log = (() => { try { return JSON.parse(fs.readFileSync(path.join(ctl.dir, "chat.json"), "utf8"))[task] || []; } catch { return []; } })();
   const last = log.filter(x => x.role === "audit" && (x.items || []).length).at(-1);
-  const placed = last ? [...last.items, ...(last.outside || [])].filter(x => ["verified", "moved", "value_mismatch"].includes(x.check) && x.where && x.found) : [];
-  const gone = work ? placed.filter(x => { const w = where.where(x.where); if (!w) return false;
-    const c = where.verify(work, { where: x.line_found ? `${w.path}:${x.line_found}` : x.where, found: x.found }).check;
-    return c === "not_found" || c === "no_file"; }).map(x => x.line_found ? `${where.where(x.where).path}:${x.line_found}` : x.where) : [];
+  // places, not rows (the card counts the same way): two rows on one line are one place
+  const at = x => { const w = where.where(x.where); return x.line_found && w ? `${w.path}:${x.line_found}` : x.where; }, seen = new Set();
+  const placed = last ? [...last.items, ...(last.outside || [])].filter(x => ["verified", "moved", "value_mismatch"].includes(x.check) && x.where && x.found)
+    .filter(x => !seen.has(at(x)) && seen.add(at(x))) : [];
+  const gone = work ? placed.filter(x => { if (!where.where(x.where)) return false;
+    const c = where.verify(work, { where: at(x), found: x.found }).check;
+    return c === "not_found" || c === "no_file"; }).map(at) : [];
   // the messages a person pinned as a decision (✎ 태그): the report lists them, as the tag editor says
   const decisions = Object.entries((desk().tags || {})[task] || {}).filter(([, o]) => o && o.decision).map(([key, o]) => ({ key, stage: o.stage || null }));
   const now = { tree: work ? await checkpoint.snapshot(ctl.dir, task, work).catch(() => null) : null, git: gitState(work),
