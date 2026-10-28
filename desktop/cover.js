@@ -1,6 +1,6 @@
 // in the viewer: the text pdf.js has under the panel's .hl boxes (each item cut by the box's x range), vs the quote
 module.exports = `(async () => {
-  const p = $("panel"), a = M.anchors[hist[hi].e], sheet = p.querySelector(".pg"), L = await pdfLib();
+  const p = $("panel"), a = M.anchors[hist[hi].e], sheet = p.querySelector('.pg[data-n="' + a.page + '"]'), L = await pdfLib();
   const pg = await (await pdfs[a.source]).getPage(a.page), vp = pg.getViewport({ scale: parseFloat(sheet.style.width) / pg.getViewport({ scale: 1 }).width });
   const hl = [...sheet.querySelectorAll(".hl")].map(d => ({ l: parseFloat(d.style.left), t: parseFloat(d.style.top), r: parseFloat(d.style.left) + parseFloat(d.style.width), b: parseFloat(d.style.top) + parseFloat(d.style.height) }));
   let got = "";

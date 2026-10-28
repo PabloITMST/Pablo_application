@@ -79,7 +79,7 @@ const pick = p => main.run(`globalThis.picked = ${JSON.stringify(p)}; 1`);
 const until = async (code, ms = 300000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code).catch(() => null); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
 const shot = async name => { await sleep(400); const d = await page.send("Page.captureScreenshot", { format: "png" });
   fs.writeFileSync(path.join(shots, name), Buffer.from(d.result.data, "base64")); console.log("   shot", name); };
-const type = text => js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+const type = text => js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
 const noIds = async () => assert.ok(await js(`!/\\b(E|SRC|SC|ACT|T|C)\\d+\\b/.test(document.body.innerText)`), "no internal ids in the UI");
 const pill = async name => { await js(`document.querySelector('#ptabs [data-tab="${({ "기준": "intent", "계획": "plan", "왜?": "trace" })[name]}"]').click()`);  // UI renewal: the right column's tabs
   await sleep(300); const t = await js(`$("panel").innerText`); return t; };
@@ -153,7 +153,7 @@ const quit = async () => { await main.run(`require("electron").app.quit(); 1`, {
   assert.ok(!/keep\.txt|hello\.txt/.test(await pill("기준")), "A's criteria stay out of B"); await js(`close()`);
   await pick(PDF); await js(`[...$("adder").querySelectorAll(".link")].find(b => /PDF 파일/.test(b.textContent)).click()`);  // + 추가 -> PDF 파일 고르기
   await until(`!/없음/.test($("src").textContent)`, 120000);
-  await until(`!document.querySelector("#chat .composer input").disabled`, 60000);
+  await until(`!document.querySelector("#chat .composer textarea").disabled`, 60000);
   const q = "LinearRAG가 baseline보다 효율적이라는 실험 근거가 어디 있어?", k0 = await js(`document.querySelectorAll(".asked").length`), t1 = Date.now();
   await type(q);
   await until(`(b => b && !b.querySelector(".muted:only-child") && b.textContent)(document.querySelectorAll(".asked")[${k0}])`);
@@ -204,7 +204,7 @@ const quit = async () => { await main.run(`require("electron").app.quit(); 1`, {
   await newTask("두 논문 비교", "d0-new-task.png");
   await pick([PDF, P2]); await js(`[...$("adder").querySelectorAll(".link")].find(b => /PDF 파일/.test(b.textContent)).click()`);
   await until(`document.querySelectorAll("#src .paper").length === 2`, 180000);
-  await until(`!!document.querySelector("#compares .link") && !document.querySelector("#chat .composer input").disabled`, 120000);
+  await until(`!!document.querySelector("#compares .link") && !document.querySelector("#chat .composer textarea").disabled`, 120000);
   t2 = Date.now(); await js(`document.querySelector("#compares .link").click()`);
   await until(`!!$("compare-go")`); await js(`$("compare-go").click()`);
   await until(`!!document.querySelector("#live [data-matrix]:not([data-compare-form])") || (b => b && b.textContent)(document.querySelector("[data-compare-form] .call.block"))`, 900000);

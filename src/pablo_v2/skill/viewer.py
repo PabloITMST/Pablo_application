@@ -772,9 +772,9 @@ body.dropping #log::before { content:"PDF를 놓으면 이 작업의 자료로 �
 .mascot.ico { display:inline-block; width:22px; height:22px; } #acct .mascot.ico { width:16px; height:16px; vertical-align:-3px; margin-right:4px; }
 .empty .mascot { height:170px; margin:0 auto 12px; }
 .mascot.pose { height:96px; margin:2px 0 6px; } .call .mascot.pose { float:right; height:72px; margin:0 0 4px 10px; }
-#agent .mascot { display:inline-block; height:22px; vertical-align:middle; margin-right:4px; animation:bob 1.6s ease-in-out infinite; }
-@keyframes bob { 50% { transform:translateY(-2px); } }
-@media (prefers-reduced-motion: reduce) { #agent .mascot { animation:none; } }
+.mascot.bob { display:inline-block; vertical-align:middle; animation:bob 1.6s ease-in-out infinite; transform-origin:50% 90%; }
+@keyframes bob { 25% { transform:translateY(-2px) rotate(-4deg); } 50% { transform:translateY(0) rotate(0); } 75% { transform:translateY(-2px) rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .mascot.bob { animation:none; } }
 ::highlight(evidence) { background-color:var(--hl); color:var(--fg); }
 /* concept A: hard structural lines, soft inner dividers, 2px corners, Geist / Geist Mono for Latin (Pretendard for Hangul) */
 body { font-family:var(--sans); }
@@ -938,8 +938,7 @@ pre.diff, pre.cmd, details.tech pre, #doc .pre { background:var(--a4); border-ra
 #side { padding:12px 8px 8px; }
 #side .brand { flex-direction:column; align-items:stretch; gap:14px; padding:2px 4px 12px; }
 #side .brand b { gap:8px; padding:0 4px; font:600 16px/24px var(--sans); letter-spacing:-0.02em; color:var(--ink); }
-#side .brand b::before { content:"P"; flex:none; width:24px; height:24px; border-radius:7px; display:grid; place-items:center;
-  background:var(--primary); color:var(--on-primary); font:600 13px/1 var(--sans); letter-spacing:0; }
+#side .brand b .mascot.ico, .set-brand b .mascot.ico { flex:none; width:26px; height:26px; }  /* demo 10/28: the character, not a "P" square */
 #side .new { display:flex; align-items:center; gap:8px; width:100%; height:36px; padding:0 12px; border:0; border-radius:var(--r-in);
   background:var(--primary); color:var(--on-primary); font:600 13px/1 var(--sans); box-shadow:var(--sh-sm); }
 #side .new:hover:not(:disabled) { background:#26292E; }
@@ -1509,7 +1508,6 @@ body.side-off #side > #acct { display:none; }
 .set-path { align-self:flex-start; margin:-6px 0 6px; font-size:11px; }
 .set-brand { display:flex; align-items:center; gap:10px; margin:6px 0 4px; }
 .set-brand b { display:flex; align-items:center; gap:8px; font:600 17px/1.4 var(--sans); color:var(--ink); }
-.set-brand b::before { content:"P"; width:24px; height:24px; border-radius:7px; display:grid; place-items:center; background:var(--primary); color:var(--on-primary); font:600 13px/1 var(--sans); }
 .set-brand code { padding:0; background:none; color:var(--ink-2); }
 .set-note { margin:10px 0 0; font-size:12px; color:var(--ink); } .set-note:empty { display:none; }
 /* + 추가 (F19, S25): a white card above the composer */
@@ -1837,6 +1835,8 @@ body:not(.panel) #ptabs .unfold:hover { background:var(--a5); color:var(--ink); 
 .phead h2 { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .phead .x.fold { width:auto; height:var(--h-in); padding:0 4px 0 6px; display:inline-flex; align-items:center; font:500 12px/1 var(--sans); color:var(--ink-2); }
 .phead .x.fold > span { display:inline-flex; align-items:center; gap:2px; } .phead .x.fold > .n { display:none; }
+.phead .widen { flex:none; background:none; border:0; cursor:pointer; border-radius:var(--r-ctl); width:auto; height:var(--h-in); padding:0 6px; font:500 12px/1 var(--sans); color:var(--ink-2); white-space:nowrap; }  /* demo 10/27 */
+@media (max-width:900px) { .phead .widen { display:none; } }
 @media (max-width:900px) { .phead .x.fold > .w { display:none; } .phead .x.fold > .n { display:inline-flex; } }
 /* a row under the head: back / forward, the source or file picker, page turns or the folder line */
 .ptool { display:flex; align-items:center; gap:4px; padding:12px 16px 0 18px; flex-wrap:wrap; }
@@ -2057,6 +2057,46 @@ body.panel #panel .ptool { gap:2px; } body.panel #panel .ptool .url.pick { margi
 .pcard.s8 #doc { margin-top:6px; padding:0; background:none; border:0; }
 .pcard.s8 #doc .b { white-space:pre-wrap; font-size:12px; line-height:1.7; color:var(--ink-2); }
 .pcard.s8 .btns .link { font:600 12px/1.4 var(--sans); }
+/* demo 10/27: the composer's message box wraps and grows (a textarea: 8 lines, then it scrolls) */
+.composer textarea { flex:1; border:0; background:none; outline:none; min-width:0; resize:none; font:inherit; color:inherit; }
+#chat > .composer > textarea { order:-5; flex:1 1 100%; font-size:14px; line-height:22px; padding:2px 0 4px; max-height:200px; overflow-y:auto; }
+#chat > .composer > textarea::placeholder { color:var(--ink-3); }
+#chat > .composer > textarea + button { margin-left:auto; }
+/* demo 10/27: the conversation's foot while the agent works (working()) */
+.msg.working .wk { display:flex; gap:12px; align-items:flex-start; padding:10px 14px; border-radius:10px; background:var(--a5); max-width:640px; }
+.msg.working .wk .mascot.bob { flex:none; width:34px; height:auto; margin-top:2px; }
+.msg.working .wk-b { min-width:0; flex:1; }
+.msg.working .wk-h { margin:0; display:flex; align-items:center; gap:8px; font-size:13px; }
+/* demo 10/28: what it is on now wraps (3 lines at most), it is not cut to one line */
+.msg.working .wk-t { margin:4px 0 0; font-size:12px; line-height:18px; color:var(--ink-2); white-space:pre-wrap; overflow-wrap:anywhere;
+  display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+/* demo 10/27: the right column is as wide as its left edge is dragged (--pw); the wide table at least as before */
+body.panel:not(.wide) { grid-template-columns:var(--side-w) minmax(0, 1fr) var(--pw, 390px); }
+body.panel.wide { grid-template-columns:var(--side-w) minmax(0, 1fr) max(var(--pw, 390px), min(835px, 58vw)); }
+body.panel #right { position:relative; }
+#pgrip { display:none; }
+body.panel #pgrip { display:block; position:absolute; left:-6px; top:0; bottom:0; width:10px; cursor:col-resize; z-index:6; }
+body.panel #pgrip:hover, body.panel #pgrip.on { background:linear-gradient(to right, transparent 4px, var(--a12) 4px, var(--a12) 6px, transparent 6px); }
+body.dragging { cursor:col-resize; user-select:none; } body.dragging #panel { pointer-events:none; }
+@media (max-width:900px) { body.panel #pgrip { display:none; } }
+/* demo 10/28: every action in the conversation and the right column looks like a button, never bare text: in a card's
+   action row (.acts …) a secondary 32px button beside the pills, elsewhere (a band's end, a row's hover actions, a card's
+   foot, 기술 세부정보) a small 24px outlined one (.mini, the same look). 출처 [n] (.cite) and 파일:줄 (.file) stay links */
+:is(#log, #panel) :is(button, a).link, :is(#log, #panel) details.tech > summary, .mini {
+  display:inline-flex; align-items:center; gap:4px; height:var(--h-in); padding:0 10px; margin:2px 0; box-sizing:border-box; vertical-align:middle;
+  border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white); color:var(--ink); font:500 12px/1 var(--sans);
+  text-decoration:none; white-space:nowrap; cursor:pointer; }
+:is(#log, #panel) :is(button, a).link:hover, :is(#log, #panel) details.tech > summary:hover, .mini:hover { background:var(--a5); }
+:is(#log, #panel) :is(.acts, .sp-acts, .btns, .ptool, .pfoot2) > :is(button, a).link { height:var(--h-ctl); padding:0 14px; font-size:13px; margin:0; }
+:is(#log, #panel) :is(button, a).link:disabled { opacity:.5; cursor:default; }
+#panel .ptool.acts { gap:8px; }
+/* demo 10/28: the PDF is one scroll of pages fitted to the column; zoomed in, it scrolls sideways too */
+#pbody.pdf { position:relative; overflow:auto; overflow-anchor:none; }
+#pbody.pdf .pg { margin:0 auto 12px; flex:none; } #pbody.pdf .pg:last-child { margin-bottom:0; }
+#pbody.pdf .pg canvas { width:100%; height:100%; }
+.ptool .pctl { display:inline-flex; align-items:center; gap:2px; margin-left:auto; }  /* zoom and the page wrap as one */
+.ptool .zoom { display:inline-flex; align-items:center; gap:2px; margin-right:6px; padding-right:8px; border-right:1px solid var(--a8); }
+.ptool .zoom .zl { min-width:52px; text-align:center; font:500 12px/1 var(--mono); color:var(--ink-2); }
 @media (max-width:900px) {
   body { padding:0; } #chat { height:100vh; border-radius:0; border:0; }
   body, body.panel { display:block; }
@@ -2098,6 +2138,7 @@ const ICONS = { plus: "M12 5v14M5 12h14", search: "M11 18a7 7 0 1 0 0-14 7 7 0 0
   trash: "M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2", swap: "m16 3 4 4-4 4M20 7H4m4 14-4-4 4-4M4 17h16",
   lock: "M6 11h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2zm2 0V7a4 4 0 0 1 8 0v4", rotate: "M21 12a9 9 0 1 1-3-6.7L21 8m0-5v5h-5",
   sparkle: "M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z", x: "M18 6 6 18M6 6l12 12", external: "M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
+  minus: "M5 12h14", fit: "M3 4v16M21 4v16M7 12h10M10 9l-3 3 3 3M14 9l3 3-3 3", code: "m16 18 6-6-6-6M8 6l-6 6 6 6",  // demo 10/28: PDF zoom, 폭 맞춤, VS Code
   pin: "M12 17v5M9 10.8V4h6v6.8l2 3.2H7z", paperclip: "m21.4 11.1-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5" };
 function ico(name, size) {
   const NS = "http://www.w3.org/2000/svg", s = document.createElementNS(NS, "svg"), p = document.createElementNS(NS, "path");
@@ -2271,7 +2312,7 @@ function sidebar() {
   q.addEventListener("keydown", e => { if (e.key === "Escape" && !e.isComposing && q.value) { e.stopPropagation(); clear(); } });
   const box = h("div", { id: "task-list" });
   // A2: the brand mark is CSS (.brand b::before, an ink square with "P"); 새 작업 is the one filled button
-  side.append(h("div", { class: "brand" }, h("div", { class: "brow" }, h("b", null, "Pablo"), fold),
+  side.append(h("div", { class: "brand" }, h("div", { class: "brow" }, h("b", null, art("head", "ico"), "Pablo"), fold),
       h("button", { class: "new", id: "new", disabled: !app, title: `새 작업 (${keyOf("N")})`, on: () => newTask() }, ico("plus", 14), h("span", null, "새 작업"), h("kbd", { class: "kbd" }, keyOf("N")))),
     h("div", { class: "searchbox" }, ico("search", 14), q, kbd), box);
   if (acct) side.append(acct);
@@ -2695,7 +2736,7 @@ function audited(c) {
   const folder = d0.folder ? d0.folder.split(/[\\/]/).filter(Boolean).pop() : "작업 폴더", nCond = c.items.filter(x => V.checks[x.id]).length;
   const rep = document.querySelector("#reports .link");
   box.append(h("div", { class: "au-top" }, h("p", { class: "head" }, `재현 점검 · ${folder}`),
-      rep ? h("button", { class: "link", "data-to-report": "1", on: () => { const r = document.querySelector("#reports .link"); if (r) r.click(); } }, "보고서로") : null),
+      rep ? h("button", { class: "pill", "data-to-report": "1", on: () => { const r = document.querySelector("#reports .link"); if (r) r.click(); } }, "보고서로") : null),
     h("p", { class: "muted au-sub" }, `조건 ${nCond} + 작업 기준 ${c.items.length - nCond} · 읽기 전용으로 실행 · ${time(c.at)}`));
   const GORDER = ["다름", "확인 필요", "코드가 정함", "의도한 차이", "아직 없음", "따름", "조건 밖"];
   const groups = [...new Set([...c.items.map(x => VGROUP[st(x)] || st(x)), ...(out.length ? ["조건 밖"] : [])])].sort((a, b) => GORDER.indexOf(a) - GORDER.indexOf(b));
@@ -2811,7 +2852,8 @@ function aged(box) {  // (not fresh(): the desktop's add box has its own)
   const changed = () => files.length ? h("p", { class: "stale", "data-stale": String(files.length) },
     `⚠ 이 점검 뒤 파일 ${files.length}개가 바뀌었습니다(${files.slice(0, 3).join(", ")}${files.length > 3 ? " 외" : ""}). 판정이 지금 파일과 다를 수 있습니다.`, again()) : null;
   // places, not rows: a condition and a criterion often point at the same line (rehearsal 10/27: "config.yaml:5, config.yaml:5")
-  const at = x => x.line_found ? `${where0(x.where)}:${x.line_found}` : x.where, seen = new Set();
+  // a row on two places ("config.yaml:5; run.py:3") is named and counted by its first (demo 10/27); recheck still gets them all
+  const at = x => x.line_found ? `${where0(x.where)}:${x.line_found}` : String(x.where).split(/;\s*/)[0], seen = new Set();
   const placed = window.pabloHost && pabloHost.recheck
     ? [...c.items, ...(c.outside || [])].filter(x => ["verified", "moved", "value_mismatch"].includes(x.check) && x.where && x.found)
       .filter(x => !seen.has(at(x)) && seen.add(at(x))) : [];
@@ -3559,7 +3601,26 @@ const navs = () => [h("button", { class: "nav", title: "뒤로", disabled: hi <=
   h("button", { class: "nav", title: "앞으로", disabled: hi >= hist.length - 1, on: () => go(1) }, turned("arrow-up", 90))];
 // .url keeps its emoji in textContent (tests read "📄 TinyRAG · PDF"); on screen the line icon stands for it
 const urlIco = (name, emoji) => [ico(name, 14), h("span", { class: "em" }, emoji)];
-const phead = (title, x = xbtn()) => h("div", { class: "phead" }, h("h2", { title }, title), x);
+// demo 10/27: the right column's width is the person's: drag its left edge (#pgrip), or 넓게 보기 in a panel's head
+// (a PDF, the code) to about 60% of the window and back. Kept on this PC (localStorage), within what leaves the chat room
+let widen = null;
+(() => {
+  const R = $("right"); if (!R) return;
+  const KEY = "pablo.pw", MIN = 320, max = () => Math.max(MIN, innerWidth - 640);
+  const set = (w, keep) => { w = Math.round(Math.min(max(), Math.max(MIN, w))); document.body.style.setProperty("--pw", w + "px");
+    if (keep) try { localStorage.setItem(KEY, String(w)); } catch (e) {} };
+  try { const w = +localStorage.getItem(KEY); if (w) set(w); } catch (e) {}
+  const g = R.appendChild(h("div", { id: "pgrip", title: "끌어서 폭 바꾸기 · 두 번 누르면 넓게 / 원래대로", role: "separator", "aria-orientation": "vertical" }));
+  g.addEventListener("pointerdown", e => { e.preventDefault(); g.setPointerCapture(e.pointerId); g.classList.add("on"); document.body.classList.add("dragging");
+    const right = R.getBoundingClientRect().right, mv = ev => set(right - ev.clientX);
+    const up = ev => { g.classList.remove("on"); document.body.classList.remove("dragging"); g.removeEventListener("pointermove", mv); g.removeEventListener("pointerup", up); set(right - ev.clientX, true); };
+    g.addEventListener("pointermove", mv); g.addEventListener("pointerup", up); });
+  widen = () => { const wide = R.getBoundingClientRect().width < innerWidth * 0.45; set(wide ? innerWidth * 0.6 : 390, true); return wide; };
+  g.addEventListener("dblclick", () => widen());
+})();
+const wbtn = () => widen ? h("button", { class: "widen", "data-widen": "1", title: "오른쪽 칸 넓게 / 원래대로", on: e => {
+  e.currentTarget.textContent = widen() ? "↔ 원래대로" : "↔ 넓게 보기"; } }, $("right") && $("right").getBoundingClientRect().width >= innerWidth * 0.45 ? "↔ 원래대로" : "↔ 넓게 보기") : null;
+const phead = (title, x = xbtn()) => h("div", { class: "phead" }, h("h2", { title }, title), wbtn(), x);
 const simple = (p, title, body) => p.append(phead(title), h("div", { id: "pbody" }, body));  // append(null) prints "null": never pass one
 const pcard = (attrs, title, text, ...more) => h("div", { class: "pcard", ...attrs }, h("b", null, title), text ? h("p", null, text) : null, ...more);
 
@@ -3916,10 +3977,10 @@ function codeView(p, st) {
   const open = how => pabloHost.openFile(st.task, st.where, st.line || null, how).then(r => {
       if (hist[hi] === st) info.textContent = { vscode: "VS Code로 열었습니다.", app: "기본 프로그램으로 열었습니다.", folder: "파일이 있는 폴더를 열었습니다." }[r] || ""; },
     e => { if (hist[hi] === st) { info.className = "info broken"; info.textContent = "⚠ " + fail(e); } });
-  const opens = (tag = true) => [h("button", { class: "pill open", "data-open": tag ? "vscode" : null, on: () => open("vscode") }, "VS Code에서 열기"),
-    h("button", { class: "link open", "data-open": tag ? "folder" : null, on: () => open("folder") }, "폴더에서 보기")];
+  const opens = (tag = true) => [h("button", { class: "pill open", "data-open": tag ? "vscode" : null, on: () => open("vscode") }, ico("code", 14), "VS Code"),
+    h("button", { class: "pill open", "data-open": tag ? "folder" : null, on: () => open("folder") }, ico("folder", 14), "폴더")];  // demo 10/28: two equal buttons
   const lnote = h("p", { class: "lnote", hidden: true });
-  p.append(...[h("div", { class: "phead" }, title, xbtn()),
+  p.append(...[h("div", { class: "phead" }, title, wbtn(), xbtn()),
     h("div", { class: "ptool" }, navs(), filePick(st, name, L), h("span", { class: "sp" }), meta),
     h("div", { class: "ptool acts" }, opens()),
     b.chat ? backBand(`이 파일을 가리킨 점검 ${audits} · 대화 ${b.chat - audits}`, [ref], "파일 · " + file, b.chat) : null,
@@ -4123,25 +4184,36 @@ function evhome(p) {
     "논문 질문을 하거나 재현 조건을 뽑으면 [1]처럼 인용이 붙고, 누르면 여기서 그 쪽을 엽니다.",
     ps.map(x => h("button", { class: "link", "data-read-paper": x.id, on: () => show({ mode: "paper", src: x.id }) }, `${x.title} 열어 보기`))));
 }
-// C10: 근거 · <paper>; 자료 고르기 ▾ and the page turns; what cites this page (or this table cell) and 대화로 거르기; where the
-// quote was found ("9쪽에서 근거 [1]을 찾아 표시했습니다"); under the page 원본 열기 ↗ · 추출 텍스트로 보기
+// C10: 근거 · <paper>; 자료 고르기 ▾, zoom and the page; what cites the page in view (or this table cell) and 대화로 거르기;
+// where the quote was found ("9쪽에서 근거 [1]을 찾아 표시했습니다"); under the pages 원본 열기 ↗ · 추출 텍스트로 보기.
+// demo 10/28: one scroll of all pages (drawn when near the view), fitted to the column's width and fitted again when the
+// column is dragged or widened; − / % / + / 폭 맞춤 and Ctrl+wheel; the page in view is said as "N / M" while scrolling,
+// 이전 / 다음 쪽 scroll to a page. The quote's boxes are drawn on its page at every scale.
 async function pdfPanel(p, st, a, src) {
-  const t0 = performance.now(), n = st.page || (a ? a.page : 1), sid = a ? a.source : st.src;
-  const turn = d => show({ ...st, page: n + d, text: false });
+  const t0 = performance.now(), sid = a ? a.source : st.src;
+  let n = a ? a.page : st.page || 1;  // the page in view
   document.body.classList.add("pdf");
   p.dataset.live = "LOADING";
   const cell = a ? cellOf(st.e) : null, num = a ? numOf(st.e) : 0;
   const info = h("div", { class: "info", title: src.hash }, `캡처한 PDF · ${a ? "근거 위치를 찾는 중…" : "여는 중…"}`);
-  const asText = h("button", { class: "link", "data-as-text": "1", on: () => a && n === a.page ? show({ mode: "source", e: st.e, failed: "TEXT" }) : show({ ...st, text: !st.text }) },
-    st.text ? "PDF로 보기" : "추출 텍스트로 보기");
+  const asText = h("button", { class: "mini", "data-as-text": "1", on: () => a && !st.text && n === a.page ? show({ mode: "source", e: st.e, failed: "TEXT" })
+    : show({ ...st, page: n, text: !st.text }) }, st.text ? "PDF로 보기" : "추출 텍스트로 보기");
+  let go = () => {}, zoomBy = () => {}, fitNow = () => {};
+  const prev = h("button", { class: "nav pg-t", title: "이전 쪽", disabled: n <= 1, on: () => go(n - 1) }, turned("chevron-right", 180, 14));
+  const next = h("button", { class: "nav pg-t", title: "다음 쪽", disabled: n >= src.pages, on: () => go(n + 1) }, ico("chevron-right", 14));
+  const pnum = h("span", { class: "pnum" }, `${n} / ${src.pages}`);
+  const zl = h("span", { class: "zl", title: "배율" }, "폭 맞춤");
+  const zoom = st.text ? null : h("span", { class: "zoom", role: "group", "aria-label": "확대" },
+    h("button", { class: "nav", title: "축소 (Ctrl + 휠)", "data-zoom": "out", on: () => zoomBy(1 / 1.2) }, ico("minus", 14)), zl,
+    h("button", { class: "nav", title: "확대 (Ctrl + 휠)", "data-zoom": "in", on: () => zoomBy(1.2) }, ico("plus", 14)),
+    h("button", { class: "nav", title: "폭 맞춤", "data-zoom": "fit", on: () => fitNow() }, ico("fit", 14)));
+  const band = h("div", { class: "pband" });
+  const drawBand = () => band.replaceChildren(...[evBand(st.e, a || { source: sid }, n, linksOf(V))].filter(Boolean));
+  drawBand();
   p.append(phead(`근거 · ${src.title}`),
-    h("div", { class: "ptool" }, navs(), srcPick(sid, "PDF"), h("span", { class: "sp" }),
-      h("button", { class: "nav pg-t", title: "이전 쪽", disabled: n <= 1, on: () => turn(-1) }, turned("chevron-right", 180, 14)),
-      h("span", { class: "pnum" }, `${n} / ${src.pages}`),
-      h("button", { class: "nav pg-t", title: "다음 쪽", disabled: n >= src.pages, on: () => turn(1) }, ico("chevron-right", 14))),
-    evBand(st.e, a || { source: sid }, n, linksOf(V)),
-    info, h("div", { id: "pbody", class: "pdf" }),
-    h("div", { class: "pfoot2" }, /^https?:/i.test(src.url || "") ? h("a", { href: src.url, target: "_blank", rel: "noopener noreferrer", "data-orig": "1" }, "원본 열기 ↗") : null, asText));
+    h("div", { class: "ptool" }, navs(), srcPick(sid, "PDF"), h("span", { class: "sp" }), h("span", { class: "pctl" }, zoom, prev, pnum, next)),
+    band, info, h("div", { id: "pbody", class: "pdf" }),
+    h("div", { class: "pfoot2" }, /^https?:/i.test(src.url || "") ? h("a", { class: "mini", href: src.url, target: "_blank", rel: "noopener noreferrer", "data-orig": "1" }, "원본 열기 ↗") : null, asText));
   const fail = why => { if (hist[hi] !== st) return;
     if (!a) { p.dataset.live = "ERROR"; info.textContent = ""; const b = $("pbody"); if (b) b.replaceChildren(cantPdf(src)); return; }
     hist[hi] = { mode: "source", e: st.e, failed: why }; show(hist[hi], false); };
@@ -4149,36 +4221,91 @@ async function pdfPanel(p, st, a, src) {
     const L = await pdfLib();
     const doc = await (pdfs[sid] = pdfs[sid] || L.getDocument({ url: "pablo://source/" + src.file,
       standardFontDataUrl: PDFJS + "standard_fonts/", cMapUrl: PDFJS + "cmaps/", wasmUrl: PDFJS + "wasm/" }).promise);
-    const pg = await doc.getPage(n), box = $("pbody");
+    const box = $("pbody");
     if (hist[hi] !== st || !box) return;
     if (st.text) {  // the page's own text (pdf.js), for a page without a quote to box
-      const tc = await pg.getTextContent();
+      const tc = await (await doc.getPage(n)).getTextContent();
       if (hist[hi] !== st) return;
       box.classList.add("astext");
       box.append(h("article", { id: "doc" }, h("div", { class: "b p" }, tc.items.map(i => i.str + (i.hasEOL ? "\n" : "")).join(""))));
       p.dataset.live = "TEXT"; info.textContent = `${n}쪽에서 추출한 본문입니다.`; return;
     }
-    const vp = pg.getViewport({ scale: (box.clientWidth - 24) / pg.getViewport({ scale: 1 }).width }), dpr = devicePixelRatio || 1;
-    const cv = h("canvas", { width: Math.floor(vp.width * dpr), height: Math.floor(vp.height * dpr), style: `width:${vp.width}px;height:${vp.height}px` });
-    const sheet = box.appendChild(h("div", { class: "pg", style: `width:${vp.width}px;--total-scale-factor:${vp.scale};--scale-round-x:1px;--scale-round-y:1px` }, cv));
-    await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp, transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0] }).promise;
-    if (hist[hi] !== st) return;
-    // ⑩ the page's text over the canvas (selectable); a sentence picked there can become a reproduction condition
-    const tc = await pg.getTextContent(), layer = sheet.appendChild(h("div", { class: "textLayer" }));
-    await new L.TextLayer({ textContentSource: tc, container: layer, viewport: vp }).render().catch(e => console.error("[pdf] text", e));
-    if (hist[hi] !== st) return;
-    const picks = picker(p, box, layer, sid, n);
-    if (!a) { p.dataset.live = "PAPER"; info.textContent = `캡처한 PDF · ${n}쪽` + (picks ? " · 문장을 끌어서 고르면 재현 조건으로 더할 수 있습니다." : ""); return; }
-    if (n !== a.page) { p.dataset.live = "PAGE"; info.replaceChildren(`캡처한 PDF · ${n}쪽 · 근거는 ${a.page}쪽에 있습니다. `,
-      h("button", { class: "link", on: () => show({ ...st, page: a.page }) }, `${a.page}쪽으로`)); return; }
+    const total = doc.numPages, live = () => hist[hi] === st && box.isConnected;
+    const sizes = await Promise.all(Array.from({ length: total }, (_, i) => doc.getPage(i + 1).then(pg => { const v = pg.getViewport({ scale: 1 }); return [v.width, v.height]; })));
+    if (!live()) return;
+    const sheets = sizes.map((_, i) => h("div", { class: "pg", "data-n": String(i + 1) }));
+    box.append(...sheets);
+    // the width the pages may take: #pbody's content box (its padding is not page; 2px for the page's border)
+    const room = () => { const cs = getComputedStyle(box); return box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2; };
+    const fitted = () => Math.max(0.2, room() / Math.max(...sizes.map(s => s[0])));
+    let fit = true, scale = fitted(), hit = null;  // hit: the quote on its page {page, items, s, e}
+    const size = () => { sheets.forEach((s, i) => { s.style.width = sizes[i][0] * scale + "px"; s.style.height = sizes[i][1] * scale + "px";
+      s.style.setProperty("--total-scale-factor", scale); s.style.setProperty("--scale-round-x", "1px"); s.style.setProperty("--scale-round-y", "1px"); });
+      zl.textContent = fit ? "폭 맞춤" : Math.round(scale * 100) + "%"; };
+    size();
+    const marks = (i, vp) => hit && hit.page === i ? boxes(hit.items, hit.s, hit.e, vp, L) : [];
+    const draw = i => {  // page i at the current scale: canvas, then its text layer, then the quote's boxes
+      const s = sheets[i - 1];
+      if (!s || s._at === scale) return s && s._p;
+      const want = s._at = scale;
+      return s._p = (async () => {
+        const pg = await doc.getPage(i), vp = pg.getViewport({ scale: want }), dpr = devicePixelRatio || 1;
+        const cv = h("canvas", { width: Math.floor(vp.width * dpr), height: Math.floor(vp.height * dpr) });
+        await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp, transform: dpr === 1 ? null : [dpr, 0, 0, dpr, 0, 0] }).promise;
+        if (s._at !== want || !live()) return;
+        const tc = s._tc || (s._tc = await pg.getTextContent()), layer = h("div", { class: "textLayer" });
+        // ⑩ the page's text over the canvas (selectable); a sentence picked there can become a reproduction condition
+        await new L.TextLayer({ textContentSource: tc, container: layer, viewport: vp }).render().catch(e => console.error("[pdf] text", e));
+        if (s._at !== want || !live()) return;
+        s.replaceChildren(cv, layer, ...marks(i, vp).map(b => h("div", { class: "hl", style: `left:${b.l}px;top:${b.t}px;width:${b.r - b.l}px;height:${b.b - b.t}px` })));
+      })().catch(e => { console.error("[pdf] page", i, e); s._at = null; });
+    };
+    const io = new IntersectionObserver(es => es.forEach(e => e.isIntersecting && live() && draw(+e.target.dataset.n)), { root: box, rootMargin: "100% 0px" });
+    const watch = () => { io.disconnect(); sheets.forEach(s => io.observe(s)); };
+    // the page in view: the one across the upper third of the panel (the last one once scrolled to the end)
+    let paperInfo = () => {};
+    const setPage = k => { if (k === n) return; n = k; if (!a) st.page = k;
+      pnum.textContent = `${k} / ${total}`; prev.disabled = k <= 1; next.disabled = k >= total; drawBand(); paperInfo(); };
+    const track = () => { if (!live()) return;
+      if (box.scrollTop > 0 && box.scrollTop + box.clientHeight >= box.scrollHeight - 2) return setPage(total);
+      const y = box.scrollTop + box.clientHeight / 3; let k = 1;
+      for (const s of sheets) { if (s.offsetTop <= y) k = +s.dataset.n; else break; }
+      setPage(k); };
+    let tr = 0;
+    box.addEventListener("scroll", () => { if (!tr) tr = requestAnimationFrame(() => { tr = 0; track(); }); }, { passive: true });
+    go = k => { const s = sheets[k - 1]; if (!s) return; box.scrollTo({ top: s.offsetTop - 8, behavior: "smooth" }); setPage(k); };
+    // a new scale keeps the same spot of the same page in view
+    const rescale = s2 => { if (!live()) return;
+      const s = sheets[n - 1], off = (box.scrollTop - s.offsetTop) / s.offsetHeight;
+      scale = s2; size(); box.scrollTop = s.offsetTop + off * s.offsetHeight; watch(); };
+    zoomBy = f => { fit = false; rescale(Math.min(4, Math.max(0.3, scale * f))); };
+    fitNow = () => { fit = true; rescale(fitted()); };
+    box.addEventListener("wheel", e => { if (!e.ctrlKey) return; e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.1 : 1 / 1.1); }, { passive: false });
+    // the column dragged or widened: fitted again once it rests (not on every pixel of a drag)
+    let rt = 0, w0 = box.clientWidth;
+    const ro = new ResizeObserver(() => { if (!live()) { ro.disconnect(); io.disconnect(); return; }
+      if (!fit || box.clientWidth === w0) return;
+      clearTimeout(rt); const again = () => { if (document.body.classList.contains("dragging")) { rt = setTimeout(again, 150); return; }
+        w0 = box.clientWidth; rescale(fitted()); }; rt = setTimeout(again, 150); });
+    ro.observe(box);
+    const picks = picker(p, box, sid);
+    if (!a) {
+      paperInfo = () => { info.textContent = `캡처한 PDF · ${n}쪽` + (picks ? " · 문장을 끌어서 고르면 재현 조건으로 더할 수 있습니다." : ""); };
+      await draw(n); if (!live()) return;
+      box.scrollTop = sheets[n - 1].offsetTop - 8; watch();
+      p.dataset.live = "PAPER"; paperInfo(); return;
+    }
+    const pg = await doc.getPage(a.page), tc = sheets[a.page - 1]._tc = await pg.getTextContent();
+    if (!live()) return;
     const items = tc.items.filter(i => "str" in i), r = findIn(items, a);
-    if (r.status !== "FOUND") return near(p, st, a, src, n, items, info, () => fail(r.status));
-    const bs = boxes(items, r.start, r.end, vp, L);
+    if (r.status !== "FOUND") { io.disconnect(); ro.disconnect(); return near(p, st, a, src, a.page, items, info, () => fail(r.status)); }
+    hit = { page: a.page, items, s: r.start, e: r.end };
+    const bs = boxes(items, r.start, r.end, pg.getViewport({ scale }), L);
     if (!bs.length) return fail("HIDDEN");
-    bs.forEach(b => sheet.append(h("div", { class: "hl", style: `left:${b.l}px;top:${b.t}px;width:${b.r - b.l}px;height:${b.b - b.t}px` })));
-    box.scrollTop = Math.max(0, Math.min(...bs.map(b => b.t)) - box.clientHeight / 3);
+    await draw(a.page); if (!live()) return;
+    box.scrollTop = Math.max(0, sheets[a.page - 1].offsetTop + Math.min(...bs.map(b => b.t)) - box.clientHeight / 3); watch();
     p.dataset.ms = Math.round(performance.now() - t0); p.dataset.live = "FOUND";
-    info.textContent = cell ? `✓ ${n}쪽에서 칸 [${num}]의 근거를 찾아 표시했습니다.` : `✓ ${n}쪽에서 근거 [${num}]을 찾아 표시했습니다.`;
+    info.textContent = cell ? `✓ ${a.page}쪽에서 칸 [${num}]의 근거를 찾아 표시했습니다.` : `✓ ${a.page}쪽에서 근거 [${num}]을 찾아 표시했습니다.`;
   } catch (err) { console.error("[pdf]", err); fail("ERROR"); }
 }
 // B20 / S8: the quote is not on its page as pdf.js reads it (or twice there): the places on the page most like it (Python
@@ -4209,11 +4336,15 @@ async function near(p, st, a, src, n, items, info, otherwise) {
 // ⑩ / F22 (desktop) a sentence picked on a page of the task's paper -> a floating "재현 조건으로 더하기" over it -> a card:
 // its kind, its value, the condition in one line, a condition already like it named first. Pablo anchors the sentence on that
 // page like an extracted condition (main.js: only the 주 논문; not found -> refused).
-function picker(p, box, layer, sid, n) {
+function picker(p, box, sid) {
   const d = V && (M.desk || {})[V.task.id] || {};
   if (!window.pabloHost || !pabloHost.condition || !(d.papers || []).some(x => x.id === sid && x.kind !== "web")) return false;
   const bar = p.appendChild(h("div", { id: "pick", class: "float", hidden: true })), task = V.task.id, main = (d.papers || []).find(x => x.primary);
-  let form = false;
+  let form = false, n = 0;  // n: the page the picked sentence is on (demo 10/28: all pages are in one scroll)
+  // the text layer of one page that holds the whole selection, else null (a selection across pages is not a sentence)
+  const pageOf = r => { const c = r.commonAncestorContainer, el = c.nodeType === 1 ? c : c.parentElement, sheet = el && el.closest(".pg");
+    const layer = sheet && box.contains(sheet) && sheet.querySelector(".textLayer");
+    return layer && layer.contains(c) ? +sheet.dataset.n : 0; };
   const place = () => { const sel = getSelection(); if (!sel.rangeCount) return;
     const r = sel.getRangeAt(0).getBoundingClientRect(), pr = p.getBoundingClientRect();
     bar.style.top = Math.max(8, r.top - pr.top - 40) + "px";
@@ -4221,7 +4352,7 @@ function picker(p, box, layer, sid, n) {
   const offer = () => {
     if (form) return;
     const sel = getSelection(), q = sel.toString().replace(/\s+/g, " ").trim();
-    if (!q || !sel.rangeCount || !layer.contains(sel.getRangeAt(0).commonAncestorContainer)) { bar.hidden = true; return; }
+    if (!q || !sel.rangeCount || !(n = pageOf(sel.getRangeAt(0)))) { bar.hidden = true; return; }
     bar.hidden = false; bar.className = "float";
     bar.replaceChildren(q.length > 600 ? h("span", { class: "tip" }, "한 문장만 골라 주세요.")
       : h("button", { class: "fbtn", "data-add-spec": "1", title: `“${q.length > 90 ? q.slice(0, 90) + "…" : q}”`, on: () => open(q) }, ico("plus", 14), "재현 조건으로 더하기"));
@@ -4252,11 +4383,11 @@ function picker(p, box, layer, sid, n) {
         form = false; getSelection().removeAllRanges();
         bar.className = "form done";
         bar.replaceChildren(h("span", { "data-added": r.check.id }, ico("check", 14), " 재현 조건에 더했습니다. 에이전트와 재현 점검이 이 조건도 봅니다."),
-          h("button", { class: "link", on: () => { bar.hidden = true; } }, "닫기"));
+          h("button", { class: "mini", on: () => { bar.hidden = true; } }, "닫기"));
         echo(task, { role: "spec-add", check: r.check.id });
         return refresh();
       }, e => { add.disabled = false; note.textContent = fail(e); }); } }, "더하기");
-    const cancel = h("button", { class: "link", on: () => { form = false; bar.hidden = true; } }, "취소");
+    const cancel = h("button", { class: "pill", "data-pick-cancel": "1", on: () => { form = false; bar.hidden = true; } }, "취소");
     bar.replaceChildren(h("div", { class: "q" }, `“${q}”`, h("small", null, ` — p.${n}`)),
       h("div", { class: "grid" }, h("label", null, h("span", null, "종류"), cat), h("label", null, h("span", null, "값 (선택)"), val)),
       h("label", null, h("span", null, "조건 한 줄"), say),
@@ -4297,7 +4428,11 @@ addEventListener("mousedown", e => {
 
 // ---- M4.0/M4.1 desktop host only: ChatGPT connection + composer -> persistent Codex app-server thread (desktop/) ----
 if (window.pabloHost && pabloHost.chat) {
-  const box = document.querySelector("#chat > .composer"), [inp, btn] = box.querySelectorAll("input, button");
+  // demo 10/27: a long message wraps; the box grows to 8 lines, then scrolls. Enter sends, Shift+Enter is a new line
+  const box = document.querySelector("#chat > .composer"), inp = h("textarea", { rows: 1, "aria-label": "메시지" }), btn = box.querySelector("button");
+  box.querySelector("input").replaceWith(inp);
+  const grow = () => { inp.style.height = "auto"; inp.style.height = Math.min(inp.scrollHeight, 200) + "px"; };
+  inp.addEventListener("input", grow);
   const st = box.insertBefore(h("small", { class: "muted", id: "agent" }), btn);
   const pick = box.insertBefore(h("select", { id: "model", title: "모델" }), st);  // the ChatGPT account's catalog (/v1/models, visibility "list")
   pick.addEventListener("change", () => pabloHost.setModel(pick.value));
@@ -4333,11 +4468,15 @@ if (window.pabloHost && pabloHost.chat) {
   const acct = $("side").appendChild(h("div", { id: "acct" }));  // A2 complete (A6): the account card at the sidebar's foot (sidebar() keeps it)
   const LABEL = { Connecting: "연결 중…", Ready: "준비됨", Thinking: "생각 중…", Error: "오류" };
   let out = null, agentSt = "Connecting", authSt = { state: "signed_out" }, turning = false, stopping = false, wasReady = false;  // turning: an agent turn (a PDF ask cannot be stopped)
+  let since = 0, tick = null, stick = true;  // working(): when the turn began, its clock; scroll(): the log follows its foot
+  let talk = null;  // the task whose turn is running; its answer stays in that task's chat
   const gate = () => {
     const on = authSt.state === "connected", running = on && turning && agentSt === "Thinking";
     // B17: 연결 안 됨 / 준비됨 / 작업 중 · 확인 기다림 (a WARN card waits for the person)
     const waits = !!document.querySelector("#live [data-answer]");
-    st.textContent = ""; st.append(...(!on ? ["연결 안 됨"] : agentSt === "Thinking" ? [art("think"), stopping ? "중지하는 중…" : "작업 중" + (waits ? " · 확인 기다림" : "")] : [LABEL[agentSt] || agentSt]));
+    // demo 10/27: 작업 중 is said in the conversation (working()); the composer keeps only 중지하는 중…
+    st.textContent = ""; st.append(...(!on ? ["연결 안 됨"] : agentSt === "Thinking" ? (stopping ? ["중지하는 중…"] : []) : [LABEL[agentSt] || agentSt]));
+    working(waits);
     box.dataset.agent = agentSt;
     pick.hidden = !on || !pick.options.length; pick.disabled = agentSt === "Thinking";
     mbtn.hidden = pick.hidden; mbtn.disabled = pick.disabled; if (mbtn.hidden || mbtn.disabled) mmenu.hidden = true;
@@ -4431,7 +4570,38 @@ if (window.pabloHost && pabloHost.chat) {
   new MutationObserver(rs => { if (rs.every(r => r.oldValue === (box.dataset.agent || null))) return;
     if (box.dataset.agent === "Ready" && authSt.state === "connected") seenReady = true; paintAcct(); })
     .observe(box, { attributes: true, attributeFilter: ["data-agent"], attributeOldValue: true });
-  const scroll = () => { $("log").scrollTop = $("log").scrollHeight; };
+  // demo 10/27: the log follows new messages while it is at its foot; scrolled up, it stays where the person put it
+  // until they come back down (or send something)
+  // demo 10/28: only the person's own scrolling (wheel, keys, the scrollbar, touch) lets go of the foot; anything that
+  // makes the log longer (a streamed word, a card, a re-render, the working line's clock) keeps it at the foot meanwhile
+  const L0 = $("log"); let touched = 0, pinning = 0;
+  const pin = () => { if (pinning) return; pinning = requestAnimationFrame(() => { pinning = 0; if (stick) L0.scrollTop = L0.scrollHeight; }); };
+  ["wheel", "touchmove", "pointerdown"].forEach(t => L0.addEventListener(t, () => { touched = Date.now(); }, { passive: true }));
+  L0.addEventListener("keydown", e => { if (/^(PageUp|PageDown|Home|End|ArrowUp|ArrowDown| )$/.test(e.key)) touched = Date.now(); });
+  L0.addEventListener("scroll", () => { if (Date.now() - touched < 1200) stick = L0.scrollHeight - L0.scrollTop - L0.clientHeight < 60; }, { passive: true });
+  new MutationObserver(pin).observe(L0, { childList: true, subtree: true, characterData: true });
+  new ResizeObserver(pin).observe(L0);
+  const scroll = force => { if (force === true) stick = true; working(); if (stick) L0.scrollTop = L0.scrollHeight; };
+  // demo 10/27: while the agent works, the conversation's foot says so: 작업 중 · m:ss, and what it is on now (the last
+  // line it wrote, or that a card waits for 진행 / 취소). It stays the last thing in the task's conversation
+  function working(waits) {
+    let w = $("working");
+    if (!(turning && agentSt === "Thinking" && talk)) { if (w) w.remove(); clearInterval(tick); tick = null; since = 0; return; }
+    if (waits === undefined) waits = !!document.querySelector("#live [data-answer]");
+    if (!since) since = Date.now();
+    if (!tick) tick = setInterval(() => working(), 1000);
+    const l = live(talk);
+    // demo 10/28: the thinking character beside the spinner (made once, so its motion is not restarted every second)
+    if (!w) { w = msg("Pablo", null, h("div", { class: "wk" }, art("think", "bob"), h("div", { class: "wk-b" }))); w.id = "working"; w.classList.add("working"); }
+    if (l.lastElementChild !== w) l.append(w);
+    // what it said last: its last paragraph (wrapped, 3 lines at most on screen), not only the last line
+    const s = Math.floor((Date.now() - since) / 1000), said = out ? out.textContent.trim().split(/\n\s*\n/).filter(x => x.trim()).pop() || "" : "";
+    const pg = [...l.querySelectorAll(".prog .pg-t")].pop();  // 재현 점검 / 조건 뽑기: their progress card's line
+    const now = waits ? "확인 카드에서 진행할지 기다립니다" : said ? said.trim().replace(/[`*]/g, "") : pg && pg.textContent ? pg.textContent : "요청을 읽고 계획하는 중…";
+    w.querySelector(".wk-b").replaceChildren(h("p", { class: "wk-h" }, h("span", { class: "spin", "aria-hidden": "true" }),
+      h("b", null, stopping ? "중지하는 중" : "작업 중"), h("span", { class: "muted" }, ` · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`)),
+      h("p", { class: "wk-t", title: now }, now));
+  }
   pabloHost.onAuth(account);
   pabloHost.onAgent(ev => {
     if (ev.type === "model") { pick.value = ev.model; mlabel(); }
@@ -4498,7 +4668,6 @@ if (window.pabloHost && pabloHost.chat) {
     card.insertBefore(row, foot);
     return card;
   }
-  let talk = null;  // the task whose turn is running; its answer stays in that task's chat
   const stream = t => { out = h("p", { class: "stream", style: "white-space:pre-wrap" }); live(t).append(msg("Pablo", null, out)); scroll(); };
   // Thinking (and 중지) from the moment it is sent: Pablo records the message's criteria and the brief before the agent starts
   const chat = (text, t) => { talk = busy = t; turning = true; stream(t); status("Thinking");
@@ -4519,8 +4688,8 @@ if (window.pabloHost && pabloHost.chat) {
           read ? h("button", { class: "pill", on: () => addSource && addSource() }, "arXiv · DOI로 가져오기")
             : h("button", { class: "pill", on: () => attach("pickFolder") }, ico("folder", 14), "작업 폴더 고르기"))))); scroll(); return;
     }
-    inp.value = "";
-    live(talk).append(msg("You", new Date().toISOString(), h("p", null, text)));
+    inp.value = ""; grow();
+    live(talk).append(msg("You", new Date().toISOString(), h("p", { style: "white-space:pre-wrap" }, text))); scroll(true);
     if (pdf && !dir) return ask(text, talk);
     if (dir && !pdf) return chat(text, talk);
     if (pdf && dir) return (d.route === "ask" ? ask : chat)(text, talk);  // both: the task's 보낼 곳 (agent by default)
@@ -5040,7 +5209,7 @@ if (window.pabloHost && pabloHost.chat) {
           row("보고서 기본 위치", "보고서 내보내기에서 작업마다 바꿀 수 있습니다.", h("code", null, "작업 폴더\\reports\\")),
           h("p", { class: "set-info" }, ico("info", 14), " 작업 폴더는 이 위치와 겹치지 않는 별도 폴더여야 합니다. 겹치는 폴더를 고르면 Pablo가 받지 않습니다.")].filter(Boolean); },
       about: () => { const host = M.host || {}, REPO = "https://github.com/PabloITMST/Pablo_application";
-        return [h("div", { class: "set-brand" }, h("b", null, "Pablo"), h("code", null, host.version || "")),
+        return [h("div", { class: "set-brand" }, h("b", null, art("head", "ico"), "Pablo"), h("code", null, host.version || "")),
           h("p", { class: "set-lead" }, "논문 재현과 읽기를 돕는 데스크톱 앱. 에이전트가 하는 일을 작업 기준과 대조합니다."),
           row("버전", "에이전트는 Codex app-server로 실행합니다.", h("code", null, `Pablo ${host.version || "—"} · Codex ${host.codex || "—"}`)),
           row("로그", host.logs ? "문제를 알릴 때 이 폴더의 로그를 함께 보내 주세요." : "로그는 콘솔에만 남고 파일로 저장하지 않습니다.",
@@ -5090,7 +5259,7 @@ if (window.pabloHost && pabloHost.chat) {
           h("span", null, label), h("small", null, n(pv.counts))))),
         h("div", { class: "rp-auto" }, h("b", null, "함께 남는 기록 (자동)"), h("code", null, pv.auto)),
         pv.stale ? h("div", { class: "rp-stale", "data-report-stale": "1" }, h("p", null, "점검 뒤 파일이 바뀌었습니다. 이대로 내보내면 점검 결과가 '오래됨'으로 표시됩니다."),
-          reAudit && pabloHost.audit ? h("button", { class: "pill", "data-report-reaudit": "1", on: () => { dlg.remove(); reAudit(t); } }, "먼저 다시 점검") : null) : null,
+          reAudit && pabloHost.audit ? h("button", { class: "pill", "data-report-reaudit": "1", on: () => { dlg.remove(); reAudit(t); } }, "먼저 다시 점검") : null) : "",  // replaceChildren prints null as "null" (demo 10/27)
         h("div", { class: "rp-opts" }, h("div", null, h("h4", null, "형식"), seg), h("div", null, h("h4", null, "저장 위치"), h("span", { class: "rp-wrow" }, placeEl, change))));
       body.addEventListener("change", () => { goB.disabled = !body.querySelector("[data-section]:checked"); });
       goB.disabled = false;
@@ -5110,8 +5279,8 @@ if (window.pabloHost && pabloHost.chat) {
     if (V && V.task.id === t) { live(t).append(msg("Pablo", null, h("div", { class: "call rp-done", "data-report": "1" },
       h("p", { class: "head" }, ico("file", 14), "보고서를 저장했습니다"),
       h("p", { class: "rp-file" }, h("code", null, r.rel || r.display || r.name), ` · ${r.lines}줄`),
-      r.rel && pabloHost.openFile ? h("p", { class: "acts" }, h("button", { class: "link", "data-report-open": "folder", on: () => open("folder") }, "폴더에서 보기"),
-        h("button", { class: "link", "data-report-open": "vscode", on: () => open("vscode") }, "VS Code에서 열기")) : null))); scroll(); }
+      r.rel && pabloHost.openFile ? h("p", { class: "acts" }, h("button", { class: "pill open", "data-report-open": "folder", on: () => open("folder") }, ico("folder", 14), "폴더에서 보기"),
+        h("button", { class: "pill open", "data-report-open": "vscode", on: () => open("vscode") }, ico("code", 14), "VS Code에서 열기")) : null))); scroll(); }
     askDone(); refresh();
   }, e => {
     done();
@@ -5211,7 +5380,7 @@ if (window.pabloHost && pabloHost.chat) {
     live(t).append(msg("Pablo", null, box)); scroll(); cols.focus();
   }
   btn.addEventListener("click", () => box.dataset.running ? stop() : send());
-  inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) send(); });
+  inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
   account(authSt); pabloHost.authStatus().then(account); pabloHost.agentStatus().then(s => status(s)); models().then(gate);
 }
 const tag = decodeURIComponent(location.hash.slice(1));
