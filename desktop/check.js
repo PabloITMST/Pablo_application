@@ -122,10 +122,10 @@ async function chat() {
   console.log("ok ready in", Date.now() - t0, "ms; model", agent.model);
   const turn = async text => {
     const n = deltas.length, ev = new Promise(r => { const f = e => e.type === "done" && (agent.off("event", f), r(e)); agent.on("event", f); });
-    await js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+    await js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
     const seen = await until(`(s => s === "Thinking" && s)($("chat").querySelector(".composer").dataset.agent)`, 5000).catch(async e => {
       console.log("   debug", JSON.stringify(await js(`({ agent: $("chat").querySelector(".composer").dataset.agent, title: $("agent").title,
-        disabled: document.querySelector("#chat .composer input").disabled, desk: M.desk, task: V.task.id, live: live().textContent.slice(-120) })`)), errs, JSON.stringify(evlog.slice(-8))); throw e; });
+        disabled: document.querySelector("#chat .composer textarea").disabled, desk: M.desk, task: V.task.id, live: live().textContent.slice(-120) })`)), errs, JSON.stringify(evlog.slice(-8))); throw e; });
     assert.strictEqual(seen, "Thinking");
     const mid = execs();
     let over = false; ev.then(() => { over = true; });
@@ -162,7 +162,7 @@ async function chat() {
 
   // 중지: while the agent works the send button is ■; pressing it ends the turn as interrupted, and the reply says so
   const stopped = new Promise(r => { const f = e => e.type === "done" && (agent.off("event", f), r(e)); agent.on("event", f); });
-  await js(`(i => { i.value = "1부터 300까지 숫자를 한 줄에 하나씩 적어줘. 파일은 보지 마."; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+  await js(`(i => { i.value = "1부터 300까지 숫자를 한 줄에 하나씩 적어줘. 파일은 보지 마."; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
   await until(`$("chat").querySelector(".composer").dataset.running === "1" && [...document.querySelectorAll("#live .stream")].at(-1).textContent.length > 0`, 120000);
   await js(`document.querySelector("#chat .composer button").click()`);
   const ev = await stopped;
@@ -286,7 +286,7 @@ async function authCheck() {
   const js = c => win.webContents.executeJavaScript(c);
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
-  assert.ok(await js(`document.querySelector("#chat .composer input").disabled`), "composer off while signed out");
+  assert.ok(await js(`document.querySelector("#chat .composer textarea").disabled`), "composer off while signed out");
   assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "efforts", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "openWork", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "recheckPlan", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setEffort", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "similar", "spec", "state", "stop", "summarize", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
@@ -343,7 +343,7 @@ async function authCheck() {
   console.log("ok PowerShell 5.1: connected -> the notice once (winget, 다시 시작) -> 알겠습니다 -> not again");
   // the fake token reaches the real API -> 401 -> short message, refresh, restart, same thread
   const [thread, spawns] = [agent.thread(), agent.spawns];
-  await js(`(i => { i.value = "hi"; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+  await js(`(i => { i.value = "hi"; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
   const shown = await until(`(b => b && b.textContent)(document.querySelector("#live .call.block"))`, 120000);
   assert.ok(shown.includes(siwc.SAY.unauthorized) && !/[{}]/.test(shown), "short message: " + shown);
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`);
@@ -364,7 +364,7 @@ async function authCheck() {
   await js(`$("settings").remove()`);
   assert.ok(!siwc.has() && !agent.pid() && !fs.existsSync(path.join(dir, "thread.json")), "credentials, thread, agent gone");
   assert.ok(F.seen.some(x => x[0] === "/revoke" && x[1].token.startsWith("rt-") && x[1].client_id === F.issued), "refresh token revoked");
-  assert.ok(await js(`document.querySelector("#chat .composer input").disabled`) && hostJson().client_id === F.issued, "composer off; host id + client kept");
+  assert.ok(await js(`document.querySelector("#chat .composer textarea").disabled`) && hostJson().client_id === F.issued, "composer off; host id + client kept");
   console.log("ok logout: revoked, credentials + thread removed, agent stopped");
   // D5: a failed sign-in reaches the page with its SAY key (S2 failed vs S3 plan not allowed), still no token
   const login0 = siwc.login;
@@ -483,9 +483,9 @@ async function guardCheck() {
     const n = traces.length, c0 = await cards();
     let over = false;
     const done = new Promise(r => { const f = e => e.type === "done" && (agent.off("event", f), over = true, r(e)); agent.on("event", f); });
-    await js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+    await js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
     if (process.env.PABLO_CHECK_DEBUG) setTimeout(async () => console.log("   debug", JSON.stringify(await js(`({ agent: $("chat").querySelector(".composer").dataset.agent,
-      disabled: document.querySelector("#chat .composer input").disabled, value: document.querySelector("#chat .composer input").value,
+      disabled: document.querySelector("#chat .composer textarea").disabled, value: document.querySelector("#chat .composer textarea").value,
       desk: M.desk, live: live().textContent.slice(-300) })`)), agent.status, agent.busy()), 5000);
     while (!over) {
       const card = await js(`(b => b && b.closest("[data-verdict]").textContent)(document.querySelector("#live [data-answer=proceed]"))`);
@@ -682,10 +682,10 @@ async function pdfCheck() {
     return win.destroy();
   }
   const asks = [], gold = JSON.parse(fs.readFileSync(path.join(__dirname, "../tests/eval/linearrag_gold.json"), "utf8"));
-  await until(`!document.querySelector("#chat .composer input").disabled`, 60000);
+  await until(`!document.querySelector("#chat .composer textarea").disabled`, 60000);
   for (const q of gold.questions) {
     const n = await js(`document.querySelectorAll(".asked").length`), t0 = Date.now();
-    await js(`(i => { i.value = ${JSON.stringify(q.question)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+    await js(`(i => { i.value = ${JSON.stringify(q.question)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
     await until(`(b => b && !b.querySelector(".muted:only-child") && b.textContent)(document.querySelectorAll(".asked")[${n}])`, 300000);
     const ms = Date.now() - t0, text = await js(`document.querySelectorAll(".asked")[${n}].textContent`);
     const es = await js(`[...document.querySelectorAll(".asked")[${n}].querySelectorAll(".cite")].map(b => b.dataset.e)`);
@@ -731,7 +731,7 @@ async function demo() {
   let js = code => win.webContents.executeJavaScript(code);
   const until = async (code, ms = 300000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
   const shot = async name => { await sleep(400); fs.writeFileSync(path.join(view, name), (await win.capturePage()).toPNG()); console.log("   shot", name); };
-  const type = text => js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+  const type = text => js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
   await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`, 60000);
   await shot("a0-ready.png");
 
@@ -782,7 +782,7 @@ async function demo() {
   ctl.dir = B;
   win = open(fx.view); await new Promise(r => win.webContents.once("did-finish-load", r));
   js = code => win.webContents.executeJavaScript(code);
-  await until(`!document.querySelector("#chat .composer input").disabled`, 60000);
+  await until(`!document.querySelector("#chat .composer textarea").disabled`, 60000);
   const settled = () => until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`, 30000);
   const ask = async (q, name, want) => {
     const n = await js(`document.querySelectorAll(".asked").length`), t0 = Date.now();
@@ -822,7 +822,7 @@ async function appCheck() {
   const js = code => win.webContents.executeJavaScript(code);
   const until = async (code, ms = 300000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
   const shot = async name => { await sleep(400); fs.writeFileSync(path.join(view, name), (await win.capturePage()).toPNG()); console.log("   shot", name); };
-  const type = text => js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+  const type = text => js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
   const noIds = async () => assert.ok(await js(`!/\\b(E|SRC|SC|ACT|T|C)\\d+\\b/.test(document.body.innerText)`), "no internal ids in the UI");
   const newTask = async (goal, name) => {
     await until(`!$("new").disabled`, 30000); await js(`$("new").click()`);
@@ -879,7 +879,7 @@ async function appCheck() {
   assert.ok(!/keep\.txt|hello\.txt/.test(await intentPanel()), "A's new-task criteria stay out of B (task scope)");
   picked = path.join(__dirname, "../LinearRAG.pdf"); await js(`[...$("adder").querySelectorAll(".link")].find(b => /PDF 파일/.test(b.textContent)).click()`);
   await until(`!/없음/.test($("src").textContent)`, 120000);
-  await until(`!document.querySelector("#chat .composer input").disabled`, 60000);
+  await until(`!document.querySelector("#chat .composer textarea").disabled`, 60000);
   const settled = () => until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`, 30000);
   const ask = async (q, name, want) => {
     const n = await js(`document.querySelectorAll(".asked").length`), t1 = Date.now();
@@ -2024,7 +2024,7 @@ async function papersUi() {
   console.log("ok removed: OtherRAG out of the list, its table row kept; 비교표 form with the default columns");
   // ⑩ a paper opened from its name: the page's text is selectable; a sentence picked there becomes a reproduction
   // condition (anchored on that page), only in the 주 논문; a condition is taken out with why and put back
-  const pick = (from, to) => js(`(() => { const l = document.querySelector("#pbody .textLayer"), w = document.createTreeWalker(l, NodeFilter.SHOW_TEXT), ns = [];
+  const pick = (from, to) => js(`(() => { const l = document.querySelector('#pbody .pg[data-n="' + parseInt($("panel").querySelector(".pnum").textContent) + '"] .textLayer'), w = document.createTreeWalker(l, NodeFilter.SHOW_TEXT), ns = [];
     let all = ""; for (let n; (n = w.nextNode());) { ns.push([n, all.length]); all += n.textContent; }
     const s = all.indexOf(${JSON.stringify(from)}), e = all.indexOf(${JSON.stringify(to)}, s) + ${to.length};
     if (s < 0 || e < s) return "not on the page: " + all;
@@ -2036,7 +2036,7 @@ async function papersUi() {
   await js(`document.querySelector('#src [data-open-paper="${main.id}"]').click()`);
   assert.strictEqual(await settled(), "PAPER");
   await js(`$("panel").querySelector('[title="다음 쪽"]').click()`);
-  await until(`$("panel").dataset.live === "PAPER" && $("panel").querySelector(".pnum").textContent === "2 / 2" && !!document.querySelector("#pbody .textLayer span")`);
+  await until(`$("panel").dataset.live === "PAPER" && $("panel").querySelector(".pnum").textContent === "2 / 2" && !!document.querySelector('#pbody .pg[data-n="2"] .textLayer span')`);
   assert.match(await js(`$("panel").querySelector(".info").textContent`), /문장을 끌어서 고르면 재현 조건으로 더할 수 있습니다/);
   assert.strictEqual(await pick("Indexing takes 12", "one GPU."), "Indexing takes 12 seconds on one GPU.");
   await until(`!$("pick").hidden && !!$("pick").querySelector("[data-add-spec]")`);
@@ -2058,19 +2058,43 @@ async function papersUi() {
   await js(`$("pick").querySelector("[data-add-ok]").click()`);
   assert.strictEqual(await until(`(x => x && x.dataset.similar)($("pick").querySelector("[data-similar]"))`), added);
   assert.ok(await js(`!!$("pick").querySelector("[data-anyway]")`));
-  await js(`[...$("pick").querySelectorAll("button.link")].find(b => b.textContent === "취소").click()`);
+  await js(`$("pick").querySelector("[data-pick-cancel]").click()`);
   await js(`document.querySelector("#live [data-spec-add] .cite").click()`);
   assert.strictEqual(await settled(), "FOUND", "its [n] opens the page with the sentence boxed");
   // another paper of the task: only the 주 논문's sentences become conditions
   await js(`document.querySelector('#src [data-open-paper="${other.id}"]').click()`);
   await settled(); await js(`$("panel").querySelector('[title="다음 쪽"]').click()`);
-  await until(`$("panel").dataset.live === "PAPER" && $("panel").querySelector(".pnum").textContent === "2 / 2" && !!document.querySelector("#pbody .textLayer span")`);
+  await until(`$("panel").dataset.live === "PAPER" && $("panel").querySelector(".pnum").textContent === "2 / 2" && !!document.querySelector('#pbody .pg[data-n="2"] .textLayer span')`);
   await pick("ThirdRAG reaches", "HotpotQA.");
   await until(`!!$("pick").querySelector("[data-add-spec]")`);
   await js(`$("pick").querySelector("[data-add-spec]").click()`);
   await fill("result", "", "63.0");
   await js(`$("pick").querySelector("[data-add-ok]").click()`);
   assert.strictEqual(await until(`(n => n && /주 논문/.test(n.textContent) && n.textContent)($("pick").querySelector("[data-pick-note]"))`), "재현 조건은 주 논문(TinyRAG)에서만 더합니다.");
+  await js(`$("pick").querySelector("[data-pick-cancel]").click()`);
+  // 0.10.1: the pages are one scroll fitted to the column, fitted again when the column changes; + / Ctrl+wheel zoom (and
+  // scroll sideways), 폭 맞춤 fits again; scrolling says the page in view; 이전 쪽 goes to it
+  assert.deepStrictEqual(await js(`(async () => { const P = $("panel"), box = $("pbody"), wait = ms => new Promise(r => setTimeout(r, ms));
+    const room = () => { const cs = getComputedStyle(box); return Math.round(box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2); };
+    const w = () => Math.round(parseFloat(P.querySelector('.pg[data-n="1"]').style.width)), zl = () => P.querySelector(".zl").textContent, pn = () => P.querySelector(".pnum").textContent;
+    const out = [w() === room(), zl()];
+    P.querySelector('[data-zoom="in"]').click(); out.push(w() > room(), /^\\d+%$/.test(zl()), box.scrollWidth > box.clientWidth);
+    const z = w(); box.dispatchEvent(new WheelEvent("wheel", { ctrlKey: true, deltaY: -100, cancelable: true })); out.push(w() > z);
+    P.querySelector('[data-zoom="fit"]').click(); out.push(w() === room(), zl());
+    document.body.style.setProperty("--pw", "560px"); await wait(600); out.push(w() === room() && room() > 400);
+    document.body.style.removeProperty("--pw"); await wait(600); out.push(w() === room());
+    box.scrollTop = 0; await wait(300); out.push(pn());
+    box.scrollTop = box.scrollHeight; await wait(300); out.push(pn(), P.querySelector('[title="다음 쪽"]').disabled);
+    P.querySelector('[title="이전 쪽"]').click(); out.push(pn()); return out; })()`),
+    [true, "폭 맞춤", true, true, true, true, true, "폭 맞춤", true, true, "1 / 2", "2 / 2", true, "1 / 2"]);
+  // 0.10.1: the conversation keeps to its foot as it grows; scrolled up by the person, it stays there until they come back down
+  assert.deepStrictEqual(await js(`(async () => { const L = $("log"), wait = ms => new Promise(r => setTimeout(r, ms)), gap = () => Math.round(L.scrollHeight - L.scrollTop - L.clientHeight);
+    const grow = () => { const p = document.createElement("p"); p.dataset.qaGrow = "1"; p.style.height = "300px"; L.append(p); return wait(200); };
+    L.dispatchEvent(new WheelEvent("wheel")); L.scrollTop = L.scrollHeight; await wait(100); await grow(); const out = [gap()];
+    L.dispatchEvent(new WheelEvent("wheel")); L.scrollTop -= 600; await wait(100); const at = L.scrollTop; await grow(); out.push(at > 0 && L.scrollTop === at);
+    L.dispatchEvent(new WheelEvent("wheel")); L.scrollTop = L.scrollHeight; await wait(100); await grow(); out.push(gap());
+    L.querySelectorAll("[data-qa-grow]").forEach(p => p.remove()); return out; })()`), [0, true, 0]);
+  console.log("ok 0.10.1: PDF fitted / zoomed / refitted, the page in view; the conversation keeps to its foot unless scrolled up");
   // the 기준 panel: the added one says so; 빼기 waits for why; 뺀 조건 keeps when and why; 되살리기
   await js(`close(); show({ mode: "intent" })`);
   const row = `[...document.querySelectorAll("#panel ul.ck.must li")].find(l => l.dataset.id === ${JSON.stringify(added)})`;
@@ -2145,7 +2169,7 @@ async function specCheck() {
   const js = code => win.webContents.executeJavaScript(code);
   const until = async (code, ms = 30000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); }
     throw new Error(`timeout: ${code} (document.hidden ${await js("document.hidden")}: a hidden window stops pdf.js)`); };
-  await until(`!!document.querySelector("#specs .link") && !document.querySelector("#chat .composer input").disabled`, 60000);
+  await until(`!!document.querySelector("#specs .link") && !document.querySelector("#chat .composer textarea").disabled`, 60000);
   const t0 = Date.now();
   await js(`document.querySelector("#specs .link").click()`);
   await until(`!!document.querySelector("#live [data-spec] .head") || !!document.querySelector("#live .call.block")`, 600000);
@@ -2237,7 +2261,7 @@ async function auditCheck() {
   const say = async (text, yes) => {
     const done = new Promise(r => { const f = e => e.type === "done" && (agent.off("event", f), r(e)); agent.on("event", f); });
     await until(`$("chat").querySelector(".composer").dataset.agent === "Ready"`, 60000);
-    await js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+    await js(`(i => { i.value = ${JSON.stringify(text)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
     let over = false; done.then(() => { over = true; });
     while (!over) { await js(`(b => b && b.click())(document.querySelector("#live [data-answer=${yes ? "proceed" : "cancel"}]"))`); await sleep(300); }
     await ctl.idle();
@@ -2389,7 +2413,7 @@ async function compareCheck() {
   const until = async (code, ms = 60000) => { for (let t = 0; t < ms; t += 250) { const v = await js(code); if (v) return v; await sleep(250); } throw new Error("timeout: " + code); };
   const settled = () => until(`(p => p.dataset.live && p.dataset.live !== "LOADING" && p.dataset.live)($("panel"))`, 30000);
   const shot = async name => { if (dir) { await sleep(400); fs.writeFileSync(path.join(dir, name), (await win.capturePage()).toPNG()); } };
-  await until(`!document.querySelector("#chat .composer input").disabled && document.querySelectorAll("#src .paper").length === ${again ? 2 : 1}`, 90000);
+  await until(`!document.querySelector("#chat .composer textarea").disabled && document.querySelectorAll("#src .paper").length === ${again ? 2 : 1}`, 90000);
   let t0 = Date.now();
   if (!again) {  // C2: the arXiv paper, downloaded by main
     await js(`[...$("src").querySelectorAll(".link")].find(b => b.textContent === "+ 추가").click(); $("arxiv").value = ${JSON.stringify(id)}; $("arxiv-get").click()`);
@@ -2400,7 +2424,7 @@ async function compareCheck() {
   }
   // C1: one question over both papers
   t0 = Date.now();
-  await js(`(i => { i.value = "두 논문은 각각 어떤 데이터셋으로 평가했고, 2WikiMultiHopQA에서 GPT-Acc는 얼마인가?"; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer input"))`);
+  await js(`(i => { i.value = "두 논문은 각각 어떤 데이터셋으로 평가했고, 2WikiMultiHopQA에서 GPT-Acc는 얼마인가?"; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
   await until(`(b => b && !b.querySelector(".muted:only-child") && b.textContent)([...document.querySelectorAll(".asked")].at(-1))`, 600000);
   const ask = await js(`[...document.querySelectorAll(".asked")].at(-1).innerText`);
   console.log(`ask over both (${Date.now() - t0} ms): ${ask.replace(/\s+/g, " ")}`);

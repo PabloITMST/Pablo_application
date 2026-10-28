@@ -731,11 +731,12 @@ ipcMain.handle("pablo:report", async (e, task, opts) => {
   const work = workOf(task), log = (() => { try { return JSON.parse(fs.readFileSync(path.join(ctl.dir, "chat.json"), "utf8"))[task] || []; } catch { return []; } })();
   const last = log.filter(x => x.role === "audit" && (x.items || []).length).at(-1);
   // places, not rows (the card counts the same way): two rows on one line are one place
-  const at = x => { const w = where.where(x.where); return x.line_found && w ? `${w.path}:${x.line_found}` : x.where; }, seen = new Set();
+  // a row on two places ("config.yaml:5; run.py:3") is named and counted by its first, and checked on all of them (demo 10/27)
+  const at = x => { const w = where.where(x.where); return x.line_found && w ? `${w.path}:${x.line_found}` : String(x.where).split(/;\s*/)[0]; }, seen = new Set();
   const placed = last ? [...last.items, ...(last.outside || [])].filter(x => ["verified", "moved", "value_mismatch"].includes(x.check) && x.where && x.found)
     .filter(x => !seen.has(at(x)) && seen.add(at(x))) : [];
   const gone = work ? placed.filter(x => { if (!where.where(x.where)) return false;
-    const c = where.verify(work, { where: at(x), found: x.found }).check;
+    const c = where.verify(work, { where: x.line_found ? at(x) : x.where, found: x.found }).check;
     return c === "not_found" || c === "no_file"; }).map(at) : [];
   const now = { tree: work ? await checkpoint.snapshot(ctl.dir, task, work).catch(() => null) : null, git: gitState(work),
     recheck: last && work ? { at: last.at, placed: placed.length, gone } : null, decisions: pinned(task) };
@@ -864,7 +865,10 @@ const located = (task, raw) => {
 ipcMain.handle("pablo:read-file", (e, task, raw, around, expect) => {
   fromWindow(e); known(task); if (expect != null && !str(expect, where.FOUND + 10)) throw new Error("bad expect");
   const { w, work } = located(task, raw), at = Number.isInteger(around) && around > 0 ? around : w.from;
-  const still = expect ? where.verify(work, { where: at ? `${w.path}:${at}` : w.path, found: expect }).check : undefined;
+  // what the audit saw is looked for where the audit said it was: all of "config.yaml:5; run.py:3", not its first file
+  // alone (demo 10/27: a false "지금은 없습니다" right after the audit); a line of its own (around) is that line
+  const one = Number.isInteger(around) && around > 0 && around !== w.from;
+  const still = expect ? where.verify(work, { where: one ? `${w.path}:${at}` : w.also.length ? raw : at ? `${w.path}:${at}` : w.path, found: expect }).check : undefined;
   return { ...where.read(work, w.path, at), ranges: w.ranges, ...(still ? { still } : {}) };
 });
 // ⑤ review: an audit card's confirmed places, each looked at again now (the same rule as the audit's check): verified |
