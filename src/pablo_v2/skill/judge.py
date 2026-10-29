@@ -77,7 +77,7 @@ REVIEW_SCHEMA = _obj(
         source_check_id=_str, note=_str)},
 )
 
-ASK_SCHEMA = _obj(answer=_str, citations={"type": "array", "items": _obj(
+ASK_SCHEMA = _obj(answer=_str, task_note=_str, citations={"type": "array", "items": _obj(
     n={"type": "integer"}, page={"type": "integer"}, quote=_str, role={"enum": ["claim", "table", "text"]})})
 
 ASK_PROMPT = """You answer a question about one paper, using only the paper's text below. Pablo will locate every
@@ -103,6 +103,16 @@ Rules:
 - If the paper contains evidence against the question's premise or against the authors' own claim, report it.
 - Other quoted prose: role = text.
 
+TASK (what the user is working on; NOT a source: never cite it, never present it as what the paper says):
+{context}
+
+task_note: "" unless the question is about the user's own work (their goal, criteria, settings the paper leaves open, or
+what was said earlier, or a request to discuss a setting). Then answer that part here, in the question's language, with
+no [n] markers: first which settings are decided (as the user decided them, "정함:") and which are still open ("미정:");
+when asked to discuss one, the options with their trade-offs and, labeled "제안:", the one you would pick and why. A
+suggestion is not a decision, and neither is a request to discuss something. If the question is only about the task,
+answer = "" and citations = []. Never put task facts or suggestions in answer.
+
 PAPER (page text from the PDF, [p.N] = page N):
 {pages}
 
@@ -110,7 +120,7 @@ QUESTION:
 {question}
 """
 
-ASK_SOURCES_SCHEMA = _obj(answer=_str, citations={"type": "array", "items": _obj(
+ASK_SOURCES_SCHEMA = _obj(answer=_str, task_note=_str, citations={"type": "array", "items": _obj(
     n={"type": "integer"}, paper=_str, page={"type": "integer"}, quote=_str, near=_str,
     role={"enum": ["claim", "table", "text"]})})
 
@@ -135,6 +145,16 @@ Rules:
   Claims in prose: role = claim. Other prose: role = text.
 - When sources report the same thing differently (other datasets, metrics, settings or numbers), say so instead of
   merging them. A number one paper reports about another method is that paper's measurement; say whose it is.
+
+TASK (what the user is working on; NOT a source: never cite it, never present it as what the paper says):
+{context}
+
+task_note: "" unless the question is about the user's own work (their goal, criteria, settings the paper leaves open, or
+what was said earlier, or a request to discuss a setting). Then answer that part here, in the question's language, with
+no [n] markers: first which settings are decided (as the user decided them, "정함:") and which are still open ("미정:");
+when asked to discuss one, the options with their trade-offs and, labeled "제안:", the one you would pick and why. A
+suggestion is not a decision, and neither is a request to discuss something. If the question is only about the task,
+answer = "" and citations = []. Never put task facts or suggestions in answer.
 
 SOURCES (page text from each PDF, the text of each web page):
 {papers}
@@ -200,6 +220,30 @@ TASK GOAL: {goal}
 RECENT MESSAGES (oldest first):
 {recent}
 NEW MESSAGE: {message}
+"""
+
+CRITERIA_CHANGE_SCHEMA = _obj(changes={"type": "array", "items": _obj(
+    op={"enum": ["add", "restate", "drop"]}, id=_str, text=_str, strength={"enum": ["hard", "soft"]}, reason=_str)})
+
+CRITERIA_CHANGE_PROMPT = """The person asks to change their task's criteria as agreed in the conversation. Propose the
+edits; the person confirms each one before anything changes.
+
+- Only what the conversation agreed on: what the person said, or a suggestion they accepted ("동의해", "그렇게 해").
+  Never add a criterion nobody proposed. A setting still open stays out.
+- restate: an existing criterion's new wording (id = its id, text = the whole new sentence). drop: a criterion the
+  agreement removes or replaces (id, text = ""). add: a new one (id = "", text).
+- A criterion that is a question or a request to discuss is restated with what was settled, or dropped.
+- strength: hard for an obligation or prohibition, soft for a wish.
+- text: one short Korean rule sentence ("~한다", "~쓰지 않는다").
+- reason: one short Korean sentence the person reads: why, from the conversation.
+- Nothing agreed to change: changes = [].
+
+TASK GOAL: {goal}
+CURRENT CRITERIA:
+{criteria}
+RECENT CONVERSATION (oldest first):
+{recent}
+REQUEST: {message}
 """
 
 SPEC_CATEGORIES = ["dataset", "split", "preprocessing", "model", "method", "hyperparameter", "training", "metric",
@@ -456,16 +500,18 @@ class LLMJudge:
         return self.provider.complete_json(REVIEW_PROMPT.format(context=context, execution=execution),
                                            REVIEW_SCHEMA)
 
-    def answer_from_pdf(self, question: str, pages: list[str]) -> dict:
+    def answer_from_pdf(self, question: str, pages: list[str], context: str = "") -> dict:
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
-        return self.provider.complete_json(ASK_PROMPT.format(pages=text, question=question), ASK_SCHEMA)
+        return self.provider.complete_json(ASK_PROMPT.format(pages=text, question=question, context=context or "(none)"),
+                                           ASK_SCHEMA)
 
-    def answer_from_sources(self, question: str, papers: list[dict]) -> dict:
+    def answer_from_sources(self, question: str, papers: list[dict], context: str = "") -> dict:
         text = "\n\n".join(
             f"=== Web page {x['label']}: {x['title']} ===\n[{x['label']}] " + " ".join(x["pages"]) if x.get("kind") == "web"
             else f"=== Paper {x['label']}: {x['title']} ===\n" + "\n\n".join(
                 f"[{x['label']} p.{n}] {p}" for n, p in enumerate(x["pages"], 1)) for x in papers)
-        return self.provider.complete_json(ASK_SOURCES_PROMPT.format(papers=text, question=question), ASK_SOURCES_SCHEMA)
+        return self.provider.complete_json(ASK_SOURCES_PROMPT.format(papers=text, question=question,
+                                                                       context=context or "(none)"), ASK_SOURCES_SCHEMA)
 
     def extract_spec(self, pages: list[str], progress=None) -> dict:
         """One pass over the whole paper, then (D3) one over its appendix: those items come with from="appendix" and
@@ -521,3 +567,10 @@ class LLMJudge:
     def drift(self, goal: str, message: str, recent: list[str]) -> dict:
         text = "\n".join(f"- {m[:500]}" for m in recent[-6:]) or "(none)"
         return self.provider.complete_json(DRIFT_PROMPT.format(goal=goal, recent=text, message=message[:4000]), DRIFT_SCHEMA)
+
+    def propose_criteria(self, goal: str, criteria: list[dict], recent: list[dict], message: str) -> dict:
+        who = {"user": "You", "agent": "Pablo", "ask": "You (논문 질문)"}
+        return self.provider.complete_json(CRITERIA_CHANGE_PROMPT.format(
+            goal=goal, criteria="\n".join(f"- {c['id']} ({c['strength']}) {c['text']}" for c in criteria) or "(none)",
+            recent="\n".join(f"[{who.get(m.get('role'), 'Pablo')}] {str(m.get('text', ''))[:600]}" for m in recent[-8:]) or "(none)",
+            message=message[:2000]), CRITERIA_CHANGE_SCHEMA)

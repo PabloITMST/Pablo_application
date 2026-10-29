@@ -315,11 +315,17 @@ async function authCheck() {
   assert.ok(agent.effort === "high" && JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).effort === "high", "the pick kept with the model");
   await js(`document.querySelector(".composer .mmenu").hidden = true`);
   console.log("ok 생각 수준: chip 'gpt-5.5 · 보통' -> menu 낮음 · 보통 · 높음 -> 높음 kept");
-  // one size scale, connected: the composer's second row (보낼 곳, the model button, send) is 32 high, its choices 24
+  // one size scale, connected: the composer's second row (보낼 곳, the model button, send) is 32 high. 10/29: 보낼 곳 is one
+  // chip now (it was a segment whose two choices were 24 high), so the row has no inner choices left to measure
   if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, "auth-composer.png"), (await win.capturePage()).toPNG());
-  assert.deepStrictEqual(await js(`(q => [q("#chat > .composer > button, .composer #route .seg"), q(".composer #route .seg > *")])(s =>
-    [...new Set([...document.querySelectorAll(s)].filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height)))])`)
-    .then(([ctl, inn]) => [ctl, inn.filter(h => h !== 24)]), [[32], []], "composer row: one size scale");
+  assert.deepStrictEqual(await js(`[...new Set([...document.querySelectorAll("#chat > .composer > button, .composer #route > .routebtn")]
+    .filter(e => e.getClientRects().length).map(e => Math.round(e.getBoundingClientRect().height)))]`), [32], "composer row: one size scale");
+  // 10/29: "이 메시지는 ○○ 단계로 기록" is said only when a stage filter leaves the message out of the list in view
+  assert.deepStrictEqual(await js(`(() => { const b = document.querySelector("#chat > .composer"), s = b.dataset.stage, hint = () => b.querySelector(".stagehint");
+    const other = [...document.querySelectorAll("#stages .stage b")].map(x => x.textContent).find(x => x !== s), out = [!!s, hint().hidden];
+    stageFilter(other); out.push(hint().hidden, hint().textContent === "이 메시지는 " + s + " 단계로 기록됩니다. 지금은 " + other + " 단계만 보고 있어 목록에 나오지 않습니다.");
+    stageFilter(other); stageFilter(s); out.push(hint().hidden); stageFilter(s); return out; })()`), [true, true, false, true, true],
+    "record hint: hidden; shown under another stage's filter; hidden under its own stage's");
   // A2 complete · A: connected, the account card says "플랜 사용 가능 · 설정" (연결 해제 lives in 설정 · 계정)
   assert.deepStrictEqual(await js(`[document.querySelector("#acct .acard b").textContent, [...document.querySelectorAll("#acct .link")].map(x => x.textContent)]`),
     ["ChatGPT · 연결됨", ["설정"]], "the account card, connected");
@@ -1095,6 +1101,21 @@ async function uiCheck() {
     document.querySelector("#log .msg.note .hold .ttl").textContent, document.querySelector("#log .msg.note .hold [data-promote]").textContent,
     !!document.querySelector("#log .call .band[data-held] [data-promote]")]`), [true, "none", "결정이 필요합니다", "기준으로 추가 (가능하면)", true]);
   await into("#log .msg.note"); await bshot("bands");
+  // 10/30 "기준 그렇게 수정해줘": one row per agreed edit; only 반영 (a real <button>, so Tab reaches it) calls the ④ panel's
+  // IPC (C99 is no criterion: the error shows, nothing changes); 무시 calls nothing; a reloaded card has no buttons
+  const cc = x => `{ task: "T1", changes: [{ op: "restate", id: "C99", before: "옛 기준", text: "새 기준", strength: "hard", reason: "대화에서 정함" },
+    { op: "add", text: "평가 지표는 F1로 한다", strength: "soft", reason: "" }, { op: "restate", id: V.intent.must[0].id, before: "옛", text: V.intent.must[0].text, strength: "hard", reason: "" }], live: ${x} }`;
+  assert.deepStrictEqual(await js(`(m => { document.body.append(m); const c = m.querySelector("[data-criteria-change]");
+    return [c.querySelector(".ttl").textContent, [...c.querySelectorAll("li")].map(r => r.dataset.change), c.querySelector("li s").textContent,
+      [...c.querySelectorAll("button")].map(b => b.tagName + b.textContent + b.tabIndex), c.querySelectorAll("li")[2].lastChild.textContent]; })(changeCard(${cc(true)}))`),
+    ["대화에서 정한 기준 변경", ["restate", "add", "restate"], "옛 기준", ["BUTTON반영0", "BUTTON무시0", "BUTTON반영0", "BUTTON무시0"], "반영함"]);
+  await js(`(c => { c.querySelectorAll("li")[1].querySelector("[data-skip]").click(); c.querySelector("li [data-apply]").click(); })([...document.querySelectorAll("[data-criteria-change]")].at(-1))`);
+  await settle(`/이미 바뀌었거나 지운 기준/.test([...document.querySelectorAll("[data-criteria-change]")].at(-1).querySelector("li").textContent)`);
+  assert.deepStrictEqual(await js(`(c => [c.querySelectorAll("li")[1].lastChild.textContent, V.intent.must.some(i => i.text === "새 기준")])([...document.querySelectorAll("[data-criteria-change]")].at(-1))`),
+    ["반영하지 않았습니다.", false]);
+  assert.deepStrictEqual(await js(`(m => [m.querySelectorAll("button").length, m.querySelector("li").lastChild.textContent])(changeCard(${cc(false)}))`), [0, "(반영하지 않음)"]);
+  await js(`[...document.querySelectorAll("[data-criteria-change]")].at(-1).closest(".msg").remove()`);
+  console.log("ok criteria change card: 반영 / 무시 buttons per row, 반영 goes through pablo:criterion, a reloaded card has none");
   // B2 / B15: one "+ 태그" opens the popover (320): stages (the computed one says so), targets with × and + 잇기, 결정으로 고정,
   // 기준으로 만들기 (its text and 반드시 / 가능하면 open when checked)
   assert.ok(await js(`!document.querySelector("#log [data-crit-make]") && [...document.querySelectorAll("#log .msg[data-key] .tags")].every(r => r.querySelectorAll("[data-tag-edit]").length === 1)`), "one + 태그 per message");
@@ -1154,8 +1175,27 @@ async function uiCheck() {
   assert.deepStrictEqual(await js(`[document.querySelector("#viewbar .fchip .fc-t").textContent, !!$("filter-menu") && $("filter-menu").querySelector(".mi.on .mi-t").textContent]`), ["run.py", "run.py"]);
   await js(`$("filter-menu").querySelector("[data-filter-off]").click()`);
   assert.ok(await js(`!$("log").dataset.filter && !$("filter-banner") && !document.querySelector("#log .hidnote, #log .filtered")`), "거르기 풀기");
-  // B17: 보낼 곳 always there (a side with nothing to send to is off); the send button says 보내기 and is the first button
-  assert.deepStrictEqual(await js(`[!!$("route"), $("route").querySelectorAll(".seg > *").length, document.querySelector("#chat > .composer > button").textContent]`), [true, 2, "보내기"]);
+  // B17: 보낼 곳 always there (a side with nothing to send to is off); the send button says 보내기 and is the first button.
+  // 10/29: B17 changed from a two-button segment to one chip with a menu (the segment took the row for a choice most tasks
+  // never change); the routing it shows did not change. Its two sides are the menu's options
+  assert.deepStrictEqual(await js(`[!!$("route"), $("route").querySelectorAll(".mopt[data-route-to]").length, document.querySelector("#chat > .composer > button").textContent]`), [true, 2, "보내기"]);
+  // the four states (the task's papers / folder set here in M.desk, then put back): the chip names the side a message goes
+  // to, as send() picks it; a side that cannot take it is off and says why
+  assert.deepStrictEqual(await js(`(d0 => { const st = (papers, folder, route) => { M.desk[V.task.id] = { ...d0, papers, folder, route }; tools();
+      const R = $("route"); return [R.dataset.route, R.querySelector(".routebtn").textContent,
+        [...R.querySelectorAll(".mopt")].map(b => b.dataset.routeTo + (b.disabled ? ":off" : "") + (b.classList.contains("on") ? ":on" : "") + (b.querySelector(".ro-why") ? ":why" : ""))]; };
+    const p = [{ id: "SRC1", title: "X" }], out = [st(p, null), st([], "C:/w"), st(p, "C:/w"), st(p, "C:/w", "ask"), st([], null)];
+    M.desk[V.task.id] = d0; tools(); return out; })((M.desk = M.desk || {})[V.task.id] || {})`), [
+    ["ask", "보낼 곳논문 질문", ["agent:off:why", "ask:on"]],
+    ["agent", "보낼 곳에이전트", ["agent:on", "ask:off:why"]],
+    ["agent", "보낼 곳에이전트", ["agent:on", "ask"]],
+    ["ask", "보낼 곳논문 질문", ["agent", "ask:on"]],
+    ["", "보낼 곳없음", ["agent:off:why", "ask:off:why"]]], "보낼 곳: papers only, folder only, both (agent by default, ask kept), neither");
+  // the keyboard: Enter on the chip (a click without a pointer) opens the menu on the side in use; Escape closes it, back on the chip
+  assert.deepStrictEqual(await js(`(() => { const R = $("route"), c = R.querySelector(".routebtn"), m = R.querySelector(".mmenu"); c.focus(); c.click();
+    const open = [m.hidden, c.getAttribute("aria-expanded"), document.activeElement.dataset.routeTo === R.dataset.route || !R.dataset.route];
+    document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    return [...open, m.hidden, c.getAttribute("aria-expanded"), document.activeElement === c]; })()`), [false, "true", true, true, "false", true], "보낼 곳 by keyboard");
   // B18 / B19: the progress cards; B24 the download card; nothing is sent from them here
   assert.deepStrictEqual(await js(`(c => { c._set("LinearRAG을(를) 읽고 있습니다 · 9 / 20쪽", 9 / 20); return [c.querySelector(".pg-t").textContent, c.querySelector(".pg-bar > i").style.width, !!c.querySelector("[data-prog-stop]")]; })(
     progCard("spec", "조건 확정", "뽑는 중", "LinearRAG을(를) 읽고 있습니다", "보통 1–3분 · 다른 일을 해도 됩니다", () => {}))`), ["LinearRAG을(를) 읽고 있습니다 · 9 / 20쪽", "45%", true]);
@@ -1220,7 +1260,10 @@ async function uiCheck() {
       : m.querySelector("[data-intent]") ? "INTENT " + m.querySelector("[data-intent]").textContent.replace(/ 기준 보기$/, "") : "YOU " + m.querySelector("p").textContent; })`);
   assert.deepStrictEqual(order, ["YOU 인사말 파일 정리", "YOU hello.txt에 인사말을 넣어줘. 다른 파일은 건드리지 마.",
     "INTENT 📌 작업 기준에 추가했습니다: 다른 파일은 건드리지 마 (반드시)", "AGENT hello.txt에 줄을 더하겠습니다.", "CARD ACT1",
-    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다.", "SPEC", "AUDIT", "AUDIT", "ASKS 결정이 필요합니다"]);
+    "YOU keep.txt도 정리해줘", "AGENT keep.txt를 지우려", "CARD ACT2", "YOU 효율 근거가 어디 있어?", "ASK 저자는 색인 시간을 77% 넘게 줄였다고 씁니다. 이 작업의 기준·설정·의논 (논문 아님)미정: 청킹 규칙.\n제안: 문장 단위로 나눕니다.인용 없음 · PDF 원문에서 확인한 내용이 아닙니다.", "SPEC", "AUDIT", "AUDIT", "ASKS 결정이 필요합니다"]);
+  // 10/29: a 논문 질문's task part (기준·설정·의논) in its own box, line by line, never cited; no quote kept -> 인용 없음
+  assert.deepStrictEqual(await js(`(n => [n.querySelector("b").textContent, n.querySelectorAll(".cite").length, getComputedStyle(n.querySelector("p")).whiteSpace,
+    !!n.closest(".msg").querySelector("[data-no-cite]")])(document.querySelector("#log [data-task-note]"))`), ["이 작업의 기준·설정·의논 (논문 아님)", 0, "pre-line", true]);
   // ⑤ the second card: the model named the line that reads top-k; Pablo shows the config line that sets it. A log line is
   // checked in a file, not in code
   assert.deepStrictEqual(await js(`(b => [...b.querySelectorAll(":scope > ul > li, details li")].map(x => [x.querySelector(".at code").textContent,
@@ -1458,9 +1501,9 @@ async function uiCheck() {
   // a paper and a work folder: no "어디에서 처리할까요?" per message; the task's 보낼 곳 (agent by default), remembered
   fs.writeFileSync(path.join(S, "desktop.json"), JSON.stringify({ ...JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")), pdf: { T1: { id: "SRC1", title: "LinearRAG" } } }));
   await js(`refresh()`);
-  assert.strictEqual(await until(`(r => r && r.querySelector("b").dataset.route)($("route"))`), "agent");
-  await js(`[...$("route").querySelectorAll("button")].find(b => b.textContent === "논문 질문").click()`);
-  assert.strictEqual(await until(`(r => r && r.querySelector("b").dataset.route === "ask" && "ask")($("route"))`), "ask");
+  assert.strictEqual(await until(`(r => r && !r.querySelector('[data-route-to="ask"]').disabled && r.dataset.route)($("route"))`), "agent");
+  await js(`$("route").querySelector(".routebtn").click(); $("route").querySelector('.mopt[data-route-to="ask"]').click()`);  // 10/29: the chip's menu
+  assert.strictEqual(await until(`(r => r && r.dataset.route === "ask" && "ask")($("route"))`), "ask");
   assert.strictEqual(JSON.parse(fs.readFileSync(path.join(S, "desktop.json"), "utf8")).route.T1, "ask");
   console.log("ok route: paper + folder -> 보낼 곳 에이전트 by default, 논문 질문 remembered for the task");
   // review: 다시 뽑기 asks first, saying what stays (here: the condition the user took out stays out; the one restored above stays)

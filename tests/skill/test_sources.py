@@ -43,7 +43,7 @@ class AskJudge:  # cites the shared sentence from B, A's result on a wrong page,
     def __init__(self):
         self.seen = None
 
-    def answer_from_sources(self, question, papers):
+    def answer_from_sources(self, question, papers, context=""):
         self.seen = papers
         return {"answer": "TinyRAG는 61.5입니다 [1]. OtherRAG도 같은 데이터로 평가합니다 [2]. 셋째 [3].", "citations": [
             {"n": 1, "paper": "A", "page": 1, "quote": "TinyRAG reaches 61.5 accuracy on HotpotQA", "role": "table"},
@@ -57,7 +57,7 @@ def test_ask_several_papers():
     with tempfile.TemporaryDirectory() as d:
         j = AskJudge()
         s, t, a, b = two(d, j)
-        sc, dropped = s.ask(t.id, "두 논문의 HotpotQA 결과는?", [a.id, b.id])
+        sc, dropped, _ = s.ask(t.id, "두 논문의 HotpotQA 결과는?", [a.id, b.id])
         assert [(x["label"], x["title"]) for x in j.seen] == [("A", "TinyRAG"), ("B", "OtherRAG")]
         where = [(x.source_id, x.selector["page"]) for _, x in s.evidence_for(sc.id)]
         assert where == [(a.id, 2), (b.id, 1)], where
@@ -87,7 +87,7 @@ class WebJudge:  # a paper's quote, the web page's repeated quote told apart by 
     def __init__(self, only_web=False):
         self.seen, self.only_web = None, only_web
 
-    def answer_from_sources(self, question, papers):
+    def answer_from_sources(self, question, papers, context=""):
         self.seen = papers
         web = [{"n": 1, "paper": "B", "page": 0, "quote": REPEAT, "near": "The cached run", "role": "text"},
                {"n": 2, "paper": "B", "page": 0, "quote": REPEAT, "near": "", "role": "text"}]
@@ -109,7 +109,7 @@ def test_ask_web_page():
         s.fetch = lambda url: fetched.append(url) or WEB
         w = s.capture_source("https://example.org/tinyrag-notes")
         assert (w.kind, w.title) == ("web", "TinyRAG notes")
-        sc, dropped = s.ask(t.id, "top-k는?", [a.id, w.id])
+        sc, dropped, _ = s.ask(t.id, "top-k는?", [a.id, w.id])
         assert [(x["kind"], len(x["pages"])) for x in j.seen] == [("pdf", 2), ("web", 1)]
         text = s.snapshot_text(w)
         cached = text.index(REPEAT, text.index("The cached run"))
@@ -118,7 +118,7 @@ def test_ask_web_page():
         assert len(dropped) == 1 and "2 times" in dropped[0]["why"]  # the repeated quote without near
         assert [(x["tier"], x["type"]) for x in sc.sources] == [(4, "pdf"), (5, "web")]
         s.judge = WebJudge(only_web=True)
-        web_only, none = s.ask(t.id, "캐시 실행의 top-k는?", [w.id])
+        web_only, none, _ = s.ask(t.id, "캐시 실행의 top-k는?", [w.id])
         assert not none and len(s.evidence_for(web_only.id)) == 1  # kept, and still not VERIFIED on a page alone
         assert web_only.outcome == "PARTIALLY_VERIFIED" and web_only.sources[0]["tier"] == 5
         # the page changed elsewhere: both anchors still there, found with one fetch of the page

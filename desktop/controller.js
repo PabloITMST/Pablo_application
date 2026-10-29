@@ -177,7 +177,9 @@ ctl.idle = async () => { for (let p; p !== q;) { p = q; await p.catch(() => {});
 
 // M3.3: answer from the captured PDF -> {check, anchors, sources, dropped} (the judge runs with the same account)
 // C1: src is one id or a list (the task's papers); each quote is anchored in its own paper
-ctl.ask = (task, question, src) => py("ask", task, question, ...[].concat(src || []).flatMap(s => ["--source", s]));
+// recent: the task's last chat turns (task_context tells the judge; never a source)
+ctl.ask = (task, question, src, recent) => py("ask", task, question, ...[].concat(src || []).flatMap(s => ["--source", s]),
+  ...(recent && recent.length ? ["--recent", JSON.stringify(recent)] : []));
 
 Object.assign(ctl, { tasks, py, pyx });
 module.exports = ctl;

@@ -52,7 +52,7 @@ from dataclasses import asdict
 
 from pablo_v2 import auth
 from pablo_v2.intent.engine import IntentEngine
-from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor, reads_like_rule, standing_criteria
+from pablo_v2.intent.extract import HeuristicExtractor, LLMExtractor, reads_like_rule, standing_criteria, asks_discussion, asks_criteria_change
 from pablo_v2.intent.render import render_candidates, render_history, render_intent
 from pablo_v2.llm import ProviderError, provider
 from pablo_v2.skill.judge import LLMJudge
@@ -60,7 +60,7 @@ from pablo_v2.skill import mdhtml
 from pablo_v2.skill.viewer import REPORT_SECTIONS, model, render_html, render_report, report_counts, workspace
 from pablo_v2.skill.evidence import AnchorRejected, similar
 from pablo_v2.skill.skill import (AUDIT_SCHEMA, REPRO_CRITERIA, SPEC_LABEL, DecisionRejected, PabloSkill,
-                                  ResearchIncomplete, ResearchRejected, render_audit, render_brief, render_evidence, render_task)
+                                  ResearchIncomplete, ResearchRejected, render_audit, render_brief, task_context, render_evidence, render_task)
 
 # M1.1 acceptance conversation: (role, text)
 ACCEPTANCE = [
@@ -118,6 +118,8 @@ def _parser() -> argparse.ArgumentParser:
                    "to that task only, also when other tasks were made later")
     s.add_argument("--rule", choices=["hard", "soft"], help="the user picked this text as a rule of the task (desktop: a "
                    "message -> 기준으로): read as a constraint of that strength, never a goal or a question")
+    s.add_argument("--decide", action="store_true", help="with --rule: the text is 정하기's \"setting = value\"; a value "
+                   "that asks to talk it over (\"같이 의논하자\") is refused, nothing stored")
     s = add("promote")
     s.add_argument("id")
     s.add_argument("--as", dest="as_", choices=["hard", "soft"], help="③ make an unread / held line a rule of its task")
@@ -160,6 +162,9 @@ def _parser() -> argparse.ArgumentParser:
     s = add("drift")  # a chat message judged against its task's goal: same / sub / different (the desktop asks first)
     s.add_argument("task_id"), s.add_argument("text")
     s.add_argument("--recent", type=_json_arg, default=[], help="the task's last user messages, oldest first")
+    s = add("propose-criteria")  # "기준 그렇게 수정해줘": the edits the conversation agreed on, for the user to confirm
+    s.add_argument("task_id"), s.add_argument("text")
+    s.add_argument("--recent", type=_json_arg, default=[], help='the last messages of the task [{"role", "text"}], oldest first')
     s = add("report")  # ⑫ the reproduction report (Markdown)
     s.add_argument("task_id")
     s.add_argument("--now", type=_json_arg, default=None, help='desktop: {"tree", "git": {head, dirty}, "recheck": {at, placed, gone}}')
@@ -229,6 +234,7 @@ def _parser() -> argparse.ArgumentParser:
     s = add("ask")
     s.add_argument("task_id"), s.add_argument("question")
     s.add_argument("--source", action="append", help="PDF source id, repeat for several papers (default: the latest PDF)")
+    s.add_argument("--recent", type=_json_arg, default=[], help="the task's last chat turns [{role, text, check?}], oldest first; not a source")
     s = add("spec")
     s.add_argument("task_id")
     s.add_argument("--source", help="PDF source id (default: the latest captured PDF)")
@@ -296,6 +302,8 @@ def _run(a, out) -> int:
     s = PabloSkill.load(os.path.join(a.dir, "skill.json"), e, LLMJudge(provider(a.model)))
 
     if a.cmd == "say":
+        if a.rule and a.decide and asks_discussion(a.text.split(" = ", 1)[-1]):
+            raise ValueError("의논하자는 말은 기준으로 저장하지 않습니다. 대화에서 이어 의논하고, 정한 값을 기준으로 적어 주세요.")
         if a.rule:  # the reader keeps the words, topics and relation; what it is (a rule, how strong) the user said
             ex0 = e.extractor.extract
             e.extractor.extract = lambda *x: [dict(f, candidate=True, type="constraint", strength=a.rule, scope="task",
@@ -319,7 +327,8 @@ def _run(a, out) -> int:
         # decide (a new task's lines always; a chat sentence when it ends like an instruction)
         unread = [{"id": k.id, "text": k.text} for k in ks if k.status == "ignored" and (not a.request or reads_like_rule(k.text))]
         out({"candidates": [asdict(k) for k in ks], "unread": unread,
-             "added": [{"id": i.id, "kind": i.kind, "strength": i.strength, "text": i.statement} for i in added if i]},
+             "added": [{"id": i.id, "kind": i.kind, "strength": i.strength, "text": i.statement} for i in added if i],
+             **({"change_request": asks_criteria_change(a.text)} if a.request else {})},
             "\n".join(f"{k.id} {k.action} -> {k.status} {k.item_id or ''} ({k.policy_reason})" for k in ks)
             or "(agent message stored as context)")
     elif a.cmd == "show":
@@ -408,12 +417,12 @@ def _run(a, out) -> int:
              "links": [asdict(x) for x in s.state.links if x.evidence_id == a.evidence_id]},
             render_evidence(s, a.evidence_id))
     elif a.cmd == "ask":
-        sc, dropped = s.ask(a.task_id, a.question, a.source)
+        sc, dropped, note = s.ask(a.task_id, a.question, a.source, task_context(s, a.task_id, a.recent))
         v = model(s, a.task_id)  # the desktop appends this answer to the conversation without a reload
         ids = v["checks"][sc.id]["evidence"]
-        out({"check": v["checks"][sc.id], "dropped": dropped, "anchors": {e: v["anchors"][e] for e in ids},
+        out({"check": v["checks"][sc.id], "dropped": dropped, "note": note, "anchors": {e: v["anchors"][e] for e in ids},
              "sources": {x: v["sources"][x] for x in {v["anchors"][e]["source"] for e in ids}}},
-            "\n".join([sc.conclusion, *(render_evidence(s, e) for e in ids),
+            "\n".join([sc.conclusion, *([f"[작업] {note}"] if note else []), *(render_evidence(s, e) for e in ids),
                        *(f"dropped p.{d['page']}: {d['quote']} ({d['why']})" for d in dropped)]))
     elif a.cmd == "compare":
         mid, cells, empty = s.compare(a.task_id, a.source, a.columns, a.into)
@@ -481,6 +490,23 @@ def _run(a, out) -> int:
     elif a.cmd == "drift":
         r = s.judge.drift(s.get_task(a.task_id).text, a.text, [str(m) for m in a.recent])
         out(r, f"{r['verdict']} {r['reason']}")
+    elif a.cmd == "propose-criteria":
+        # only edits of this task's active criteria, each with its old words; nothing changes until the user picks 반영
+        cur = {c.id: c for c in s.get_applicable_intent(a.task_id)["constraints"]}
+        r = s.judge.propose_criteria(s.get_task(a.task_id).text, [{"id": c.id, "strength": c.strength, "text": c.statement}
+                                                                  for c in cur.values()], a.recent, a.text)
+        changes = []
+        for x in r["changes"]:
+            text, why, c = x["text"].strip(), x["reason"].strip(), cur.get(x["id"])
+            if x["op"] == "add" and text and text not in [c.statement for c in cur.values()]:
+                changes.append({"op": "add", "text": text, "strength": x["strength"], "reason": why})
+            elif x["op"] == "restate" and c and text and text != c.statement:
+                changes.append({"op": "restate", "id": c.id, "before": c.statement, "text": text, "strength": c.strength, "reason": why})
+            elif x["op"] == "drop" and c:
+                changes.append({"op": "drop", "id": c.id, "before": c.statement, "strength": c.strength,
+                                "reason": why or "대화에서 정한 대로 뺌"})
+        out({"changes": changes}, "\n".join(f"{x['op']} {x.get('id', '')} {x.get('before', '')} -> {x.get('text', '')}"
+                                            for x in changes) or "(no change agreed)")
     elif a.cmd == "report" and a.preview:
         c = report_counts(s, a.task_id, a.now)
         out({"counts": {k: v for k, v in c.items() if k != "stale"}, "stale": c["stale"], "title": s.get_task(a.task_id).text},

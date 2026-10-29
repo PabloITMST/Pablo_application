@@ -468,6 +468,9 @@ def _said_plainly(v: dict, t) -> list[str]:
             bits += [f"기준으로 둘지 물음: {k.get('text')}" for k in c.get("pending") or []]
             bits += [f"기준으로 읽지 못함: {u.get('text')}" for u in c.get("unread") or []]
             out.append(line("Pablo", at, " · ".join(bits)))
+        elif r == "criteria-change":
+            out.append(line("Pablo", at, "기준 변경 제안: " + " · ".join(
+                f"{x.get('before') or ''} → {x.get('text') or '(뺌)'}" for x in c.get("changes") or [])))
         elif r == "criterion-edit":
             out.append(line("나", at, f"작업 기준을 {edit.get(c.get('action'), '바꿈')}: {c.get('text')}"
                             + (f" (이유: {c['reason']})" if c.get("reason") else "")))
@@ -1666,6 +1669,7 @@ details.tech > summary::-webkit-details-marker { display:none; } details.tech > 
 .msg .verify { display:flex; align-items:center; gap:8px; margin:8px 0; padding:6px 12px; background:var(--a5); border-radius:var(--r-ctl);
   font-size:12px; line-height:18px; color:var(--ink-2); } .verify .ico { flex:none; color:var(--ink-3); }
 [data-web-only] { display:flex; gap:6px; align-items:center; font-size:12px; }
+.msg .tasknote { margin:8px 0; padding:6px 12px; border-left:2px solid var(--ink-3); font-size:13px; } .tasknote b { font-size:12px; color:var(--ink-2); } .tasknote p { white-space:pre-line; }
 .msg .stopped { display:flex; align-items:center; gap:6px; font-size:12px; } .stopped .ico { color:var(--ink-3); }
 .ask-pick { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
 /* S53 작업을 마침 */
@@ -2104,6 +2108,71 @@ body.dragging { cursor:col-resize; user-select:none; } body.dragging #panel { po
   body.side #side { display:block; } #menu { display:block; }
   #panel { position:fixed; inset:0; z-index:4; } #bar { padding:10px 12px; } #log { padding:18px 12px 32px; }
   .msg { grid-template-columns:26px minmax(0, 1fr); gap:8px; } .av { width:26px; height:26px; } }
+/* UI phase 1 (10/29): a calmer hierarchy. Only the look changes; ids, classes, data-*, texts and DOM order stay */
+/* the stage bar: one line a stage (number · name · what it needs · its action); the current stage says 지금 in words
+   (not orange alone), a picked stage is a soft fill, the keyboard focus alone is an ink ring */
+#stages { gap:4px; padding:2px 6px 8px; }
+#stages .stage { grid-template-columns:auto auto minmax(0, 1fr) auto; align-items:center; column-gap:6px; padding:4px 8px 6px; border-radius:var(--r-ctl); }
+#stages .stage::before { height:2px; margin-bottom:4px; }
+#stages .st-t small { grid-column:3; }
+#stages .st-t > span[id] { grid-column:4; justify-self:end; margin:0 0 0 4px; }
+#stages .stage:hover { background:var(--a4); box-shadow:none; }
+#stages .st-current, #stages .st-current:hover { box-shadow:none; }
+#stages .stage.picked, #stages .stage.picked:hover { background:var(--a6); box-shadow:none; }
+#stages .st-current .st-t b::after { content:"지금"; margin-left:6px; padding:1px 6px; border-radius:var(--r-tag); background:var(--signal-soft);
+  font:600 11px/16px var(--sans); color:var(--ink); vertical-align:1px; }
+#stages .stage:focus-visible { outline:2px solid var(--ink); outline-offset:1px; }
+#stages :is(.st-t, .st-more) .link { display:inline-flex; align-items:center; gap:4px; height:var(--h-in); padding:0 8px; box-sizing:border-box;
+  border:1px solid var(--a12); border-radius:var(--r-ctl); background:var(--white); color:var(--ink); font:500 12px/1 var(--sans); }
+#stages :is(.st-t, .st-more) .link:hover { background:var(--a5); }
+#stages .link:focus-visible, #viewbar .fchip:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
+/* the view bar: a hairline, not a rule; the filter chip (always in sight, with its way out) says 거르는 중 before what it filters by */
+#viewbar { border-top-color:var(--a5); }
+#viewbar .fchip { border:1px solid var(--a12); background:var(--a4); font-weight:600; }
+#viewbar .fchip:hover { background:var(--a6); }
+#viewbar .fchip::before { content:"거르는 중"; font-weight:500; color:var(--ink-2); padding-right:6px; margin-right:2px; border-right:1px solid var(--a12); }
+/* while filtered, the conversation's banner is one quiet line that scrolls away (the chip above stays) */
+#filter-banner { position:static; margin:0 auto 12px; padding:2px 4px; gap:10px; background:none; border:0; box-shadow:none; font-size:12px; color:var(--ink-3); }
+#filter-banner .link { height:auto; padding:0; border:0; background:none; font-size:12px; text-decoration:underline; text-underline-offset:2px; }
+/* the conversation: dividers and tags carry less weight; what asks keeps its orange */
+.divider .tg.stage { background:none; padding:0; color:var(--ink-3); }
+.divider[data-now] .tg.stage { color:var(--ink-2); }
+.divider::after { background:var(--a5); }
+.tg.tgt { border-color:var(--a8); color:var(--ink-3); }
+/* the composer: one line to type in, 보낼 곳 · model · send close under it */
+#chat > .composer { gap:6px; padding:10px 10px 8px 14px; margin-bottom:12px; box-shadow:var(--sh-md); }
+#chat > .composer > textarea { min-height:24px; padding:2px 0 4px; font-size:14px; line-height:22px; }
+/* the criteria panel: the sentence first; rows on hairlines (no boxed card), back-links as quiet text, only 확인 필요 orange */
+#panel ul.ck { background:none; border:0; border-radius:0; overflow:visible; }
+#panel ul.ck > li { padding:9px 4px; border-top:1px solid var(--a6); line-height:1.5; border-radius:var(--r-ctl); }
+#panel ul.ck > li:first-child { border-top:0; }
+#panel ul.ck > li.sel { box-shadow:none; }
+#panel ul.ck .all { color:var(--ink-2); background:var(--a5); }
+#panel ul.ck .meta { gap:2px 10px; margin-top:4px; }
+#panel ul.ck .bk:not(.wait) { height:auto; padding:0; background:none; color:var(--ink-3); }
+#panel ul.ck .human { height:auto; padding:0; border:0; background:none; color:var(--ink-2); }
+/* 보낼 곳 (10/29): one chip, as tall as the model chip; its menu opens upward from it, a line under each side on what it does */
+.composer #route { position:relative; gap:0; }
+.composer #route > button.routebtn { display:inline-flex; align-items:center; gap:6px; width:auto; height:var(--h-ctl); box-sizing:border-box; padding:0 10px;
+  border:1px solid var(--a12); border-radius:var(--r-ctl); background:none; font:500 12px/16px var(--sans); color:var(--ink); }
+.composer #route > button.routebtn .rb-k { color:var(--ink-3); }
+.composer #route > button.routebtn:hover { background:var(--a5); }
+.composer #route[data-route=""] > button.routebtn { color:var(--ink-3); }
+.composer #route > button.routebtn:focus-visible, .composer .mmenu button.mopt:focus-visible { outline:2px solid var(--ink); outline-offset:1px; }
+.composer #route > .mmenu { position:absolute; left:0; bottom:calc(100% + 8px); z-index:6; width:280px; display:flex; flex-direction:column; gap:2px;
+  padding:4px; background:var(--white); border:1px solid var(--a8); border-radius:10px; box-shadow:var(--sh-lg); white-space:normal; }
+.composer #route > .mmenu[hidden] { display:none; }
+.composer #route .mmenu button.mopt { display:flex; flex-direction:column; align-items:stretch; gap:2px; height:auto; padding:8px 10px;
+  border-radius:var(--r-ctl); font:400 12px/16px var(--sans); color:var(--ink-2); text-align:left; }
+.composer #route .mopt .ro-t { display:flex; align-items:center; justify-content:space-between; color:var(--ink); }
+.composer #route .mopt .ro-t b { padding:0; background:none; font-weight:600; }  /* not the old segment's b */
+.composer #route .mopt small { font-size:11px; line-height:16px; }
+.composer #route .mopt .ro-why { color:var(--ink); }
+.composer #route .mopt:disabled { cursor:not-allowed; background:none; }
+.composer #route .mopt:disabled .ro-t, .composer #route .mopt:disabled small:not(.ro-why) { opacity:.5; }
+/* the record hint is rare now (a stage filter hides what is sent): it may take its own line, and stays in narrow windows */
+#chat > .composer > .stagehint { order:5; flex:1 1 100%; white-space:normal; overflow:visible; line-height:18px; }
+@media (max-width:900px) { #chat > .composer > .stagehint:not([hidden]) { display:block; } }
 </style></head>
 <body>
 <nav id="side"></nav>
@@ -2227,6 +2296,13 @@ const verified = (k, dropped) => { const es = [...new Set((k.evidence || []).fil
   return h("p", { class: "verify", "data-verify": String(es.length) }, ico("check-circle", 14), h("span", null, `인용 ${es.length}개`,
     es.length ? ` · 모두 ${ts.length === 1 ? ts[0] : "자료"} 원문에서 위치를 확인했습니다` : "",
     dropped ? ` · 위치를 못 찾은 인용 ${dropped}개는 답에서 뺐습니다` : "")); };
+// a 논문 질문 answer: the paper's part ([n] = a quote found in the PDF), the user's own task (criteria, settings, what
+// was said: never cited, never the paper's) apart, then how its quotes were checked, or that it has none
+const noCite = k => (k.evidence || []).some(e => M.anchors[e]) ? null
+  : h("p", { class: "muted", "data-no-cite": "1" }, "인용 없음 · PDF 원문에서 확인한 내용이 아닙니다.");
+const answered = (k, note, dropped) => [h("p", null, cited(k.conclusion || k.title, k.evidence)),
+  note ? h("div", { class: "tasknote", "data-task-note": "1" }, h("b", null, "이 작업의 기준·설정·의논 (논문 아님)"), h("p", null, note)) : null,
+  webOnly(k), verified(k, dropped) || noCite(k)];
 // S9 / S43 / S55: something did not work: what happened, then what to do (a grey card; .call.block: tests read it)
 const failCard = (title, err, ...more) => h("div", { class: "call block fail" }, h("p", { class: "head" }, ico("info", 14), " ", title),
   err ? h("p", { class: "why" }, err) : null, ...more);
@@ -2599,6 +2675,10 @@ const KIND_TAG = { setting: "설정", result: "결과", scope: "범위", fact: "
 const pchip = k => { const e = ((k && k.evidence) || []).find(x => M.anchors[x]); if (!e) return null; const a = M.anchors[e];
   return h("button", { class: "cite pgc", "data-e": e, title: "근거 보기", on: () => show({ mode: "source", e }) }, a.page ? `p.${a.page}` : `[${cites[e] || 1}]`); };
 const plain = k => String(k.conclusion || k.title || "").replace(/\s*\[\d+\]/g, "");
+// B11 정하기: the criterion always names the setting it decides ("의논해" alone, 10/29, said nothing); "" = nothing decided
+const settingOf = s => s.replace(/\s*(은|는|이|가)?\s*(논문에\s*)?(명시되지\s*않았다|(적혀|나와)\s*있지\s*않다)\.?$/, "").trim();  // = skill.setting_name
+const settingValue = (name, v) => { v = v.trim(); if (!name) return v;
+  const rest = v.startsWith(name) ? v.slice(name.length).replace(/^\s*[=:]\s*/, "") : v; return rest ? `${name} = ${rest}` : ""; };
 function redone(d) {
   const can = window.pabloHost && pabloHost.condition, task = V.task.id;
   const subj = k => { const v = String(k.spec.value || ""); return plain(k).replace(v, "").replace(/[\d.,%]+/g, "").replace(/\s+/g, "").slice(0, 40); };
@@ -2673,8 +2753,8 @@ function conditions(ids, dropped, diff, secs) {
   const own = codeOf((cs.find(c => c.spec.source_id) || { spec: {} }).spec.source_id).find(x => x.official);  // ⑪
   const decide = c => { if (!window.pabloHost || !pabloHost.makeCriterion) return null;  // B11 / B10: a setting the paper leaves open, decided = a criterion
     const at = h("span", { class: "racts" }), go = h("button", { class: "link", "data-decide": c.id, on: () => {
-      const inp = h("input", { class: "why", "data-decide-in": c.id, value: plain(c).replace(/[가-힣\s]*(적혀|나와)\s*있지\s*않다\.?$/, "").trim() + " = " });
-      const ok = () => inp.value.trim() && pabloHost.makeCriterion(task, inp.value.trim(), "hard").then(items => { at.replaceChildren(h("span", { class: "muted" }, items.length ? "기준으로 정했습니다." : "이미 같은 기준이 있습니다."));
+      const name = settingOf(plain(c)), inp = h("input", { class: "why", "data-decide-in": c.id, value: name + " = " });
+      const ok = () => settingValue(name, inp.value) && pabloHost.makeCriterion(task, settingValue(name, inp.value), "hard", true).then(items => { at.replaceChildren(h("span", { class: "muted" }, items.length ? "기준으로 정했습니다." : "이미 같은 기준이 있습니다."));
         if (items.length) echo(task, { role: "intent", items }); return refresh(); }, e => at.append(h("span", { class: "muted" }, " " + fail(e))));
       inp.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); });
       at.replaceChildren(inp, " ", h("button", { class: "link", "data-decide-ok": c.id, on: ok }, "정하기")); inp.focus(); } }, "정하기");
@@ -2793,8 +2873,8 @@ function audited(c) {
     return h("span", { class: "racts" }, st(x) === "differs" && !k.spec.missing && pabloHost.condition ? differ(k, task) : null,
       st(x) === "pairing" && a ? h("button", { class: "link", "data-table-row": x.id, on: () => show({ mode: "source", e: a }) }, "논문 표 행 보기") : null,
       st(x) === "missing" && k.spec.missing && pabloHost.makeCriterion ? h("button", { class: "link", "data-decide": x.id, on: () => {
-        const v0 = h("input", { class: "why", "data-decide-in": x.id, value: (k.title || "").replace(/[가-힣\s]*(적혀|나와)\s*있지\s*않다\.?$/, "").trim() + " = " });
-        const ok = () => v0.value.trim() && pabloHost.makeCriterion(task, v0.value.trim(), "hard").then(items => { if (items.length) echo(task, { role: "intent", items }); return refresh(); },
+        const name = settingOf(k.title || ""), v0 = h("input", { class: "why", "data-decide-in": x.id, value: name + " = " });
+        const ok = () => settingValue(name, v0.value) && pabloHost.makeCriterion(task, settingValue(name, v0.value), "hard", true).then(items => { if (items.length) echo(task, { role: "intent", items }); return refresh(); },
           e => v0.after(h("span", { class: "muted" }, " " + fail(e))));
         v0.addEventListener("keydown", e => { if (e.key === "Enter" && !e.isComposing) ok(); });
         const li = box.querySelector(`li[data-id="${CSS.escape(x.id)}"] .racts`); if (li) li.replaceChildren(v0, " ", h("button", { class: "link", on: ok }, "정하기")); v0.focus(); } }, "정하기") : null); };
@@ -2943,6 +3023,29 @@ const noted = c => { const task = c.task || (V && V.task.id), m = msg("Pablo", n
   (c.pending || []).map(k => held({ ...k, live: c.live }, task)),
   (c.unread || []).map(u => unreadRow({ ...u, live: c.live }, task)));
   m.classList.add("note"); return m; };
+// 10/30 "기준 그렇게 수정해줘": the edits the conversation agreed on, one row each; only 반영 changes a criterion (the
+// ④ panel's own calls). After a reload a row says what became of it: in the criteria now, or not
+function changeCard(c) {
+  const task = c.task || (V && V.task.id), cur = V ? [...V.intent.must, ...V.intent.prefer] : [];
+  const OP = { add: "추가", restate: "고침", drop: "뺌" };
+  const applied = x => x.op === "drop" ? !cur.some(i => i.id === x.id) : cur.some(i => i.text === x.text);
+  const rows = (c.changes || []).map(x => {
+    const row = h("li", { "data-change": x.op }, h("span", { class: "tg" }, OP[x.op] || x.op), " ",
+      x.before ? [h("s", null, x.before), x.op === "drop" ? "" : " → "] : null, x.op === "drop" ? null : h("b", null, x.text),
+      ` (${x.strength === "hard" ? "반드시" : "가능하면"})`, x.reason ? h("small", { class: "muted" }, " · " + x.reason) : null, " ");
+    const end = t => row.lastChild.replaceWith(h("span", { class: "rt muted", "data-decided": "1" }, t));
+    if (applied(x)) return row.append(h("span", { class: "rt muted" }, "반영함")), row;
+    if (!c.live || !window.pabloHost) return row.append(h("span", { class: "rt muted" }, "(반영하지 않음)")), row;
+    const go = () => (x.op === "add" ? pabloHost.makeCriterion(task, x.text, x.strength)
+      : pabloHost.criterion(task, x.id, x.op === "drop" ? "drop" : "edit", x.op === "drop" ? x.reason : x.text))
+      .then(() => { end("반영했습니다."); refresh(); }, e => row.append(h("span", { class: "muted" }, " " + fail(e))));
+    row.append(h("span", { class: "rt" }, h("button", { class: "link", "data-apply": "1", on: go }, "반영"), " ",
+      h("button", { class: "link", "data-skip": "1", on: () => end("반영하지 않았습니다.") }, "무시")));
+    return row;
+  });
+  return msg("Pablo", null, h("div", { class: "hold", "data-criteria-change": "1" }, h("p", { class: "ttl" }, "대화에서 정한 기준 변경"),
+    h("p", { class: "muted" }, "반영을 누른 줄만 작업 기준에 들어갑니다."), h("ul", null, rows)));
+}
 // ③ a line the reader could not classify is shown, never dropped: the user makes it a rule (반드시 / 가능하면) or lets it go.
 // B6 / S48: a grey band; "기준으로 추가 ▾" opens the three choices (the buttons stay in the DOM: [data-as])
 function unreadRow(u, task) {
@@ -3001,6 +3104,7 @@ function said(c) {
       (SPEC[k.spec.category] || k.spec.category) + " · ", fact(k), k.state === "waived" ? " (나중에 뺌)" : ""))] : []; }
   if (c.role === "compare") return [msg("Pablo", null, matrix(c))];
   if (c.role === "intent") return [noted(c)];
+  if (c.role === "criteria-change") return [changeCard(c)];
   if (c.role === "changes") return [msg("Pablo", null, changed(c, V.task.id))];
   if (c.role === "user") return [msg("You", c.at, h("p", null, c.text))];
   if (c.role === "agent") return [msg("Pablo", null, h("p", { class: "stream", style: "white-space:pre-wrap" }, c.text || ""),
@@ -3008,7 +3112,7 @@ function said(c) {
   if (c.role !== "ask") return [];
   const k = c.check && V.checks[c.check];
   return [msg("You", c.at, h("p", null, c.text)), msg("Pablo", null, h("div", { class: "asked", "data-check": c.check || "" },
-    k ? [h("p", null, cited(k.conclusion || k.title, k.evidence)), webOnly(k), verified(k, c.dropped)]
+    k ? answered(k, c.note, c.dropped)
       : failCard(c.error ? "답을 찾지 못했습니다" : ASKFAIL.replace(/\.$/, ""), c.error || null)))];
 }
 // B24 / S12: before an arXiv download, the file it is saved as, where from and how big: [받기] [취소] (peek =
@@ -4399,7 +4503,7 @@ function picker(p, box, sid) {
 // column; a click outside a menu or the card closes it (QA 10/26: they only closed from their own button). A2 complete:
 // Ctrl N (⌘N) 새 작업, Ctrl K (⌘K) the task search, F2 renames the open task
 const floating = () => [$("settings"), $("newtask"), $("report-dlg"), document.querySelector("#more-menu:not([hidden])"),
-  document.querySelector(".composer > .mmenu:not([hidden])"), document.querySelector("#srccard:not([hidden])")].find(Boolean);
+  document.querySelector(".composer > .mmenu:not([hidden]), #route > .mmenu:not([hidden])"), document.querySelector("#srccard:not([hidden])")].find(Boolean);
 addEventListener("keydown", e => {
   if (e.isComposing) return;
   const mod = MAC ? e.metaKey : e.ctrlKey, k = (e.key || "").toLowerCase();
@@ -4411,12 +4515,15 @@ addEventListener("keydown", e => {
   if (!f) return document.body.classList.contains("side") ? document.body.classList.remove("side") : close();
   if (["settings", "newtask", "report-dlg"].includes(f.id)) f.remove();
   else if (f.id === "srccard") cardClose();
-  else { f.hidden = true; if (f.id === "more-menu" && $("more")) $("more").setAttribute("aria-expanded", "false"); } });
+  else { f.hidden = true; if (f.id === "more-menu" && $("more")) $("more").setAttribute("aria-expanded", "false");
+    if (f.parentNode.id === "route") f.parentNode.querySelector(".routebtn").setAttribute("aria-expanded", "false"); } });
 matchMedia("(max-width:900px)").addEventListener("change", () => sidebar());
 addEventListener("mousedown", e => {
   const m = document.querySelector(".composer > .mmenu:not([hidden])"), c = document.querySelector("#srccard:not([hidden])");
   const o = document.querySelector("#more-menu:not([hidden])");
   if (m && !e.target.closest(".mmenu, .modelbtn")) m.hidden = true;
+  const r = document.querySelector("#route > .mmenu:not([hidden])");
+  if (r && !e.target.closest("#route")) { r.hidden = true; r.parentNode.querySelector(".routebtn").setAttribute("aria-expanded", "false"); }
   if (o && !e.target.closest("#more-menu, #more")) { o.hidden = true; if ($("more")) $("more").setAttribute("aria-expanded", "false"); }
   if (c && !e.target.closest("#srccard, .hchip")) cardClose();
 }, true);
@@ -4485,9 +4592,13 @@ if (window.pabloHost && pabloHost.chat) {
     inp.placeholder = !on ? (V ? "ChatGPT에 연결하면 대화할 수 있습니다" : "ChatGPT에 연결하고 작업을 만들면 대화할 수 있습니다") :  // 01: no task yet
       wasReady && agentSt === "Connecting" ? "다시 연결되면 보낼 수 있습니다"
       : !V ? "새 작업을 만들면 대화할 수 있습니다" : asks ? "논문에 묻기…" : "Pablo에게 요청하기…";
-    hint.hidden = !on || !V || !box.dataset.stage;
-    const filt = !hint.hidden && $("log").dataset.filter === box.dataset.stage;  // B14
-    hint.replaceChildren(...(hint.hidden ? [] : ["· 이 메시지는 ", h("span", { class: "tg stage" }, box.dataset.stage), " 로 기록", filt ? " (거르는 중인 단계)" : ""]));
+    // 10/29: the stage a message is recorded under is said only when a stage filter would leave it out of the list in view
+    // (it was always there, and "작업 로 기록" read as noise). A 대화로 거르기 (refs:) filter is not a stage: no hint
+    const filt = $("log").dataset.filter || "", out = !!filt && !filt.startsWith("refs:") && filt !== box.dataset.stage;
+    hint.hidden = !on || !V || !box.dataset.stage || !out;
+    hint.replaceChildren(...(hint.hidden ? [] : ["이 메시지는 ", h("span", { class: "tg stage" }, box.dataset.stage), " 단계로 기록됩니다. ",
+      `지금은 ${filt} 단계만 보고 있어 목록에 나오지 않습니다.`]));
+    hint.title = hint.hidden ? "" : hint.textContent;
   };
   const status = (s, err) => { agentSt = s; st.title = err || ""; gate(); };
   gateHook = () => gate();
@@ -4632,6 +4743,10 @@ if (window.pabloHost && pabloHost.chat) {
     else if (ev.type === "intent") {  // right under the user's message, before the reply that is already streaming
       const s = [...live(ev.task).querySelectorAll(".stream")].at(-1), m = noted({ ...ev, live: true });
       s ? s.closest(".msg").before(m) : live(ev.task).append(m); refresh();
+    }
+    else if (ev.type === "criteria-change") {  // in place of the reply: the agent is not asked this message
+      const s = [...live(ev.task).querySelectorAll(".stream")].at(-1), m = changeCard({ ...ev, live: true });
+      s && !s.textContent ? s.closest(".msg").replaceWith(m) : live(ev.task).append(m); scroll();
     }
     else if (ev.type === "review") {  // PostReview of a WARN/BLOCK action, under its card (ALLOW has no card: stays silent)
       const card = Object.values(lives).map(l => l.querySelector(`[data-act="${CSS.escape(ev.act)}"]`)).find(Boolean);
@@ -4915,12 +5030,30 @@ if (window.pabloHost && pabloHost.chat) {
   specAgain = () => redo();  // B10: the conditions card's own 다시 뽑기 (asks first)
   // B17: 보낼 곳 is always in the composer (after the send button: it stays the first button). A side with nothing to send to
   // is off and says why; with both, the task's choice (agent by default)
-  const route = () => { box.querySelectorAll("#route").forEach(x => x.remove()); if (!V || !pabloHost.setRoute) return;
+  // 10/29: one chip ("보낼 곳 · 에이전트 ▾") instead of the two-button segment, which took the row's width for a choice most
+  // tasks never change. Its menu says what each side does; an unavailable side is off and says why. Only the look
+  // changed: send() routes as before, setRoute keeps the task's choice. #route[data-route] is the side a message goes to
+  const ROUTES = [["agent", "에이전트", "작업 폴더에서 일합니다. 논문 조건과 확인된 근거를 알고, 파일을 바꾸는 명령은 Guard를 거칩니다."],
+    ["ask", "논문 질문", "PDF에서 근거를 찾아 답합니다. 작업 폴더는 건드리지 않습니다."]];
+  const route = () => { const was = box.querySelector("#route > .mmenu:not([hidden])");
+    box.querySelectorAll("#route").forEach(x => x.remove()); if (!V || !pabloHost.setRoute) return;
     const d = (M.desk || {})[V.task.id] || {}, ps = d.papers || [], dir = !!d.folder, cur = ps.length && (!dir || d.route === "ask") ? "ask" : dir ? "agent" : "";
-    const why = { agent: dir ? null : "작업 폴더를 고르면 에이전트에게 보낼 수 있습니다", ask: ps.length ? null : "자료를 추가하면 논문에 물을 수 있습니다" };
-    box.append(h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
-      "보낼 곳 ", h("span", { class: "seg" }, ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label]) => cur === r ? h("b", { "data-route": r }, label)
-        : h("button", { class: "link", disabled: why[r] ? true : null, title: why[r], "data-route-to": r, on: () => pabloHost.setRoute(V.task.id, r).then(() => refresh()) }, label)))));
+    const why = { agent: dir ? null : "작업 폴더를 고르면 보낼 수 있습니다.", ask: ps.length ? null : "자료를 추가하면 보낼 수 있습니다." };
+    const chip = h("button", { class: "routebtn", type: "button", "aria-haspopup": "menu", "aria-expanded": String(!!was),
+      title: cur ? null : "자료나 작업 폴더를 정하면 보낼 수 있습니다" },
+      h("span", { class: "rb-k" }, "보낼 곳"), h("span", null, cur ? ROUTES.find(x => x[0] === cur)[1] : "없음"), ico("chevron-down", 12));
+    const menu = h("div", { class: "mmenu", role: "menu", "aria-label": "보낼 곳", hidden: !was },
+      ...ROUTES.map(([r, label, what]) => h("button", { class: "mopt" + (cur === r ? " on" : ""), type: "button", role: "menuitemradio",
+        "aria-checked": String(cur === r), "data-route-to": r, disabled: why[r] ? true : null,
+        on: () => { menu.hidden = true; chip.setAttribute("aria-expanded", "false");
+          (cur === r ? Promise.resolve() : pabloHost.setRoute(V.task.id, r).then(() => refresh()))
+            .then(() => { const b = document.querySelector("#route > .routebtn"); if (b) b.focus(); }); } },
+        h("span", { class: "ro-t" }, h("b", null, label), cur === r ? ico("check", 14) : null), h("small", null, what), why[r] ? h("small", { class: "ro-why" }, why[r]) : null)),
+      h("p", { class: "mm-note" }, ps.length && dir ? "이 작업의 메시지는 고른 곳으로 갑니다." : "자료와 작업 폴더가 둘 다 있을 때 고를 수 있습니다."));
+    chip.addEventListener("click", e => { menu.hidden = !menu.hidden; chip.setAttribute("aria-expanded", String(!menu.hidden));
+      if (!menu.hidden && !e.detail) (menu.querySelector(".mopt.on:not(:disabled)") || menu.querySelector(".mopt:not(:disabled)") || chip).focus(); });  // keyboard: into the menu
+    menu.addEventListener("keydown", e => { if (e.key !== "Escape") return; e.stopPropagation(); menu.hidden = true; chip.setAttribute("aria-expanded", "false"); chip.focus(); });
+    box.append(h("span", { id: "route", "data-route": cur }, chip, menu));
     gate(); };
   addSource = () => { adder.hidden = false; arx.focus(); };  // B12: + 논문 추가
   // A2 complete: the header's three chips (자료 · 폴더 · 인터넷), each opening its part of one card (#srccard: #src, #dir,
@@ -4979,9 +5112,6 @@ if (window.pabloHost && pabloHost.chat) {
     const specEl = st.can.spec && pabloHost.spec ? h("span", { id: "specs", title: several ? "재현 조건은 주 논문 한 편에서 뽑습니다. 다른 논문에서 다시 뽑으면 이전 조건을 대체합니다." : null },
         link((hasSpec ? "📋 재현 조건 다시 뽑기" : "📋 재현 조건 뽑기") + (several && main ? ` (${main.title})` : ""), () => hasSpec ? redo() : spec(V.task.id))) : null;
     const compEl = st.can.compare && pabloHost.compare ? h("span", { id: "compares" }, link("📊 비교표", () => compareForm(V.task.id))) : null;
-    const routeEl = ps.length && d.folder && pabloHost.setRoute ? h("span", { id: "route", title: "에이전트는 논문 조건과 확인된 근거를 알고 작업 폴더에서 일합니다. 논문 질문은 PDF에서 근거를 찾아 답합니다." },
-        "보낼 곳 ", h("span", { class: "seg" }, ...[["agent", "에이전트"], ["ask", "논문 질문"]].map(([r, label]) =>  // A2: a segmented control
-          (d.route || "agent") === r ? h("b", { "data-route": r }, label) : link(label, () => pabloHost.setRoute(V.task.id, r).then(() => refresh()))))) : null;
     const auditEl = st.can.audit && pabloHost.audit ? h("span", { id: "audits" }, link("🔎 재현 점검", () => audit(V.task.id))) : null;
     // ⑫ / A13: the report opens the export dialog (parts, format, place) instead of saving at once
     const reportEl = pabloHost.report && st.can.report ? h("span", { id: "reports" }, link("📄 보고서", () => reportDlg(V.task.id))) : null;
@@ -5025,11 +5155,14 @@ if (window.pabloHost && pabloHost.chat) {
     const shownIn = label => [...$("log").children].filter(x => x.classList.contains("msg") && !x.classList.contains("filtered") && x.dataset.stage === label).length;
     bar.append(h("nav", { id: "stages", "data-kind": kind }, ...steps.map((s, i) =>
       h("div", { class: "stage st-" + s.state + (filt === s.label ? " picked" : ""), "data-stage": s.key,
-        title: `${s.label} 단계의 대화만 보기`, on: e => { if (!e.target.closest("button, a")) stageFilter(s.label); } },
+        title: `${s.label} 단계의 대화만 보기`, tabindex: "0", "aria-pressed": String(filt === s.label),
+        on: e => { if (!e.target.closest("button, a")) stageFilter(s.label); } },
         h("span", { class: "st-n" }, stMark(s, i)),
         h("span", { class: "st-t" }, h("b", null, s.label), h("small", { "data-filtering": filt === s.label ? "1" : null }, filt === s.label ? `거르는 중 · ${shownIn(s.label)}` : s.sub),
           s.act || null))),
       more.length ? h("span", { class: "st-more" }, ...more) : null));
+    // phase 1: a stage is a tab stop; Enter / Space filters as a click does (its own buttons keep their keys)
+    $("stages").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("stage")) { e.preventDefault(); e.target.click(); } });
     // P6: how the conversation is grouped (the task's choice, else the settings'; 시간순 by default). A10: on the right, what
     // it is filtered by (a stage, or 대화로 거르기's label) as a chip that clears it, else "거르기 없음"
     const view = d.view || (M.settings || {}).view || "time";
@@ -5042,8 +5175,6 @@ if (window.pabloHost && pabloHost.chat) {
       h("button", { class: "vtab" + (view === v ? " on" : ""), "data-view": v, disabled: !pabloHost.setUi, "aria-pressed": String(view === v),
         on: () => view !== v && pabloHost.setUi(V.task.id, "view", v).then(() => refresh()).then(() => conversation()) }, t))),
       h("span", { class: "grow" }), fstate));
-    box.querySelectorAll("#route").forEach(x => x.remove());  // 보낼 곳 lives in the composer, after the send button (it stays the first button)
-    if (routeEl) box.append(routeEl);
   };
   { const tools0 = tools; tools = () => { tools0(); route(); }; }  // the stage bar's tools, then 보낼 곳 (B17)
   // a stage filter or 대화로 거르기 (stageFilter / filterBy set #log's data-filter): the stage bar and the view bar follow
@@ -5350,9 +5481,7 @@ if (window.pabloHost && pabloHost.chat) {
     pabloHost.ask(text, t, only).then(r => {
       Object.assign(M.anchors, r.anchors); Object.assign(M.sources, r.sources); M.views[t].checks[r.check.id] = r.check;
       box.textContent = ""; box.dataset.check = r.check.id;
-      box.append(h("p", null, cited(r.check.conclusion, r.check.evidence)));
-      const w = webOnly(r.check); if (w) box.append(w);
-      const vb = verified(r.check, r.dropped.length); if (vb) box.append(vb);  // B7
+      box.append(...answered(r.check, r.note, r.dropped.length).filter(Boolean));  // B7
       busy = null; status("Ready"); scroll(); refresh();
     }, e => {
       const ps = ((M.desk || {})[t] || {}).papers || [];  // S43: what failed, then the papers to ask one at a time

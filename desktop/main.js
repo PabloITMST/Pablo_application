@@ -117,6 +117,18 @@ async function chatTurn(text, task, prep) {
     logChat(task, entry);
     broadcast("pablo:agent", { type: "intent", task, ...entry });
   }
+  // "기준 그렇게 수정해줘" (10/30): the agent cannot touch Pablo's criteria (it wrote 작업_기준.md). Pablo reads the edits the
+  // conversation agreed on into a card; each changes only on 반영. None found (or failed): the agent gets the message
+  const changes = said && said.change_request ? await ctl.py("propose-criteria", task, text, "--recent", JSON.stringify(recentOf(task)))
+    .then(r => r.changes, err => { console.error("[pablo] propose-criteria", err.message); return []; }) : [];
+  if (changes.length) {
+    reply = null;  // no agent reply to log for this message
+    const entry = { role: "criteria-change", at: new Date(at + 1).toISOString(), changes };
+    logChat(task, entry);
+    broadcast("pablo:agent", { type: "criteria-change", task, ...entry });
+    agent.emit("event", { type: "done", status: "completed", first: null, total: Date.now() - at });
+    return agent.emit("event", { type: "status", status: agent.status });
+  }
   const d = desk(), own = d.workspace[task];
   agent.workspace = ctl.root = own || envWorkspace;  // the task's folder (M5.1), else PABLO_WORKSPACE, else read-only
   agent.network = !!d.net[task];  // 인터넷: off unless the user turned it on for this task
@@ -157,6 +169,13 @@ function logChat(task, entry) {
   try { log = JSON.parse(fs.readFileSync(f, "utf8")); } catch {}
   (log[task] = Array.isArray(log[task]) ? log[task] : []).push(entry);
   fs.writeFileSync(f, JSON.stringify(log, null, 1));
+}
+// the task's last 8 messages (a 논문 질문 and a criteria change read the conversation they are asked in)
+function recentOf(task) {
+  let log = [];
+  try { log = JSON.parse(fs.readFileSync(path.join(ctl.dir, "chat.json"), "utf8"))[task] || []; } catch {}
+  return log.filter(x => ["user", "agent", "ask"].includes(x.role) && typeof x.text === "string" && !x.error)
+    .slice(-8).map(x => ({ role: x.role, text: x.text.slice(0, 600), ...(x.check ? { check: x.check } : {}), ...(x.note ? { note: x.note } : {}) }));
 }
 // fields added to an entry already logged (the last one that matches): D4 a request's plan step, known after it is logged
 function patchChat(task, match, fields) {
@@ -574,8 +593,9 @@ ipcMain.handle("pablo:ask", (e, text, task, only) => {
   if (!ids.length) throw new Error("먼저 논문 PDF를 추가하세요.");
   saveDesk(x => { x.last = task; });
   const at = new Date().toISOString();
-  return ctl.ask(task, text, ids).then(r => {
-    logChat(task, { role: "ask", text, at, check: r.check.id, ...(r.dropped.length ? { dropped: r.dropped.length } : {}) });
+  return ctl.ask(task, text, ids, recentOf(task)).then(r => {
+    logChat(task, { role: "ask", text, at, check: r.check.id, ...(r.dropped.length ? { dropped: r.dropped.length } : {}),
+      ...(r.note ? { note: r.note } : {}) });
     return r;
   }, err => {
     console.error("[pablo] ask", err.message);
@@ -610,10 +630,10 @@ ipcMain.handle("pablo:criterion", async (e, task, id, action, reason) => {
 });
 // UI renewal: words from a message made a criterion of the task by the user (📌 기준으로): always a rule of the strength
 // they chose, never the goal; one the policy would hold back (hedged words) is promoted at once, the user already decided
-ipcMain.handle("pablo:make-criterion", async (e, task, text, strength) => {
+ipcMain.handle("pablo:make-criterion", async (e, task, text, strength, decide) => {
   fromWindow(e); known(task);
   if (!str(text, 1000) || !text.trim() || !["hard", "soft"].includes(strength)) throw new Error("bad criterion");
-  const r = await ctl.py("say", text.trim(), "--scope", "task", "--task", task, "--rule", strength).catch(err => { throw new Error(short(err.message)); });
+  const r = await ctl.py("say", text.trim(), "--scope", "task", "--task", task, "--rule", strength, ...(decide === true ? ["--decide"] : [])).catch(err => { throw new Error(short(err.message)); });
   const items = [...r.added];
   for (const k of r.candidates.filter(k => k.status === "pending" || k.status === "ignored")) {
     const x = (await ctl.py("promote", k.id, "--as", strength)).item;

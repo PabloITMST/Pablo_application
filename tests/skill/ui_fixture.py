@@ -167,7 +167,8 @@ def build(d: str) -> str:
         {"role": "agent", "text": "hello.txt에 줄을 더하겠습니다.", "at": at(11), "status": "completed"},
         {"role": "user", "text": "keep.txt도 정리해줘", "at": at(30)},
         {"role": "agent", "text": "keep.txt를 지우려", "at": at(31), "status": "interrupted"},
-        {"role": "ask", "text": "효율 근거가 어디 있어?", "at": at(50), "check": sc.id},
+        {"role": "ask", "text": "효율 근거가 어디 있어?", "at": at(50), "check": sc.id,
+         "note": "미정: 청킹 규칙.\n제안: 문장 단위로 나눕니다."},  # 10/29: the task's part, apart from the paper's
         {"role": "spec", "at": at(55), "checks": specs + [told.id], "missing": [gap.id], "dropped": 1,
          "diff": {"first": False, "before": 2, "same": 1, "new": [specs[3]], "gone": [lost.id], "kept": [], "again": [], "out": []}},
         # as main.js stores it: the model's answer + what Pablo saw at each place in repro/ (desktop/where.js verify)
@@ -233,7 +234,7 @@ ARXIV_FEED = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 class PapersJudge:  # C1/C3 stubs: one answer over both papers, each paper's row of the table
-    def answer_from_sources(self, question, papers):
+    def answer_from_sources(self, question, papers, context=""):
         if any(x.get("kind") == "web" for x in papers):  # D1: the page repeats a sentence; near says which one
             return {"answer": "노트에 따르면 캐시 실행도 top-k 5입니다 [1].", "citations": [
                 {"n": 1, "paper": "B", "page": 0, "quote": "uses a top-k of 5 in the retrieval step", "near": "The cached run",
@@ -283,7 +284,7 @@ def build_papers(d: str, web: str | None = None) -> dict:
     open(pa, "wb").write(a_v2)
     open(pb, "wb").write(tiny_pdf(TINY_B, "OtherRAG"))
     a, b = s.capture_pdf(pa, arxiv="2501.00001"), s.capture_pdf(pb)
-    sc, _ = s.ask(t.id, "두 논문은 무엇으로 평가해?", [a.id, b.id])
+    sc, _, _ = s.ask(t.id, "두 논문은 무엇으로 평가해?", [a.id, b.id])
     mid, cells, empty = s.compare(t.id, [a.id, b.id], ["데이터셋", "주요 결과", "효율", "한계"])
     papers = [{"id": a.id, "title": a.title, "arxiv": "2501.00001", "version": "v2", "sha256": a.version["content_hash"]},
               {"id": b.id, "title": b.title}]
@@ -297,7 +298,7 @@ def build_papers(d: str, web: str | None = None) -> dict:
     if web:
         s.fetch = lambda url: WEB_NOTES
         w = s.capture_source(web)
-        sw, _ = s.ask(t.id, "노트에서 캐시 실행의 top-k는?", [a.id, w.id])
+        sw, _, _ = s.ask(t.id, "노트에서 캐시 실행의 top-k는?", [a.id, w.id])
         papers.append({"id": w.id, "title": w.title, "kind": "web", "url": web})
         chat[t.id].append({"role": "ask", "text": "노트에서 캐시 실행의 top-k는?", "at": at(30), "check": sw.id})
     e.save()

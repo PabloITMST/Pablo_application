@@ -47,6 +47,8 @@ class TooMuchText(ValueError):
 
 
 ASK_PAGES, ASK_CHARS = 40, 250_000  # C1: per paper, and in all, for one question over several papers
+ASK_RECENT, ASK_TURN_CHARS = 8, 600  # task_context: the conversation a 논문 질문 sees (the agent's own runs see more)
+NO_PAPER_ANSWER = "논문에서 이 질문의 근거를 찾지 못했습니다."
 COMPARE_PAGES = 40  # C3: one paper's pages for its row of a comparison table
 COLUMNS = ["데이터셋", "평가 지표", "주요 결과", "효율", "한계"]
 # A3: the research-integrity criteria a reproduction task starts with (desktop "논문 재현 작업"). 0.8 ④: removing one
@@ -399,7 +401,8 @@ class PabloSkill:
             raise KeyError("no captured PDF or web page to answer from")
         return src
 
-    def ask(self, task_id: str, question: str, src_id: str | list[str] | None = None) -> tuple[SourceCheck, list[dict]]:
+    def ask(self, task_id: str, question: str, src_id: str | list[str] | None = None,
+            context: str = "") -> tuple[SourceCheck, list[dict], str]:
         """M3.3: answer a question from a captured PDF (default: the latest one). The judge picks the quotes; Pablo
         anchors each one in the captured text, drops the ones it cannot find once, renumbers the [n] markers, and
         stores the answer as a completed check whose supports links are in citation order. -> (check, dropped)
@@ -408,12 +411,15 @@ class PabloSkill:
         D1: a web page is a source too. It has no pages: the judge gives the words next to a quote (near) and Pablo
         anchors it in the captured text (evidence.locate), the occurrence near those words when the quote repeats.
         Pablo cannot tell how authoritative a page the user picked is (tier 5): an answer resting on web quotes alone
-        is PARTIALLY_VERIFIED (R01), one with a paper's quote can be VERIFIED."""
+        is PARTIALLY_VERIFIED (R01), one with a paper's quote can be VERIFIED.
+        context (task_context): the task the question is asked in. What the judge answers from it comes back as the
+        note, apart from the paper's answer and never cited; no quote kept -> the answer says the paper gave none.
+        -> (check, dropped, note)"""
         ids = [src_id] if isinstance(src_id, str) or src_id is None else list(dict.fromkeys(src_id))
         srcs = [self._doc(i) for i in ids]
         if len(srcs) == 1 and srcs[0].kind == "pdf":
             src = srcs[0]
-            r = self.judge.answer_from_pdf(question, self.snapshot_text(src).split("\f"))
+            r = self.judge.answer_from_pdf(question, self.snapshot_text(src).split("\f"), context)
             of = {}
         else:
             papers = [{"label": chr(65 + i), "title": x.title, "kind": x.kind,
@@ -423,7 +429,7 @@ class PabloSkill:
             if size > ASK_CHARS:
                 raise TooMuchText(f"자료 {len(srcs)}개를 한 번에 묻기에는 본문이 너무 깁니다({size:,}자, 상한 {ASK_CHARS:,}자). "
                                   "물어볼 자료를 골라 주세요.")
-            r = self.judge.answer_from_sources(question, papers)
+            r = self.judge.answer_from_sources(question, papers, context)
             of = {x["label"]: s for x, s in zip(papers, srcs)}
         kept, dropped, new = [], [], {}
         for c in sorted(r["citations"], key=lambda c: c["n"]):
@@ -449,6 +455,11 @@ class PabloSkill:
         answer = re.sub(r"\[(\d+(?:\s*,\s*\d+)+)\]", lambda m: "".join(f"[{x.strip()}]" for x in m[1].split(",")),
                         r["answer"])
         answer = re.sub(r"\s?\[(\d+)\]", lambda m: f"[{new[int(m[1])]}]" if int(m[1]) in new else "", answer)
+        note = re.sub(r"\s?\[\d+(?:\s*,\s*\d+)*\]", "", r.get("task_note") or "").strip()
+        if not answer.strip():  # a task-only question: the paper part must not read as answered
+            answer = NO_PAPER_ANSWER
+        # an answer with no quote kept stays as the judge wrote it: PARTIALLY_VERIFIED + budget_exhausted below, so the
+        # viewer says 인용 없음 and render_brief never hands it to the agent
         sc = self.add_check(task_id, question, "USEFUL")
         whole = kept and not dropped and any(x.kind == "pdf" for *_, x in kept)
         self.complete_check(sc.id, "VERIFIED" if whole else "PARTIALLY_VERIFIED", answer,
@@ -458,7 +469,7 @@ class PabloSkill:
                             None if whole else "budget_exhausted")
         for a, role, _ in kept:
             self.link_evidence(a.id, sc.id, "supports", role)
-        return sc, dropped
+        return sc, dropped, note
 
     def spec(self, task_id: str, src_id: str | None = None, progress=None) -> tuple[list[SourceCheck], list[SourceCheck], list[dict]]:
         """The paper's reproduction conditions (data, split, model, hyperparameters, metrics, baselines, results,
@@ -1155,6 +1166,8 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
         for _, a in s.evidence_for(c.id):
             src = s.get_source(a.source_id)
             where.append(f"{src.title} p.{a.selector['page']}" if "page" in a.selector else src.title)
+        if not where and not c.spec and c.stop_reason == "budget_exhausted":  # a 논문 질문 with no quote kept: no fact
+            continue
         text = re.sub(r"\[(\d+)\]", lambda m: f"({where[int(m[1]) - 1]})" if 0 < int(m[1]) <= len(where) else "",
                       c.conclusion)
         if not re.search(r"\[\d+\]", c.conclusion) and where:
@@ -1182,6 +1195,8 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
            "근거를 쓸 때는 괄호 안의 출처와 쪽을 함께 밝히세요." if facts else
            "[Pablo] 이 작업에서 사용자가 정한 기준입니다. 기준과 어긋나는 일은 하기 전에 말하세요."]
     out += [f"반드시: {x}" for x in must] + [f"가능하면: {x}" for x in prefer]
+    if must or prefer:  # 10/30 the agent wrote 작업_기준.md when asked to change them: Pablo's criteria never moved
+        out.append("기준은 Pablo가 관리합니다. 기준 파일을 따로 만들지 말고, 바꿀 기준은 답에서 제안하세요. 사용자가 확인하면 Pablo가 반영합니다.")
     if facts:
         out += ["확인된 근거:"] + facts
     if paper:
@@ -1200,6 +1215,44 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
     if aside_:
         out += ["참고 (논문의 서술과 이 재현 밖의 실험, 따를 조건은 아님):"] + aside_
     return "\n".join(out), basis
+
+
+def setting_name(requirement: str) -> str:
+    """The setting a "논문에 없는 설정" line names: "사용할 spaCy 모델과 버전이 명시되지 않았다." -> "사용할 spaCy 모델과 버전".
+    Same rule as the viewer's settingOf: 정하기 saves "<name> = <value>", which is how a setting reads as decided."""
+    return re.sub(r"\s*(은|는|이|가)?\s*(논문에\s*)?(명시되지\s*않았다|(적혀|나와)\s*있지\s*않다)\.?$", "", requirement.strip()).strip()
+
+
+def task_context(s: PabloSkill, task_id: str, recent: list[dict] | None = None) -> str:
+    """What a 논문 질문 is told about the task it is asked in (the agent gets render_brief): the goal, the criteria, the
+    settings the paper leaves open and whether each is decided, and the last turns of the conversation (ASK_RECENT,
+    each cut at ASK_TURN_CHARS). A "의논하자" request decides nothing, so it is never a criterion here."""
+    ai = s.get_applicable_intent(task_id)
+    out = [f"목표: {ai['task'].text}"]
+    rules = ai["constraints"]
+    out += [f"{'반드시' if c.strength == 'hard' else '가능하면'}: {c.statement}" for c in rules]
+    sets = []
+    for c in s.checks(task_id):
+        if not (c.spec and c.spec.get("missing")):
+            continue
+        name = setting_name(c.requirement)
+        by = next((r.statement for r in rules if r.statement.startswith(name + " =")), None) if name else None
+        sets.append(f"- {name}: " + (f"정함 ({by})" if by else "다루지 않기로 함" if c.research_state == "waived"
+                                     else "아직 정하지 않음"))
+    if sets:
+        out += ["논문에 없는 설정:"] + sets
+    turns = []
+    for x in (recent or [])[-ASK_RECENT:]:  # chat.json entries; a 논문 질문's answer is its check's conclusion
+        said = {"user": "사용자", "agent": "에이전트", "ask": "논문 질문"}.get(x.get("role"), x.get("role"))
+        c = next((c for c in s.state.checks if c.id == x.get("check")), None)
+        said_paper = c and c.conclusion and (c.conclusion if s.evidence_for(c.id) or c.conclusion == NO_PAPER_ANSWER
+                                             else f"(인용 없음) {c.conclusion}")
+        text = " → ".join(t for t in [x.get("text"), said_paper, x.get("note")] if t)
+        if text:
+            turns.append(f"{said}: {text[:ASK_TURN_CHARS]}")
+    if turns:
+        out += ["최근 대화 (출처 아님):"] + turns
+    return "\n".join(out)
 
 
 AUDIT_STATUS = ["followed", "differs", "missing", "unclear", "chosen"]

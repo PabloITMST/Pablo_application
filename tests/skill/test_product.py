@@ -55,7 +55,7 @@ def test_brief():
         from test_pdf import Judge
         s.judge = Judge()
         src = s.capture_pdf(PDF)
-        sc, dropped = s.ask(t.id, "LinearRAG가 더 효율적인 근거는?", src.id)
+        sc, dropped, _ = s.ask(t.id, "LinearRAG가 더 효율적인 근거는?", src.id)
         text, basis = render_brief(s, t.id)
         assert basis == [sc.id] and len(dropped) == 1
         assert "(LinearRAG p.2)" in text and "(LinearRAG p.9)" in text and "[1]" not in text, text

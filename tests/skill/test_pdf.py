@@ -21,7 +21,7 @@ GOLD = json.load(open(os.path.join(ROOT, "tests", "eval", "linearrag_gold.json")
 
 
 class Judge:  # answer_from_pdf stub: a claim [1], a table row [2], and one quote that is not in the paper
-    def answer_from_pdf(self, question, pages):
+    def answer_from_pdf(self, question, pages, context=""):
         assert len(pages) > 9 and "249.78" in pages[8]
         return {"answer": "저자는 77% 이상 줄였다고 씁니다 [1]. Table 2는 249.78 s입니다 [3]. 없는 문장 [2].",
                 "citations": [{"n": 1, "page": 2, "quote": "reduces indexing time by over 77%", "role": "claim"},
@@ -66,7 +66,7 @@ def test_ask_and_viewer():
     s = PabloSkill(IntentEngine(), judge=Judge(), path=os.path.join(d, "skill.json"))
     s.capture_pdf(PDF)
     t = s.start_task("LinearRAG 논문 읽기", checks=[])
-    sc, dropped = s.ask(t.id, "LinearRAG가 baseline보다 효율적이라는 실험 근거가 어디 있어?")
+    sc, dropped, _ = s.ask(t.id, "LinearRAG가 baseline보다 효율적이라는 실험 근거가 어디 있어?")
     assert [x["n"] for x in dropped] == [2]
     assert sc.outcome == "PARTIALLY_VERIFIED" and sc.conclusion == \
         "저자는 77% 이상 줄였다고 씁니다[1]. Table 2는 249.78 s입니다[2]. 없는 문장.", sc.conclusion
