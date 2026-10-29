@@ -287,7 +287,7 @@ async function authCheck() {
   const until = async (c, ms = 60000) => { for (let t = 0; t < ms; t += 200) { const x = await js(c); if (x) return x; await sleep(200); } throw new Error("timeout: " + c); };
   await until(`$("acct").dataset.state === "signed_out" && !!$("signin")`);
   assert.ok(await js(`document.querySelector("#chat .composer textarea").disabled`), "composer off while signed out");
-  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "efforts", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "openWork", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "recheckPlan", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setEffort", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "similar", "spec", "state", "stop", "summarize", "undo"]);
+  assert.deepStrictEqual(await js(`Object.keys(pabloHost).sort()`), ["addArxiv", "addFiles", "addOpenreview", "addWeb", "agentStatus", "archiveTask", "ask", "attachPicked", "audit", "authStatus", "cancel", "cancelLogin", "chat", "compare", "compareColumn", "condition", "criterion", "decide", "diff", "drift", "efforts", "intent", "locate", "login", "logout", "lookupDoi", "makeCriterion", "models", "newTask", "noticeSeen", "onAgent", "onAuth", "openFile", "openPath", "openWork", "pathOf", "peekArxiv", "pickFolder", "pickFolderFree", "pickPdfs", "pickPdfsFree", "pickReportPath", "readFile", "recheck", "recheckPlan", "removeSource", "renameSource", "renameTask", "report", "reportPreview", "retry", "searchArxiv", "setEffort", "setGoal", "setModel", "setNet", "setPrimary", "setRoute", "setUi", "similar", "spec", "state", "stop", "summarize", "undo"]);
   await js(`$("signin").click()`);
   await until(`$("acct").dataset.state === "connected"`);
   assert.ok((await js(`$("acct").textContent`)).includes("플랜 사용 가능"));
@@ -353,6 +353,23 @@ async function authCheck() {
   const saved = JSON.parse(fs.readFileSync(path.join(dir, "thread.json"))).threads;
   assert.ok(agent.task().endsWith("#" + await js("V.task.id")) && saved[agent.task()].threadId === agent.thread(), "task -> thread saved for the next launch");
   console.log("ok 401:", shown, "-> refresh -> app-server restart -> thread/resume", agent.thread());
+  // one task per conversation: a message the judge reads as another job gets a card before it is sent (judge stubbed here;
+  // tests/skill/test_drift.py checks its prompt). 새 작업으로 만들기 carries the message into the new task's goal.
+  const { ipcMain } = require("electron"), driftMsg = "웹 크롤러를 하나 새로 만들어서 뉴스 제목을 모아줘";
+  ipcMain.removeHandler("pablo:drift");
+  ipcMain.handle("pablo:drift", () => ({ verdict: "different", reason: "목표와 다른 일을 요청합니다" }));
+  const driftSent = agent.spawns + ":" + agent.thread();
+  await js(`(i => { i.value = ${JSON.stringify(driftMsg)}; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" })); })(document.querySelector("#chat .composer textarea"))`);
+  assert.deepStrictEqual(await until(`(c => c && [c.dataset.drift, c.querySelector(".head").textContent, [...c.querySelectorAll(".acts button")].map(b => b.textContent),
+    document.querySelector("#chat .composer textarea").value])(document.querySelector("#live [data-drift]"))`),
+  ["different", "이 작업의 목표와 다른 일 같습니다", ["새 작업으로 만들기", "이 작업의 목표 고치기", "그대로 보내기"], driftMsg], "the drift card; the words stay in the box");
+  assert.strictEqual(agent.spawns + ":" + agent.thread(), driftSent, "nothing sent yet");
+  await js(`document.querySelector("[data-drift-new]").click()`);
+  assert.deepStrictEqual(await js(`[!!$("newtask") && $("goal").value, document.querySelector("#chat .composer textarea").value, !!document.querySelector("#live [data-drift]")]`),
+    [driftMsg, "", false], "새 작업으로 만들기: the message is the new task's goal");
+  await js(`$("newtask").remove()`);
+  ipcMain.removeHandler("pablo:drift"); ipcMain.handle("pablo:drift", () => null);
+  console.log("ok drift: card before sending (새 작업 · 목표 고치기 · 그대로 보내기) -> 새 작업 with the message as its goal");
   // A2 complete: 연결 해제 is in 설정 · 계정, behind a confirm card (the account card's only link is 설정)
   await js(`document.querySelector("#acct [data-settings]").click()`);
   await until(`!!document.querySelector("#settings [data-logout]")`);
@@ -923,6 +940,7 @@ async function uiCheck() {
   await new Promise(r => win.webContents.once("did-finish-load", r));
   const js = c => win.webContents.executeJavaScript(c);
   await sleep(800);
+  for (let t = 0; t < 30000 && !(await js(`!!M.desk`)); t += 200) await sleep(200);  // the live state read (Python) can take longer than 800 ms
   assert.deepStrictEqual(errors, [], "no script errors on load");
   // one size scale (10/27): a control on a row 32, a choice inside a group 24, a label in a line of text 20
   assert.deepStrictEqual(await js(`(q => ({ ctl: q("#side .new, .statechip, #bar .rn, #viewbar .vseg, #chat > .composer > button, .pill"),
@@ -992,7 +1010,7 @@ async function uiCheck() {
   await js(`select("T1")`);
   // A12 새 작업 (Ctrl N): a dialog over the task; the kind shows its stages, 논문 재현 its default criteria; Esc closes it
   await press("n", { ctrlKey: true });
-  assert.deepStrictEqual(await js(`[!!$("newtask"), !!$("goal") && !!$("repro") && !!$("kind-read") && !!$("kind-general") && !!$("create"), $("kind-general").checked,
+  assert.deepStrictEqual(await js(`[!!$("newtask"), !!$("goal") && !!$("repro") && !$("kind-read") && !!$("kind-general") && !!$("create"), $("kind-general").checked,
     document.querySelector("[data-kind-stages]").textContent]`), [true, true, true, "이 작업의 단계: 준비 → 작업 → 검토"], "Ctrl N: the new task dialog");
   await js(`$("repro").checked = true; $("repro").dispatchEvent(new Event("change"))`);
   assert.strictEqual(await js(`document.querySelectorAll("[data-kind-stages] li").length`), 3, "논문 재현: its three criteria");
@@ -1035,7 +1053,7 @@ async function uiCheck() {
   // UI renewal P5 / P6: the stage and target views, a person's tag (stage + 결정) that wins on a redraw; all undone after
   const redraw = `refresh().then(() => conversation())`;
   const settle = async (c, ms = 20000) => { for (let t = 0; t < ms; t += 100) { const x = await js(c); if (x) return x; await sleep(100); } throw new Error("timeout: " + c); };
-  const general = await js(`kindOf()`), names = { repro: 5, read: 4, general: 3 }[general];
+  const general = await js(`kindOf()`), names = { repro: 5, general: 3 }[general];
   await js(`pabloHost.setUi("T1", "view", "stage").then(() => ${redraw})`); await sleep(300);
   assert.strictEqual(await js(`document.querySelectorAll("#log > .stagegroup").length`), names, "단계별: one box per stage of the task's kind");
   assert.strictEqual(await js(`document.querySelector('#viewbar [data-view="stage"]').classList.contains("on")`), true);

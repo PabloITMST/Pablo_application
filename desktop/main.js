@@ -235,7 +235,7 @@ ipcMain.handle("pablo:new-task", async (e, text, opts) => {
   if (items.length || unread.length || pending.length)
     logChat(t.task.id, { role: "intent", at: new Date().toISOString(), items, ...(pending.length ? { pending } : {}), ...(unread.length ? { unread } : {}) });
   // UI renewal P7: the task's kind (its stages), and a new task opens on its criteria unless settings say rail
-  const kind = opts && ["repro", "read", "general"].includes(opts.kind) ? opts.kind : opts && opts.repro === true ? "repro" : null;
+  const kind = opts && ["repro", "general"].includes(opts.kind) ? opts.kind : opts && opts.repro === true ? "repro" : null;
   saveDesk(x => { x.last = t.task.id; const s = x.settings || {};
     if (kind) x.kind = { ...(x.kind || {}), [t.task.id]: kind };
     x.panel = { ...(x.panel || {}), [t.task.id]: { open: s.panel !== "rail", tab: "intent" } };
@@ -300,7 +300,7 @@ ipcMain.handle("pablo:set-net", (e, task, on) => {
 });
 // UI renewal: what the screen remembers (desktop.json), one whitelisted key at a time; task null = the app's settings
 const plain = (v, max) => !!v && typeof v === "object" && !Array.isArray(v) && JSON.stringify(v).length <= max;
-const UI = { kind: v => ["repro", "read", "general"].includes(v), done: v => typeof v === "boolean",
+const UI = { kind: v => ["repro", "general"].includes(v), done: v => typeof v === "boolean",
   panel: v => plain(v, 200) && typeof v.open === "boolean" && ["intent", "plan", "trace", "evidence"].includes(v.tab),
   view: v => ["time", "stage", "target"].includes(v), tags: v => plain(v, 200000), summary: v => plain(v, 50000) };
 const SETTINGS = { view: v => ["time", "stage", "target"].includes(v), tags: v => ["main", "all"].includes(v),
@@ -526,6 +526,23 @@ ipcMain.handle("pablo:notice-seen", (e, what) => {
 ipcMain.handle("pablo:rename-task", async (e, task, name) => {
   fromWindow(e); known(task); if (!str(name, 80)) throw new Error("작업 이름은 80자까지입니다.");
   return (await ctl.py("rename-task", task, "--name", name).catch(err => { throw new Error(short(err.message)); })).task.name;
+});
+ipcMain.handle("pablo:set-goal", async (e, task, goal) => {
+  fromWindow(e); known(task); if (!str(goal, 500) || !goal.trim()) throw new Error("작업 목표는 1~500자입니다.");
+  return (await ctl.py("set-goal", task, goal).catch(err => { throw new Error(short(err.message)); })).task.text;
+});
+// one task per conversation: before a message goes out, the model reads it against the task's goal. null = no question
+// (signed out, the task's first message, a short reply, slow or failed): the message is sent as it is.
+ipcMain.handle("pablo:drift", async (e, text, task) => {
+  fromWindow(e); known(task); if (!str(text, 20000)) throw new Error("bad message");
+  if (auth.state !== "connected" || text.trim().length < 15) return null;
+  let log = [];
+  try { log = JSON.parse(fs.readFileSync(path.join(ctl.dir, "chat.json"), "utf8"))[task] || []; } catch {}
+  const recent = log.filter(x => x.role === "user" && typeof x.text === "string").slice(-6).map(x => x.text.slice(0, 500));
+  if (!recent.length) return null;  // the first message is where the task starts
+  const ask = ctl.py("drift", task, text, "--recent", JSON.stringify(recent));
+  const late = new Promise(res => setTimeout(() => res(null), 20000));  // ponytail: a slow judge never holds a message long
+  return Promise.race([ask, late]).catch(err => { console.error("[pablo] drift", err.message); return null; });
 });
 ipcMain.handle("pablo:archive-task", (e, task, on) => {
   fromWindow(e); known(task);

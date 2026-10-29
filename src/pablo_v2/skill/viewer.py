@@ -2384,10 +2384,9 @@ function header() {
   const kindTag = M.desk ? h("span", { class: "kindtag", "data-kind-tag": deskKind(V.task.id) }, KIND[deskKind(V.task.id)]) : null;
   $("bar").append(...[name, kindTag, h("span", { class: "grow" }), chips, pnl, moreBtn, more].filter(Boolean));  // 기준 · 계획 · 왜? are the right column's tabs (ptabs)
 }
-// P7: the task's kind decides its stages; one stored at creation wins, else what its material says
-const KIND = { repro: "논문 재현", read: "논문 읽기", general: "일반" };
-function deskKind(id) { const d = (M.desk || {})[id] || {}, ps = d.papers || [];
-  return d.kind || (d.folder && ps.length ? "repro" : ps.length ? "read" : "general"); }
+// P7: the task's kind decides its stages (kindFor)
+const KIND = { repro: "논문 재현", general: "일반" };
+const deskKind = id => kindFor((M.desk || {})[id]);
 // P7: the right column is remembered per task (open or rail, and the tab); a task switch's own close() is not a choice
 let panelSaved = {}, panelQuiet = false;
 function rememberPanel() {
@@ -3043,9 +3042,10 @@ function echo(task, c) {
 // P4: each message's stage, from what the record is (a spec is 조건 확정, an audit 재현 점검, ...), a divider where
 // the stage changes, and a tag row: the stage, then what it is about (files, [n]); the rest folds into "N개 더"
 function kindOf() { return kindFor((M.desk || {})[V.task.id]); }
-// any task's kind from its desk entry (M.desk[id]): the one it was made as, else what it has (folder + paper, paper, none)
-function kindFor(d) { d = d || {}; const ps = d.papers || [];
-  return d.kind || (d.folder && ps.length ? "repro" : ps.length ? "read" : "general"); }
+// any task's kind from its desk entry (M.desk[id]): the one it was made as, else what it has (folder + paper -> repro).
+// 논문 읽기 is part of 일반 since 0.11: a task stored as "read" is a general one
+function kindFor(d) { d = d || {};
+  return d.kind === "repro" || (!d.kind && d.folder && (d.papers || []).length) ? "repro" : "general"; }
 // D1: a task's stages from its records alone, for any task (the stage bar; the sidebar's progress): v = M.views[id],
 // d = M.desk[id], kind = kindFor(d) when not given. A step's state comes from what is recorded, nothing is enforced.
 // -> {steps: [{key, label, state: done|current|todo|blocked|stale, sub}], current: index of the current step or -1,
@@ -3077,13 +3077,10 @@ function stagesOf(v, d, kind) {
     step("audit", "재현 점검", !can.audit ? "blocked" : staleAudit ? "stale" : la ? "done" : "todo",
       !can.audit ? "폴더 · 조건 필요" : staleAudit ? "오래됨 · 다시 필요" : la ? (differ ? `다름 ${differ}` : "점검함") : "점검 전"),
     step("report", "보고서", reported ? "done" : "todo", reported ? "저장함" : can.report ? "할 수 있음" : "—")]
-  : kind === "read" ? [
-    step("prep", "준비", ps.length ? "done" : "todo", ps.length ? `논문 ${ps.length}` : "논문 필요"),
-    step("ask", "질문", asked && compared ? "done" : "todo", asked ? `질문 ${asked}` : "질문 전"),
-    step("compare", "비교표", pdfs.length < 2 ? "blocked" : compared ? "done" : "todo", pdfs.length < 2 ? "논문 2편 필요" : compared ? "만듦" : "할 수 있음"),
-    step("wrap", "정리", reported ? "done" : "todo", reported ? "저장함" : "—")]
-  : [step("prep", "준비", d.folder ? "done" : "todo", d.folder ? "폴더" : "폴더 필요"),
-    step("work", "작업", reported ? "done" : "todo", waiting ? "확인 기다림" : changedFiles ? `바뀐 파일 ${changedFiles}` : "—"),
+  : [step("prep", "준비", d.folder || ps.length ? "done" : "todo",
+      [ps.length ? `논문 ${ps.length}` : "", d.folder ? "폴더" : ""].filter(Boolean).join(" · ") || "자료나 폴더 필요"),
+    step("work", "작업", reported ? "done" : "todo", waiting ? "확인 기다림" : changedFiles ? `바뀐 파일 ${changedFiles}`
+      : asked ? `질문 ${asked}` : compared ? "비교표 만듦" : "—"),
     // the audit of the folder against the task's criteria is part of 검토 (QA 10/26: it floated past the last stage)
     step("review", "검토", reported ? "done" : "todo", reported ? "저장함" : "—")];
   const current = steps.findIndex(s => s.state === "todo"); if (current >= 0) steps[current].state = "current";
@@ -3093,12 +3090,11 @@ function stageOfRole(role, kind) {
   const r = String(role || "");
   if (kind === "repro") return r === "start" ? "준비" : /^(spec|criterion|intent)/.test(r) || r === "ask" ? "조건 확정"
     : r === "audit" ? "재현 점검" : r === "report" ? "보고서" : "구현·실행";
-  if (kind === "read") return r === "start" || /^spec/.test(r) ? "준비" : r === "compare" ? "비교표" : r === "report" ? "정리" : "질문";
   return r === "start" ? "준비" : r === "report" ? "검토" : "작업";
 }
-const STAGE_LIST = { repro: ["준비", "조건 확정", "구현·실행", "재현 점검", "보고서"], read: ["준비", "질문", "비교표", "정리"], general: ["준비", "작업", "검토"] };
+const STAGE_LIST = { repro: ["준비", "조건 확정", "구현·실행", "재현 점검", "보고서"], general: ["준비", "작업", "검토"] };
 const STAGE_KEY = { "준비": "prep", "조건 확정": "spec", "구현·실행": "run", "재현 점검": "audit", "보고서": "report",  // the stage bar's data-stage
-  "질문": "ask", "비교표": "compare", "정리": "wrap", "작업": "work", "검토": "review" };
+  "작업": "work", "검토": "review" };
 // A2 complete (B2): what a message is about, as [label, ref]: the criteria and paper conditions it names (D2 refs; only
 // for what a person or the agent said, a Guard card, a criterion change: a conditions card or an audit names dozens), its
 // work-folder files, the pages it quotes ("LinearRAG p.9", not the chat's running [n])
@@ -3136,11 +3132,10 @@ function suggestFor(el, key, stage) {
   const paper = rs.some(r => /^SC\d+$/.test(r) && ((V.checks[r] || {}).spec)) || !!el.querySelector(".cite")
     || /논문|조건|부록|근거|원문|저자|\bp\.\s?\d|\d+\s?쪽|표\s?\d|Table\s?\d|appendix/i.test(text);
   const want = kind === "repro" ? (/보고서/.test(text) ? "보고서" : /점검|논문과\s*(같|다르|맞)|재현이?\s*(됐|되었|맞)/.test(text) ? "재현 점검" : paper ? "조건 확정" : null)
-    : kind === "read" ? (/비교|표로|표에/.test(text) ? "비교표" : /정리|요약|보고서/.test(text) ? "정리" : null)
     : (/보고서|검토/.test(text) ? "검토" : null);
   if (!want || want === stage || !(STAGE_LIST[kind] || []).includes(want)) return null;
-  const why = { "조건 확정": "논문 조건·근거를 가리키는 말", "재현 점검": "논문과 맞는지 보는 말", "보고서": "보고서에 대한 말", "비교표": "비교에 대한 말",
-    "정리": "정리에 대한 말", "검토": "검토에 대한 말" }[want];
+  const why = { "조건 확정": "논문 조건·근거를 가리키는 말", "재현 점검": "논문과 맞는지 보는 말", "보고서": "보고서에 대한 말",
+    "검토": "검토에 대한 말" }[want];
   return { stage: want, why: `${stage} 중에 보낸 말이지만 ${why}이라 ${want} 단계로 볼 수 있습니다.` };
 }
 // a person's tag for one message (P5), kept in desktop.json; then the view is drawn again
@@ -4674,19 +4669,44 @@ if (window.pabloHost && pabloHost.chat) {
     pabloHost.chat(text, t).catch(e => { turning = false; busy = null; status("Error", fail(e)); out = null; }); };
   const stop = () => { stopping = true; gate(); pabloHost.stop().then(ok => { if (!ok) { stopping = false; gate(); } }); };
   // M5.1 one input box: the task's material and folder decide where a message goes; both -> the user picks, neither -> say so
-  const send = async () => {
+  // one task per conversation: a message the model reads as another job gets a card first. It only asks; 그대로 보내기
+  // sends it and that message is not asked about again.
+  const drifted = (r, text, t) => {
+    const card = h("div", { class: "call nb", "data-drift": r.verdict }), done = () => card.closest(".msg").remove();
+    const acts = h("p", { class: "acts" },
+      h("button", { class: "pill on", "data-drift-new": "1", on: () => { done(); inp.value = ""; grow(); newTask(text); } }, ico("plus", 14), "새 작업으로 만들기"),
+      h("button", { class: "pill", "data-drift-goal": "1", on: () => editGoal() }, ico("pencil", 14), "이 작업의 목표 고치기"),
+      h("button", { class: "pill", "data-drift-send": "1", on: () => { done(); send(null, true); } }, "그대로 보내기"));
+    const editGoal = () => {
+      const ta = h("textarea", { class: "nt-in", "data-drift-goal-in": "1", rows: 2, maxlength: 500 }), note = h("span", { class: "muted" });
+      ta.value = V.task.text;
+      const ok = () => pabloHost.setGoal(t, ta.value.trim()).then(() => { done(); refresh(); send(null, true); }, e => { note.textContent = fail(e); });
+      acts.replaceWith(h("div", null, ta, h("p", { class: "acts" }, h("button", { class: "pill on", "data-drift-goal-ok": "1", on: ok }, "저장하고 보내기"),
+        h("button", { class: "link", on: () => ta.parentNode.replaceWith(acts) }, "취소"), note)));
+      ta.focus();
+    };
+    card.append(h("p", { class: "head" }, r.verdict === "sub" ? "이 작업에서 갈라져 나온 일 같습니다" : "이 작업의 목표와 다른 일 같습니다"),
+      r.reason ? h("p", null, r.reason) : null, h("p", { class: "muted" }, "작업 목표: " + V.task.text), acts);
+    return card;
+  };
+  const send = async (_, sure) => {
     const text = inp.value.trim(); if (!text || inp.disabled) return;
     talk = V.task.id;
     if (!M.desk) { inp.disabled = true; await refresh(); gate(); }  // the task's folder / PDF come with the first state read
     const d = (M.desk || {})[talk] || {}, pdf = (d.papers || []).length > 0 || (!M.desk && M.pdf), dir = !!d.folder;
-    if (!pdf && !dir) {  // S22 (S10 for a paper-reading task): nowhere to send it; the words stay in the box
+    if (!pdf && !dir) {  // S22: nowhere to send it; the words stay in the box
       live(talk).querySelectorAll("[data-route=none]").forEach(x => x.closest(".msg").remove());
-      const read = kindFor(d) === "read";
-      live(talk).append(msg("Pablo", null, h("div", { class: "call", "data-route": "none" }, h("p", { class: "head" }, read ? "먼저 자료를 추가하세요" : "먼저 자료나 작업 폴더를 정해 주세요"),
-        h("p", { class: "muted" }, read ? "이 작업에는 논문이 없습니다. 질문은 입력창에 남아 있습니다." : "논문 질문은 자료가, 에이전트는 작업 폴더가 있어야 보낼 수 있습니다. 보내려던 글은 입력창에 남아 있습니다."),
-        h("p", { class: "acts" }, h("button", { class: "pill" + (read ? " on" : ""), on: () => pickPdfs() }, ico("file", 14), read ? "PDF 고르기" : "PDF 추가"),
-          read ? h("button", { class: "pill", on: () => addSource && addSource() }, "arXiv · DOI로 가져오기")
-            : h("button", { class: "pill", on: () => attach("pickFolder") }, ico("folder", 14), "작업 폴더 고르기"))))); scroll(); return;
+      live(talk).append(msg("Pablo", null, h("div", { class: "call", "data-route": "none" }, h("p", { class: "head" }, "먼저 자료나 작업 폴더를 정해 주세요"),
+        h("p", { class: "muted" }, "논문 질문은 자료가, 에이전트는 작업 폴더가 있어야 보낼 수 있습니다. 보내려던 글은 입력창에 남아 있습니다."),
+        h("p", { class: "acts" }, h("button", { class: "pill", on: () => pickPdfs() }, ico("file", 14), "PDF 추가"),
+          h("button", { class: "pill", on: () => attach("pickFolder") }, ico("folder", 14), "작업 폴더 고르기"))))); scroll(); return;
+    }
+    live(talk).querySelectorAll("[data-drift]").forEach(x => x.closest(".msg").remove());
+    if (sure !== true && pabloHost.drift) {  // the words stay in the box while the model reads them
+      inp.disabled = btn.disabled = true;
+      const r = await pabloHost.drift(text, talk).catch(() => null);
+      gate();
+      if (r && r.verdict !== "same" && V && V.task.id === talk) { live(talk).append(msg("Pablo", null, drifted(r, text, talk))); scroll(); return; }
     }
     inp.value = ""; grow();
     live(talk).append(msg("You", new Date().toISOString(), h("p", { style: "white-space:pre-wrap" }, text))); scroll(true);
@@ -4987,8 +5007,8 @@ if (window.pabloHost && pabloHost.chat) {
     if (cardOpen) place(chips.querySelector(`[data-chip="${cardOpen}"]`));
     // the stage bar: always visible; the steps come from stagesOf (D1). Each step carries its old action (#specs /
     // #audits / #compares / #reports, same ids, texts and conditions), by the step's key.
-    const acts = { repro: { spec: specEl, audit: auditEl, report: reportEl }, read: { prep: specEl, compare: compEl, wrap: reportEl },
-      general: { work: specEl, review: [auditEl, reportEl].filter(Boolean) } };
+    const acts = { repro: { spec: specEl, audit: auditEl, report: reportEl },
+      general: { work: [specEl, compEl].filter(Boolean), review: [auditEl, reportEl].filter(Boolean) } };
     const steps = st.steps.map(s => ({ ...s, act: (acts[kind] || acts.general)[s.key] }));
     // the composer says which stage a new message will be tagged with: its record's role, read as the tags read it (QA
     // 10/26: it showed the stage bar's current step, so "조건 확정" for a message the log then tagged 구현·실행). A message
@@ -5031,19 +5051,19 @@ if (window.pabloHost && pabloHost.chat) {
     .observe($("log"), { attributes: true, attributeFilter: ["data-filter"], attributeOldValue: true });
   // A12: 새 작업 is a dialog over the open task (#goal, #repro / #kind-*, #create as before). What is picked before the task
   // exists (PDFs, a folder: tokens from main; arXiv · OpenReview · DOI as text) is attached right after it is made
-  newTask = () => {
-    if ($("newtask")) return $("goal").focus();
+  newTask = goal => {  // goal: a chat message that became its own task (drift card)
+    if ($("newtask")) { if (typeof goal === "string") $("goal").value = goal; return $("goal").focus(); }
     cardClose();
     const s = M.settings || {}, picks = { pdfs: [], folder: null, links: [] };
     let primary = 0, net = !!s.net;
     const ta = h("textarea", { id: "goal", rows: 1, placeholder: "예: LinearRAG baseline을 2WikiMultiHopQA에서 재현", "aria-label": "작업 목표" });
     ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 160) + "px"; });
-    // P7: three kinds; 논문 재현 keeps id=repro (its criteria come with it); each shows the stages it will go through
+    if (typeof goal === "string") ta.value = goal;
+    // P7: two kinds; 논문 재현 keeps id=repro (its criteria come with it); each shows the stages it will go through
     const kinds = [["repro", "논문 재현", "기본 기준 3개가 함께 들어갑니다", "준비 → 조건 확정 → 구현·실행 → 재현 점검 → 보고서"],
-      ["read", "논문 읽기", "질문 · 비교표 중심, 폴더 없이", "준비 → 질문 → 비교표 → 정리"],
-      ["general", "일반", "기준을 대화로 직접 정합니다", "준비 → 작업 → 검토"]];
+      ["general", "일반", "논문 질문 · 비교표 · 폴더 작업. 기준은 대화로 정합니다", "준비 → 작업 → 검토"]];
     const radios = kinds.map(([k]) => h("input", { type: "radio", name: "kind", value: k, id: k === "repro" ? "repro" : "kind-" + k, checked: k === "general" ? true : null }));
-    const repro = radios[0], pickedKind = () => (radios.find(r => r.checked) || radios[2]).value;
+    const repro = radios[0], pickedKind = () => (radios.find(r => r.checked) || radios[1]).value;
     const kindBox = h("div", { class: "nt-kind", "data-kind-stages": "1" });
     const showStages = () => { const k = pickedKind();
       kindBox.replaceChildren(...[k === "repro" && (M.reproCriteria || []).length ? h("b", null, "함께 들어가는 반드시 기준") : null,

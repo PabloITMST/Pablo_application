@@ -767,6 +767,16 @@ class PabloSkill:
         self.save()
         return t
 
+    def set_goal(self, task_id: str, goal: str) -> Task:
+        """The user rewrites the task's goal (a chat message drifted from it and the goal was the part that was wrong):
+        the judge, the Guard and the brief read the new text from the next message on."""
+        t, goal = self.get_task(task_id), " ".join(goal.split())
+        if not goal or len(goal) > 500:
+            raise ValueError("작업 목표는 1~500자입니다.")
+        t.text = goal
+        self.save()
+        return t
+
     def rename_source(self, src_id: str, title: str) -> EvidenceSource:
         """⑧ the name the user knows a paper by ("HippoRAG 2", not its long title): every card, the brief and the panels
         use it from now on; its file, anchors and evidence stay as they are."""

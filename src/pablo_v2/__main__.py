@@ -155,6 +155,11 @@ def _parser() -> argparse.ArgumentParser:
     s = add("summarize")  # UI renewal P6 단계별: the model's summary of one stage, from the messages the desktop groups under it
     s.add_argument("task_id"), s.add_argument("--stage", required=True)
     s.add_argument("--messages", type=_json_arg, required=True, help='[{"who": "You" | "Pablo", "text"}, ...], or @file')
+    s = add("set-goal")  # the user rewrites the task's goal (its text)
+    s.add_argument("task_id"), s.add_argument("goal")
+    s = add("drift")  # a chat message judged against its task's goal: same / sub / different (the desktop asks first)
+    s.add_argument("task_id"), s.add_argument("text")
+    s.add_argument("--recent", type=_json_arg, default=[], help="the task's last user messages, oldest first")
     s = add("report")  # ⑫ the reproduction report (Markdown)
     s.add_argument("task_id")
     s.add_argument("--now", type=_json_arg, default=None, help='desktop: {"tree", "git": {head, dirty}, "recheck": {at, placed, gone}}')
@@ -470,6 +475,12 @@ def _run(a, out) -> int:
     elif a.cmd == "summarize":
         r = s.judge.summarize_stage(s.get_task(a.task_id).text, a.stage, a.messages)
         out({"summary": r["summary"].strip()}, r["summary"].strip())
+    elif a.cmd == "set-goal":
+        t = s.set_goal(a.task_id, a.goal)
+        out({"task": asdict(t)}, f"{t.id} -> {t.text}")
+    elif a.cmd == "drift":
+        r = s.judge.drift(s.get_task(a.task_id).text, a.text, [str(m) for m in a.recent])
+        out(r, f"{r['verdict']} {r['reason']}")
     elif a.cmd == "report" and a.preview:
         c = report_counts(s, a.task_id, a.now)
         out({"counts": {k: v for k, v in c.items() if k != "stale"}, "stale": c["stale"], "title": s.get_task(a.task_id).text},

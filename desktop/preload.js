@@ -41,6 +41,8 @@ contextBridge.exposeInMainWorld("pabloHost", {
   openPath: which => ipcRenderer.invoke("pablo:open-path", which),  // D6 "userData" | "checkpoints" | "logs" in the file manager
   addOpenreview: (task, text) => ipcRenderer.invoke("pablo:add-openreview", task, text),  // ⑬ a paper from OpenReview
   renameTask: (task, name) => ipcRenderer.invoke("pablo:rename-task", task, name),  // ⑭ the task's own name ("" = its goal)
+  setGoal: (task, goal) => ipcRenderer.invoke("pablo:set-goal", task, goal),  // the task's goal itself (drift card)
+  drift: (text, task) => ipcRenderer.invoke("pablo:drift", text, task),  // {verdict: same | sub | different, reason} or null
   archiveTask: (task, on) => ipcRenderer.invoke("pablo:archive-task", task, on),  // ⑭ 보관 / 보관 풀기
   noticeSeen: what => ipcRenderer.invoke("pablo:notice-seen", what),  // ⑤ the PowerShell 7 notice, read
   lookupDoi: text => ipcRenderer.invoke("pablo:lookup-doi", text),  // ⑬ a DOI's title, looked up on arXiv

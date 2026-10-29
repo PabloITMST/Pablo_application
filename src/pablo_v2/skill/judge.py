@@ -12,6 +12,7 @@ Judge contract (duck-typed; tests inject stubs):
         (D3: items from the appendix pass also carry from="appendix" and fills, a missing setting's number or 0)
     compare_paper(columns, title, pages) -> {"cells": [{column, value, quote, page}]}  one paper's row of a table (C3)
     summarize_stage(goal, stage, messages [{who, text}]) -> {"summary"}  one stage of the conversation (UI renewal P6)
+    drift(goal, message, recent [str]) -> {"verdict": same|sub|different, "reason"}  a chat message off its task's goal
 """
 from __future__ import annotations
 
@@ -182,6 +183,23 @@ TASK: {goal}
 STAGE: {stage}
 MESSAGES (oldest first; You = the person, Pablo = the assistant):
 {messages}
+"""
+
+DRIFT_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["verdict", "reason"],
+                "properties": {"verdict": {"enum": ["same", "sub", "different"]}, "reason": _str}}
+
+DRIFT_PROMPT = """A person works on one task per conversation. Decide whether their NEW MESSAGE still belongs to the task.
+
+- same: it serves the task's goal (a step of it, a question about it, a fix, a follow-up to recent messages).
+- sub: a side job that helps the goal but could be its own task (e.g. a new tool or a separate analysis for it).
+- different: a job with another goal; doing it here would mix two tasks.
+When unsure, answer same. Short replies ("ok", "다시 해줘", "그거 계속") are same.
+reason: one short Korean sentence the person reads ("목표는 X인데 이 메시지는 Y를 요청합니다"). "" when same.
+
+TASK GOAL: {goal}
+RECENT MESSAGES (oldest first):
+{recent}
+NEW MESSAGE: {message}
 """
 
 SPEC_CATEGORIES = ["dataset", "split", "preprocessing", "model", "method", "hyperparameter", "training", "metric",
@@ -499,3 +517,7 @@ class LLMJudge:
     def summarize_stage(self, goal: str, stage: str, messages: list[dict]) -> dict:
         text = "\n".join(f"[{m['who']}] {m['text'][:2000]}" for m in messages[-80:])  # the newest 80, each cut
         return self.provider.complete_json(SUMMARY_PROMPT.format(goal=goal, stage=stage, messages=text), SUMMARY_SCHEMA)
+
+    def drift(self, goal: str, message: str, recent: list[str]) -> dict:
+        text = "\n".join(f"- {m[:500]}" for m in recent[-6:]) or "(none)"
+        return self.provider.complete_json(DRIFT_PROMPT.format(goal=goal, recent=text, message=message[:4000]), DRIFT_SCHEMA)
