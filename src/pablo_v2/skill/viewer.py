@@ -20,6 +20,7 @@ from html import escape
 
 from . import evidence, pdf
 from .guard import SYSTEM_POLICIES
+from .en import EN
 from .mascot import ART
 
 STATUS = {
@@ -546,11 +547,13 @@ def render_html(s, task_id: str | None = None) -> str:
     m = workspace(s, task_id)
     data = json.dumps(m, ensure_ascii=False).replace("</", "<\\/")
     title = f"Pablo · {m['views'][m['current']]['task']['text']}" if m["current"] else "Pablo"
-    return PAGE.replace("{{ART}}", json.dumps(ART)).replace("{{TITLE}}", escape(title)).replace("{{DATA}}", data)
+    lang = "en" if os.environ.get("PABLO_LANG") == "en" else "ko"  # 0.11: the desktop's 설정 · 언어
+    return (PAGE.replace("{{ART}}", json.dumps(ART)).replace("{{TITLE}}", escape(title)).replace("{{LANG}}", lang)
+            .replace("{{EN}}", json.dumps(EN if lang == "en" else {}, ensure_ascii=False).replace("</", "<\\/")).replace("{{DATA}}", data))
 
 
 PAGE = r"""<!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="{{LANG}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{TITLE}}</title>
 <style>
 /* UI renewal, concept A (정밀 계측), light only: the tokens of the Figma collection "Pablo · 시안 토큰" (mode A).
@@ -1742,6 +1745,10 @@ details.tech > summary::-webkit-details-marker { display:none; } details.tech > 
 .targetgroup > summary { list-style:none; display:flex; align-items:center; gap:8px; } .targetgroup > summary::-webkit-details-marker { display:none; }
 .targetgroup > summary small { font-size:12px; color:var(--ink-3); font-family:var(--sans); }
 .targetgroup > summary .tog { margin-left:auto; font-size:12px; color:var(--ink-2); } .targetgroup > summary .tog::after { content:"펼치기 ▸"; }
+html[lang=en] .targetgroup > summary .tog::after { content:"Expand ▸"; } html[lang=en] .call.lock .head::before { content:"Blocked"; }
+html[lang=en] .targetgroup[open] > summary .tog::after { content:"Collapse ▾"; } html[lang=en] #stages .st-current .st-t b::after { content:"Now"; }
+html[lang=en] #viewbar .fchip::before { content:"Filtering"; }
+html[lang=en] .call.warn .head::before { content:"Needs confirmation"; } html[lang=en] body.dropping #log::before { content:"Drop PDFs to add them to this task"; }
 .targetgroup[open] > summary .tog::after { content:"접기 ▾"; }
 .targetgroup:not([open]) { background:var(--a4); border-color:transparent; }
 .targetgroup .tg-band { margin:0 0 12px; padding:6px 12px; background:var(--a5); border-radius:var(--r-ctl); font-size:12px; line-height:20px; color:var(--ink-2); }
@@ -2184,6 +2191,44 @@ body.dragging { cursor:col-resize; user-select:none; } body.dragging #panel { po
 let M = JSON.parse(document.getElementById("data").textContent);  // M5.1: replaced by the desktop's live state
 const $ = id => document.getElementById(id);
 const ART = {{ART}}, art = (k, cls) => h("img", { class: "mascot" + (cls ? " " + cls : ""), src: ART[k], alt: "" });
+// 0.11 English mode: the page's Korean words -> English (en.py: Korean source text as the key, without the spaces and "·"
+// at its ends; {0} {1} stand for what the code puts there). One observer translates every text node and label attribute
+// as it lands, so call sites stay as they are. Code, diffs, typed text and the PDF's own text layer are left alone (their
+// labels are not). In a key with fewer than two Hangul letters of its own a hole takes no Hangul: "{0}개" is a count,
+// never a person's "사과 3개"
+const LANG = "{{LANG}}", EN = {{EN}}, HANGUL = /[가-힣]/;
+const EN_PAT = Object.keys(EN).map(k => k.split(/\{(\d)\}/)).filter(p => p.length > 1)
+  .map(p => [p, (p.filter((_, i) => i % 2 === 0).join("").match(/[가-힣]/g) || []).length >= 2])
+  .map(([p, wide]) => [new RegExp("^" + p.map((x, i) => i % 2 ? (wide ? "([\\s\\S]*?)" : "([^\\uAC00-\\uD7A3]*?)") : x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("") + "$"),
+    p.filter((_, i) => i % 2).map(Number), p.map((x, i) => i % 2 ? `{${x}}` : x).join("")]);
+function tr(s) {
+  if (LANG !== "en" || !s || !HANGUL.test(s)) return s;
+  const [, a, core, z] = s.match(/^([\s·]*)([\s\S]*?)([\s·]*)$/);
+  if (Object.hasOwn(EN, core)) return a + EN[core] + z;
+  for (const [re, order, k] of EN_PAT) {
+    const m = core.match(re);
+    if (m) return a + EN[k].replace(/\{(\d)\}/g, (_, i) => tr(m[order.indexOf(+i) + 1])) + z;
+  }
+  const [, b, word, y] = core.match(/^([^\p{L}\p{N}]*)([\s\S]*?)([^\p{L}\p{N}]*)$/u);  // a mark around a word: "✓ 따름"
+  if (word !== core && Object.hasOwn(EN, word)) return a + b + EN[word] + y + z;
+  const parts = core.split(" · ");  // labels joined by the code ("일반 · 준비"): each on its own
+  if (parts.length > 1) { const t = parts.map(tr).join(" · "); if (t !== core) return a + t + z; }
+  if (window.__trMiss) window.__trMiss.add(core);  // check.js --ui: what the English page could not translate
+  return s;
+}
+const UNTRANSLATED = "pre, code, textarea, script, style, .textLayer", LABELS = ["title", "placeholder", "aria-label", "alt"];
+const trLabels = n => LABELS.forEach(k => { const v = n.getAttribute(k), t = v && tr(v); if (t !== v) n.setAttribute(k, t); });
+function trNode(n) {
+  if (n.nodeType === 3) { if (!(n.parentElement && n.parentElement.closest(UNTRANSLATED))) { const t = tr(n.data); if (t !== n.data) n.data = t; } return; }
+  if (n.nodeType !== 1) return;
+  trLabels(n); if (!n.closest(UNTRANSLATED)) n.childNodes.forEach(trNode);
+}
+if (LANG === "en") {
+  trNode(document.documentElement);
+  new MutationObserver(rs => rs.forEach(r => r.type === "childList" ? r.addedNodes.forEach(trNode)
+    : r.type === "attributes" ? trLabels(r.target) : trNode(r.target)))
+    .observe(document.documentElement, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: LABELS });
+}
 function h(tag, attrs, ...kids) {  // text only: data never becomes HTML
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {
@@ -2232,23 +2277,22 @@ const DECIDE = { proceed: "사용자가 진행을 승인했습니다", defer: "�
 // stored times are UTC ISO; shown in the user's local time
 // A2 complete (B1): a message's time is HH:mm (the stage dividers too); the day is the task's
 const time = s => { if (!s) return ""; const d = new Date(s); return isNaN(d) ? "" : String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-const day = s => new Date(s).toLocaleDateString("ko-KR");
+const day = s => new Date(s).toLocaleDateString(LANG === "en" ? "en-US" : "ko-KR");
 // M5.1 presentation only: the stored action text (raw command / full path) -> what it does; raw stays in 기술 세부정보
 const base = p => p.trim().replace(/["']/g, "").split(/[\\/]/).pop();
-const VERB = { "파일 생성": "생성", "파일 삭제": "삭제", "파일 수정": "수정", "파일 변경": "변경" };
+const VERB = { "파일 생성": f => `${f} 생성`, "파일 삭제": f => `${f} 삭제`, "파일 수정": f => `${f} 수정`, "파일 변경": f => `${f} 변경` };  // whole phrases: en.py
 function meaning(text) {
   const first = (text || "").split("\n")[0];
   const fc = [...first.matchAll(/(파일 생성|파일 삭제|파일 수정|파일 변경): ([^,]+)/g)];
-  if (fc.length) return fc.map(m => `${base(m[2])} ${VERB[m[1]]}`).join(", ");
+  if (fc.length) return fc.map(m => VERB[m[1]](base(m[2]))).join(", ");
   if (!/^(명령 실행|실행 결과): /.test(first)) return first;
   const cmd = first.replace(/^[^:]+:\s*/, "");
   // ponytail: first file-like token that is not the shell itself; a real command parser if this misnames often
   const f = (cmd.match(/[\w-]+\.[A-Za-z]\w{0,7}\b/g) || []).filter(x => !/\.exe$/i.test(x))[0] || "";
-  const at = what => f ? `${f} ${what}` : what;
   if (/\b(pytest|unittest|npm( run)? test|jest|vitest)\b/i.test(cmd)) return "테스트 실행";
-  if (/\b(Remove-Item|rm|del|erase)\b/i.test(cmd)) return at("삭제");
-  if (/\b(Set-Content|Add-Content|Out-File|WriteAll(Text|Lines|Bytes)|AppendAll(Text|Lines))\b/i.test(cmd)) return at("수정");
-  if (/\b(Get-Content|cat|type|ReadAll(Text|Lines|Bytes))\b/i.test(cmd)) return at("읽기");
+  if (/\b(Remove-Item|rm|del|erase)\b/i.test(cmd)) return f ? `${f} 삭제` : "삭제";
+  if (/\b(Set-Content|Add-Content|Out-File|WriteAll(Text|Lines|Bytes)|AppendAll(Text|Lines))\b/i.test(cmd)) return f ? `${f} 수정` : "수정";
+  if (/\b(Get-Content|cat|type|ReadAll(Text|Lines|Bytes))\b/i.test(cmd)) return f ? `${f} 읽기` : "읽기";
   if (/\b(Get-ChildItem|ls|dir)\b/i.test(cmd)) return "폴더 목록 보기";
   return "명령 실행";
 }
@@ -2270,7 +2314,7 @@ function preview(text, detail) {
 const tech = (...xs) => xs.some(Boolean) ? h("details", { class: "tech" }, h("summary", null, "기술 세부정보"),
   xs.filter(Boolean).map(x => h("pre", null, x))) : null;
 // an English judge note -> a Korean line in the card; the note itself goes under 기술 세부정보
-const korean = t => /[가-힣]/.test((t || "").replace(/"[^"]*"/g, ""));
+const korean = t => LANG === "en" ? !!(t || "").trim() : /[가-힣]/.test((t || "").replace(/"[^"]*"/g, ""));
 const reason = (t, block) => !t ? null : korean(t) ? h("p", null, rich(t))
   : h("p", null, block ? "작업 기준과 충돌해 막았습니다." : "현재 작업 기준과 맞는지 확인이 필요합니다.");
 const host = u => { try { const x = new URL(u); return x.host + x.pathname; } catch { return u; } };
@@ -2401,7 +2445,7 @@ function sidebar() {
     // S19: a task put away is faint; 보관 풀기 shows on hover (the header's ⋯ menu has it too)
     const awayRow = t => h("div", { class: "trow away-row" }, rowOf(t, words), window.pabloHost && pabloHost.archiveTask
       ? h("button", { class: "link unarch", "data-unarchive": t.id, on: () => pabloHost.archiveTask(t.id, false).then(() => refresh()) }, "보관 풀기") : null);
-    box.replaceChildren(...[h("h4", null, words.length ? `찾은 작업 ${ts.length}개` : "작업"),
+    box.replaceChildren(...[h("h4", null, words.length ? `찾은 작업 ${ts.length}개` : LANG === "en" ? "Tasks" : "작업"),  // en.py's 작업 is the stage (Work)
       !M.tasks.length ? h("p", { class: "none", "data-no-tasks": "1" }, "아직 작업이 없습니다.") : null,
       ...kept.map(t => rowOf(t, words)),
       done.length ? h("details", { class: "done", "data-done": String(done.length), open: words.length ? true : null },
@@ -2499,7 +2543,7 @@ function planRows(v = V) {
   return { rows, k: k + 1, cur: rows[k] || null };
 }
 const shortText = (t, n = 24) => { t = String(t || "").replace(/\s*\[\d+\]/g, "").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n) + "…" : t; };
-const hm = s => s ? new Date(s).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+const hm = s => s ? new Date(s).toLocaleTimeString(LANG === "en" ? "en-GB" : "ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
 // D2 back-links: the turns of the conversation and the Guard's verdicts that point at these refs
 function backOf(refs, L) {
   const chat = new Set(), acts = new Map();
@@ -2510,7 +2554,7 @@ function backChips(b) {
   const vs = b.verdicts, block = vs.some(v => v.verdict === "BLOCK"), wait = vs.some(v => v.verdict === "WARN" && !v.decision);
   return h("span", { class: "backs" }, h("span", { class: "bk", "data-back-chat": String(b.chat), title: "이것을 가리킨 대화" }, ico("message", 12), `대화 ${b.chat}`),
     vs.length ? h("span", { class: "bk" + (wait ? " wait" : ""), "data-back-verdicts": String(vs.length), title: "이것으로 Pablo가 판정한 작업" }, ico("check-circle", 12),
-      `판정 ${vs.length}` + (block ? " (막음)" : wait ? " (확인 필요)" : "")) : null);
+      `판정 ${vs.length}`, block ? " (막음)" : wait ? " (확인 필요)" : "") : null);
 }
 // C6: a row picked in the panel -> the conversation keeps only what points at it (picked again: everything back)
 const picked = label => !!$("log") && $("log").dataset.filter === "refs:" + label;
@@ -2596,9 +2640,9 @@ const failed = a => a.verdict === "ALLOW" && a.runs.some(r => r.alignment === "f
 // S40: a run and its review as a badge (계획대로 · 일부만 · 계획과 다르게 · 실패) and what happened
 const BADGE = { aligned: "계획대로", partial: "일부만", deviated: "계획과 다르게", failed: "실패", not_executed: "실행하지 않음" };
 const runRows = a => a.runs.map(r => h("p", { class: "rev" }, r.alignment ? h("span", { class: "tg rv rv-" + r.alignment }, BADGE[r.alignment] || r.alignment) : null,
-  h("span", null, (r.executed ? "실행 결과: " : "") + done(r) + (r.alignment ? ` · ${ALIGN[r.alignment] || r.alignment}` : ""))));
+  h("span", null, (r.executed ? `실행 결과: ${done(r)}` : done(r)) + (r.alignment ? ` · ${ALIGN[r.alignment] || r.alignment}` : ""))));
 const done = r => meaning(r.summary.replace(/^실행하지 않음: /, ""));
-const runs = a => a.runs.map(r => (r.executed ? "실행 결과: " : "") + done(r) + (r.alignment ? ` · ${ALIGN[r.alignment] || r.alignment}` : ""));
+const runs = a => a.runs.map(r => (r.executed ? `실행 결과: ${done(r)}` : done(r)) + (r.alignment ? ` · ${ALIGN[r.alignment] || r.alignment}` : ""));
 // a BLOCK is Pablo's own decision (its card says so); a reason that only repeats who decided is not shown again
 const decided = a => a.decision && a.verdict !== "BLOCK"
   ? (DECIDE[a.decision] || a.decision) + (a.decision_reason && !/^(사용자가|Guard )/.test(a.decision_reason) ? ` · ${a.decision_reason}` : "") : null;
@@ -2676,7 +2720,7 @@ const pchip = k => { const e = ((k && k.evidence) || []).find(x => M.anchors[x])
   return h("button", { class: "cite pgc", "data-e": e, title: "근거 보기", on: () => show({ mode: "source", e }) }, a.page ? `p.${a.page}` : `[${cites[e] || 1}]`); };
 const plain = k => String(k.conclusion || k.title || "").replace(/\s*\[\d+\]/g, "");
 // B11 정하기: the criterion always names the setting it decides ("의논해" alone, 10/29, said nothing); "" = nothing decided
-const settingOf = s => s.replace(/\s*(은|는|이|가)?\s*(논문에\s*)?(명시되지\s*않았다|(적혀|나와)\s*있지\s*않다)\.?$/, "").trim();  // = skill.setting_name
+const settingOf = s => s.replace(/\s*(은|는|이|가)?\s*(논문에\s*)?(명시되지\s*않았다|(적혀|나와)\s*있지\s*않다)\.?$|\s+(is|are)\s+not\s+(stated|specified|given|reported)( in the paper)?\.?$/i, "").trim();  // = skill.setting_name
 const settingValue = (name, v) => { v = v.trim(); if (!name) return v;
   const rest = v.startsWith(name) ? v.slice(name.length).replace(/^\s*[=:]\s*/, "") : v; return rest ? `${name} = ${rest}` : ""; };
 function redone(d) {
@@ -2742,7 +2786,7 @@ function conditions(ids, dropped, diff, secs) {
   const body = h("div", { class: "sp-body" });
   const draw = () => { body.textContent = ""; const shut = [], pass = c => !want || (c.spec.kind || "setting") === want;
     if (chips) chips.replaceChildren(...[["", "전체", all.length], ...kinds.map(([k, n]) => [k, KIND_TAG[k], n])].map(([k, t, n]) =>
-      h("button", { class: "pill chip" + (want === k ? " on" : ""), "data-kind-chip": k || "all", "aria-pressed": String(want === k), on: () => { want = k; draw(); } }, `${t} ${n}`)));
+      h("button", { class: "pill chip" + (want === k ? " on" : ""), "data-kind-chip": k || "all", "aria-pressed": String(want === k), on: () => { want = k; draw(); } }, t, ` ${n}`)));  // the label alone: en.py has it
     cats.forEach(([k, xs]) => { const ys = xs.filter(pass); if (!ys.length) return;
       if (!opened.has(k) && !want) return shut.push(h("button", { class: "sp-shut", "data-cat-open": k, on: () => { opened.add(k); draw(); } }, "▸ ", h("b", null, SPEC[k]), " ", h("small", null, ys.length)));
       body.append(h("section", { class: "sp-cat", "data-cat": k }, h("h4", { title: "접기", on: () => { opened.delete(k); draw(); } },
@@ -2787,7 +2831,7 @@ const LOGISH = /\.(log|txt|out|csv|tsv|jsonl?|md)(:|$)|(^|\/)logs?\//i;  // ⑤ 
 function mark(x) {
   const v = ((V.checks[x.id] || {}).spec || {}).value;
   if (eased(x)) return h("span", { class: "chk verified", "data-check": "via" }, "✓ 값은 설정 파일에서 확인");
-  const t = { verified: `✓ Pablo가 ${LOGISH.test(String(x.where || "").replace(/\\/g, "/")) ? "파일" : "코드"}에서 확인`, moved: `위치 보정: ${x.line_found}줄`, not_found: "⚠ 모델이 댄 위치에서 찾지 못함",
+  const t = { verified: LOGISH.test(String(x.where || "").replace(/\\/g, "/")) ? "✓ Pablo가 파일에서 확인" : "✓ Pablo가 코드에서 확인", moved: `위치 보정: ${x.line_found}줄`, not_found: "⚠ 모델이 댄 위치에서 찾지 못함",
     no_file: "⚠ 모델이 댄 위치에서 찾지 못함",
     value_mismatch: `⚠ 논문 값(${v})이 이 자리에 ${x.status === "followed" ? "없음" : "그대로 있음"}` }[x.check];
   return t ? h("span", { class: "chk " + (warned(x) ? "warn" : x.check), "data-check": x.check }, t) : null;
@@ -2822,7 +2866,7 @@ function audited(c) {
   const count = g => g === "조건 밖" ? out.length : c.items.filter(x => (VGROUP[st(x)] || st(x)) === g).length;
   let want = "";
   const chips = h("div", { class: "chips", role: "group", "aria-label": "판정" }), filter = () => {
-    chips.replaceChildren(...[["", `전체 ${c.items.length + out.length}`], ...groups.map(g => [g, `${g} ${count(g)}`])].map(([g, t]) =>
+    chips.replaceChildren(...[["", ["전체", ` ${c.items.length + out.length}`]], ...groups.map(g => [g, [g, ` ${count(g)}`]])].map(([g, t]) =>
       h("button", { class: "pill chip" + (want === g ? " on" : ""), "data-verdict-chip": g || "all", "aria-pressed": String(want === g), on: () => { want = g; filter(); } }, t)));
     box.querySelectorAll("li[data-g]").forEach(li => { li.hidden = !!want && li.dataset.g !== want; });
     box.querySelectorAll("details").forEach(dt => { if (want) dt.open = !!dt.querySelector("li[data-g]:not([hidden])"); });
@@ -2901,7 +2945,7 @@ function audited(c) {
     return t.length > 22 ? t.slice(0, 21) + "…" : t; };
   box.append(h("ul", null, xs.filter(x => warned(x) || !folds(x)).map(row)));
   for (const [k, label] of Object.entries(fold)) { const ys = xs.filter(x => st(x) === k && folds(x) && !warned(x));
-    if (ys.length) box.append(h("details", null, h("summary", null, `${label} ${ys.length}개`,
+    if (ys.length) box.append(h("details", null, h("summary", null, label, ` ${ys.length}개`,
       k === "missing" ? `: ${ys.slice(0, 6).map(short).join(", ")}${ys.length > 6 ? " …" : ""}` : ""), h("ul", null, ys.map(row)))); }
   // what no item covers (main.js audited): how the method is done stays open, the paper's experiments the folder does not
   // have fold away. The model wrote them from the code and the items, not from the paper: no page is attached.
@@ -3018,7 +3062,7 @@ function matrix(c, wide) {
 // not read (grey). [data-intent] keeps its words ("📌 작업 기준에 추가했습니다: …"); the pin is an icon on screen
 const noted = c => { const task = c.task || (V && V.task.id), m = msg("Pablo", null,
   (c.items || []).length ? h("p", { class: "band ok", "data-intent": "1" }, ico("check-circle", 16), h("span", { class: "bt" }, h("span", { class: "em" }, "📌 "),
-    "작업 기준에 추가했습니다: ", c.items.map(i => `${i.text} (${i.strength === "hard" ? "반드시" : "가능하면"})`).join(" · ")), " ",
+    "작업 기준에 추가했습니다: ", c.items.map(i => i.strength === "hard" ? `${i.text} (반드시)` : `${i.text} (가능하면)`).join(" · ")), " ",
     h("button", { class: "link rt", on: () => show({ mode: "intent" }) }, "기준 보기")) : null,
   (c.pending || []).map(k => held({ ...k, live: c.live }, task)),
   (c.unread || []).map(u => unreadRow({ ...u, live: c.live }, task)));
@@ -3332,7 +3376,7 @@ const firstText = el => { const p = el.querySelector("p"); return (p ? p.textCon
 // reads "모델 요약 — …" or "사람이 고친 요약 — …" (사람이 고침 · 다시 만들어도 이 글이 유지됩니다) with ✎ 요약 고치기 ·
 // 다시 만들기; each decision has its time
 function byStage(log, rows, kind, D) {
-  const names = STAGE_LIST[kind] || STAGE_LIST.general, cur = (document.querySelector("#stages .st-current b") || {}).textContent;
+  const names = STAGE_LIST[kind] || STAGE_LIST.general, cur = (document.querySelector("#stages .st-current b") || { dataset: {} }).dataset.label;
   const ci = names.indexOf(cur), can = window.pabloHost && pabloHost.setUi;
   names.forEach((n, i) => {
     const mine = rows.filter(r => r[1] === n), msgs = mine.filter(r => r[0].classList && r[0].classList.contains("msg")), decs = mine.filter(r => r[2].decision);
@@ -3407,7 +3451,7 @@ function byTarget(log, rows) {
   const itemOf = ref => la && [...(la.items || []), ...(la.outside || [])].find(x => x.id === ref || (ref.startsWith("file:") && placePaths(x.where).includes(ref.slice(5))));
   const facts = (t, ref) => { const k = (ref && L.get(ref)) || { chat: [], verdicts: [] }, vs = k.verdicts.filter(x => x.verdict !== "ALLOW");
     const it = ref && itemOf(ref), chg = ref && ref.startsWith("file:") ? chat.filter(c => c.role === "changes" && (c.files || []).some(f => (f.path || f) === ref.slice(5))).length : 0;
-    return [`대화 ${n(t)}`, vs.length ? `판정 ${vs.length}${vs.some(x => x.verdict === "BLOCK") ? " (막음)" : ""}` : null,
+    return [`대화 ${n(t)}`, vs.length ? (vs.some(x => x.verdict === "BLOCK") ? `판정 ${vs.length} (막음)` : `판정 ${vs.length}`) : null,
       ref && ref.startsWith("SC") ? (it ? `점검 ${(AUDIT[it.status] || ["", it.status])[1]}` : "점검 아직") : null, chg ? `변경 ${chg}` : null].filter(Boolean).join(" · "); };
   const band = ref => { const k = ref && V.checks[ref]; if (!k || !k.spec || k.spec.missing) return null;
     const it = itemOf(ref), wait = V.actions.filter(a => a.verdict === "WARN" && !a.decision && (a.criteria || []).some(c => c.id === ref)).length;
@@ -3485,8 +3529,8 @@ function stampRefs(root = $("log"), v = V) {
 // A2 complete (F24): in 단계별 / 대상별 too (a group with nothing left goes, one with something opens); the banner says what
 // kind of thing is kept ("이 기준과 이어진 대화만 보는 중 · 2개 · 다른 메시지 6개 숨김") with 거르기 ▾ (the menu) and 전체 보기;
 // in 시간순 a run of hidden messages leaves one line "··· 숨긴 메시지 N개"
-const refKind = r => /^[CK]\d+$/.test(r) ? ["기준", "과"] : /^SC\d+$/.test(r) ? (((V && V.checks[r]) || {}).spec ? ["조건", "과"] : ["근거", "와"])
-  : /^E\d+$|:p\d+$/.test(r) ? ["근거", "와"] : /^file:/.test(r) ? ["파일", "과"] : /^P\d+/.test(r) ? ["계획 단계", "와"] : ["대상", "과"];
+const refKind = r => /^[CK]\d+$/.test(r) ? "기준과" : /^SC\d+$/.test(r) ? (((V && V.checks[r]) || {}).spec ? "조건과" : "근거와")
+  : /^E\d+$|:p\d+$/.test(r) ? "근거와" : /^file:/.test(r) ? "파일과" : /^P\d+/.test(r) ? "계획 단계와" : "대상과";  // one word with its particle: en.py has each
 function filterUi(log) { const old = $("filter-banner"); if (old) old.remove(); log.querySelectorAll(".hidnote").forEach(x => x.remove());
   const m = $("filter-menu"); if (m) m.remove(); }
 // groups of the 단계별 / 대상별 views follow the messages in them; a group with a kept message is opened
@@ -3513,9 +3557,9 @@ function filterBy(refs, label) {
       h("button", { class: "link", title: "전체 보기", on: () => filterBy(refs, label) }, `··· 숨긴 메시지 ${run.length}개`))); run = []; };
     [...log.children].forEach(x => { if (x.matches(".msg.filtered")) run.push(x); else if (x.matches(".msg[data-key], #live")) flush(); });
     flush();
-    const [kind, j] = refKind([...want][0]);
+    const kind = refKind([...want][0]);
     log.prepend(h("div", { id: "filter-banner", "data-refs": JSON.stringify([...want]), "data-label": label, title: label },
-      h("span", { class: "fb-t" }, `이 ${kind}${j} 이어진 대화만 보는 중 · ${kept}개 · 다른 메시지 ${hid}개 숨김`),
+      h("span", { class: "fb-t" }, `이 ${kind} 이어진 대화만 보는 중 · ${kept}개 · 다른 메시지 ${hid}개 숨김`),
       h("button", { class: "link", "data-filter-menu": "1", on: e => filterMenu(e.currentTarget) }, "거르기 ", ico("chevron-down", 12)),
       h("button", { class: "link", on: () => filterBy(refs, label) }, "전체 보기")));
   }
@@ -3560,7 +3604,7 @@ function stageFilter(label) {
   filterGroups(log, on);
   if (on) log.prepend(h("div", { id: "filter-banner", "data-stage": on }, h("span", { class: "fb-t" }, `${on} 단계 대화만 보는 중 · ${kept}개 · 다른 단계 ${hid}개 숨김`),
     h("button", { class: "link", on: () => stageFilter(on) }, "전체 보기")));
-  document.querySelectorAll("#stages .stage").forEach(x => x.classList.toggle("picked", !!on && x.querySelector("b").textContent === on));
+  document.querySelectorAll("#stages .stage").forEach(x => x.classList.toggle("picked", !!on && x.querySelector("b").dataset.label === on));
   if (gateHook) gateHook();
 }
 function conversation() {
@@ -3590,7 +3634,7 @@ function conversation() {
     return [x, st, o, t]; });
   if (view === "stage") byStage(log, rows, kind, D);
   else if (view === "target") byTarget(log, rows);
-  else { let prev = null; const now = (document.querySelector("#stages .st-current b") || {}).textContent;  // A2: its dot is orange
+  else { let prev = null; const now = (document.querySelector("#stages .st-current b") || { dataset: {} }).dataset.label;  // A2: its dot is orange
     rows.forEach(([x, s, , t]) => {
       if (s && x.classList && x.classList.contains("msg")) {
         if (s !== prev) log.append(h("div", { class: "divider", "data-stage": s, "data-now": s === now ? "1" : null },
@@ -4635,7 +4679,7 @@ if (window.pabloHost && pabloHost.chat) {
     refresh_failed: ["연결이 만료되었습니다", "ChatGPT로 다시 연결"], unauthorized: ["연결이 만료되었습니다", "ChatGPT로 다시 연결"],
     inference_failed: ["사용량 확인이 잠시 안 됩니다", "잠시 뒤 다시 시도"] };
   let rechecking = false, checkedAt = null, seenReady = false, hello = null, settingsDraw = null;
-  const hhmm = d => new Date(d).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const hhmm = d => new Date(d).toLocaleTimeString(LANG === "en" ? "en-GB" : "ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
   const paintAcct = () => {
     const a = authSt; acct.textContent = ""; acct.dataset.state = a.state; acct.dataset.error = a.error || "";
     const spin = () => h("span", { class: "spin", "aria-hidden": "true" });
@@ -5088,7 +5132,7 @@ if (window.pabloHost && pabloHost.chat) {
         h("small", { class: "pmeta" }, pmeta(p)));
     const srcEl = h("span", { id: "src", class: many ? "many" : null }, h("span", { class: "sc-lbl" }, "📎 자료: "),
         many ? h("button", { class: "link", id: "src-toggle", on: () => { srcOpen = !srcOpen; tools(); } },
-          `${ps.length}개${main ? ` (주 논문 ${main.title})` : ""} ${open ? "▴" : "▾"}`) : null,
+          `${ps.length}개`, main ? ` (주 논문 ${main.title})` : "", ` ${open ? "▴" : "▾"}`) : null,
         ps.length ? h("span", { class: "plist", hidden: !open }, ps.map(p => chip(p))) : h("span", { class: "sc-none" }, "없음"), " ",
         h("span", { class: "sc-add" }, pabloHost.addArxiv ? h("button", { class: "link", "data-add-source": "1", on: () => { cardClose(); adder.hidden = false; arx.focus(); } }, "+ 추가")
           : link("PDF 추가", pickPdfs), h("small", null, "PDF · arXiv · DOI · OpenReview · 웹 주소")));
@@ -5158,7 +5202,7 @@ if (window.pabloHost && pabloHost.chat) {
         title: `${s.label} 단계의 대화만 보기`, tabindex: "0", "aria-pressed": String(filt === s.label),
         on: e => { if (!e.target.closest("button, a")) stageFilter(s.label); } },
         h("span", { class: "st-n" }, stMark(s, i)),
-        h("span", { class: "st-t" }, h("b", null, s.label), h("small", { "data-filtering": filt === s.label ? "1" : null }, filt === s.label ? `거르는 중 · ${shownIn(s.label)}` : s.sub),
+        h("span", { class: "st-t" }, h("b", { "data-label": s.label }, s.label), h("small", { "data-filtering": filt === s.label ? "1" : null }, filt === s.label ? `거르는 중 · ${shownIn(s.label)}` : s.sub),
           s.act || null))),
       more.length ? h("span", { class: "st-more" }, ...more) : null));
     // phase 1: a stage is a tab stop; Enter / Space filters as a click does (its own buttons keep their keys)
@@ -5234,7 +5278,7 @@ if (window.pabloHost && pabloHost.chat) {
       pickB.replaceChildren(ico("folder", 14), picks.folder ? picks.folder.name : "폴더 고르기"); };
     drawFolder();
     const netIn = h("input", { type: "checkbox", role: "switch", id: "nt-net", checked: net ? true : null });
-    const netLbl = h("span", null), drawNet = () => { netLbl.textContent = (net ? "허용" : "차단") + (net === !!s.net ? " (기본)" : ""); };
+    const netLbl = h("span", null), drawNet = () => { const l = net ? "허용" : "차단"; netLbl.textContent = net === !!s.net ? `${l} (기본)` : l; };
     netIn.addEventListener("change", () => { net = netIn.checked; drawNet(); }); drawNet();
     const crit = h("textarea", { id: "nt-crit", rows: 1, placeholder: "예: test 셋은 튜닝에 절대 쓰지 마.", "aria-label": "이 작업만의 기준" });
     const state = h("div", { class: "nt-state", "aria-live": "polite" });
@@ -5337,6 +5381,8 @@ if (window.pabloHost && pabloHost.chat) {
         const sw = h("input", { type: "checkbox", role: "switch", "data-set-net": "1", checked: s.net ? true : null });
         sw.addEventListener("change", () => save({ net: sw.checked }));
         return [h("p", { class: "set-lead" }, "모델과 생각 수준은 입력창에서 고릅니다. 새 작업은 마지막에 고른 값으로 시작합니다."),
+          row("언어 · Language", "화면 글자와 Pablo가 새로 쓰는 문장(조건, 카드, 요약)의 언어입니다. 이미 저장된 글은 그대로이고, 바꾸면 화면을 다시 엽니다.",
+            radios("lang", [["ko", "한국어"], ["en", "English"]], s.lang === "en" ? "en" : "ko")),
           row("새 작업의 인터넷", "작업마다 바꿀 수 있습니다. 허용해도 명령은 하나하나 Guard를 거칩니다.",
             h("label", { class: "nt-switch" }, sw, h("span", { class: "sw", "aria-hidden": "true" }), h("span", null, s.net ? "허용" : "차단"))),
           row("오른쪽 패널", "새 작업은 기준 탭이 열린 채 시작하고, 그 뒤에는 작업마다 마지막 상태를 기억합니다.",
@@ -5491,7 +5537,7 @@ if (window.pabloHost && pabloHost.chat) {
     });
   }
   // C3 비교표: the columns (editable, default as skill.COLUMNS) -> one judge call per paper -> the table card
-  const COLUMNS = ["데이터셋", "평가 지표", "주요 결과", "효율", "한계"];
+  const COLUMNS = LANG === "en" ? ["Dataset", "Metric", "Main result", "Efficiency", "Limitations"] : ["데이터셋", "평가 지표", "주요 결과", "효율", "한계"];
   // ⑧ a suggested column goes into its table (only that column is asked); without one, the 비교표 form with these columns
   compareAgain = (t, columns, table, column) => table && pabloHost.compareColumn ? addColumn(t, table, column) : compareForm(t, columns);
   function addColumn(t, c, column) {

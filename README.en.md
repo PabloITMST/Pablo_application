@@ -173,11 +173,13 @@ Upgrading from an earlier version keeps your tasks, conversations, and sign-in.
 
 ## Getting started
 
-1. Click **Connect ChatGPT** (ChatGPT로 연결) on the account card at the foot of the sidebar and approve in your system browser. Disconnecting and checking the plan again are in **Settings · Account** (설정 · 계정).
-2. In the **+ New task** (+ 새 작업, Ctrl N) dialog, write the goal and your criteria. Pick the task kind: **Paper reproduction** (논문 재현), **Paper reading** (논문 읽기), or **General** (일반). Each kind has its own stages. Sources (PDF, arXiv, OpenReview, DOI), the work folder, and internet access are set here too; an arXiv paper shows its file name, source, and size before it is downloaded.
-3. To change them later, click the **Sources · Folder · Internet** chips in the header (자료 · 폴더 · 인터넷).
-4. **Extract conditions** (재현 조건 뽑기) → ask the agent → **Audit** (재현 점검) → click a file:line to check the code.
-5. Save the record as HTML or Markdown with **Export report** (보고서 내보내기), in the header's **⋯** menu or the stage bar.
+The app starts in Korean. To switch to English, open **설정 · 기본값** (the gear, or **설정** on the account card) and pick **English** under **언어 · Language**. The window reloads in English, and what Pablo writes from then on (reproduction conditions, card reasons, audit notes, summaries) is in English too. Text already saved and the exported report stay as they were written.
+
+1. Click **Connect ChatGPT** on the account card at the foot of the sidebar and approve in your system browser. Disconnecting and checking the plan again are in **Settings · Account**.
+2. In the **+ New task** (Ctrl N) dialog, write the goal and your criteria. Pick the task kind: **Paper reproduction**, **Paper reading**, or **General**. Each kind has its own stages. Sources (PDF, arXiv, OpenReview, DOI), the work folder, and internet access are set here too; an arXiv paper shows its file name, source, and size before it is downloaded.
+3. To change them later, click the **Sources · Folder · Internet** chips in the header.
+4. **Extract conditions** → ask the agent → **Audit** → click a file:line to check the code.
+5. Save the record as HTML or Markdown with **Export report**, in the header's **⋯** menu or the stage bar.
 
 An 18-minute demo script is in [`release/0.8.0/DEMO_SCENARIO.md`](release/0.8.0/DEMO_SCENARIO.md) (in Korean). It uses [`release/0.7.0/demo-repro/`](release/0.7.0/demo-repro/), a folder that departs from the paper on purpose. The script follows the 0.8.0 screens; for where each button moved in 0.9.0, see the mapping table in the [0.9.0 release notes](release/0.9.0/README.md), and for 0.10.0, the one in the [0.10.0 release notes](release/0.10.0/README.md).
 

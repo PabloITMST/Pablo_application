@@ -27,9 +27,10 @@ def cli(d, *args):
 def test_discussion_is_no_criterion():
     """C2-C6 (10/29) were "의논해" typed into 정하기: 정하기 (say --decide) now refuses a value that asks to talk it over and
     stores nothing; the setting's name stays. Any other way to add or edit a criterion is not held to it."""
-    for t in ["어떤 게 적절해보이는지 의논 해보자", "이것도 좀 의논이 필요해보이는데", "얘네도 의논해", "의논해", "같이 정하자", "어떻게 할까?"]:
+    for t in ["어떤 게 적절해보이는지 의논 해보자", "이것도 좀 의논이 필요해보이는데", "얘네도 의논해", "의논해", "같이 정하자", "어떻게 할까?",
+              "Let's discuss which seed to use", "What do you think about the chunk size?"]:
         assert asks_discussion(t), t
-    for t in ["가장 최신 버전으로 하자", "en_core_web_sm 3.7", "문장 단위?", "top_k는 반드시 5로 둬"]:
+    for t in ["가장 최신 버전으로 하자", "en_core_web_sm 3.7", "문장 단위?", "top_k는 반드시 5로 둬", "Always keep top_k at 5."]:
         assert not asks_discussion(t), t
     name = "사용할 spaCy 모델과 버전"
     with tempfile.TemporaryDirectory() as d:
@@ -124,10 +125,20 @@ def test_agreed_change_is_a_card():
     import io
     import pablo_v2.__main__ as main
     from pablo_v2.intent.extract import asks_criteria_change
-    for t in ["동의해. 기준 내용 그렇게 수정해줘봐", "그거 기준에 반영해줘", "반드시 지킬 것에 추가해줘"]:
+    for t in ["동의해. 기준 내용 그렇게 수정해줘봐", "그거 기준에 반영해줘", "반드시 지킬 것에 추가해줘",
+              "Agreed. Please update the criteria that way.", "Can you add that to the rules?"]:
         assert asks_criteria_change(t), t
-    for t in ["다시 작업 기준에 반드시 지킬 것 내용 확인해봐", "코드 수정해줘", "앞으로 반드시 F1로 평가해"]:
+    for t in ["다시 작업 기준에 반드시 지킬 것 내용 확인해봐", "코드 수정해줘", "앞으로 반드시 F1로 평가해",
+              "Please fix the code.", "From now on, always evaluate with F1."]:
         assert not asks_criteria_change(t), t
+    # 0.11 English: a request is the step, not a criterion; a lasting marker keeps its sentence a criterion
+    from pablo_v2.intent.extract import reads_like_rule, standing_criteria
+    assert standing_criteria("Create relations.py that extracts function relationships with an LLM.") == []
+    assert standing_criteria("I know the criteria. This time, just create relations.py with an LLM.") == []
+    assert standing_criteria("If possible, don't extract function relationships with an LLM.") ==         ["If possible, don't extract function relationships with an LLM."]
+    assert standing_criteria("Write run.py. Never touch the test split.") == ["Never touch the test split."]
+    assert reads_like_rule("Don't use the test split") and reads_like_rule("Results must come from runs.")
+    assert not reads_like_rule("Thanks!")
     d = tempfile.mkdtemp()
     cli(d, "task", "LinearRAG 재현", "--checks", "[]")
     rule = ["--scope", "task", "--task", "T1", "--rule", "hard"]
