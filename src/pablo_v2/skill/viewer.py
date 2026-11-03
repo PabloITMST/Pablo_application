@@ -2197,7 +2197,8 @@ const ART = {{ART}}, art = (k, cls) => h("img", { class: "mascot" + (cls ? " " +
 // labels are not). In a key with fewer than two Hangul letters of its own a hole takes no Hangul: "{0}개" is a count,
 // never a person's "사과 3개"
 const LANG = "{{LANG}}", EN = {{EN}}, HANGUL = /[가-힣]/;
-const EN_PAT = Object.keys(EN).map(k => k.split(/\{(\d)\}/)).filter(p => p.length > 1)
+const EN_PAT = Object.keys(EN).map(k => k.split(/\{(\d)\}/)).filter(p => p.length > 1)  // the most words first: "점검 {0}" last
+  .sort((x, y) => y.filter((_, i) => i % 2 === 0).join("").length - x.filter((_, i) => i % 2 === 0).join("").length)
   .map(p => [p, (p.filter((_, i) => i % 2 === 0).join("").match(/[가-힣]/g) || []).length >= 2])
   .map(([p, wide]) => [new RegExp("^" + p.map((x, i) => i % 2 ? (wide ? "([\\s\\S]*?)" : "([^\\uAC00-\\uD7A3]*?)") : x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("") + "$"),
     p.filter((_, i) => i % 2).map(Number), p.map((x, i) => i % 2 ? `{${x}}` : x).join("")]);
@@ -2205,14 +2206,18 @@ function tr(s) {
   if (LANG !== "en" || !s || !HANGUL.test(s)) return s;
   const [, a, core, z] = s.match(/^([\s·]*)([\s\S]*?)([\s·]*)$/);
   if (Object.hasOwn(EN, core)) return a + EN[core] + z;
+  const parts = core.split(" · ");  // labels joined by the code ("논문 재현 · 준비"): each on its own, before a pattern
+  const each = parts.length > 1 ? parts.map(tr).join(" · ") : core;  // takes the whole line as one hole
+  if (each !== core && !HANGUL.test(each)) return a + each + z;
   for (const [re, order, k] of EN_PAT) {
     const m = core.match(re);
     if (m) return a + EN[k].replace(/\{(\d)\}/g, (_, i) => tr(m[order.indexOf(+i) + 1])) + z;
   }
   const [, b, word, y] = core.match(/^([^\p{L}\p{N}]*)([\s\S]*?)([^\p{L}\p{N}]*)$/u);  // a mark around a word: "✓ 따름"
   if (word !== core && Object.hasOwn(EN, word)) return a + b + EN[word] + y + z;
-  const parts = core.split(" · ");  // labels joined by the code ("일반 · 준비"): each on its own
-  if (parts.length > 1) { const t = parts.map(tr).join(" · "); if (t !== core) return a + t + z; }
+  const pm = core.match(/^([\s\S]*?\S)(\s*\([^()]*\))$/);  // a label in brackets after data: "LinearRAG (주 논문)"
+  if (pm) { const t = tr(pm[1]) + tr(pm[2]); if (t !== core) return a + t + z; }
+  if (each !== core) return a + each + z;  // some labels of the line, the rest data
   if (window.__trMiss) window.__trMiss.add(core);  // check.js --ui: what the English page could not translate
   return s;
 }

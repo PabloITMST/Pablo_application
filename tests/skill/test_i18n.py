@@ -194,7 +194,7 @@ def main():
     # swapped too: renaming one in a prompt fails here), and a new reproduction task starts with English criteria
     from pablo_v2.skill import judge, skill
     prompts = [getattr(judge, n) for n in ("SPEC_PROMPT", "SPEC_APPENDIX_PROMPT", "COMPARE_PROMPT", "SUMMARY_PROMPT",
-                                           "DRIFT_PROMPT", "CRITERIA_CHANGE_PROMPT")]
+                                           "DRIFT_PROMPT", "CRITERIA_CHANGE_PROMPT", "ASK_PROMPT", "ASK_SOURCES_PROMPT")]
     assert all(any(ko in p for p in prompts) for ko, _ in judge.EN_PROMPT), "an EN_PROMPT example no prompt has"
     was = os.environ.get("PABLO_LANG")
     try:

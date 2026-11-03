@@ -139,6 +139,13 @@ def test_agreed_change_is_a_card():
     assert standing_criteria("Write run.py. Never touch the test split.") == ["Never touch the test split."]
     assert reads_like_rule("Don't use the test split") and reads_like_rule("Results must come from runs.")
     assert not reads_like_rule("Thanks!")
+    # and the reader that makes a chat sentence a criterion (the app's own, without an LLM)
+    ex = lambda t: HeuristicExtractor().extract(t, "m", "", "")[0]
+    soft = ex("If possible, don't extract function relationships with an LLM or rules.")
+    assert soft["type"] == "constraint" and soft["strength"] == "soft", soft
+    assert ex("Never touch the test split.")["strength"] == "hard"
+    assert ex("PyTorch might be a bit easier.")["explicitness"] == "implicit"
+    assert ex("Thanks for the summary.")["candidate"] is False
     d = tempfile.mkdtemp()
     cli(d, "task", "LinearRAG 재현", "--checks", "[]")
     rule = ["--scope", "task", "--task", "T1", "--rule", "hard"]

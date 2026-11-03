@@ -114,20 +114,22 @@ TOPIC_RULES = [
     (r"baseline|재현", "baseline-repro"),
     (r"readme", "readme"),
 ]
-CORRECTION = r"^아니|했잖아|라고 했|말했잖|하랬잖|그거 말고|원래대로"
-CHANGE = r"바꾸자|바꿔|으로 변경|대신 .*(하자|쓰자)"
-ONE_OFF = r"^(일단|먼저|지금)|부터 |먼저 .*(보고|읽|확인)"
-HEDGE = r"것 같|긴 한데|긴 해|좋을 것|아마|면 좋겠|싶은데|나을 듯"
+# 0.11 English mode: each rule also reads the English way of saying it ("If possible, don't ...", "might be easier")
+CORRECTION = r"^아니|했잖아|라고 했|말했잖|하랬잖|그거 말고|원래대로|^no[,.!]|\bI (said|told you)\b|\bas I said\b|\bnot that one\b"
+CHANGE = r"바꾸자|바꿔|으로 변경|대신 .*(하자|쓰자)|\blet'?s (switch|change)\b|\bswitch to\b"
+ONE_OFF = r"^(일단|먼저|지금)|부터 |먼저 .*(보고|읽|확인)|^(first|for now|right now)\b"
+HEDGE = r"것 같|긴 한데|긴 해|좋을 것|아마|면 좋겠|싶은데|나을 듯|\b(might|maybe|probably|I think|I guess|would be nice)\b"
 HARD = (r"반드시|꼭 |그대로 유지|해야 (돼|해|한다|합니다)|절대|무조건|하지 마|지 ?마(?:세요|라)?(?![가-힣])|지 말(?:고|아)|안 ?돼|금지|\bmust\b|\bnever\b"
         # 0.8 review: the usual ways a researcher writes a rule ("~면 안 됨", "~없게", "~만 써", "~할 것", "~지 않는다")
         r"|안 ?(됨|된다|됩니다)|(없|않)(게|도록)|만 (써|쓰|사용)|[가-힣] 것\.?$|지 않(는다|음|습니다)"
         # a rule written in the positive ("validation 셋으로만 튜닝해", "평가 지표는 F1로 통일")
-        r"|로만 [가-힣]|로 (통일|고정)")
-SOFTEN = r"가능하면|되도록|선호|웬만하면|할 수 있으면"  # "가능하면 PyTorch만 써": a wish, even with a rule's ending
-SUCCESS = r"성공|비교 가능|달성하면"
-DECISION = r"말고 .*(하자|가자)|(으로|로) (하자|가자|결정)"
-PREFERENCE = r"있으면|가능하면|우선|선호|되도록|써\.?$|사용해"
-REQUEST = r"해\s?줘|해주세요|해 주세요"
+        r"|로만 [가-힣]|로 (통일|고정)"
+        r"|\b(don'?t|do not|always|not allowed|forbidden|have to|has to|need to)\b")
+SOFTEN = r"가능하면|되도록|선호|웬만하면|할 수 있으면|\b(if possible|whenever possible|if you can|prefer(ably)?|ideally)\b"  # "가능하면 PyTorch만 써": a wish, even with a rule's ending
+SUCCESS = r"성공|비교 가능|달성하면|\b(success|succeeds?|comparable)\b"
+DECISION = r"말고 .*(하자|가자)|(으로|로) (하자|가자|결정)|\blet'?s go with\b|\bwe('ll| will) go with\b"
+PREFERENCE = r"있으면|가능하면|우선|선호|되도록|써\.?$|사용해|\b(prefer|if possible|ideally|would rather)\b"
+REQUEST = r"해\s?줘|해주세요|해 주세요|\b(please|can you|could you)\b"
 
 
 def _has(pattern: str, text: str) -> bool:

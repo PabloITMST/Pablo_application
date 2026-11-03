@@ -368,7 +368,9 @@ EN_PROMPT = [('("목표는 X인데 이 메시지는 Y를 요청합니다")', '("
              ('"검색 단계의 top-k는 5이다"', '"The retrieval top-k is 5"'),
              ('"DTD와 OxfordPets를\n  뺀 모든 데이터셋의 배치 크기는 256이다"',
               '"The batch size is 256 for every dataset\n  except DTD and OxfordPets"'),
-             ("Korean", "English")]
+             ('"정함:"', '"Decided:"'), ('"미정:"', '"Open:"'), ('"제안:"', '"Suggestion:"'),
+             ("in the question's language", "in English"), ("in the language of the QUESTION", "in English"),
+             ("answer in its language", "answer in English"), ("Korean", "English")]
 
 
 def lang(prompt: str) -> str:
@@ -520,7 +522,7 @@ class LLMJudge:
 
     def answer_from_pdf(self, question: str, pages: list[str], context: str = "") -> dict:
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
-        return self.provider.complete_json(ASK_PROMPT.format(pages=text, question=question, context=context or "(none)"),
+        return self.provider.complete_json(lang(ASK_PROMPT).format(pages=text, question=question, context=context or "(none)"),
                                            ASK_SCHEMA)
 
     def answer_from_sources(self, question: str, papers: list[dict], context: str = "") -> dict:
@@ -528,7 +530,7 @@ class LLMJudge:
             f"=== Web page {x['label']}: {x['title']} ===\n[{x['label']}] " + " ".join(x["pages"]) if x.get("kind") == "web"
             else f"=== Paper {x['label']}: {x['title']} ===\n" + "\n\n".join(
                 f"[{x['label']} p.{n}] {p}" for n, p in enumerate(x["pages"], 1)) for x in papers)
-        return self.provider.complete_json(ASK_SOURCES_PROMPT.format(papers=text, question=question,
+        return self.provider.complete_json(lang(ASK_SOURCES_PROMPT).format(papers=text, question=question,
                                                                        context=context or "(none)"), ASK_SOURCES_SCHEMA)
 
     def extract_spec(self, pages: list[str], progress=None) -> dict:
