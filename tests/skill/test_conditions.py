@@ -129,6 +129,13 @@ def test_intended_deviation():
         brief = render_brief(s, t.id)[0]
         assert "일부러 논문과 다르게 두는 조건" in brief and "이유: ablation: 다른 모델로 비교 (기본 실행은 논문대로" in brief, brief
         assert "확인된 근거:" not in brief  # its only fact is the one differed from
+        os.environ["PABLO_LANG"] = "en"  # 0.11: the same brief in English (the user's own words stay)
+        try:
+            en = render_brief(s, t.id)[0]
+        finally:
+            del os.environ["PABLO_LANG"]
+        assert "Conditions the user departs from on purpose" in en and "→ why: ablation" in en and "일부러" not in en, en
+        assert "(keep the base run as the paper says;" in en and en.splitlines()[0].startswith("[Pablo] The user's criteria"), en
         assert held(s, t.id)[1] == ["61.5"]  # 재현 점검 still compares it (the card shows the difference as intended)
         s.undeviate_spec(res.id)
         assert "S01" in rules() and "일부러" not in render_brief(s, t.id)[0]

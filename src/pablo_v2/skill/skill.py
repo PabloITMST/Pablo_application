@@ -1227,9 +1227,41 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
                 "이 차이를 밝히세요):"] + differ
     if aside_:
         out += ["참고 (논문의 서술과 이 재현 밖의 실험, 따를 조건은 아님):"] + aside_
-    if english():
-        out.append("Reply to the user in English.")
-    return "\n".join(out), basis
+    text = "\n".join(out)
+    if english():  # the brief in the user's language, so the agent answers in it without being told to (it said so)
+        for ko, en in BRIEF_EN:
+            text = text.replace(ko, en)
+    return text, basis
+
+
+# 0.11: render_brief's own words in English (what the user or the paper wrote stays as written)
+BRIEF_EN = [
+    ("[Pablo] 이 작업에서 사용자가 정한 기준과 확인된 근거입니다. 기준과 어긋나는 일은 하기 전에 말하고, 근거를 쓸 때는 괄호 안의 출처와 쪽을 함께 밝히세요.",
+     "[Pablo] The user's criteria for this task and the evidence checked so far. Before doing anything that departs from a "
+     "criterion, say so; when you use the evidence, name the source and page given in brackets."),
+    ("[Pablo] 이 작업에서 사용자가 정한 기준입니다. 기준과 어긋나는 일은 하기 전에 말하세요.",
+     "[Pablo] The user's criteria for this task. Before doing anything that departs from them, say so."),
+    ("기준은 Pablo가 관리합니다. 기준 파일을 따로 만들지 말고, 바꿀 기준은 답에서 제안하세요. 사용자가 확인하면 Pablo가 반영합니다.",
+     "Pablo keeps the criteria. Do not write a criteria file; propose changes in your answer, and Pablo applies them once "
+     "the user confirms."),
+    ("논문에 적힌 조건은 근거 없이 바꾸지 마세요. 결과를 맞추려고 바꾸면 재현이 아닙니다.",
+     "Do not change a condition the paper states without evidence. Changing it to match the results is not a reproduction."),
+    (". 논문에 없는 설정은 먼저 여기서 확인하고, 가져왔다면 그렇다고 밝히세요.",
+     ". Look up settings the paper does not state there first, and say so when you take one from it."),
+    ("논문에 없는 설정 (정하면 무엇을 근거로 정했는지 밝히세요):", "Settings the paper does not state (when you set one, say what it is based on):"),
+    ("사용자가 이유와 함께 일부러 논문과 다르게 두는 조건 (줄마다 적힌 범위 안에서만 막지 않습니다. 결과를 말할 때 이 차이를 밝히세요):",
+     "Conditions the user departs from on purpose, with why (allowed only within the scope on each line; mention the "
+     "difference when you report results):"),
+    ("참고 (논문의 서술과 이 재현 밖의 실험, 따를 조건은 아님):",
+     "For reference (the paper's statements and experiments outside this reproduction; not conditions to follow):"),
+    (" (기본 실행은 논문대로 두고, 새 파일이나 실행 옵션으로 따로 돌릴 때만 다르게)",
+     " (keep the base run as the paper says; differ only in a separate file or run option)"),
+    (" (이 작업 전체에서 다르게)", " (different for this whole task)"), (" → 이유: ", " → why: "), (" (일부만 확인됨)", " (partly verified)"),
+    ("논문의 공식 코드 저장소: ", "The paper's official code repository: "), ("확인된 근거:", "Checked evidence:"),
+    ("\n반드시: ", "\nMust: "), ("\n가능하면: ", "\nShould: "), ("- [실험 범위] ", "- [scope] "), ("- [서술] ", "- [statement] "),
+    *[(f"- [{ko}] ", f"- [{en}] ") for ko, en in zip(SPEC_LABEL.values(), (
+        "dataset", "data split", "preprocessing", "model", "method", "hyperparameter", "training", "metric", "baseline",
+        "reported result", "evaluation protocol"))]]
 
 
 def setting_name(requirement: str) -> str:

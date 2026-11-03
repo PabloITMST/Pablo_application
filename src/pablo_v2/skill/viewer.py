@@ -3399,7 +3399,7 @@ function byStage(log, rows, kind, D) {
     const sum = h("div", { class: "sg-sum" }, own ? [h("b", { class: "sum-k" }, "사람이 고친 요약"), " — ", rich(own)]
       : auto ? [h("b", { class: "sum-k", "data-auto-summary": "1" }, "모델 요약"), " — ", rich(auto.text),
         behind > 0 ? h("small", { class: "muted", "data-behind": behind }, ` · 그 뒤 메시지 ${behind}개`) : null]
-      : h("span", { class: "muted" }, "기록 요약 — " + facts),
+      : h("span", { class: "muted" }, `기록 요약 — ${facts}`),
       own ? h("p", { class: "sg-own" }, h("span", { class: "tg manual" }, "사람이 고침"), h("small", null, "다시 만들어도 이 글이 유지됩니다")) : null,
       can && msgs.length || write ? h("p", { class: "sg-tools" },
         can && msgs.length ? h("button", { class: "link", "data-summary-edit": n, on: () => summaryEdit(sum, n, own || (auto && auto.text) || "") }, ico("pencil", 12), " 요약 고치기") : null,
@@ -4800,7 +4800,7 @@ if (window.pabloHost && pabloHost.chat) {
     else if (ev.type === "review") {  // PostReview of a WARN/BLOCK action, under its card (ALLOW has no card: stays silent)
       const card = Object.values(lives).map(l => l.querySelector(`[data-act="${CSS.escape(ev.act)}"]`)).find(Boolean);
       if (card) card.insertBefore(h("p", { class: "rev", "data-review": ev.alignment || "" }, ev.alignment ? h("span", { class: "tg rv rv-" + ev.alignment }, BADGE[ev.alignment] || ev.alignment) : null,
-        h("span", null, "검토: " + (ALIGN[ev.alignment] || (ev.executed ? "실행했습니다" : "실행하지 않았습니다")))), card.querySelector(":scope > .foot"));
+        h("span", null, `검토: ${ALIGN[ev.alignment] || (ev.executed ? "실행했습니다" : "실행하지 않았습니다")}`)), card.querySelector(":scope > .foot"));
       refresh();  // Plan / 왜? follow the review without a reload
     }
   });
@@ -4850,7 +4850,7 @@ if (window.pabloHost && pabloHost.chat) {
       ta.focus();
     };
     card.append(h("p", { class: "head" }, r.verdict === "sub" ? "이 작업에서 갈라져 나온 일 같습니다" : "이 작업의 목표와 다른 일 같습니다"),
-      r.reason ? h("p", null, r.reason) : null, h("p", { class: "muted" }, "작업 목표: " + V.task.text), acts);
+      r.reason ? h("p", null, r.reason) : null, h("p", { class: "muted" }, `작업 목표: ${V.task.text}`), acts);
     return card;
   };
   const send = async (_, sure) => {
@@ -4894,7 +4894,7 @@ if (window.pabloHost && pabloHost.chat) {
       const v = Object.values(M.views).find(v => v.actions.some(x => x.id === c.closest("[data-act]").dataset.act));
       const a = v && v.actions.find(x => x.id === c.closest("[data-act]").dataset.act);
       if (!a || !a.criteria.length) return;
-      c.textContent = "관련 기준: " + a.criteria.map(x => x.text).join(" · ");  // + where a source says so: [n] opens it
+      c.textContent = `관련 기준: ${a.criteria.map(x => x.text).join(" · ")}`;  // + where a source says so: [n] opens it
       c.append(" ", ...[...new Set(a.criteria.flatMap(x => (v.checks[x.id] || {}).evidence || []))].filter(e => M.anchors[e]).map(e => cite(e)));
       const o = offer({ ...a, task: v.task.id }, v); if (o) c.after(o);  // ⑦ a BLOCK on a paper condition: 의도한 차이로 두기
     }));
@@ -5179,7 +5179,7 @@ if (window.pabloHost && pabloHost.chat) {
     const fname = d.folder ? d.folder.split(/[\\/]/).filter(Boolean).pop() || d.folder : null;
     const chips = h("span", { id: "chips" },
       chipEl("src", "file", main ? `${main.title}${main.version ? " " + main.version : ""} · 주` : ps.length ? `자료 ${ps.length}편` : "자료 없음", ps.length ? "" : "none",
-        ps.length ? `자료 ${ps.length}${main ? " · 주 논문 " + main.title : ""}` : null),
+        ps.length ? `자료 ${ps.length}${main ? ` · 주 논문 ${main.title}` : ""}` : null),
       chipEl("dir", "folder", fname || "폴더 없음", d.folder ? "" : "none", d.folder || null),
       netEl ? chipEl("net", d.net ? "globe" : "globe-off", d.net ? "인터넷 허용" : "인터넷 차단", d.net ? "" : "off") : null, card);
     const oldChips = $("chips"); if (oldChips) oldChips.replaceWith(chips); else $("bar").insertBefore(chips, $("pnl") || null);
@@ -5334,7 +5334,7 @@ if (window.pabloHost && pabloHost.chat) {
               : (ARXIV.test(l.text) ? pabloHost.addArxiv : OPENREVIEW.test(l.text) && pabloHost.addOpenreview ? pabloHost.addOpenreview : pabloHost.addWeb)(id, l.text));
             titles.push(x.title); lines.push(`✓ ${label(x)}${x.same ? " (이미 있음)" : ""}`); }
           catch (e) { titles.push(null); lines.push(`⚠ ${l.text}: ${clean(e)}`); } }
-        if (picks.folder && net !== !!s.net && pabloHost.setNet) await pabloHost.setNet(id, net).catch(e => lines.push("⚠ 인터넷: " + clean(e)));
+        if (picks.folder && net !== !!s.net && pabloHost.setNet) await pabloHost.setNet(id, net).catch(e => lines.push(`⚠ 인터넷: ${clean(e)}`));
         await refresh();
         const want = its.length > 1 ? titles[primary] : null, p = want && ((M.desk || {})[id] || {}).papers.find(x => x.title === want);
         if (p && !p.primary) await pabloHost.setPrimary(id, p.id).then(() => refresh()).catch(() => {});
@@ -5375,7 +5375,7 @@ if (window.pabloHost && pabloHost.chat) {
           h("p", { class: "acts" }, h("button", { class: "pill warn", "data-logout-ok": "1", on: () => pabloHost.logout().then(() => draw(), e => { note.textContent = "⚠ " + clean(e); }) }, "연결 해제"),
             h("button", { class: "pill", on: () => { confirm.hidden = true; } }, "취소")));
         return [h("div", { class: "set-card", "data-account": authSt.state }, h("b", null, on ? "ChatGPT · 연결됨" : "ChatGPT · 연결 안 됨", on ? tag("플랜 사용 가능") : null),
-            h("small", null, on ? `쓸 수 있는 모델 ${n}개${checkedAt ? " · 마지막 확인 " + hhmm(checkedAt) : ""}` : authSt.error || "연결해야 에이전트와 논문 질문을 쓸 수 있습니다.")),
+            h("small", null, on ? `쓸 수 있는 모델 ${n}개${checkedAt ? ` · 마지막 확인 ${hhmm(checkedAt)}` : ""}` : authSt.error || "연결해야 에이전트와 논문 질문을 쓸 수 있습니다.")),
           ...(on ? [row("플랜 확인", "ChatGPT 플랜으로 에이전트와 논문 질문을 씁니다. API 키는 쓰지 않습니다. 플랜이 바뀌었으면 다시 확인하세요.",
               pabloHost.recheckPlan ? h("button", { class: "pill", "data-recheck": "1", on: () => { rechecking = true; pabloHost.recheckPlan().catch(e => { rechecking = false; note.textContent = "⚠ " + clean(e); }); } },
                 ico("rotate", 14), "다시 확인") : null),
