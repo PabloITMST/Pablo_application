@@ -10,7 +10,7 @@ When you reproduce a paper, Pablo pins each condition to a page of the source an
 When the agent tries something that conflicts with your criteria, Pablo stops it before it runs.
 
 [![test](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml/badge.svg)](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-0.10.1-111111)
+![version](https://img.shields.io/badge/version-0.11.0-111111)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-111111)
 ![python](https://img.shields.io/badge/python-3.11-111111)
 ![electron](https://img.shields.io/badge/electron-41-111111)
@@ -155,7 +155,7 @@ You do not need Python, Node.js, or the Codex CLI. The installer bundles them.
 ### Steps
 
 1. Download `PabloSetup.exe` from [Releases](https://github.com/PabloITMST/Pablo_application/releases).
-2. Verify the hash. The SHA-256 for 0.10.1 is `57ec2623fb81950d7faee4ebae6b8e7f1f3bbb7c37efb9da2412e95c40810397`.
+2. Verify the hash. The SHA-256 for 0.11.0 is `632fadec36d08793ceef086c1dbd7c93cd0ff9f22173a3932c733bb2cdaaef19`.
 
    ```powershell
    Get-FileHash .\PabloSetup.exe -Algorithm SHA256
@@ -301,8 +301,9 @@ Detection is on par with simply asking the model. Where Pablo does better is the
 - Condition extraction reads the appendix and is slow: about 3–4 minutes for LinearRAG.
 - Table numbers may be paired with the wrong column, so they show "? check column pairing" until confirmed.
 - Long training runs are best run outside the app.
+- In English, text already saved and the exported report stay in Korean.
 
-Full list: [`release/0.10.1/KNOWN_LIMITATIONS.md`](release/0.10.1/KNOWN_LIMITATIONS.md) (in Korean)
+Full list: [`release/0.11.0/KNOWN_LIMITATIONS.md`](release/0.11.0/KNOWN_LIMITATIONS.md) (in Korean)
 
 ## Documentation
 
@@ -311,6 +312,7 @@ All documents below are in Korean.
 | Document | Contents |
 |---|---|
 | [Developer reference](docs/reference.md) | CLI commands, state files, app check scenarios, design decisions by milestone |
+| [Release 0.11.0](release/0.11.0/README.md) | English screen: Settings · Defaults · Language, including what Pablo writes and the agent brief |
 | [Release 0.10.1](release/0.10.1/README.md) | Fixes from the demo recording: wrapping input, working status in the conversation, follow-the-end scrolling, resizable right column, PDF viewer, uniform buttons |
 | [Release 0.10.0](release/0.10.0/README.md) | Figma A2 complete, thinking level, fixes since 0.9.1, where 0.9.x buttons moved |
 | [Release 0.9.1](release/0.9.1/README.md) | Fixes since 0.9.0, verification results |
