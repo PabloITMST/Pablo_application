@@ -10,7 +10,7 @@ When you reproduce a paper, Pablo pins each condition to a page of the source an
 When the agent tries something that conflicts with your criteria, Pablo stops it before it runs.
 
 [![test](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml/badge.svg)](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml)
-![version](https://img.shields.io/badge/version-0.10.1-111111)
+![version](https://img.shields.io/badge/version-0.11.0-111111)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-111111)
 ![python](https://img.shields.io/badge/python-3.11-111111)
 ![electron](https://img.shields.io/badge/electron-41-111111)
@@ -155,7 +155,7 @@ You do not need Python, Node.js, or the Codex CLI. The installer bundles them.
 ### Steps
 
 1. Download `PabloSetup.exe` from [Releases](https://github.com/PabloITMST/Pablo_application/releases).
-2. Verify the hash. The SHA-256 for 0.10.1 is `57ec2623fb81950d7faee4ebae6b8e7f1f3bbb7c37efb9da2412e95c40810397`.
+2. Verify the hash. The SHA-256 for 0.11.0 is `632fadec36d08793ceef086c1dbd7c93cd0ff9f22173a3932c733bb2cdaaef19`.
 
    ```powershell
    Get-FileHash .\PabloSetup.exe -Algorithm SHA256
@@ -173,11 +173,13 @@ Upgrading from an earlier version keeps your tasks, conversations, and sign-in.
 
 ## Getting started
 
-1. Click **Connect ChatGPT** (ChatGPT로 연결) on the account card at the foot of the sidebar and approve in your system browser. Disconnecting and checking the plan again are in **Settings · Account** (설정 · 계정).
-2. In the **+ New task** (+ 새 작업, Ctrl N) dialog, write the goal and your criteria. Pick the task kind: **Paper reproduction** (논문 재현), **Paper reading** (논문 읽기), or **General** (일반). Each kind has its own stages. Sources (PDF, arXiv, OpenReview, DOI), the work folder, and internet access are set here too; an arXiv paper shows its file name, source, and size before it is downloaded.
-3. To change them later, click the **Sources · Folder · Internet** chips in the header (자료 · 폴더 · 인터넷).
-4. **Extract conditions** (재현 조건 뽑기) → ask the agent → **Audit** (재현 점검) → click a file:line to check the code.
-5. Save the record as HTML or Markdown with **Export report** (보고서 내보내기), in the header's **⋯** menu or the stage bar.
+The app starts in Korean. To switch to English, open **설정 · 기본값** (the gear, or **설정** on the account card) and pick **English** under **언어 · Language**. The window reloads in English, and what Pablo writes from then on (reproduction conditions, card reasons, audit notes, summaries) is in English too. Text already saved and the exported report stay as they were written.
+
+1. Click **Connect ChatGPT** on the account card at the foot of the sidebar and approve in your system browser. Disconnecting and checking the plan again are in **Settings · Account**.
+2. In the **+ New task** (Ctrl N) dialog, write the goal and your criteria. Pick the task kind: **Paper reproduction**, **Paper reading**, or **General**. Each kind has its own stages. Sources (PDF, arXiv, OpenReview, DOI), the work folder, and internet access are set here too; an arXiv paper shows its file name, source, and size before it is downloaded.
+3. To change them later, click the **Sources · Folder · Internet** chips in the header.
+4. **Extract conditions** → ask the agent → **Audit** → click a file:line to check the code.
+5. Save the record as HTML or Markdown with **Export report**, in the header's **⋯** menu or the stage bar.
 
 An 18-minute demo script is in [`release/0.8.0/DEMO_SCENARIO.md`](release/0.8.0/DEMO_SCENARIO.md) (in Korean). It uses [`release/0.7.0/demo-repro/`](release/0.7.0/demo-repro/), a folder that departs from the paper on purpose. The script follows the 0.8.0 screens; for where each button moved in 0.9.0, see the mapping table in the [0.9.0 release notes](release/0.9.0/README.md), and for 0.10.0, the one in the [0.10.0 release notes](release/0.10.0/README.md).
 
@@ -299,8 +301,9 @@ Detection is on par with simply asking the model. Where Pablo does better is the
 - Condition extraction reads the appendix and is slow: about 3–4 minutes for LinearRAG.
 - Table numbers may be paired with the wrong column, so they show "? check column pairing" until confirmed.
 - Long training runs are best run outside the app.
+- In English, text already saved and the exported report stay in Korean.
 
-Full list: [`release/0.10.1/KNOWN_LIMITATIONS.md`](release/0.10.1/KNOWN_LIMITATIONS.md) (in Korean)
+Full list: [`release/0.11.0/KNOWN_LIMITATIONS.md`](release/0.11.0/KNOWN_LIMITATIONS.md) (in Korean)
 
 ## Documentation
 
@@ -309,6 +312,7 @@ All documents below are in Korean.
 | Document | Contents |
 |---|---|
 | [Developer reference](docs/reference.md) | CLI commands, state files, app check scenarios, design decisions by milestone |
+| [Release 0.11.0](release/0.11.0/README.md) | English screen: Settings · Defaults · Language, including what Pablo writes and the agent brief |
 | [Release 0.10.1](release/0.10.1/README.md) | Fixes from the demo recording: wrapping input, working status in the conversation, follow-the-end scrolling, resizable right column, PDF viewer, uniform buttons |
 | [Release 0.10.0](release/0.10.0/README.md) | Figma A2 complete, thinking level, fixes since 0.9.1, where 0.9.x buttons moved |
 | [Release 0.9.1](release/0.9.1/README.md) | Fixes since 0.9.0, verification results |

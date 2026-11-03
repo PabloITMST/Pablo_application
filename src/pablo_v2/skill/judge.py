@@ -361,6 +361,26 @@ _REFS = re.compile(r"\b(?:References|REFERENCES|Bibliography|BIBLIOGRAPHY)\b")
 _YEAR = re.compile(r"\b(?:19|20)\d\d\b")
 
 
+# 0.11 English mode (the desktop's PABLO_LANG): what the person reads is written in English. Applied to a prompt's
+# template, never to what is filled in (a paper's text may well say "Korean")
+EN_PROMPT = [('("목표는 X인데 이 메시지는 Y를 요청합니다")', '("The goal is X, but this message asks for Y")'),
+             ('("~한다", "~쓰지 않는다")', '("Use X.", "Never use Y.")'),
+             ('"검색 단계의 top-k는 5이다"', '"The retrieval top-k is 5"'),
+             ('"DTD와 OxfordPets를\n  뺀 모든 데이터셋의 배치 크기는 256이다"',
+              '"The batch size is 256 for every dataset\n  except DTD and OxfordPets"'),
+             ('"정함:"', '"Decided:"'), ('"미정:"', '"Open:"'), ('"제안:"', '"Suggestion:"'),
+             ("in the question's language", "in English"), ("in the language of the QUESTION", "in English"),
+             ("answer in its language", "answer in English"), ("Korean", "English")]
+
+
+def lang(prompt: str) -> str:
+    if os.environ.get("PABLO_LANG") != "en":
+        return prompt
+    for ko, en in EN_PROMPT:
+        prompt = prompt.replace(ko, en)
+    return prompt
+
+
 def appendix_start(pages: list[str]) -> int | None:
     """D3: the first page of the appendix (1-based): after the references heading (from the third page on, a
     'References' followed by a year), past the reference pages (dense with years). None when there is no such page:
@@ -502,7 +522,7 @@ class LLMJudge:
 
     def answer_from_pdf(self, question: str, pages: list[str], context: str = "") -> dict:
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
-        return self.provider.complete_json(ASK_PROMPT.format(pages=text, question=question, context=context or "(none)"),
+        return self.provider.complete_json(lang(ASK_PROMPT).format(pages=text, question=question, context=context or "(none)"),
                                            ASK_SCHEMA)
 
     def answer_from_sources(self, question: str, papers: list[dict], context: str = "") -> dict:
@@ -510,7 +530,7 @@ class LLMJudge:
             f"=== Web page {x['label']}: {x['title']} ===\n[{x['label']}] " + " ".join(x["pages"]) if x.get("kind") == "web"
             else f"=== Paper {x['label']}: {x['title']} ===\n" + "\n\n".join(
                 f"[{x['label']} p.{n}] {p}" for n, p in enumerate(x["pages"], 1)) for x in papers)
-        return self.provider.complete_json(ASK_SOURCES_PROMPT.format(papers=text, question=question,
+        return self.provider.complete_json(lang(ASK_SOURCES_PROMPT).format(papers=text, question=question,
                                                                        context=context or "(none)"), ASK_SOURCES_SCHEMA)
 
     def extract_spec(self, pages: list[str], progress=None) -> dict:
@@ -536,13 +556,13 @@ class LLMJudge:
             self.provider.on_text = grew
         try:
             r = self.provider.complete_json(
-                SPEC_PROMPT.format(pages=text, appendix=SPEC_APPENDIX_NOTE.format(start=start) if start else ""), SPEC_SCHEMA)
+                lang(SPEC_PROMPT).format(pages=text, appendix=SPEC_APPENDIX_NOTE.format(start=start) if start else ""), SPEC_SCHEMA)
             if start:
                 found = "\n".join(f"- [{it['category']}] {it['statement']} (p.{it['page']})" for it in r["items"]) or "(none)"
                 missing = "\n".join(f"{i}. [{m['category']}] {m['statement']}" for i, m in enumerate(r["missing"], 1)) or "(none)"
                 tail = "\n\n".join(f"[p.{n}] {pages[n - 1]}" for n in range(start, len(pages) + 1))
                 seen["at"] = 0  # a new answer
-                more = self.provider.complete_json(SPEC_APPENDIX_PROMPT.format(found=found, missing=missing, pages=tail),
+                more = self.provider.complete_json(lang(SPEC_APPENDIX_PROMPT).format(found=found, missing=missing, pages=tail),
                                                    SPEC_APPENDIX_SCHEMA)
                 r = {"items": r["items"] + [{**it, "from": "appendix"} for it in more["items"]], "missing": r["missing"]}
         finally:
@@ -557,20 +577,20 @@ class LLMJudge:
 
     def compare_paper(self, columns: list[str], title: str, pages: list[str]) -> dict:
         text = "\n\n".join(f"[p.{n}] {p}" for n, p in enumerate(pages, 1))
-        return self.provider.complete_json(COMPARE_PROMPT.format(columns="\n".join(f"- {c}" for c in columns),
+        return self.provider.complete_json(lang(COMPARE_PROMPT).format(columns="\n".join(f"- {c}" for c in columns),
                                                                  title=title, pages=text), COMPARE_SCHEMA)
 
     def summarize_stage(self, goal: str, stage: str, messages: list[dict]) -> dict:
         text = "\n".join(f"[{m['who']}] {m['text'][:2000]}" for m in messages[-80:])  # the newest 80, each cut
-        return self.provider.complete_json(SUMMARY_PROMPT.format(goal=goal, stage=stage, messages=text), SUMMARY_SCHEMA)
+        return self.provider.complete_json(lang(SUMMARY_PROMPT).format(goal=goal, stage=stage, messages=text), SUMMARY_SCHEMA)
 
     def drift(self, goal: str, message: str, recent: list[str]) -> dict:
         text = "\n".join(f"- {m[:500]}" for m in recent[-6:]) or "(none)"
-        return self.provider.complete_json(DRIFT_PROMPT.format(goal=goal, recent=text, message=message[:4000]), DRIFT_SCHEMA)
+        return self.provider.complete_json(lang(DRIFT_PROMPT).format(goal=goal, recent=text, message=message[:4000]), DRIFT_SCHEMA)
 
     def propose_criteria(self, goal: str, criteria: list[dict], recent: list[dict], message: str) -> dict:
         who = {"user": "You", "agent": "Pablo", "ask": "You (논문 질문)"}
-        return self.provider.complete_json(CRITERIA_CHANGE_PROMPT.format(
+        return self.provider.complete_json(lang(CRITERIA_CHANGE_PROMPT).format(
             goal=goal, criteria="\n".join(f"- {c['id']} ({c['strength']}) {c['text']}" for c in criteria) or "(none)",
             recent="\n".join(f"[{who.get(m.get('role'), 'Pablo')}] {str(m.get('text', ''))[:600]}" for m in recent[-8:]) or "(none)",
             message=message[:2000]), CRITERIA_CHANGE_SCHEMA)

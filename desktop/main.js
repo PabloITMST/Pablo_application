@@ -160,6 +160,8 @@ let envWorkspace = null;
 const desk = () => { try { return papers.migrate({ workspace: {}, pdf: {}, net: {}, ...JSON.parse(fs.readFileSync(path.join(ctl.dir, "desktop.json"), "utf8")) }); }
   catch { return { workspace: {}, pdf: {}, net: {} }; } };
 const saveDesk = f => { const d = desk(); f(d); fs.writeFileSync(path.join(ctl.dir, "desktop.json"), JSON.stringify(d, null, 1)); };
+// 0.11 English mode: the page translates its own words (en.py); main only names its native dialogs and tells Python
+const en = () => (desk().settings || {}).lang === "en", say = (ko, eng) => en() ? eng : ko;
 // the conversation per task (state/chat.json; this file is its only writer, viewer.py reads it): the user's messages, the
 // agent's finished replies, PDF questions with the check that answered them. A reopened app shows the same conversation.
 let reply = null;  // the running turn's answer: {task, at, text}
@@ -268,12 +270,12 @@ const hold = (kind, p) => { const t = crypto.randomUUID(); picked.set(t, { kind,
 ipcMain.handle("pablo:pick-pdfs-free", async e => {
   fromWindow(e);
   const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender),
-    { title: "자료 추가", properties: ["openFile", "multiSelections"], filters: [{ name: "PDF", extensions: ["pdf"] }] });
+    { title: say("자료 추가", "Add sources"), properties: ["openFile", "multiSelections"], filters: [{ name: "PDF", extensions: ["pdf"] }] });
   return r.canceled || !r.filePaths.length ? null : r.filePaths.slice(0, 20).map(f => ({ token: hold("pdf", f), name: path.basename(f) }));
 });
 ipcMain.handle("pablo:pick-folder-free", async e => {
   fromWindow(e);
-  const dir = await pick(e, { title: "작업 폴더 선택", properties: ["openDirectory"] });
+  const dir = await pick(e, { title: say("작업 폴더 선택", "Choose work folder"), properties: ["openDirectory"] });
   if (!dir) return null;
   const w = workspace(dir);  // refused at once when it overlaps Pablo's own folders
   return { token: hold("folder", w), name: path.basename(w) };
@@ -299,7 +301,7 @@ ipcMain.handle("pablo:attach-picked", async (e, task, tokens) => {
 });
 ipcMain.handle("pablo:pick-folder", async (e, task) => {
   fromWindow(e); known(task);
-  const dir = await pick(e, { title: "작업 폴더 선택", properties: ["openDirectory"] });
+  const dir = await pick(e, { title: say("작업 폴더 선택", "Choose work folder"), properties: ["openDirectory"] });
   if (!dir) return null;
   const w = workspace(dir);
   saveDesk(x => { x.workspace[task] = w; x.last = task; });
@@ -324,12 +326,16 @@ const UI = { kind: v => ["repro", "general"].includes(v), done: v => typeof v ==
   view: v => ["time", "stage", "target"].includes(v), tags: v => plain(v, 200000), summary: v => plain(v, 50000) };
 const SETTINGS = { view: v => ["time", "stage", "target"].includes(v), tags: v => ["main", "all"].includes(v),
   panel: v => ["open", "rail", "always"].includes(v), net: v => typeof v === "boolean",
-  side: v => typeof v === "boolean" };  // A14 panel "always": the right column stays open; A1 side: the sidebar folded
+  side: v => typeof v === "boolean", lang: v => ["ko", "en"].includes(v) };  // A14 panel "always": the right column stays open; A1 side: the sidebar folded
 ipcMain.handle("pablo:set-ui", (e, task, key, value) => {
   fromWindow(e);
   if (task === null && key === "settings") {
     if (!plain(value, 500) || Object.entries(value).some(([k, v]) => !SETTINGS[k] || !SETTINGS[k](v))) throw new Error("bad settings");
-    saveDesk(x => { x.settings = { ...(x.settings || {}), ...value }; }); return true;
+    const was = en();
+    if (value.lang && (value.lang === "en") !== was && (agent.busy() || preparing)) throw new Error("에이전트가 작업하는 중에는 언어를 바꿀 수 없습니다.");
+    saveDesk(x => { x.settings = { ...(x.settings || {}), ...value }; });
+    if (en() !== was) ctl.py("view", "--html").then(() => e.sender.reload(), err => console.error("[pablo] language", err.message));  // the page is written once per language
+    return true;
   }
   known(task); if (!UI[key] || !UI[key](value)) throw new Error("bad ui: " + key);
   saveDesk(x => { x[key] = { ...(x[key] || {}), [task]: value }; }); return true;
@@ -379,7 +385,7 @@ async function captureAll(task, files) {
 ipcMain.handle("pablo:pick-pdfs", async (e, task) => {
   fromWindow(e); known(task);
   const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender),
-    { title: "자료 추가", properties: ["openFile", "multiSelections"], filters: [{ name: "PDF", extensions: ["pdf"] }] });
+    { title: say("자료 추가", "Add sources"), properties: ["openFile", "multiSelections"], filters: [{ name: "PDF", extensions: ["pdf"] }] });
   return r.canceled || !r.filePaths.length ? null : r.filePaths;
 });
 // PDFs dropped on the window (preload turns each File into its path): only real PDF files, as the dialog would allow
@@ -737,7 +743,7 @@ const shownPath = f => path.basename(path.dirname(f)) + "/" + path.basename(f); 
 ipcMain.handle("pablo:pick-report-path", async (e, task, format) => {
   fromWindow(e); known(task); if (!["md", "html"].includes(format)) throw new Error("bad format");
   const work = workOf(task), name = reportName(taskTitle(task), format), dir = work && path.join(work, "reports");
-  const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: "재현 보고서 저장",
+  const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: say("재현 보고서 저장", "Save reproduction report"),
     defaultPath: dir ? path.join(fs.existsSync(dir) ? dir : work, name) : name, filters: [reportFilter(format)] });
   if (res.canceled || !res.filePath) return null;
   const token = crypto.randomUUID();
@@ -786,7 +792,7 @@ ipcMain.handle("pablo:report", async (e, task, opts) => {
     fs.mkdirSync(path.dirname(file), { recursive: true });
   } else if (opts.token) file = reportTo.get(opts.token).file;
   else {
-    const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: "재현 보고서 저장", defaultPath: name,
+    const res = await dialog.showSaveDialog(BrowserWindow.fromWebContents(e.sender), { title: say("재현 보고서 저장", "Save reproduction report"), defaultPath: name,
       filters: [reportFilter(format)] });
     if (res.canceled || !res.filePath) return null;
     file = res.filePath;
@@ -1039,7 +1045,8 @@ agent.on("event", ev => ev.type === "done" && /\b401\b|Unauthorized/i.test(ev.er
 // the auth card shows the error, and the window has to open for the user to sign in again.
 ctl.env = async () => {
   const t = await siwc.token().catch(() => null);
-  return t ? { PABLO_ACCESS_TOKEN: t, PABLO_MODEL: agent.model } : { PABLO_MODEL: agent.model };
+  const lang = { PABLO_LANG: en() ? "en" : "ko" };
+  return t ? { PABLO_ACCESS_TOKEN: t, PABLO_MODEL: agent.model, ...lang } : { PABLO_MODEL: agent.model, ...lang };
 };
 agent.launch = async () => ({ args: PROVIDER, models: account && account.models.map(m => m.slug),
   // ⑤ PYTHONUTF8: Python the agent runs prints UTF-8 (Windows: cp949 by default; Codex reads UTF-8, so λ became U+FFFD)

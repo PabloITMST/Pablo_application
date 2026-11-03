@@ -1805,6 +1805,51 @@ async function uiCheck() {
 //     say why), the wide panel and back, an answer over both papers, the 주 논문, arXiv import from a fake arxiv.org
 //     (a new paper, a newer version whose old evidence is resolved, the same file again, and four refusals), removing
 //     a paper (its records stay).
+// 0.11 English mode: the fixture's page written in English. What the page could not translate (tr() records it) must be
+// the fixture's own data (its Korean tasks, criteria, conditions), piece by piece; anything else is a word en.py lacks
+async function enCheck() {
+  const S = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-en-"));
+  const fx = JSON.parse(execFileSync("python", [path.join(__dirname, "../tests/skill/ui_fixture.py"), S],
+    { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8", PABLO_LANG: "en" } }));
+  const errors = [], win = open(fx.view);
+  win.webContents.on("console-message", e => e.level === "error" && errors.push(e.message));
+  await new Promise(r => win.webContents.once("did-finish-load", r));
+  const js = c => win.webContents.executeJavaScript(c);
+  for (let t = 0; t < 30000 && !(await js(`!!M.desk`)); t += 200) await sleep(200);
+  await sleep(500);
+  const left = () => js(`(() => { const data = JSON.stringify(M);
+    const said = p => !/[가-힣]/.test(p) || data.includes(p.trim()) || data.includes(JSON.stringify(p.trim()).slice(1, -1));
+    window.__trMiss = new Set(); trNode(document.documentElement);
+    const out = [...window.__trMiss].filter(t => !t.split(/ · |: |[()…]/).every(said)); window.__trMiss = null; return out; })()`);
+  assert.strictEqual(await js(`document.documentElement.lang`), "en", "the page says it is English");
+  assert.deepStrictEqual(await left(), [], "English: the page's own words");
+  // every task of the fixture, each with every panel tab it opens (conditions, audit, Guard cards, Why?, evidence)
+  let seen = 0;
+  for (const t of await js(`[...document.querySelectorAll("#side [data-task]")].map(b => b.dataset.task)`)) {
+    await js(`document.querySelector('#side [data-task="${t}"]').click()`); await sleep(400);
+    for (const k of await js(`[...document.querySelectorAll("#ptabs [data-tab]:not([disabled])")].map(b => b.dataset.tab)`)) {
+      await js(`document.querySelector('#ptabs [data-tab="${k}"]').click()`); await sleep(250);
+      assert.deepStrictEqual(await left(), [], `English: task ${t}, panel ${k}`); seen++;
+      if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, `en-${t}-${k}.png`), (await win.capturePage()).toPNG());
+    }
+  }
+  await js(`document.querySelector("#side .new").click()`); await sleep(300);
+  assert.deepStrictEqual(await left(), [], "English: the new task dialog");
+  await js(`document.querySelector("#newtask .dlg-head .x").click()`); await sleep(200);
+  await js(`openSettings()`); await sleep(300);
+  for (const pg of ["account", "defaults", "shell", "storage", "about"]) {
+    await js(`document.querySelector('#settings [data-set-page="${pg}"]').click()`); await sleep(250);
+    assert.deepStrictEqual(await left(), [], "English: settings · " + pg);
+    if (process.env.PABLO_SHOTS) fs.writeFileSync(path.join(process.env.PABLO_SHOTS, `en-settings-${pg}.png`), (await win.capturePage()).toPNG());
+  }
+  assert.strictEqual(await js(`!!document.querySelector('#settings input[name="set-lang"][value="en"]:checked')`), false,
+    "the fixture's own desktop.json says nothing of a language: 한국어 is picked (the page itself was written in English)");
+  assert.deepStrictEqual(errors, [], "no script errors in English");
+  win.destroy();
+  assert.ok(seen >= 4, "the English pass saw the fixture's tasks and panels: " + seen);
+  console.log(`ok English: page, ${seen} task panels, new task dialog and settings show no Korean of their own`);
+}
+
 async function papersUi() {
   const S = fs.mkdtempSync(path.join(os.tmpdir(), "pablo-papers-"));
   let fx = null;  // the fixture needs the server's address (its web page lives there); the server reads fx at request time
@@ -2149,7 +2194,7 @@ async function papersUi() {
     P.querySelector('[title="이전 쪽"]').click(); out.push(pn()); return out; })()`),
     [true, "폭 맞춤", true, true, true, true, true, "폭 맞춤", true, true, "1 / 2", "2 / 2", true, "1 / 2"]);
   // 0.10.1: the conversation keeps to its foot as it grows; scrolled up by the person, it stays there until they come back down
-  assert.deepStrictEqual(await js(`(async () => { const L = $("log"), wait = ms => new Promise(r => setTimeout(r, ms)), gap = () => Math.round(L.scrollHeight - L.scrollTop - L.clientHeight);
+  assert.deepStrictEqual(await js(`(async () => { const L = $("log"), wait = ms => new Promise(r => setTimeout(r, ms)), gap = () => Math.round(L.scrollHeight - L.scrollTop - L.clientHeight) || 0;  // a subpixel short rounds to -0
     const grow = () => { const p = document.createElement("p"); p.dataset.qaGrow = "1"; p.style.height = "300px"; L.append(p); return wait(200); };
     L.dispatchEvent(new WheelEvent("wheel")); L.scrollTop = L.scrollHeight; await wait(100); await grow(); const out = [gap()];
     L.dispatchEvent(new WheelEvent("wheel")); L.scrollTop -= 600; await wait(100); const at = L.scrollTop; await grow(); out.push(at > 0 && L.scrollTop === at);
@@ -2569,7 +2614,8 @@ app.whenReady().then(async () => {
     else if (process.argv.includes("--app")) await appCheck();
     else if (process.argv.includes("--auth")) await authCheck();
     else if (process.argv.includes("--pdf")) await pdfCheck();
-    else if (process.argv.includes("--ui")) { await uiCheck(); await papersUi(); await consoleCheck(); }
+    else if (process.argv.includes("--ui-en")) await enCheck();  // the English page alone (also the last step of --ui)
+    else if (process.argv.includes("--ui")) { await uiCheck(); await papersUi(); await consoleCheck(); await enCheck(); }
     else if (process.argv.includes("--spec")) await specCheck();
     else if (process.argv.includes("--shot")) await shotCheck();
     else if (process.argv.includes("--audit-bench") && process.argv.includes("--plain")) await plainBench();

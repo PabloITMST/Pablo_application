@@ -59,7 +59,7 @@ from pablo_v2.skill.judge import LLMJudge
 from pablo_v2.skill import mdhtml
 from pablo_v2.skill.viewer import REPORT_SECTIONS, model, render_html, render_report, report_counts, workspace
 from pablo_v2.skill.evidence import AnchorRejected, similar
-from pablo_v2.skill.skill import (AUDIT_SCHEMA, REPRO_CRITERIA, SPEC_LABEL, DecisionRejected, PabloSkill,
+from pablo_v2.skill.skill import (AUDIT_SCHEMA, SPEC_LABEL, repro_criteria, DecisionRejected, PabloSkill,
                                   ResearchIncomplete, ResearchRejected, render_audit, render_brief, task_context, render_evidence, render_task)
 
 # M1.1 acceptance conversation: (role, text)
@@ -361,7 +361,7 @@ def _run(a, out) -> int:
 
     elif a.cmd == "task":
         t = s.start_task(a.text, a.checks)
-        out({**_task_json(s, t.id), **({"repro": list(REPRO_CRITERIA)} if a.repro else {})}, render_task(s, t.id))
+        out({**_task_json(s, t.id), **({"repro": list(repro_criteria())} if a.repro else {})}, render_task(s, t.id))
     elif a.cmd == "search":
         s.record_search(a.check_id, a.target, a.query, a.tier, a.found)
         c = s.get_check(a.check_id)
@@ -477,7 +477,7 @@ def _run(a, out) -> int:
         raise SystemExit("view: task id required (or --html)")
     elif a.cmd == "state":
         # A12 the criteria a reproduction task starts with (the new-task dialog lists them before the task exists)
-        out({**workspace(s), "reproCriteria": list(REPRO_CRITERIA)}, f"{len(s.state.tasks)} tasks")
+        out({**workspace(s), "reproCriteria": list(repro_criteria())}, f"{len(s.state.tasks)} tasks")
     elif a.cmd == "audit":
         prompt, items = render_audit(s, a.task_id)
         out({"prompt": prompt, "schema": AUDIT_SCHEMA, "items": items}, prompt)

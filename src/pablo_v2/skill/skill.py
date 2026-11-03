@@ -55,6 +55,19 @@ COLUMNS = ["데이터셋", "평가 지표", "주요 결과", "효율", "한계"]
 # needs a reason, so whoever reads the audit or the report sees why it was not checked.
 REPRO_CRITERIA = ("평가(test) 데이터는 학습, 튜닝, 모델 선택에 절대 쓰지 마.", "논문에 적힌 설정값은 근거 없이 바꾸지 마.",
                   "결과 수치는 직접 써 넣지 말고 실행한 결과에서만 가져와.")
+# 0.11 English mode (the desktop's PABLO_LANG): what Pablo writes for the person is in their language; stored text stays
+REPRO_CRITERIA_EN = ("Never use evaluation (test) data for training, tuning or model selection.",
+                     "Never change a setting the paper states without evidence.",
+                     "Never type result numbers in; take them only from actual runs.")
+COLUMNS_EN = ["Dataset", "Metric", "Main result", "Efficiency", "Limitations"]
+
+
+def english() -> bool:
+    return os.environ.get("PABLO_LANG") == "en"
+
+
+def repro_criteria() -> tuple:
+    return REPRO_CRITERIA_EN if english() else REPRO_CRITERIA
 
 
 # A2 (0.8): a paper's value in a text, with the same rule as desktop/where.js (tests run both on one table): numbers by
@@ -674,7 +687,7 @@ class PabloSkill:
         srcs = [self._pdf(i) for i in dict.fromkeys(src_ids)]
         if len(srcs) < 2:
             raise ValueError("a comparison table needs two or more papers")
-        columns = list(dict.fromkeys(c.strip() for c in (columns or COLUMNS) if c and c.strip()))[:8]
+        columns = list(dict.fromkeys(c.strip() for c in (columns or (COLUMNS_EN if english() else COLUMNS)) if c and c.strip()))[:8]
         if not columns:
             raise ValueError("a comparison table needs at least one column")
         if into:  # ⑧ review: one more column of a table that is there (one judge call per paper for that column only)
@@ -937,7 +950,7 @@ class PabloSkill:
     def is_repro_default(self, x) -> bool:
         """Is this criterion one of REPRO_CRITERIA (by the line said, whatever statement the extractor made of it)?"""
         c = next((c for c in self.intent.get_current_intent().candidates if c.item_id == x.id), None)
-        return bool(c) and c.text.strip() in REPRO_CRITERIA
+        return bool(c) and c.text.strip() in REPRO_CRITERIA + REPRO_CRITERIA_EN
 
     def drop_criterion(self, item_id: str, reason: str = ""):
         """④ the user removes a criterion; a reproduction task's default one only with a reason."""
@@ -1214,13 +1227,48 @@ def render_brief(s: PabloSkill, task_id: str) -> tuple[str, list[str]]:
                 "이 차이를 밝히세요):"] + differ
     if aside_:
         out += ["참고 (논문의 서술과 이 재현 밖의 실험, 따를 조건은 아님):"] + aside_
-    return "\n".join(out), basis
+    text = "\n".join(out)
+    if english():  # the brief in the user's language, so the agent answers in it without being told to (it said so)
+        for ko, en in BRIEF_EN:
+            text = text.replace(ko, en)
+    return text, basis
+
+
+# 0.11: render_brief's own words in English (what the user or the paper wrote stays as written)
+BRIEF_EN = [
+    ("[Pablo] 이 작업에서 사용자가 정한 기준과 확인된 근거입니다. 기준과 어긋나는 일은 하기 전에 말하고, 근거를 쓸 때는 괄호 안의 출처와 쪽을 함께 밝히세요.",
+     "[Pablo] The user's criteria for this task and the evidence checked so far. Before doing anything that departs from a "
+     "criterion, say so; when you use the evidence, name the source and page given in brackets."),
+    ("[Pablo] 이 작업에서 사용자가 정한 기준입니다. 기준과 어긋나는 일은 하기 전에 말하세요.",
+     "[Pablo] The user's criteria for this task. Before doing anything that departs from them, say so."),
+    ("기준은 Pablo가 관리합니다. 기준 파일을 따로 만들지 말고, 바꿀 기준은 답에서 제안하세요. 사용자가 확인하면 Pablo가 반영합니다.",
+     "Pablo keeps the criteria. Do not write a criteria file; propose changes in your answer, and Pablo applies them once "
+     "the user confirms."),
+    ("논문에 적힌 조건은 근거 없이 바꾸지 마세요. 결과를 맞추려고 바꾸면 재현이 아닙니다.",
+     "Do not change a condition the paper states without evidence. Changing it to match the results is not a reproduction."),
+    (". 논문에 없는 설정은 먼저 여기서 확인하고, 가져왔다면 그렇다고 밝히세요.",
+     ". Look up settings the paper does not state there first, and say so when you take one from it."),
+    ("논문에 없는 설정 (정하면 무엇을 근거로 정했는지 밝히세요):", "Settings the paper does not state (when you set one, say what it is based on):"),
+    ("사용자가 이유와 함께 일부러 논문과 다르게 두는 조건 (줄마다 적힌 범위 안에서만 막지 않습니다. 결과를 말할 때 이 차이를 밝히세요):",
+     "Conditions the user departs from on purpose, with why (allowed only within the scope on each line; mention the "
+     "difference when you report results):"),
+    ("참고 (논문의 서술과 이 재현 밖의 실험, 따를 조건은 아님):",
+     "For reference (the paper's statements and experiments outside this reproduction; not conditions to follow):"),
+    (" (기본 실행은 논문대로 두고, 새 파일이나 실행 옵션으로 따로 돌릴 때만 다르게)",
+     " (keep the base run as the paper says; differ only in a separate file or run option)"),
+    (" (이 작업 전체에서 다르게)", " (different for this whole task)"), (" → 이유: ", " → why: "), (" (일부만 확인됨)", " (partly verified)"),
+    ("논문의 공식 코드 저장소: ", "The paper's official code repository: "), ("확인된 근거:", "Checked evidence:"),
+    ("\n반드시: ", "\nMust: "), ("\n가능하면: ", "\nShould: "), ("- [실험 범위] ", "- [scope] "), ("- [서술] ", "- [statement] "),
+    *[(f"- [{ko}] ", f"- [{en}] ") for ko, en in zip(SPEC_LABEL.values(), (
+        "dataset", "data split", "preprocessing", "model", "method", "hyperparameter", "training", "metric", "baseline",
+        "reported result", "evaluation protocol"))]]
 
 
 def setting_name(requirement: str) -> str:
     """The setting a "논문에 없는 설정" line names: "사용할 spaCy 모델과 버전이 명시되지 않았다." -> "사용할 spaCy 모델과 버전".
     Same rule as the viewer's settingOf: 정하기 saves "<name> = <value>", which is how a setting reads as decided."""
-    return re.sub(r"\s*(은|는|이|가)?\s*(논문에\s*)?(명시되지\s*않았다|(적혀|나와)\s*있지\s*않다)\.?$", "", requirement.strip()).strip()
+    return re.sub(r"\s*(은|는|이|가)?\s*(논문에\s*)?(명시되지\s*않았다|(적혀|나와)\s*있지\s*않다)\.?$"
+                  r"|\s+(is|are)\s+not\s+(stated|specified|given|reported)( in the paper)?\.?$", "", requirement.strip(), flags=re.I).strip()
 
 
 def task_context(s: PabloSkill, task_id: str, recent: list[dict] | None = None) -> str:
@@ -1317,6 +1365,7 @@ def render_audit(s: PabloSkill, task_id: str) -> tuple[str, list[dict]]:
         "단계 사이에 넘겨야 할 것을 넘기지 않음. kind는 method(구현이 다름) 또는 scope(논문의 실험 가운데 이 폴더에 "
         "없는 것)입니다. what은 한 문장, where와 found는 위와 같습니다. 많아야 8개, 결과에 큰 것부터 쓰세요. 항목과 "
         "겹치는 것은 쓰지 말고, 없으면 빈 목록을 주세요.",
+        *(["Write note, what and summary in English."] if english() else []),
         "항목 (id | 분류 | 내용):",
         *[f"{x['id']} | {x['label']} | {x['text']}" for x in items]])
     return prompt, items

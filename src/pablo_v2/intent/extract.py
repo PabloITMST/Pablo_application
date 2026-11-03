@@ -114,20 +114,22 @@ TOPIC_RULES = [
     (r"baseline|재현", "baseline-repro"),
     (r"readme", "readme"),
 ]
-CORRECTION = r"^아니|했잖아|라고 했|말했잖|하랬잖|그거 말고|원래대로"
-CHANGE = r"바꾸자|바꿔|으로 변경|대신 .*(하자|쓰자)"
-ONE_OFF = r"^(일단|먼저|지금)|부터 |먼저 .*(보고|읽|확인)"
-HEDGE = r"것 같|긴 한데|긴 해|좋을 것|아마|면 좋겠|싶은데|나을 듯"
+# 0.11 English mode: each rule also reads the English way of saying it ("If possible, don't ...", "might be easier")
+CORRECTION = r"^아니|했잖아|라고 했|말했잖|하랬잖|그거 말고|원래대로|^no[,.!]|\bI (said|told you)\b|\bas I said\b|\bnot that one\b"
+CHANGE = r"바꾸자|바꿔|으로 변경|대신 .*(하자|쓰자)|\blet'?s (switch|change)\b|\bswitch to\b"
+ONE_OFF = r"^(일단|먼저|지금)|부터 |먼저 .*(보고|읽|확인)|^(first|for now|right now)\b"
+HEDGE = r"것 같|긴 한데|긴 해|좋을 것|아마|면 좋겠|싶은데|나을 듯|\b(might|maybe|probably|I think|I guess|would be nice)\b"
 HARD = (r"반드시|꼭 |그대로 유지|해야 (돼|해|한다|합니다)|절대|무조건|하지 마|지 ?마(?:세요|라)?(?![가-힣])|지 말(?:고|아)|안 ?돼|금지|\bmust\b|\bnever\b"
         # 0.8 review: the usual ways a researcher writes a rule ("~면 안 됨", "~없게", "~만 써", "~할 것", "~지 않는다")
         r"|안 ?(됨|된다|됩니다)|(없|않)(게|도록)|만 (써|쓰|사용)|[가-힣] 것\.?$|지 않(는다|음|습니다)"
         # a rule written in the positive ("validation 셋으로만 튜닝해", "평가 지표는 F1로 통일")
-        r"|로만 [가-힣]|로 (통일|고정)")
-SOFTEN = r"가능하면|되도록|선호|웬만하면|할 수 있으면"  # "가능하면 PyTorch만 써": a wish, even with a rule's ending
-SUCCESS = r"성공|비교 가능|달성하면"
-DECISION = r"말고 .*(하자|가자)|(으로|로) (하자|가자|결정)"
-PREFERENCE = r"있으면|가능하면|우선|선호|되도록|써\.?$|사용해"
-REQUEST = r"해\s?줘|해주세요|해 주세요"
+        r"|로만 [가-힣]|로 (통일|고정)"
+        r"|\b(don'?t|do not|always|not allowed|forbidden|have to|has to|need to)\b")
+SOFTEN = r"가능하면|되도록|선호|웬만하면|할 수 있으면|\b(if possible|whenever possible|if you can|prefer(ably)?|ideally)\b"  # "가능하면 PyTorch만 써": a wish, even with a rule's ending
+SUCCESS = r"성공|비교 가능|달성하면|\b(success|succeeds?|comparable)\b"
+DECISION = r"말고 .*(하자|가자)|(으로|로) (하자|가자|결정)|\blet'?s go with\b|\bwe('ll| will) go with\b"
+PREFERENCE = r"있으면|가능하면|우선|선호|되도록|써\.?$|사용해|\b(prefer|if possible|ideally|would rather)\b"
+REQUEST = r"해\s?줘|해주세요|해 주세요|\b(please|can you|could you)\b"
 
 
 def _has(pattern: str, text: str) -> bool:
@@ -136,10 +138,14 @@ def _has(pattern: str, text: str) -> bool:
 
 # a chat message to the desktop agent: "X 해줘/알려줘" + "파일은 읽지 마" -> the prohibition qualifies this request only.
 # It stays a criterion of the task when it says it lasts ("절대", "앞으로", ...) or when the message is only criteria.
-ASKING = r"줘|주세요|줄래|할래|설명해|봐\s*[.!]?$|보여|알려|\?\s*$"
-MARKED = r"절대|반드시|항상|앞으로|계속|무조건|언제나|매번|이 작업 (내내|동안|전체)|가능하면|되도록|선호"
-ABOUT_CRITERIA = r"기준|지킬 것"
-CHANGING = r"수정|바꿔|바꾸|변경|반영|추가|넣어|빼|지워|고쳐"
+# 0.11 English mode: the same readings for an English chat ("Create relations.py ...", "If possible, never ...")
+ASKING = (r"줘|주세요|줄래|할래|설명해|봐\s*[.!]?$|보여|알려|\?\s*$"
+          r"|\b(please|can you|could you|would you|will you|show me|tell me|let me know|create|make|write|build|implement"
+          r"|generate|run|explain)\b")
+MARKED = (r"절대|반드시|항상|앞으로|계속|무조건|언제나|매번|이 작업 (내내|동안|전체)|가능하면|되도록|선호"
+          r"|\b(never|always|must|from now on|throughout|every time|whenever|if possible|prefer(ably)?|ideally)\b")
+ABOUT_CRITERIA = r"기준|지킬 것|criteri|\brules?\b"
+CHANGING = r"수정|바꿔|바꾸|변경|반영|추가|넣어|빼|지워|고쳐|\b(change|update|edit|revise|reflect|add|put|remove|delete|drop|replace)\b"
 
 
 def asks_criteria_change(text: str) -> bool:
@@ -148,7 +154,8 @@ def asks_criteria_change(text: str) -> bool:
     return _has(ABOUT_CRITERIA, t) and _has(CHANGING, t) and _has(ASKING, t)
 
 
-RULE_LIKE = r"(해|내|써|둬|라|것|돼|됨|된다|한다|함|하자|지켜|유지해|맞춰)\s*[.!]?$"
+RULE_LIKE = (r"(해|내|써|둬|라|것|돼|됨|된다|한다|함|하자|지켜|유지해|맞춰)\s*[.!]?$"
+             r"|^(do not|don't|never|always|use|keep|avoid|make sure|only)\b|\b(must|should|need to|has to|have to)\b")
 
 
 def reads_like_rule(text: str) -> bool:
@@ -160,7 +167,9 @@ def reads_like_rule(text: str) -> bool:
 # a request to talk it over decides nothing: "같이 의논하자" typed into 정하기 became C2-C6 (10/29). Only 정하기's value is
 # held to it (say --decide): a criterion may well say 상의 / 논의 or end in "?"
 DISCUSSING = (r"의논|논의|상의|같이\s*(보|정하|생각|고민)|(얘기|이야기|고민)\s*해\s*보|어떻게\s*(할까|하지|하면)"
-              r"|뭐가\s*(좋|나)|어떤\s*게\s*(적절|좋|나)")
+              r"|뭐가\s*(좋|나)|어떤\s*게\s*(적절|좋|나)"
+              r"|\b(discuss|talk (it )?over|let'?s (think|talk|decide)|what do you think|which (one )?(is|would be) better"
+              r"|how should (we|i))\b")
 
 
 def asks_discussion(text: str) -> bool:
