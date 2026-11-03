@@ -4,10 +4,10 @@
 
 # Pablo
 
-**A research agent workbench that keeps to the criteria you set**
+**AI coding that stays aligned with your research**
 
-When you reproduce a paper, Pablo pins each condition to a page of the source and points to the file:line where the code drifts from it.<br/>
-When the agent tries something that conflicts with your criteria, Pablo stops it before it runs.
+Pablo checks the paper against the code, captures your requirements, and reviews AI agent actions before they run.<br/>
+A change that conflicts with your requirements waits for your confirmation before it runs.
 
 [![test](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml/badge.svg)](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml)
 ![version](https://img.shields.io/badge/version-0.11.0-111111)
@@ -23,13 +23,14 @@ When the agent tries something that conflicts with your criteria, Pablo stops it
   <img src="docs/images/task-criteria.png" alt="Pablo task view: stage bar, tagged conversation, and the task criteria panel on the right" />
 </p>
 
-> The app UI is currently in Korean. Button names below give the Korean label in parentheses.
+> Since 0.11.0 the app UI can be switched to English (Settings · Defaults · Language). Button names below give the Korean label in parentheses.
 
 ---
 
 ## Contents
 
 - [Why Pablo](#why-pablo)
+- [Pablo in one example](#pablo-in-one-example)
 - [Features](#features)
 - [How it works](#how-it-works)
 - [Install](#install)
@@ -46,19 +47,28 @@ When the agent tries something that conflicts with your criteria, Pablo stops it
 
 ## Why Pablo
 
-If you follow an LLM agent's suggestions one small change at a time, you can end up somewhere quite different from where you meant to go, and then keep changing things without understanding how you got there. In research code, that drift turns into real mistakes:
+In a long chat, the agent's changes **drift from the paper or your request.** It may use a method the paper avoids, or change a setting the paper fixes. Catching it by hand means **re-reading the paper and the code.** In research code, that drift turns into real mistakes:
 
 - Evaluation data leaks into training or tuning, and the numbers look better than they should.
 - Settings stated in the paper get changed without a reason.
 - Reported numbers come from somewhere other than the run logs.
 
-Pablo is a Windows desktop app that runs the Codex agent with your ChatGPT account. It adds three things on top of the agent:
+Pablo is a Windows desktop app that runs the Codex agent with your ChatGPT account. It has two goals, shared by four components:
 
-| | What it does |
-|---|---|
-| **Pins your intent** | Criteria you state in conversation are recorded as *must* or *should*. Vague remarks are held until a person decides. |
-| **Judges every action** | Every write action the agent proposes goes through Guard, which returns *allow*, *needs confirmation*, or *block*. |
-| **Ties evidence to the source** | A citation is kept only if Pablo can locate it in the source. Citations it cannot find are dropped from the answer. |
+| Goal | Component | What it does |
+|---|---|---|
+| **Verify the evidence**<br/>Each verdict cites a paper page and a code line. | Evidence Anchoring | Links each paper setting to its source passage; a click highlights it. A citation Pablo cannot locate in the source is dropped from the answer. |
+| | Reproduction Audit | Checks the code against each paper setting, down to the code line. Pablo opens each file:line the model cites and confirms it. |
+| **Keep your requirements**<br/>Every change is checked before it runs. | Intent Engine | Turns your instructions and the paper's principles into *must* / *should* requirements. Vague or off-goal remarks are confirmed first. |
+| | Guard | Reviews every action the agent proposes before it runs and returns *allow*, *needs confirmation*, or *block*. The **Why?** panel keeps the record. |
+
+## Pablo in one example
+
+A conflicting change waits for you. This is what happened in the demo:
+
+1. **Your requirement.** "Avoid extracting function relations with an LLM." Page 2 of the paper also avoids costly relation extraction. Say this in the chat and Pablo saves it as a *should* requirement.
+2. **The agent's change.** Asked to extract relations with an LLM, the agent first quotes the requirement and asks. Pushed again, it proposes creating `relations.py`, which extracts relations with an LLM.
+3. **Pablo asks first.** The change does not run; it stops at a confirmation card that shows the proposed action, why it conflicts, and the requirement involved. You cancel, no file is changed, and the **Why?** panel keeps the record.
 
 ## Features
 
@@ -283,8 +293,11 @@ Methods, raw results, and how to rerun them are in [`docs/eval/README.md`](docs/
 | Audit: amount to read | Pablo 50 findings, asking directly 119 |
 | Condition extraction: three other papers, 90 human-checked gold conditions | Recall 43–73% |
 | PDF evidence: 19 LinearRAG gold items | Page and highlight checks pass offline |
+| Keeping requirements: a 20-turn chat with 10 conflicting requests, same model, 2 runs | Conflicting requests that reached the files (of 20): agent alone 10, agent + hand-written rule file (AGENTS.md) 0, Pablo 0 |
 
 Detection is on par with simply asking the model. Where Pablo does better is the shape of the answer: less than half as much to read, a source page on every verdict, and file:line locations that Pablo confirms itself.
+
+In keeping requirements, Pablo matched the hand-written rule file, without anyone writing or maintaining one. Most of the effect came from Pablo showing the agent the requirements it captured from the chat on every turn, not from Guard's confirmation cards. The records of this experiment (2026-10-27) are not in the repository yet.
 
 ## Security and privacy
 
