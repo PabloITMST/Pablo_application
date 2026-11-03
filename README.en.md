@@ -66,8 +66,8 @@ Pablo is a Windows desktop app that runs the Codex agent with your ChatGPT accou
 
 A conflicting change waits for you. This is what happened in the demo:
 
-1. **Your requirement.** "Avoid extracting function relations with an LLM." Page 2 of the paper also avoids costly relation extraction. Say this in the chat and Pablo saves it as a *should* requirement.
-2. **The agent's change.** Asked to extract relations with an LLM, the agent first quotes the requirement and asks. Pushed again, it proposes creating `relations.py`, which extracts relations with an LLM.
+1. **Your requirement.** "Avoid extracting function relations with an LLM or rules." Page 2 of the paper also avoids costly relation extraction. Say this in the chat and Pablo saves it as a *should* requirement.
+2. **The agent's change.** Asked to extract relations with an LLM, the agent first cites the requirement, but when asked again it proposes creating `relations.py`, which extracts relations with an LLM.
 3. **Pablo asks first.** The change does not run; it stops at a confirmation card that shows the proposed action, why it conflicts, and the requirement involved. You cancel, no file is changed, and the **Why?** panel keeps the record.
 
 ## Features
@@ -297,7 +297,7 @@ Methods, raw results, and how to rerun them are in [`docs/eval/README.md`](docs/
 
 Detection is on par with simply asking the model. Where Pablo does better is the shape of the answer: less than half as much to read, a source page on every verdict, and file:line locations that Pablo confirms itself.
 
-In keeping requirements, Pablo matched the hand-written rule file, without anyone writing or maintaining one. Most of the effect came from Pablo showing the agent the requirements it captured from the chat on every turn, not from Guard's confirmation cards. The records of this experiment (2026-10-27) are not in the repository yet.
+In keeping requirements, Pablo matched the hand-written rule file, without anyone writing or maintaining one. With Pablo, the agent declined all 20 conflicting requests itself; no confirmation card appeared on those turns, so the result does not depend on a person pressing Cancel. Most of the effect came from Pablo showing the agent the requirements it captured from the chat on every turn, not from Guard's confirmation cards. The records of this experiment (2026-10-27) are not in the repository yet.
 
 ## Security and privacy
 
