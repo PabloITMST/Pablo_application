@@ -15,12 +15,12 @@
 ![python](https://img.shields.io/badge/python-3.11-111111)
 ![electron](https://img.shields.io/badge/electron-41-111111)
 
-**한국어** · [English](README.en.md)
+[소개 영상](https://youtu.be/nTx_CkDOp90) · [포스터 v5](https://www.figma.com/design/IV8Epwttx5IgL1fkvrrB7v/Pablo-UI?node-id=356-3332) · **한국어** · [English](README.en.md)
 
 </div>
 
 <p align="center">
-  <img src="docs/images/task-criteria.png" alt="Pablo 작업 화면: 단계 막대, 태그가 붙은 대화, 오른쪽의 작업 기준 패널" />
+  <a href="https://youtu.be/nTx_CkDOp90"><img src="https://img.youtube.com/vi/nTx_CkDOp90/hqdefault.jpg" width="640" alt="Pablo 소개 영상 — 클릭하여 YouTube에서 보기" /></a>
 </p>
 
 ---
