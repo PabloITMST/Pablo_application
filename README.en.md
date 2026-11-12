@@ -4,10 +4,10 @@
 
 # Pablo
 
-**AI coding that stays aligned with your research**
+**Software that helps you build code that follows your requirements.**
 
-Pablo checks the paper against the code, captures your requirements, and reviews AI agent actions before they run.<br/>
-A change that conflicts with your requirements waits for your confirmation before it runs.
+Pablo finds differences between documents and code, and reviews changes that may conflict with your requirements before they run.<br/>
+Open the source sentence and code line, and keep a record of your decisions and reasons.
 
 [![test](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml/badge.svg)](https://github.com/PabloITMST/Pablo_application/actions/workflows/test.yml)
 ![version](https://img.shields.io/badge/version-0.11.0-111111)
@@ -30,8 +30,8 @@ A change that conflicts with your requirements waits for your confirmation befor
 ## Contents
 
 - [Why Pablo](#why-pablo)
-- [Pablo in one example](#pablo-in-one-example)
 - [Features](#features)
+- [Three key outcomes](#three-key-outcomes)
 - [How it works](#how-it-works)
 - [Install](#install)
 - [Getting started](#getting-started)
@@ -47,95 +47,94 @@ A change that conflicts with your requirements waits for your confirmation befor
 
 ## Why Pablo
 
-In a long chat, the agent's changes **drift from the paper or your request.** It may use a method the paper avoids, or change a setting the paper fixes. Catching it by hand means **re-reading the paper and the code.** In research code, that drift turns into real mistakes:
+A project can start from a document and drift as errors are fixed and features are added. All tests may pass while **the paper says `top-k = 5` and the code uses `top-k = 10`**. Passing tests and following the document need separate checks.
 
-- Evaluation data leaks into training or tuning, and the numbers look better than they should.
-- Settings stated in the paper get changed without a reason.
-- Reported numbers come from somewhere other than the run logs.
+Pablo is a Windows desktop app that runs the Codex agent with your ChatGPT account. **An AI agent writes the code. Pablo checks its work in two ways.**
 
-Pablo is a Windows desktop app that runs the Codex agent with your ChatGPT account. It has two goals, shared by four components:
-
-| Goal | Component | What it does |
+| Input | What Pablo does | What you can check |
 |---|---|---|
-| **Verify the evidence**<br/>Each verdict cites a paper page and a code line. | Evidence Anchoring | Links each paper setting to its source passage; a click highlights it. A citation Pablo cannot locate in the source is dropped from the answer. |
-| | Reproduction Audit | Checks the code against each paper setting, down to the code line. Pablo opens each file:line the model cites and confirms it. |
-| **Keep your requirements**<br/>Every change is checked before it runs. | Intent Engine | Turns your instructions and the paper's principles into *must* / *should* requirements. Vague or off-goal remarks are confirmed first. |
-| | Guard | Reviews every action the agent proposes before it runs and returns *allow*, *needs confirmation*, or *block*. The **Why?** panel keeps the record. |
-
-## Pablo in one example
-
-A conflicting change waits for you. This is what happened in the demo:
-
-1. **Your requirement.** "Avoid extracting function relations with an LLM." Page 2 of the paper also avoids costly relation extraction. Say this in the chat and Pablo saves it as a *should* requirement.
-2. **The agent's change.** Asked to extract relations with an LLM, the agent first quotes the requirement and asks. Pushed again, it proposes creating `relations.py`, which extracts relations with an LLM.
-3. **Pablo asks first.** The change does not run; it stops at a confirmation card that shows the proposed action, why it conflicts, and the requirement involved. You cancel, no file is changed, and the **Why?** panel keeps the record.
+| Your documents + your code | Finds differences and their locations. | The source sentence and the code line |
+| Your requirements + a code change | Reviews changes that may conflict before they run. | The related requirement, decision, and reason |
 
 ## Features
 
-> The screens below are the final Figma design (A2). Details may differ from the shipping app.
+> Screens show the Figma design (A2); details may differ from the app. The [latest v5 poster](https://www.figma.com/design/IV8Epwttx5IgL1fkvrrB7v/Pablo-UI?node-id=322-2952) presents the workflow below.
 
-### Criteria from conversation, and stages
+### 1. Check the original text
 
-A sentence with a lasting marker, such as "never use the test set for tuning", becomes a task criterion. A vague one, such as "PyTorch might be a bit easier", gets an **[Add as criterion] / [Ignore]** prompt. Lines Pablo could not read as criteria are flagged, not silently dropped. A paper-reproduction task starts with three *must* criteria already in place: keep evaluation data separate, keep the paper's settings, and take results only from actual runs.
+Ask a question. Click the source. Read the original text.
 
-Each task shows its progress on a stage bar (for reproduction: prepare → fix conditions → implement and run → audit → report). Stages are not enforced in order; they are computed from the record.
+<img src="docs/images/paper-evidence.png" alt="Clicking an answer citation opens the PDF page and highlights its source passage" />
 
-### Guard: stop it before it runs
+- Attach PDFs and web sources to ask questions. Papers can also be imported through arXiv IDs or links, OpenReview, and DOIs.
+- Click a citation to open the original text. For PDFs, check the page and the quoted sentence or table row.
+- Pablo flags missing citation locations and uncertain table-column pairings so you can review the source yourself.
 
-<img src="docs/images/guard.png" alt="Guard blocks an action that conflicts with a criterion and asks for confirmation on another, showing the diff" />
+### 2. Compare documents with code
 
-- **Allow** runs silently. **Needs confirmation** shows exactly what would change (a diff or the command) and waits for [Proceed] / [Cancel]. **Block** refuses with a reason and changes nothing.
-- The **Why?** panel replays the decision: the request, the criteria that applied, the source evidence, the plan step, the verdict, and the user's decision.
-- For turns with a work folder, Pablo snapshots the folder before and after with a shadow git. Use **View changes** to see what changed and **Revert** to undo it. Your own `.git` is never touched.
-- Internet access is per task and off by default. Even when it is on, every command still goes through Guard.
+Pablo finds differences and shows the document evidence alongside the code location. For paper reproduction, this feature is the **reproduction audit**.
 
-### Paper questions with source evidence
+<img src="docs/images/repro-audit.png" alt="An audit compares top-k 5 in the paper with 10 in the code and opens the relevant config.yaml line" />
 
-<img src="docs/images/paper-evidence.png" alt="An answer with citation numbers; the PDF panel on the right highlights the cited table row" />
+| LinearRAG example in the poster | Document | Code |
+|---|---|---|
+| Retrieval top-k | 5 — paper, p. 8 | 10 — `config.yaml`, line 5 |
 
-- Attach PDFs, arXiv IDs or links, OpenReview, DOIs, or web pages. A task can hold several papers.
-- Click a citation [n] to open that page of that paper with the quoted sentence or table row highlighted. If the sentence cannot be found as written on that page, the panel shows the most similar sentences and the page's extracted text.
-- When an answer cites both a quantitative claim and a table value, it compares the two and says if they disagree.
+- Extract reproduction conditions and compare them with code, configuration, and run logs. Each condition is marked **follows / differs / not yet / can't tell**.
+- Pablo re-reads the file and line cited by the model to check that the quoted value or code is there. **Verifying a location does not establish that the verdict is correct.**
+- Click a file:line to open it in the code panel. If files change after the audit, the result is marked as stale.
+- Settings the paper does not state remain decisions to make. Manual edits, reasons for removing conditions, and intended differences are recorded.
 
-### Reproduction conditions
+### 3. Save requirements and review changes
 
-<img src="docs/images/repro-conditions.png" alt="25 reproduction conditions extracted from the paper, grouped by category with page numbers" />
+Save what matters to your project from the conversation. Review changes that may conflict before they run.
 
-- Pablo extracts datasets, splits, preprocessing, models, hyperparameters, training, metrics, baselines, reported results, and evaluation rules from the paper, each with its page. It also reads the appendix after the references.
-- Only conditions whose location Pablo confirms on that page are kept. Settings the paper does not state, such as the seed, are listed as *to decide*.
-- You can add a condition by selecting a sentence in the PDF, or remove one with a reason. **◇ Intended difference** records why you deliberately depart from the paper. Re-extracting keeps every change you made.
-- These conditions are passed to the agent as evidence, and Guard blocks actions that contradict them.
+<img src="docs/images/task-criteria.png" alt="Requirements saved from the conversation appear in the task criteria panel on the right" />
 
-### Reproduction audit: where the code departs from the paper
+The poster distinguishes a **strict rule from a preference**:
 
-<img src="docs/images/repro-audit.png" alt="Clicking a file:line in the audit table highlights that line in the code panel on the right" />
+1. **Save a preference:** “If possible, don't extract function relationships with an LLM or rules.”
+2. **Make a new request:** “Write `relations.py` to extract function relationships with an LLM.”
+3. **Review before execution:** Pablo shows the related preference and proposed change and asks **Proceed / Cancel**.
+4. **Record the decision:** Cancel, and the code stays unchanged. The **Why?** panel records the decision and reason.
 
-- The agent reads the code, configs, and run logs and judges each condition as **follows / differs / not yet / can't tell**. This turn runs in a read-only sandbox.
-- **Pablo checks the verdicts itself.** It opens the file:line the model cited and looks for the value there. Found: "confirmed by Pablo in code". A few lines away: "location corrected". Not found: a warning.
-- Click a file:line to highlight it in the code panel, or **Open in VS Code**.
-- If files change after the audit, the card marks itself as stale.
+<img src="docs/images/guard.png" alt="Guard shows the related requirement and proposed change and asks whether to proceed or cancel" />
 
-### Comparison table and report
+Guard returns **allow / needs confirmation / block**. A change that conflicts with a preference can ask for your decision; a violation of a strict rule is blocked. Ambiguous remarks are confirmed before becoming requirements.
 
-| Comparison table | Reproduction report |
+### Supporting features
+
+- **Reproduction conditions:** Extract conditions with source pages, then add or edit them yourself.
+- **Task stages:** Track preparation, conditions, implementation and runs, audit, and report.
+- **Changes and revert:** Inspect file changes and return to a checkpoint.
+- **Comparison and reports:** Compare papers using the same columns and export reproduction records as HTML or Markdown.
+
+## Three key outcomes
+
+The latest poster presents three outcomes you can inspect:
+
+| Outcome | What you can check |
 |---|---|
-| <img src="docs/images/compare.png" alt="A comparison table of two papers' datasets, metrics, and results" /> | <img src="docs/images/report.png" alt="The export reproduction report dialog" /> |
-| Each paper is read separately against the same columns (datasets, metrics, main results, efficiency, limitations) and placed side by side. Every cell carries a source page; cells Pablo cannot locate are left as "no evidence". | Saves the reproduction as a report: each condition with its paper page, intended differences and the reasons for removed conditions, the last audit and changes since, plus the audit time, folder snapshot, and git HEAD. |
+| **Find differences** | Find differences such as top-k 5 in the paper versus 10 in the code. |
+| **Know what to check** | Each difference has a source; each change review has a related requirement. |
+| **See the exact locations** | Open the source sentence and the code line. |
+
+The poster example is a feature demonstration. Quantitative experiments and their scope are reported separately under [Evaluation](#evaluation).
 
 ## How it works
 
 ```mermaid
 flowchart TD
-  user([User]) --> ui["Electron app<br/>viewer · panels"]
-  ui <--> main["main process<br/>sign-in · sources · checkpoints"]
-  main <--> agent["codex app-server<br/>one thread per task"]
+  user([User]) --> ui["Electron app · viewer · panels"]
+  ui <--> main["main process · sign-in · sources · checkpoints"]
+  main <--> agent["codex app-server · one thread per task"]
   agent -- "approval request" --> ctrl["Controller"]
   ctrl -- "gate" --> backend
   subgraph backend["Pablo backend (Python)"]
-    intent["Intent Engine<br/>criteria · pending · scope"]
-    judge["Judge (LLM)<br/>facts only"]
-    guard["Guard<br/>deterministic rules"]
-    evidence["Evidence<br/>web · PDF anchors"]
+    intent["Intent Engine · criteria · pending · scope"]
+    judge["Judge (LLM) · facts only"]
+    guard["Guard · deterministic rules"]
+    evidence["Evidence · web · PDF anchors"]
   end
   ctrl -- "allow / confirm / block" --> agent
   main -- "ask · spec · compare · brief" --> backend
@@ -285,19 +284,16 @@ Pablo_application/
 
 ## Evaluation
 
-Methods, raw results, and how to rerun them are in [`docs/eval/README.md`](docs/eval/README.md) (in Korean).
+These development evaluations are separate from the poster's feature demonstration. Methods, raw results, and rerun instructions are in the [evaluation record](docs/eval/README.md) (in Korean).
 
 | Item | Result |
 |---|---|
-| Audit: 12 unseen planted deviations | Pablo reported 11/12; asking the same model directly found 10/12 |
-| Audit: amount to read | Pablo 50 findings, asking directly 119 |
+| Audit: 12 unseen planted deviations | Pablo 11/12; same model asked directly 10/12 |
+| Audit: reported items to read | Pablo 50; asked directly 119 |
 | Condition extraction: three other papers, 90 human-checked gold conditions | Recall 43–73% |
-| PDF evidence: 19 LinearRAG gold items | Page and highlight checks pass offline |
-| Keeping requirements: a 20-turn chat with 10 conflicting requests, same model, 2 runs | Conflicting requests that reached the files (of 20): agent alone 10, agent + hand-written rule file (AGENTS.md) 0, Pablo 0 |
+| PDF evidence: 19 LinearRAG gold items | Offline page and highlight checks pass |
 
-Detection is on par with simply asking the model. Where Pablo does better is the shape of the answer: less than half as much to read, a source page on every verdict, and file:line locations that Pablo confirms itself.
-
-In keeping requirements, Pablo matched the hand-written rule file, without anyone writing or maintaining one. Most of the effect came from Pablo showing the agent the requirements it captured from the chat on every turn, not from Guard's confirmation cards. The records of this experiment (2026-10-27) are not in the repository yet.
+Detection was similar to asking directly in this evaluation. Read the results alongside the amount to review, source pages, and code locations. Missing conditions and misread tables remain limitations; these results do not establish accuracy across all documents and repositories.
 
 ## Security and privacy
 
@@ -309,6 +305,7 @@ In keeping requirements, Pablo matched the hand-written rule file, without anyon
 
 ## Known limitations
 
+- The poster presents a workflow for websites, PDFs, and Word documents. This app currently imports PDFs and web sources; direct Word-file import is not available.
 - The installer is not code-signed and there are no automatic updates. Windows x64 only.
 - Choosing reproduction conditions and judging the audit are done by the model. Pablo confirms locations and values but does not re-check the verdict itself.
 - Condition extraction reads the appendix and is slow: about 3–4 minutes for LinearRAG.
@@ -320,10 +317,11 @@ Full list: [`release/0.11.0/KNOWN_LIMITATIONS.md`](release/0.11.0/KNOWN_LIMITATI
 
 ## Documentation
 
-All documents below are in Korean.
+Documents are in Korean unless marked otherwise.
 
 | Document | Contents |
 |---|---|
+| [Latest v5 poster](https://www.figma.com/design/IV8Epwttx5IgL1fkvrrB7v/Pablo-UI?node-id=322-2952) | Product overview and demonstration examples (Figma, English) |
 | [Developer reference](docs/reference.md) | CLI commands, state files, app check scenarios, design decisions by milestone |
 | [Release 0.11.0](release/0.11.0/README.md) | English screen: Settings · Defaults · Language, including what Pablo writes and the agent brief |
 | [Release 0.10.1](release/0.10.1/README.md) | Fixes from the demo recording: wrapping input, working status in the conversation, follow-the-end scrolling, resizable right column, PDF viewer, uniform buttons |
