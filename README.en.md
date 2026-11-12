@@ -15,12 +15,12 @@ Open the source sentence and code line, and keep a record of your decisions and 
 ![python](https://img.shields.io/badge/python-3.11-111111)
 ![electron](https://img.shields.io/badge/electron-41-111111)
 
-[한국어](README.md) · **English**
+[Introduction video](https://youtu.be/nTx_CkDOp90) · [v5 poster](https://www.figma.com/design/IV8Epwttx5IgL1fkvrrB7v/Pablo-UI?node-id=322-2952) · [한국어](README.md) · **English**
 
 </div>
 
 <p align="center">
-  <img src="docs/images/task-criteria.png" alt="Pablo task view: stage bar, tagged conversation, and the task criteria panel on the right" />
+  <a href="https://youtu.be/nTx_CkDOp90"><img src="https://img.youtube.com/vi/nTx_CkDOp90/hqdefault.jpg" width="640" alt="Pablo introduction video — click to watch on YouTube" /></a>
 </p>
 
 > Since 0.11.0 the app UI can be switched to English (Settings · Defaults · Language). Button names below give the Korean label in parentheses.
